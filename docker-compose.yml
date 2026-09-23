@@ -1,0 +1,5 @@
+# Compose foundation. No runnable services exist in Phase 1.
+# Phase 2 adds backend and frontend only when their images and health checks exist.
+# Runtime data must be mounted from an operator-selected host path to /data.
+name: voip-monitor
+services: {}
