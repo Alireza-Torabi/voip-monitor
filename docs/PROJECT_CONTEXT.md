@@ -1,10 +1,10 @@
 # Project context
 
-Status: planning foundation, 2026-09-23. License: Apache-2.0. This is a proposed public, reusable VoIP monitoring application hosted separately from the PBX. The first provider targets Asterisk and FreePBX-based Asterisk, with Asterisk 13.x as a required compatibility baseline to verify. No real PBX has been contacted.
+Status: Phase 1 public foundation complete, 2026-09-23. License: Apache-2.0. This is a proposed public, reusable VoIP monitoring application hosted separately from the PBX. The first provider targets Asterisk and FreePBX-based Asterisk, with Asterisk 13.x as a required compatibility baseline to verify. No real PBX has been contacted.
 
 ## Repository state
 
-The public repository is being established on `main`. Phase 1 contains documents and toolchain manifests only. No application, monitoring transport, or deployment service exists. The configured `origin` uses the canonical URL supplied by the user: `https://github.com/Alireza-Torabi/voip-monitor.git`.
+The public foundation repository is established on `main`, tracking `origin/main`. Phase 1 contains documents and toolchain manifests only. No application, monitoring transport, or deployment service exists. The configured `origin` points to the user-supplied GitHub repository via SSH.
 
 ## Product constraints
 

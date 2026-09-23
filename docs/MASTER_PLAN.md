@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-09-23. Checkboxes reflect verified work. Phase 1 has no monitoring functionality.
+Status: 2026-09-23. Phase 1 public repository foundation is complete. Checkboxes reflect verified work; no monitoring functionality exists.
 
 ## Phase 0 — environment discovery
 
@@ -19,14 +19,16 @@ Status: 2026-09-23. Checkboxes reflect verified work. Phase 1 has no monitoring 
 - [x] Add CI for existing foundation checks using synthetic/public files only.
 - [x] Run the foundation checker and review public files for obvious secrets.
 
-### Remaining in this phase
+### GitHub closure
 
-- [ ] Review staged diff and create a clean initial commit using a user-supplied Git author identity.
-- [x] Configure `origin` to the exact user-supplied GitHub URL after confirming no conflicting remote.
-- [ ] Push `main` normally after secret review; do not alter authentication or force push.
-- [ ] Record final commit/push outcome in this plan.
+- [x] Review staged diff and create the clean initial commit with the user-supplied repository-only Git identity.
+- [x] Configure `origin` to the user-supplied repository after confirming no conflicting remote.
+- [x] Push the initial foundation commit to GitHub; `main` tracks `origin/main`.
+- [x] Verify remote `main` points to `974f0cb2ec471878d58c71639e904bca48bb8aaf` (`chore: establish public repository foundation`).
 
-### Toolchain-dependent gates
+The earlier local commit `e735f1c` was amended before publication to use the requested noreply identity. It is not in `origin/main` ancestry. The published foundation commit is `974f0cb`.
+
+### Deferred toolchain-dependent gates
 
 - [ ] Generate an npm lockfile and audit exact resolved dependency licenses when an approved Node/npm toolchain is available.
 - [ ] Run TypeScript lint, format, typecheck, test, and build gates when source code and dependencies exist.
@@ -48,4 +50,4 @@ These gates are not claimed as passing in Phase 1. No software was installed in 
 - [ ] Phase 11: hardening, backup, and tested restore.
 - [ ] Phase 12: release validation.
 
-After Phase 1 Git operations, stop and await approval before Phase 2.
+Phase 1 is closed after the documentation update is pushed. Stop and await approval before Phase 2.
