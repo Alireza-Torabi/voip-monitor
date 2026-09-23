@@ -1,6 +1,6 @@
 # Proposed architecture
 
-Status: design only. No monitoring code or PBX integration is implemented.
+Status: Phase 2 Task 1 implements only an HTTP health server and bilingual React shell. The monitoring architecture below remains a design; no PBX integration is implemented.
 
 ```text
 PBX (Asterisk / FreePBX)
@@ -57,3 +57,7 @@ English and Persian pairs: `README`, `INSTALL`, `CONFIGURATION`, `OPERATIONS`, `
 ## Toolchain foundation
 
 Root npm workspaces and a strict shared TypeScript base config are in place. See [Toolchain](TOOLCHAIN.md) for package management, lint, formatting, testing, and current CI scope. Compose declares no runnable services until Phase 2 supplies build contexts.
+
+## Implemented application foundation
+
+`backend/src/index.ts` starts a Node HTTP server, handles signals, and writes structured JSON logs; `backend/src/server.ts` serves `GET /health`. The frontend renders a static English/Persian React page with language and RTL/LTR switching. The browser currently uses no backend API. `shared` remains intentionally empty of domain code. There is no authentication, database, collector, or PBX transport. The only persistent file produced by the project build is generated output under ignored `dist/`.

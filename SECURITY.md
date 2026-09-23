@@ -1,6 +1,6 @@
 # Security policy
 
-This project is in pre-application development. Do not deploy it as a security control or expose it as a production monitor.
+This project has only a development application skeleton. Do not deploy it as a security control or expose it as a production monitor.
 
 Report a suspected vulnerability privately through the repository's GitHub security advisory feature when available. Do not post credentials, private topology, logs, or exploit details in a public issue. If private reporting is unavailable, ask the repository owner to enable it without publishing sensitive details.
 

@@ -2,7 +2,7 @@
 
 # عملیات
 
-**وضعیت:** فقط بررسی‌های شالودهٔ مخزن قابل اجرا هستند. هنوز سرویس پایش برای اجرا، پشتیبان‌گیری یا بازیابی وجود ندارد.
+**وضعیت:** سرور و رابط توسعهٔ محلی اجرا می‌شوند، اما هنوز سرویس پایش، پایگاه داده یا روش پشتیبان‌گیری و بازیابی وجود ندارد.
 
 بررسی‌های کنونی را از ریشهٔ مخزن اجرا کنید:
 
@@ -10,6 +10,11 @@
 
 ```sh
 python3 scripts/check_foundation.py
+python3 scripts/check_licenses.py
+npm run lint
+npm run typecheck
+npm run test
+npm run build
 git status --short --branch
 git check-ignore .local/DEPLOYMENT_CONTEXT.md
 ```

@@ -1,6 +1,6 @@
 # Operations
 
-**Status:** Only repository foundation checks are operational. There is no monitoring service to run, back up, upgrade, or restore yet.
+**Status:** A local development backend and frontend run, but there is no monitoring service, database, backup, upgrade, or restore procedure yet.
 
 ## Current checks
 
@@ -8,11 +8,16 @@ Run from the repository root:
 
 ```sh
 python3 scripts/check_foundation.py
+python3 scripts/check_licenses.py
+npm run lint
+npm run typecheck
+npm run test
+npm run build
 git status --short --branch
 git check-ignore .local/DEPLOYMENT_CONTEXT.md
 ```
 
-The checker verifies required public files, safe environment examples, ignored local/runtime paths, workspace manifests, and the absence of suspicious credential patterns in public files. It is not a complete secret scanner. Review staged changes manually before each commit.
+The foundation checker verifies required public files, safe environment examples, ignored local/runtime paths, workspace manifests, and selected credential patterns. The license checker compares lockfile identifiers with reviewed values. It is not a complete secret scanner. Review staged changes manually before each commit.
 
 ## Planned runtime
 

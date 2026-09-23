@@ -1,6 +1,6 @@
 # Installation status and planned procedure
 
-**Status:** Phase 1 foundation only. There is no installable monitoring application, Docker image, first-run wizard, or supported production deployment yet. Do not point this repository at a PBX.
+**Status:** A local development skeleton exists. There is no Docker image, first-run wizard, or supported production deployment yet. Do not point this repository at a PBX.
 
 ## Planned architecture and compatibility
 
@@ -19,7 +19,18 @@ Node.js 24 LTS is the planned development runtime. A supported Docker Engine and
 5. Start the Compose deployment after the application services and images exist.
 6. Open the HTTPS URL, create the first local administrator, add a PBX, test read-only connectivity, review discovery, confirm, and start monitoring.
 
-No command in this document currently performs installation because services do not exist.
+For local development only, install Node.js 24.21.0 and npm from a trusted source, then run from the repository root:
+
+```sh
+npm ci --ignore-scripts
+npm run lint
+npm run typecheck
+npm run test
+npm run build
+npm run dev -w frontend
+```
+
+In another terminal, build and start the backend with `npm run build -w backend` and `npm run start -w backend`. `GET /health` returns `{"status":"ok"}` on the backend bind address. The backend defaults to loopback and port 3000; the frontend development server prints its local URL. These commands start only the skeleton, not monitoring. No Compose installation command exists because services do not yet exist.
 
 ## Data, secrets, and logs
 
