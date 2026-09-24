@@ -1,20 +1,28 @@
+import { loadAppConfig, ConfigError } from './config.js';
 import { createApp } from './server.js';
-import { log } from './logger.js';
+import { log, setLogLevel } from './logger.js';
 
-const port = Number(process.env.APP_PORT ?? '3000');
-const host = process.env.APP_HOST ?? '127.0.0.1';
-
-if (!Number.isInteger(port) || port < 1 || port > 65535) {
-  log('error', 'invalid_port');
+let config;
+try {
+  config = loadAppConfig(process.env);
+} catch (error) {
+  if (error instanceof ConfigError) {
+    log('error', 'invalid_configuration', { fields: error.fields.join(', ') });
+  } else {
+    log('error', 'configuration_error');
+  }
   process.exitCode = 1;
-} else {
+}
+
+if (config) {
+  setLogLevel(config.logLevel);
   const server = createApp();
   server.on('error', () => {
     log('error', 'server_error');
     process.exitCode = 1;
   });
-  server.listen(port, host, () => {
-    log('info', 'server_started', { host, port });
+  server.listen(config.http.port, config.http.host, () => {
+    log('info', 'server_started', { host: config.http.host, port: config.http.port });
   });
 
   let stopping = false;

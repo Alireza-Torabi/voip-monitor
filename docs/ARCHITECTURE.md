@@ -1,6 +1,6 @@
 # Proposed architecture
 
-Status: Phase 2 Task 1 implements only an HTTP health server and bilingual React shell. The monitoring architecture below remains a design; no PBX integration is implemented.
+Status: Phase 2 Task 2 adds provider-neutral shared types and validated backend application configuration to the HTTP health server and bilingual React shell. The monitoring architecture below remains a design; no PBX integration is implemented.
 
 ```text
 PBX (Asterisk / FreePBX)
@@ -16,7 +16,7 @@ Asterisk provider -> normalized events -> per-instance state engine
                                   React browser clients
 ```
 
-The monitor is an observer. A failed monitor cannot stop calls. Optional restricted SSH collection supplies system metrics and security logs using separate credentials. Every observation has source, timestamp, and availability: `AVAILABLE`, `UNAVAILABLE`, `UNSUPPORTED`, `NOT_CONFIGURED`, `PERMISSION_DENIED`, `STALE`, or `ERROR`.
+The monitor is an observer. A failed monitor cannot stop calls. Optional restricted SSH collection supplies system metrics and security logs using separate credentials. Shared contracts distinguish capability state (`SUPPORTED`, `UNSUPPORTED`, `NOT_CONFIGURED`, `PERMISSION_DENIED`, `UNKNOWN`) from source freshness (`NEVER_COLLECTED`, `CURRENT`, `STALE`, `UNAVAILABLE`, `ERROR`). Source health has optional attempt, success, and update timestamps plus bounded safe error codes. No source health is collected yet.
 
 ## Repository layout
 
@@ -40,7 +40,7 @@ An empty database permits creation of exactly one first administrator through a 
 
 ## Asterisk provider
 
-`PbxProvider` defines `connect`, `disconnect`, `discover`, `getCapabilities`, `getHealth`, `getCurrentState`, `subscribeEvents`, and `reconcile`. `AsteriskProvider` owns AMI framing/authentication, compatibility, event normalization, reconnect with bounded exponential backoff and jitter, and exactly one connection lifecycle per instance. Prefer dedicated actions/events supported by Asterisk 13. Verify each action, field, privilege, and response format before coding. Reconcile on connect and about every 30–60 seconds; never per browser.
+The current shared `PbxProvider` contract defines `connect`, `disconnect`, `discover`, `getCapabilities`, `getHealth`, and `reconcile`. Snapshot and event subscription contracts wait for the state engine design. `AsteriskProvider` owns AMI framing/authentication, compatibility, event normalization, reconnect with bounded exponential backoff and jitter, and exactly one connection lifecycle per instance. Prefer dedicated actions/events supported by Asterisk 13. Verify each action, field, privilege, and response format before coding. Reconcile on connect and about every 30–60 seconds; never per browser.
 
 ## Realtime and failure handling
 
@@ -60,4 +60,4 @@ Root npm workspaces and a strict shared TypeScript base config are in place. See
 
 ## Implemented application foundation
 
-`backend/src/index.ts` starts a Node HTTP server, handles signals, and writes structured JSON logs; `backend/src/server.ts` serves `GET /health`. The frontend renders a static English/Persian React page with language and RTL/LTR switching. The browser currently uses no backend API. `shared` remains intentionally empty of domain code. There is no authentication, database, collector, or PBX transport. The only persistent file produced by the project build is generated output under ignored `dist/`.
+`backend/src/index.ts` starts a Node HTTP server, handles signals, and writes structured JSON logs; `backend/src/server.ts` serves `GET /health`. The frontend renders a static English/Persian React page with language and RTL/LTR switching. The browser currently uses no backend API. `shared/src/index.ts` now contains type-only provider-neutral contracts. `backend/src/config.ts` is the sole process environment parsing boundary and validates generic application settings with Zod. There is no authentication, database, collector, or PBX transport. The only persistent file produced by the project build is generated output under ignored `dist/`.
