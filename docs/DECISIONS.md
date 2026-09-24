@@ -18,3 +18,11 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 10. **Minimal HTTP server:** Use Node's built-in HTTP server for the current single `/health` route, avoiding a framework dependency until API requirements justify one. Log JSON records and handle SIGINT/SIGTERM gracefully.
 11. **Minimal i18n:** Keep English and Persian messages in a typed dictionary and switch document direction with language. Defer a larger localization library until translation volume justifies it.
 12. **Quality gates:** Use one npm lockfile, ESLint, Prettier, TypeScript, Node's test runner, and Vitest. CI installs with scripts disabled and reviews lockfile license identifiers.
+
+## 2026-09-24 — Phase 2 Task 2 implementation choices
+
+13. **Shared contract boundary:** Keep provider-neutral PBX identity, capability, health, discovery, and provider interface types in `shared`; implementations remain in backend provider modules. Current types describe only the known Asterisk provider and proposed data-source categories.
+14. **Central application configuration:** Parse named process environment settings once in `backend/src/config.ts` with Zod 4.6.5. Reject invalid explicit values before listening. Defaults cover only generic application settings; path settings are reserved and do not create storage.
+15. **PBX setup separation:** Do not model PBX instance addresses or credentials as permanent process environment variables. Future PBX metadata belongs in runtime persistence and credentials in dedicated protected secret storage.
+16. **Explicit source health:** Model capability support separately from source freshness and connection state. Use bounded safe error codes rather than raw provider error messages in shared contracts.
+17. **Safe startup diagnostics:** Configuration errors report field names only. Structured log details redact sensitive field names. The health endpoint remains generic.

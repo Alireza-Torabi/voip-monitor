@@ -1,13 +1,19 @@
-# Configuration design
+# Application configuration
 
-**Status:** Only the development server bind uses environment values; no PBX configuration loader or onboarding UI exists yet.
+**Status:** Phase 2 Task 2 provides validated backend application settings. It does not load `.env` files automatically. Supply settings through the process environment or your deployment manager; `.env.example` is a tracked example, and a real `.env` is ignored by Git.
 
-`.env.example` contains only generic application defaults. A production `.env` file is ignored by Git. PBX addresses, ports, AMI and SSH credentials, timezone, recording paths, and capability choices will be entered through authenticated onboarding and stored at runtime, without editing source or rebuilding images.
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| `APP_ENV` | `production` | `development`, `test`, or `production` |
+| `APP_HOST` | `127.0.0.1` | HTTP listen host |
+| `APP_PORT` | `3000` | HTTP port, integer from 1 to 65535 |
+| `APP_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, or `error` |
+| `DATA_PATH` | `/data` | Absolute application data directory |
+| `APP_SECRET_DIR` | `<DATA_PATH>/secrets` | Absolute directory reserved for future protected key storage |
+| `APP_DATABASE_PATH` | `<DATA_PATH>/monitor.sqlite3` | Absolute path reserved for the future database |
 
-The planned first-run flow creates a local administrator, adds an Asterisk/FreePBX PBX profile, tests AMI read-only connectivity, optionally tests restricted SSH, performs read-only discovery, displays observed and unavailable capabilities, asks for confirmation, and starts monitoring. Existing profiles can later be edited, disabled, removed, tested, and rediscovered.
+The path settings are validated and exposed through typed configuration; this task does not create files or directories. Invalid explicit settings stop the backend before it listens. Configuration errors identify fields, not supplied values. Structured log details redact fields whose names contain `password`, `secret`, `token`, `key`, or `authorization`. The health endpoint remains a generic `{ "status": "ok" }` response.
 
-Non-secret PBX metadata belongs in SQLite. PBX credentials are encrypted at rest with a protected master key stored outside Git. The frontend must never receive saved secrets. Each observation will include an availability state and timestamp; unavailable readings are not displayed as zero.
+Application environment settings are distinct from PBX setup. PBX addresses and other non-secret metadata will be entered during future authenticated onboarding and stored at runtime. PBX credentials will use dedicated protected secret storage, not permanent process variables such as `PBX_HOST`, `AMI_USERNAME`, or `AMI_PASSWORD`. Private development and deployment facts belong only under ignored `.local/`; never copy them into tracked examples.
 
-The proposed container data mount is `/data`. The host path is chosen by the operator. Do not use the checkout for runtime data. Details are in [Architecture](ARCHITECTURE.md).
-
-The backend accepts `APP_HOST` and `APP_PORT` for its development listener. It defaults to loopback and port 3000. `.env.example` is an example only and is not loaded automatically. No AMI, SSH, or PBX environment variables are accepted by this skeleton.
+The proposed first-run flow and SQLite design remain future work. No AMI, SSH, PBX connection, database, or secret storage implementation exists yet. The host path for a future `/data` mount is selected by the operator; do not use the checkout for runtime data. See [Architecture](ARCHITECTURE.md).

@@ -1,9 +1,10 @@
 # Dependency license review
 
-Reviewed 2026-09-23 for the exact versions in the root lockfile. License identifiers below come from the published npm package metadata and were cross-checked with upstream project licenses. These direct dependencies permit public distribution and commercial use alongside Apache-2.0, subject to their notice terms.
+Reviewed 2026-09-24 for the exact versions in the root lockfile. License identifiers below come from the published npm package metadata and were cross-checked with upstream project licenses. These direct dependencies permit public distribution and commercial use alongside Apache-2.0, subject to their notice terms.
 
 | Role | Direct package | Version | License |
 | --- | --- | --- | --- |
+| Backend runtime validation | [zod](https://registry.npmjs.org/zod/4.6.5) | 4.6.5 | MIT |
 | Frontend runtime | [react](https://registry.npmjs.org/react/19.3.0) | 19.3.0 | MIT |
 | Frontend runtime | [react-dom](https://registry.npmjs.org/react-dom/19.3.0) | 19.3.0 | MIT |
 | Development | [typescript](https://registry.npmjs.org/typescript/6.0.3) | 6.0.3 | Apache-2.0 |
@@ -17,7 +18,7 @@ Reviewed 2026-09-23 for the exact versions in the root lockfile. License identif
 | Development | [@types/react](https://registry.npmjs.org/@types/react/19.3.0) | 19.3.0 | MIT |
 | Development | [@types/react-dom](https://registry.npmjs.org/@types/react-dom/19.3.0) | 19.3.0 | MIT |
 
-The backend has no third-party runtime dependency. The local development runtime is [Node.js 24.21.0](https://nodejs.org/download/release/v24.21.0/) (Node core MIT with separately licensed bundled components). npm 11.19.0 is bundled with that archive.
+Zod is the backend's only third-party runtime dependency. Its published package metadata and [upstream license](https://github.com/colinhacks/zod/blob/main/LICENSE) identify MIT; it declares no runtime dependencies. The local development runtime is [Node.js 24.21.0](https://nodejs.org/download/release/v24.21.0/) (Node core MIT with separately licensed bundled components). npm 11.19.0 is bundled with that archive.
 
 ## Resolved transitive licenses
 
