@@ -23,4 +23,22 @@ export const migrations = [
       ) STRICT;
     `,
   },
+  {
+    version: 2,
+    name: 'encrypted_pbx_secrets',
+    sql: `
+      CREATE TABLE pbx_secret (
+        pbx_instance_id TEXT NOT NULL REFERENCES pbx_instance(id) ON DELETE CASCADE,
+        secret_name TEXT NOT NULL CHECK (length(secret_name) BETWEEN 1 AND 64),
+        envelope_version INTEGER NOT NULL,
+        key_version INTEGER NOT NULL,
+        nonce BLOB NOT NULL,
+        auth_tag BLOB NOT NULL,
+        ciphertext BLOB NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (pbx_instance_id, secret_name)
+      ) STRICT;
+    `,
+  },
 ] as const;

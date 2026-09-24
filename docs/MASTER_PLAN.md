@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-09-24. Phase 1 public repository foundation is complete. Phase 2 Task 3 storage foundation is implemented on `feature/sqlite-foundation`; no monitoring functionality exists.
+Status: 2026-09-24. Phase 1 public repository foundation is complete. Phase 2 Task 4 encrypted secret-storage foundation is implemented on `feature/secret-storage-foundation`; no monitoring functionality exists.
 
 ## Phase 0 — environment discovery
 
@@ -41,7 +41,8 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 1: approved local Node 24/npm toolchain, minimal backend `GET /health`, bilingual React shell, one lockfile, quality gates, and CI. Local validation passed; the feature branch was merged into `main` as `e737abd`.
 - [x] Task 2: provider-neutral shared contracts, typed capability and source-health models, centralized validated application configuration, and safe configuration errors/log redaction. No PBX or persistence behavior.
 - [x] Task 3: SQLite storage abstraction, transactional migration history, setup and minimal PBX metadata persistence, and application readiness.
-- [ ] Proposed next Phase 2 task: encrypted secret storage and protected master-key lifecycle. Scope requires separate approval.
+- [x] Task 4: protected master-key lifecycle, AES-256-GCM PBX secret persistence, readiness integration, and recovery documentation.
+- [ ] Proposed next Phase 2 task: authentication and first-administrator setup foundation. Scope requires separate approval.
 
 ## Future phases — pending approval
 - [ ] Phase 3: authentication and onboarding.
@@ -55,4 +56,4 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [ ] Phase 11: hardening, backup, and tested restore.
 - [ ] Phase 12: release validation.
 
-Phase 1 is closed. Stop after Phase 2 Task 3 and await approval for the next task.
+Phase 1 is closed. Stop after Phase 2 Task 4 and await approval for the next task.

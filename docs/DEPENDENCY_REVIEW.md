@@ -33,3 +33,7 @@ Apache ECharts (Apache-2.0), better-sqlite3 (MIT), ws (MIT), and NGINX Open Sour
 ## Phase 2 Task 3 SQLite review
 
 No direct dependency was added. Node.js 24.21.0 provides `node:sqlite` as a release candidate API (stability 1.2), with prepared statements, transactions through SQL, and backup support. Node's distribution license and bundled component terms apply; the existing Node runtime review remains relevant. The alternative `better-sqlite3` is actively maintained, MIT licensed, and suitable for commercial redistribution with its notice, but its native addon and platform builds would complicate installation and Docker images. See the [Node API](https://nodejs.org/download/release/latest-v24.x/docs/api/sqlite.html), [package metadata](https://github.com/WiseLibs/better-sqlite3/blob/master/package.json), and [license](https://github.com/WiseLibs/better-sqlite3/blob/master/LICENSE).
+
+## Phase 2 Task 4 cryptography review
+
+No crypto dependency was added. The implementation uses Node.js 24.21.0 built-in `node:crypto` for CSPRNG key and nonce generation and AES-256-GCM authenticated encryption. Node's existing runtime and bundled component licensing applies; lockfile contents and direct dependency licenses are unchanged. The API and authentication-tag behavior were checked against the [Node crypto documentation](https://nodejs.org/download/release/v24.21.0/docs/api/crypto.html).

@@ -21,6 +21,8 @@ export interface MigrationRecord {
 export interface AppStorage {
   readonly setup: SetupRepository;
   readonly pbxInstances: PbxInstanceRepository;
+  readonly secretRecords: EncryptedSecretRepository;
+  hasEncryptedSecrets(): boolean;
   migrationHistory(): MigrationRecord[];
   healthCheck(): boolean;
   close(): void;
@@ -33,6 +35,34 @@ export interface PbxInstanceRepository {
   save(metadata: PbxInstanceMetadata): void;
   get(id: string): PbxInstanceMetadata | undefined;
   list(): PbxInstanceMetadata[];
+}
+
+export interface EncryptedSecretRecord {
+  pbxInstanceId: string;
+  secretName: string;
+  envelopeVersion: number;
+  keyVersion: number;
+  nonce: Uint8Array;
+  authTag: Uint8Array;
+  ciphertext: Uint8Array;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface SecretMetadata {
+  pbxInstanceId: string;
+  secretName: string;
+  envelopeVersion: number;
+  keyVersion: number;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface EncryptedSecretRepository {
+  firstIdentity(): { pbxInstanceId: string; secretName: string } | undefined;
+  put(record: EncryptedSecretRecord): void;
+  get(pbxInstanceId: string, secretName: string): EncryptedSecretRecord | undefined;
+  has(pbxInstanceId: string, secretName: string): boolean;
+  delete(pbxInstanceId: string, secretName: string): boolean;
+  listMetadata(pbxInstanceId: string): SecretMetadata[];
 }
 
 export class StorageError extends Error {
@@ -97,6 +127,7 @@ function migrate(db: DatabaseSync): void {
 export class SqliteStorage implements AppStorage {
   readonly setup: SetupRepository;
   readonly pbxInstances: PbxInstanceRepository;
+  readonly secretRecords: EncryptedSecretRepository;
   private closed = false;
 
   private constructor(private readonly db: DatabaseSync) {
@@ -146,6 +177,64 @@ export class SqliteStorage implements AppStorage {
       },
       list: () => this.db.prepare('SELECT * FROM pbx_instance ORDER BY id').all().map(mapPbx),
     };
+    this.secretRecords = {
+      firstIdentity: () => {
+        const row = this.db
+          .prepare('SELECT pbx_instance_id, secret_name FROM pbx_secret LIMIT 1')
+          .get();
+        return row
+          ? { pbxInstanceId: row.pbx_instance_id as string, secretName: row.secret_name as string }
+          : undefined;
+      },
+      put: (record) => {
+        this.db
+          .prepare(
+            `INSERT INTO pbx_secret
+          (pbx_instance_id, secret_name, envelope_version, key_version, nonce, auth_tag, ciphertext, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(pbx_instance_id, secret_name) DO UPDATE SET
+          envelope_version=excluded.envelope_version, key_version=excluded.key_version,
+          nonce=excluded.nonce, auth_tag=excluded.auth_tag, ciphertext=excluded.ciphertext,
+          updated_at=excluded.updated_at`,
+          )
+          .run(
+            record.pbxInstanceId,
+            record.secretName,
+            record.envelopeVersion,
+            record.keyVersion,
+            record.nonce,
+            record.authTag,
+            record.ciphertext,
+            record.createdAt,
+            record.updatedAt,
+          );
+      },
+      get: (pbxInstanceId, secretName) => {
+        const row = this.db
+          .prepare('SELECT * FROM pbx_secret WHERE pbx_instance_id = ? AND secret_name = ?')
+          .get(pbxInstanceId, secretName);
+        return row ? mapSecret(row) : undefined;
+      },
+      has: (pbxInstanceId, secretName) =>
+        this.db
+          .prepare(
+            'SELECT 1 AS present FROM pbx_secret WHERE pbx_instance_id = ? AND secret_name = ?',
+          )
+          .get(pbxInstanceId, secretName) !== undefined,
+      delete: (pbxInstanceId, secretName) =>
+        this.db
+          .prepare('DELETE FROM pbx_secret WHERE pbx_instance_id = ? AND secret_name = ?')
+          .run(pbxInstanceId, secretName).changes > 0,
+      listMetadata: (pbxInstanceId) =>
+        this.db
+          .prepare(
+            `SELECT pbx_instance_id, secret_name,
+        envelope_version, key_version, created_at, updated_at FROM pbx_secret
+        WHERE pbx_instance_id = ? ORDER BY secret_name`,
+          )
+          .all(pbxInstanceId)
+          .map(mapSecretMetadata),
+    };
   }
 
   static async open(config: AppConfig): Promise<SqliteStorage> {
@@ -167,6 +256,10 @@ export class SqliteStorage implements AppStorage {
       db?.close();
       throw new StorageError();
     }
+  }
+
+  hasEncryptedSecrets(): boolean {
+    return this.db.prepare('SELECT 1 FROM pbx_secret LIMIT 1').get() !== undefined;
   }
 
   migrationHistory(): MigrationRecord[] {
@@ -216,5 +309,25 @@ function mapPbx(row: Record<string, unknown>): PbxInstanceMetadata {
     ...(row.product === null ? {} : { product: row.product as string }),
     ...(row.version === null ? {} : { version: row.version as string }),
     ...(row.timezone === null ? {} : { timezone: row.timezone as string }),
+  };
+}
+
+function mapSecretMetadata(row: Record<string, unknown>): SecretMetadata {
+  return {
+    pbxInstanceId: row.pbx_instance_id as string,
+    secretName: row.secret_name as string,
+    envelopeVersion: row.envelope_version as number,
+    keyVersion: row.key_version as number,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+  };
+}
+
+function mapSecret(row: Record<string, unknown>): EncryptedSecretRecord {
+  return {
+    ...mapSecretMetadata(row),
+    nonce: row.nonce as Uint8Array,
+    authTag: row.auth_tag as Uint8Array,
+    ciphertext: row.ciphertext as Uint8Array,
   };
 }
