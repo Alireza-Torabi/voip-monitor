@@ -1,6 +1,6 @@
 # Operations
 
-**Status:** A local development backend and frontend run, but there is no monitoring service, database, backup, upgrade, or restore procedure yet.
+**Status:** A local development backend and frontend run, but SQLite storage exists, but there is no monitoring service, complete backup, upgrade, or restore procedure yet.
 
 ## Current checks
 
@@ -21,6 +21,6 @@ The foundation checker verifies required public files, safe environment examples
 
 ## Planned runtime
 
-The backend will own persistent AMI connections and write SQLite under an operator-selected directory mounted at `/data`. The master key will be stored separately at `/data/secrets/master.key` with restricted permissions. Logs will go to container standard output and must redact credentials. Monitoring failures must not affect PBX calls.
+The backend writes SQLite under the validated application data path, normally an operator-selected directory mounted at `/data`. Startup creates the parent directory, opens the database, applies migrations, then starts HTTP. Migration mismatch or database failure stops startup with a generic log code. `GET /health` is liveness; `GET /ready` checks the local database and returns 503 when unavailable. PBX absence or outage does not affect readiness. The master key will be stored separately at `/data/secrets/master.key` with restricted permissions. Logs will go to container standard output and must redact credentials. Monitoring failures must not affect PBX calls.
 
-Backup must preserve database plus master key, followed by a tested restore. Health/readiness checks, graceful shutdown, retention, upgrade, rollback, and uninstall procedures will be documented once implemented. Do not run production maintenance based on this Phase 1 document.
+A future backup must preserve the database and any associated journal files using a coordinated SQLite backup or stopped copy. Future encrypted secret data will also require the separate master key. Backup and restore are not implemented or validated yet. Detailed deployment, retention, upgrade, rollback, and uninstall procedures remain future work. Do not run production maintenance based on this foundation document.

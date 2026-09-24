@@ -1,10 +1,10 @@
 # Project context
 
-Status: Phase 2 Task 2 configuration foundation implemented on a feature branch, 2026-09-24. License: Apache-2.0. This is a proposed public, reusable VoIP monitoring application hosted separately from the PBX. The first provider targets Asterisk and FreePBX-based Asterisk, with Asterisk 13.x as a required compatibility baseline to verify. No real PBX has been contacted.
+Status: Phase 2 Task 3 SQLite foundation implemented on a feature branch, 2026-09-24. License: Apache-2.0. This is a proposed public, reusable VoIP monitoring application hosted separately from the PBX. The first provider targets Asterisk and FreePBX-based Asterisk, with Asterisk 13.x as a required compatibility baseline to verify. No real PBX has been contacted.
 
 ## Repository state
 
-The public foundation repository is established on `main`, tracking `origin/main`. The merged application skeleton provides a minimal backend health server and bilingual frontend shell. The current feature branch adds shared contracts and validated application configuration. No monitoring transport, database, or deployment service exists. The configured `origin` points to the user-supplied GitHub repository via SSH.
+The public foundation repository is established on `main`, tracking `origin/main`. The merged application skeleton provides a minimal backend health server and bilingual frontend shell. The current feature branch adds SQLite storage, migration history, setup state, PBX metadata persistence, and readiness. No monitoring transport or deployment service exists. The configured `origin` points to the user-supplied GitHub repository via SSH.
 
 ## Product constraints
 
