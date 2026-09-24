@@ -11,6 +11,7 @@ import { loadAppConfig } from '../dist/config.js';
 import { createApp } from '../dist/server.js';
 import { SqliteStorage, StorageError } from '../dist/storage/index.js';
 import { SecretStore } from '../dist/security/secret-store.js';
+import { AuthService } from '../dist/auth/index.js';
 
 async function fixture(run) {
   const directory = await mkdtemp(join(tmpdir(), 'voip-monitor-storage-'));
@@ -37,10 +38,10 @@ test('fresh database migrates once and persists setup and PBX metadata across re
     assert.equal(first.setup.get().state, 'SETUP_REQUIRED');
     assert.deepEqual(first.pbxInstances.list(), []);
     const history = first.migrationHistory();
-    assert.equal(history.length, 2);
+    assert.equal(history.length, 3);
     assert.deepEqual(
       history.map((row) => row.version),
-      [1, 2],
+      [1, 2, 3],
     );
     assert.match(history[0].checksum, /^[a-f0-9]{64}$/);
     first.setup.set('SETUP_IN_PROGRESS');
@@ -99,7 +100,8 @@ test('health remains live while readiness reflects storage, including no PBX', (
   fixture(async (config) => {
     const storage = await SqliteStorage.open(config);
     const secrets = await SecretStore.open(config, storage);
-    const server = createApp(storage, secrets);
+    const auth = await AuthService.open(config, storage);
+    const server = createApp(storage, secrets, auth);
     try {
       const ready = await request(server, '/ready');
       assert.equal(ready.status, 200);
