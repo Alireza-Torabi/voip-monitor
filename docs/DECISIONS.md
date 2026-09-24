@@ -1,6 +1,6 @@
 # Planning decisions — 2026-09-23
 
-These decisions are proposed and implementation remains unverified.
+Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choices below are implemented and locally validated.
 
 1. **Separate observer:** Run monitoring on a separate VM, outside PBX call processing. The backend owns one persistent AMI connection per enabled PBX.
 2. **Provider boundary:** Use a `PbxProvider` interface for lifecycle, read-only discovery, capabilities, health, snapshot, events, and reconciliation. Asterisk specifics live in the Asterisk adapter. No other provider support is claimed.
@@ -9,5 +9,12 @@ These decisions are proposed and implementation remains unverified.
 5. **Realtime:** Use authenticated WebSocket snapshots and revisioned incremental updates. Browser count must not drive PBX requests.
 6. **Public source:** Use Apache-2.0, with private deployment facts only in ignored `.local/`.
 
-7. **Toolchain foundation:** Use Node.js 24 LTS with npm workspaces, one lockfile, strict shared TypeScript options, and workspace-specific configs when source exists. No package installation is authorized in this phase; see `docs/TOOLCHAIN.md`.
+7. **Toolchain foundation:** Use Node.js 24 LTS with npm workspaces, one lockfile, strict shared TypeScript options, and workspace-specific configs when source exists. No packages were installed during Phase 1; see `docs/TOOLCHAIN.md` for the Phase 2 toolchain.
 8. **Compose staging:** Keep `docker-compose.yml` free of dummy runnable services until actual backend/frontend images exist. CI currently validates only existing foundation artifacts.
+
+## 2026-09-23 — Phase 2 Task 1 implementation choices
+
+9. **User-owned toolchain:** Use the official Node.js 24.21.0 Linux archive verified against its published SHA-256 list in an ignored local directory for development. No sudo, OS repository, or PBX toolchain change is needed. Public contributors may use another trusted installation method that supplies the pinned Node version.
+10. **Minimal HTTP server:** Use Node's built-in HTTP server for the current single `/health` route, avoiding a framework dependency until API requirements justify one. Log JSON records and handle SIGINT/SIGTERM gracefully.
+11. **Minimal i18n:** Keep English and Persian messages in a typed dictionary and switch document direction with language. Defer a larger localization library until translation volume justifies it.
+12. **Quality gates:** Use one npm lockfile, ESLint, Prettier, TypeScript, Node's test runner, and Vitest. CI installs with scripts disabled and reviews lockfile license identifiers.

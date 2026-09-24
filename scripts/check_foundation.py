@@ -10,11 +10,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED = [
-    ".env.example", ".gitignore", "AGENTS.md", "README.md", "README.fa.md",
+    ".env.example", ".gitignore", ".node-version", "AGENTS.md", "README.md", "README.fa.md",
     "SECURITY.md", "CONTRIBUTING.md", "CHANGELOG.md", "LICENSE", "NOTICE",
-    "package.json", "tsconfig.base.json", "docker-compose.yml",
-    "backend/package.json", "frontend/package.json", "shared/package.json",
-    ".github/workflows/foundation.yml",
+    "package.json", "package-lock.json", "tsconfig.base.json", "docker-compose.yml",
+    "backend/package.json", "backend/src/index.ts", "backend/src/server.ts",
+    "backend/test/health.test.mjs", "frontend/package.json", "frontend/src/App.tsx",
+    "frontend/src/main.tsx", "frontend/test/App.test.tsx", "shared/package.json",
+    ".github/workflows/foundation.yml", "scripts/check_licenses.py",
     "docs/PROJECT_CONTEXT.md", "docs/MASTER_PLAN.md", "docs/DECISIONS.md",
     "docs/ARCHITECTURE.md", "docs/DEPENDENCY_REVIEW.md",
     "docs/INSTALL.md", "docs/INSTALL.fa.md",
@@ -85,11 +87,11 @@ def check() -> list[str]:
             errors.append(f"Runtime/private path is not ignored: {example}")
 
     env = (ROOT / ".env.example").read_text(encoding="utf-8")
-    expected = {"APP_ENV", "APP_PORT", "DATA_PATH"}
+    expected = {"APP_ENV", "APP_HOST", "APP_PORT", "DATA_PATH"}
     present = {line.split("=", 1)[0] for line in env.splitlines()
                if "=" in line and not line.lstrip().startswith("#")}
     if present != expected:
-        errors.append(".env.example must contain only APP_ENV, APP_PORT, and DATA_PATH")
+        errors.append(".env.example must contain only APP_ENV, APP_HOST, APP_PORT, and DATA_PATH")
     if "README.fa.md" not in (ROOT / "README.md").read_text(encoding="utf-8"):
         errors.append("README.md must link to README.fa.md")
     if "README.md" not in (ROOT / "README.fa.md").read_text(encoding="utf-8"):

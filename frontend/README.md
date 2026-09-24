@@ -1,3 +1,5 @@
 # Frontend workspace
 
-Reserved for React and TypeScript. Phase 2 will add the application shell and localization foundation. There is no frontend build yet.
+Minimal React/TypeScript/Vite shell with English and Persian messages and RTL/LTR switching. It uses no backend data and contains no dashboard.
+
+From the repository root, run `npm run dev -w frontend`, `npm run test -w frontend`, or `npm run build -w frontend`.

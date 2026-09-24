@@ -30,15 +30,18 @@ The earlier local commit `e735f1c` was amended before publication to use the req
 
 ### Deferred toolchain-dependent gates
 
-- [ ] Generate an npm lockfile and audit exact resolved dependency licenses when an approved Node/npm toolchain is available.
-- [ ] Run TypeScript lint, format, typecheck, test, and build gates when source code and dependencies exist.
+- [x] Generate one npm lockfile and audit resolved license identifiers (completed in Phase 2 Task 1).
+- [x] Run lint, format, typecheck, tests, and builds for the initial skeleton (completed in Phase 2 Task 1).
 - [ ] Validate Docker Compose and build images when Docker and service build contexts exist.
 
-These gates are not claimed as passing in Phase 1. No software was installed in Phase 1. The currently executable CI gate is the Python foundation checker. Local tool availability is recorded only in ignored `.local/`.
+These later checks do not change the historical Phase 1 validation record. Docker validation remains deferred. Local tool availability is recorded only in ignored `.local/`.
+
+## Phase 2 — application foundation
+
+- [x] Task 1: approved local Node 24/npm toolchain, minimal backend `GET /health`, bilingual React shell, one lockfile, quality gates, and CI. Local validation passed; the feature branch is prepared for review.
+- [ ] Next task: shared API contracts, configuration layer, SQLite abstraction/migrations, readiness, and first-run state model. Scope requires separate approval.
 
 ## Future phases — pending approval
-
-- [ ] Phase 2: application foundation: backend/frontend skeletons, shared contracts, configuration, SQLite migrations, health endpoints, i18n, and first-run state model.
 - [ ] Phase 3: authentication and onboarding.
 - [ ] Phase 4: Asterisk provider and mock AMI.
 - [ ] Phase 5: telephony state engine.
@@ -50,4 +53,4 @@ These gates are not claimed as passing in Phase 1. No software was installed in 
 - [ ] Phase 11: hardening, backup, and tested restore.
 - [ ] Phase 12: release validation.
 
-Phase 1 is closed after the documentation update is pushed. Stop and await approval before Phase 2.
+Phase 1 is closed. Stop after Phase 2 Task 1 and await approval for the next task.
