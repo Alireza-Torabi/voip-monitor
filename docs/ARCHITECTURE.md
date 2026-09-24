@@ -1,6 +1,6 @@
 # Proposed architecture
 
-Status: Phase 2 Task 2 adds provider-neutral shared types and validated backend application configuration to the HTTP health server and bilingual React shell. The monitoring architecture below remains a design; no PBX integration is implemented.
+Status: Phase 2 Task 3 adds SQLite storage, migrations, setup state, and readiness to the existing backend and frontend foundation. The monitoring architecture below remains a design; no PBX integration is implemented.
 
 ```text
 PBX (Asterisk / FreePBX)
@@ -60,4 +60,4 @@ Root npm workspaces and a strict shared TypeScript base config are in place. See
 
 ## Implemented application foundation
 
-`backend/src/index.ts` starts a Node HTTP server, handles signals, and writes structured JSON logs; `backend/src/server.ts` serves `GET /health`. The frontend renders a static English/Persian React page with language and RTL/LTR switching. The browser currently uses no backend API. `shared/src/index.ts` now contains type-only provider-neutral contracts. `backend/src/config.ts` is the sole process environment parsing boundary and validates generic application settings with Zod. There is no authentication, database, collector, or PBX transport. The only persistent file produced by the project build is generated output under ignored `dist/`.
+`backend/src/index.ts` validates configuration, opens and migrates SQLite, then starts a Node HTTP server; it closes storage on graceful shutdown. `backend/src/server.ts` serves `GET /health` for liveness and `GET /ready` for core application readiness. The frontend renders a static English/Persian React page with language and RTL/LTR switching. The browser currently uses no backend API. `shared/src/index.ts` now contains type-only provider-neutral contracts. `backend/src/config.ts` is the sole process environment parsing boundary and validates generic application settings with Zod. There is no authentication, collector, or PBX transport. Storage interfaces in `backend/src/storage/index.ts` isolate SQLite statements from the HTTP layer. Versioned SQL migrations and their checksums are source-controlled in `backend/src/storage/migrations.ts`; applied versions are recorded in `schema_migrations`. The initial schema contains only `application_state` and non-secret `pbx_instance` metadata. The initial setup state is `SETUP_REQUIRED`; no administrator exists yet. The only persistent file produced by the project build is generated output under ignored `dist/`.

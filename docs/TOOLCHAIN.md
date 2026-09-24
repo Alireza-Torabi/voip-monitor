@@ -13,7 +13,7 @@ npm run test
 npm run build
 ```
 
-`--ignore-scripts` was verified for this lockfile; it avoids install-time package scripts. Recheck it if dependencies change. The frontend development server is started with `npm run dev -w frontend`. From the repository root, build all workspaces with `npm run build` and start the backend with `npm run start -w backend`. Its only route is `GET /health`. It binds to loopback by default; `APP_HOST` and `APP_PORT` may be set for development. No PBX connection or monitoring data exists.
+`--ignore-scripts` was verified for this lockfile; it avoids install-time package scripts. Recheck it if dependencies change. The frontend development server is started with `npm run dev -w frontend`. From the repository root, build all workspaces with `npm run build` and start the backend with `npm run start -w backend`. Its routes are `GET /health` and `GET /ready`. The backend requires a writable SQLite database path. It binds to loopback by default; `APP_HOST` and `APP_PORT` may be set for development. No PBX connection or monitoring data exists.
 
 The backend uses Node's built-in HTTP server and JSON-line application logs. Zod 4.6.5 validates application settings before the server listens. Root typecheck, test, and build scripts build the shared contract workspace before the backend. React/Vite provide the frontend bootstrap. TypeScript uses a strict root base config and workspace-specific configs. ESLint and Prettier are root dev dependencies. Node's built-in test runner tests the backend; Vitest renders the English and Persian frontend shell without a browser. The `shared` workspace holds provider-neutral TypeScript contracts; no provider implementation exists.
 

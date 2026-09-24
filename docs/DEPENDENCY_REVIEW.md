@@ -29,3 +29,7 @@ The lockfile currently records MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC,
 ## Planned, not installed
 
 Apache ECharts (Apache-2.0), better-sqlite3 (MIT), ws (MIT), and NGINX Open Source (2-clause BSD-like) remain candidates for later phases. Recheck exact versions and their complete dependency trees before adding them.
+
+## Phase 2 Task 3 SQLite review
+
+No direct dependency was added. Node.js 24.21.0 provides `node:sqlite` as a release candidate API (stability 1.2), with prepared statements, transactions through SQL, and backup support. Node's distribution license and bundled component terms apply; the existing Node runtime review remains relevant. The alternative `better-sqlite3` is actively maintained, MIT licensed, and suitable for commercial redistribution with its notice, but its native addon and platform builds would complicate installation and Docker images. See the [Node API](https://nodejs.org/download/release/latest-v24.x/docs/api/sqlite.html), [package metadata](https://github.com/WiseLibs/better-sqlite3/blob/master/package.json), and [license](https://github.com/WiseLibs/better-sqlite3/blob/master/LICENSE).
