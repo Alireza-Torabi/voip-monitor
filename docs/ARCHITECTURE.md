@@ -1,6 +1,6 @@
 # Proposed architecture
 
-Status: Phase 2 Task 3 adds SQLite storage, migrations, setup state, and readiness to the existing backend and frontend foundation. The monitoring architecture below remains a design; no PBX integration is implemented.
+Status: Phase 2 Task 4 adds encrypted PBX secret storage and a protected master key to the SQLite foundation. The monitoring architecture below remains a design; no PBX integration is implemented.
 
 ```text
 PBX (Asterisk / FreePBX)
@@ -28,7 +28,7 @@ The administrator selects a persistent host directory, mounted at `/data` in the
 
 ## Secret storage
 
-Generate 32 random bytes at first setup with Node crypto. Atomically write the master key under a 0700 directory with file mode 0600, or accept an operator-managed protected key file. Use AES-256-GCM with a fresh nonce for each credential, and bind PBX instance ID and secret type as authenticated associated data. Store encryption version, nonce, ciphertext, and tag. Decrypt only in backend runtime; never expose credentials in API responses or logs. Refuse unsafe permissions and never silently regenerate a key when encrypted data already exists. Password hashing uses a trusted salted, work-factor based implementation; finalize exact parameters in Phase 3.
+At startup, after migrations, create 32 random bytes with Node crypto only if the key is absent and no encrypted records exist. Exclusively create `<APP_SECRET_DIR>/master.key` under a mode-0700 directory with file mode 0600; load an existing valid owner-controlled key. Missing keys with encrypted data and unsafe or malformed keys stop startup. AES-256-GCM uses a fresh random 12-byte nonce and 16-byte tag. Envelope and key versions are both 1. AAD binds PBX instance ID, secret name, envelope version, and key version. `backend/src/security/secret-store.ts` is the sole plaintext encryption/decryption boundary; `backend/src/storage` persists only ciphertext and envelope metadata. No HTTP secret endpoint exists. Key rotation and backup/restore are future work. JavaScript cannot guarantee deterministic memory erasure. Password hashing parameters remain a Phase 3 decision.
 
 ## First-run flow
 
@@ -36,7 +36,7 @@ An empty database permits creation of exactly one first administrator through a 
 
 ## Multi-PBX data model
 
-`pbx_instance`: ID, display name, provider type, host, AMI/SSH port, enabled, discovered vendor/product/version/hostname/timezone, capability snapshot, connection state, last seen, created, updated. `pbx_secret`: PBX ID, secret type, encrypted envelope. Every channel, call, bridge, endpoint, trunk, queue, agent, metric, security event, and historical row carries `pbx_instance_id`. Query and subscription authorization applies to the instance boundary. Missing data is never represented as a measured zero.
+`pbx_instance`: ID, display name, provider type, host, AMI/SSH port, enabled, discovered vendor/product/version/hostname/timezone, capability snapshot, connection state, last seen, created, updated. `pbx_secret`: PBX ID, validated provider-neutral secret name, versioned encrypted envelope. Every channel, call, bridge, endpoint, trunk, queue, agent, metric, security event, and historical row carries `pbx_instance_id`. Query and subscription authorization applies to the instance boundary. Missing data is never represented as a measured zero.
 
 ## Asterisk provider
 
@@ -60,4 +60,4 @@ Root npm workspaces and a strict shared TypeScript base config are in place. See
 
 ## Implemented application foundation
 
-`backend/src/index.ts` validates configuration, opens and migrates SQLite, then starts a Node HTTP server; it closes storage on graceful shutdown. `backend/src/server.ts` serves `GET /health` for liveness and `GET /ready` for core application readiness. The frontend renders a static English/Persian React page with language and RTL/LTR switching. The browser currently uses no backend API. `shared/src/index.ts` now contains type-only provider-neutral contracts. `backend/src/config.ts` is the sole process environment parsing boundary and validates generic application settings with Zod. There is no authentication, collector, or PBX transport. Storage interfaces in `backend/src/storage/index.ts` isolate SQLite statements from the HTTP layer. Versioned SQL migrations and their checksums are source-controlled in `backend/src/storage/migrations.ts`; applied versions are recorded in `schema_migrations`. The initial schema contains only `application_state` and non-secret `pbx_instance` metadata. The initial setup state is `SETUP_REQUIRED`; no administrator exists yet. The only persistent file produced by the project build is generated output under ignored `dist/`.
+`backend/src/index.ts` validates configuration, opens and migrates SQLite, initializes the master key and secret store, then starts a Node HTTP server; it closes secret storage and SQLite on graceful shutdown. `backend/src/server.ts` serves `GET /health` for liveness and `GET /ready` for core application readiness. The frontend renders a static English/Persian React page with language and RTL/LTR switching. The browser currently uses no backend API. `shared/src/index.ts` now contains type-only provider-neutral contracts. `backend/src/config.ts` is the sole process environment parsing boundary and validates generic application settings with Zod. There is no authentication, collector, or PBX transport. Storage interfaces in `backend/src/storage/index.ts` isolate SQLite statements from the HTTP layer. Versioned SQL migrations and their checksums are source-controlled in `backend/src/storage/migrations.ts`; applied versions are recorded in `schema_migrations`. Migration 1 contains `application_state` and non-secret `pbx_instance` metadata. Migration 2 adds `pbx_secret` with a foreign key to the PBX instance. The initial setup state is `SETUP_REQUIRED`; no administrator exists yet. The build writes ignored `dist/`; runtime initialization writes the SQLite database and master key at configured paths outside Git.

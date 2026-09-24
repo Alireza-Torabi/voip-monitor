@@ -1,6 +1,6 @@
 # Operations
 
-**Status:** A local development backend and frontend run, but SQLite storage exists, but there is no monitoring service, complete backup, upgrade, or restore procedure yet.
+**Status:** The local backend has SQLite and encrypted secret storage. There is no monitoring service or tested backup/restore procedure yet.
 
 ## Current checks
 
@@ -21,6 +21,8 @@ The foundation checker verifies required public files, safe environment examples
 
 ## Planned runtime
 
-The backend writes SQLite under the validated application data path, normally an operator-selected directory mounted at `/data`. Startup creates the parent directory, opens the database, applies migrations, then starts HTTP. Migration mismatch or database failure stops startup with a generic log code. `GET /health` is liveness; `GET /ready` checks the local database and returns 503 when unavailable. PBX absence or outage does not affect readiness. The master key will be stored separately at `/data/secrets/master.key` with restricted permissions. Logs will go to container standard output and must redact credentials. Monitoring failures must not affect PBX calls.
+The backend writes SQLite under the validated application data path, normally an operator-selected directory mounted at `/data`. Startup creates the parent directory, opens the database, applies migrations, validates or creates the master key, then starts HTTP. Migration mismatch or database failure stops startup with a generic log code. `GET /health` is liveness; `GET /ready` checks the local database and matching master-key file and returns 503 when either is unavailable. PBX absence or outage does not affect readiness. The master key is stored separately at `<APP_SECRET_DIR>/master.key` (normally `/data/secrets/master.key`) under an owner-controlled mode-0700 directory; the file uses mode 0600. If a key is missing while encrypted records exist, startup fails. Malformed, unreadable, or unsafe key paths also stop startup. Logs will go to container standard output and must redact credentials. Monitoring failures must not affect PBX calls.
 
-A future backup must preserve the database and any associated journal files using a coordinated SQLite backup or stopped copy. Future encrypted secret data will also require the separate master key. Backup and restore are not implemented or validated yet. Detailed deployment, retention, upgrade, rollback, and uninstall procedures remain future work. Do not run production maintenance based on this foundation document.
+Encrypted PBX secrets use AES-256-GCM envelope version 1 and key version 1. Each encryption uses a fresh random nonce; authenticated data binds PBX instance ID, secret name, and both versions. Plaintext exists briefly in backend memory when used. JavaScript cannot guarantee deterministic memory erasure. No key rotation is implemented.
+
+A future recovery needs the SQLite database, matching master key, and runtime configuration as applicable. Use a coordinated SQLite backup or stopped copy, including journal files where relevant; preserve the master key securely with preferably separate access controls. A database backup without the correct key can make encrypted credentials permanently unrecoverable. The key alone cannot reconstruct configuration or encrypted records. Backup, restore, and key rotation are not implemented or validated yet. Detailed deployment, retention, upgrade, rollback, and uninstall procedures remain future work. Do not run production maintenance based on this foundation document.
