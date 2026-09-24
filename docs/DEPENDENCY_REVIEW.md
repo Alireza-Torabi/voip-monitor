@@ -37,3 +37,7 @@ No direct dependency was added. Node.js 24.21.0 provides `node:sqlite` as a rele
 ## Phase 2 Task 4 cryptography review
 
 No crypto dependency was added. The implementation uses Node.js 24.21.0 built-in `node:crypto` for CSPRNG key and nonce generation and AES-256-GCM authenticated encryption. Node's existing runtime and bundled component licensing applies; lockfile contents and direct dependency licenses are unchanged. The API and authentication-tag behavior were checked against the [Node crypto documentation](https://nodejs.org/download/release/v24.21.0/docs/api/crypto.html).
+
+## Phase 2 Task 5 authentication review
+
+No direct dependency was added. Password hashing uses Node.js 24.21.0 `node:crypto` scrypt; randomness and token digests use the same built-in module. This preserves the existing Node runtime license and avoids native addon/install-script and Docker portability work. Argon2id remains a valid future choice: the maintained [node-argon2 package](https://github.com/ranisalt/node-argon2) is MIT licensed and supports Node 24, but uses a native addon and install script, which conflicts with this project's currently verified `npm ci --ignore-scripts` workflow. [Node's crypto documentation](https://nodejs.org/download/release/v24.21.0/docs/api/crypto.html) documents scrypt and its memory settings. No lockfile or redistributable dependency changed.

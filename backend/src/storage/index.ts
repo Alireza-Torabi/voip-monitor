@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, chmod } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -18,8 +18,25 @@ export interface MigrationRecord {
   checksum: string;
 }
 
+export interface AdministratorRecord {
+  id: string;
+  username: string;
+  passwordHash: string;
+  enabled: boolean;
+}
+export interface AuthRepository {
+  hasAdministrator(): boolean;
+  createFirst(username: string, passwordHash: string): AdministratorRecord | undefined;
+  findAdministrator(username: string): AdministratorRecord | undefined;
+  createSession(administratorId: string, tokenDigest: string, expiresAt: string): void;
+  sessionPrincipal(tokenDigest: string, now: string): { id: string; username: string } | undefined;
+  revokeSession(tokenDigest: string): void;
+  markLogin(id: string): void;
+}
+
 export interface AppStorage {
   readonly setup: SetupRepository;
+  readonly auth: AuthRepository;
   readonly pbxInstances: PbxInstanceRepository;
   readonly secretRecords: EncryptedSecretRepository;
   hasEncryptedSecrets(): boolean;
@@ -126,6 +143,7 @@ function migrate(db: DatabaseSync): void {
 
 export class SqliteStorage implements AppStorage {
   readonly setup: SetupRepository;
+  readonly auth: AuthRepository;
   readonly pbxInstances: PbxInstanceRepository;
   readonly secretRecords: EncryptedSecretRepository;
   private closed = false;
@@ -146,6 +164,63 @@ export class SqliteStorage implements AppStorage {
           .prepare('UPDATE application_state SET setup_state = ?, updated_at = ? WHERE id = 1')
           .run(state, new Date().toISOString());
         return this.setup.get();
+      },
+    };
+    this.auth = {
+      hasAdministrator: () =>
+        this.db.prepare('SELECT 1 FROM administrator LIMIT 1').get() !== undefined,
+      createFirst: (username, passwordHash) => {
+        let created: AdministratorRecord | undefined;
+        inTransaction(this.db, () => {
+          if (this.auth.hasAdministrator()) return;
+          const id = randomUUID();
+          const now = new Date().toISOString();
+          this.db
+            .prepare(
+              `INSERT INTO administrator
+            (id, username, password_hash, enabled, created_at, updated_at)
+            VALUES (?, ?, ?, 1, ?, ?)`,
+            )
+            .run(id, username, passwordHash, now, now);
+          this.db
+            .prepare(
+              `UPDATE application_state SET setup_state = 'SETUP_IN_PROGRESS', updated_at = ? WHERE id = 1`,
+            )
+            .run(now);
+          created = { id, username, passwordHash, enabled: true };
+        });
+        return created;
+      },
+      findAdministrator: (username) => {
+        const row = this.db
+          .prepare(
+            'SELECT id, username, password_hash, enabled FROM administrator WHERE username = ?',
+          )
+          .get(username);
+        return row ? mapAdministrator(row) : undefined;
+      },
+      createSession: (administratorId, tokenDigest, expiresAt) => {
+        this.db
+          .prepare('INSERT INTO auth_session VALUES (?, ?, ?, ?)')
+          .run(tokenDigest, administratorId, expiresAt, new Date().toISOString());
+      },
+      sessionPrincipal: (tokenDigest, now) => {
+        const row = this.db
+          .prepare(
+            `SELECT a.id, a.username FROM auth_session s
+          JOIN administrator a ON a.id = s.administrator_id
+          WHERE s.token_digest = ? AND s.expires_at > ? AND a.enabled = 1`,
+          )
+          .get(tokenDigest, now);
+        return row ? { id: row.id as string, username: row.username as string } : undefined;
+      },
+      revokeSession: (tokenDigest) => {
+        this.db.prepare('DELETE FROM auth_session WHERE token_digest = ?').run(tokenDigest);
+      },
+      markLogin: (id) => {
+        this.db
+          .prepare('UPDATE administrator SET last_login_at = ? WHERE id = ?')
+          .run(new Date().toISOString(), id);
       },
     };
     this.pbxInstances = {
@@ -329,5 +404,14 @@ function mapSecret(row: Record<string, unknown>): EncryptedSecretRecord {
     nonce: row.nonce as Uint8Array,
     authTag: row.auth_tag as Uint8Array,
     ciphertext: row.ciphertext as Uint8Array,
+  };
+}
+
+function mapAdministrator(row: Record<string, unknown>): AdministratorRecord {
+  return {
+    id: row.id as string,
+    username: row.username as string,
+    passwordHash: row.password_hash as string,
+    enabled: row.enabled === 1,
   };
 }

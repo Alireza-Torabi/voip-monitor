@@ -1,10 +1,10 @@
 # Project context
 
-Status: Phase 2 Task 4 encrypted secret-storage foundation implemented on a feature branch, 2026-09-24. License: Apache-2.0. This is a proposed public, reusable VoIP monitoring application hosted separately from the PBX. The first provider targets Asterisk and FreePBX-based Asterisk, with Asterisk 13.x as a required compatibility baseline to verify. No real PBX has been contacted.
+Status: Phase 2 Task 5 local authentication foundation implemented on a feature branch, 2026-09-24. License: Apache-2.0. This is a proposed public, reusable VoIP monitoring application hosted separately from the PBX. The first provider targets Asterisk and FreePBX-based Asterisk, with Asterisk 13.x as a required compatibility baseline to verify. No real PBX has been contacted.
 
 ## Repository state
 
-The public foundation repository is established on `main`, tracking `origin/main`. The merged application skeleton provides a minimal backend health server and bilingual frontend shell. The current feature branch adds a protected local master key and encrypted PBX secret records to the SQLite foundation. No monitoring transport, authentication, or deployment service exists. The configured `origin` points to the user-supplied GitHub repository via SSH.
+The public foundation repository is established on `main`, tracking `origin/main`. The merged application skeleton provides a minimal backend health server and bilingual frontend shell. The current feature branch adds protected first-administrator claiming, local password authentication, and opaque server-side sessions to the SQLite and secret-storage foundation. No monitoring transport or deployment service exists. The configured `origin` points to the user-supplied GitHub repository via SSH.
 
 ## Product constraints
 

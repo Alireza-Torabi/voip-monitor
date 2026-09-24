@@ -41,4 +41,26 @@ export const migrations = [
       ) STRICT;
     `,
   },
+  {
+    version: 3,
+    name: 'local_authentication',
+    sql: `
+      CREATE TABLE administrator (
+        id TEXT PRIMARY KEY,
+        username TEXT NOT NULL UNIQUE CHECK (length(username) BETWEEN 3 AND 64),
+        password_hash TEXT NOT NULL,
+        enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        last_login_at TEXT
+      ) STRICT;
+      CREATE TABLE auth_session (
+        token_digest TEXT PRIMARY KEY CHECK (length(token_digest) = 64),
+        administrator_id TEXT NOT NULL REFERENCES administrator(id) ON DELETE CASCADE,
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      ) STRICT;
+      CREATE INDEX auth_session_expiry ON auth_session(expires_at);
+    `,
+  },
 ] as const;

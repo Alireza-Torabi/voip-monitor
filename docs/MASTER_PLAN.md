@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-09-24. Phase 1 public repository foundation is complete. Phase 2 Task 4 encrypted secret-storage foundation is implemented on `feature/secret-storage-foundation`; no monitoring functionality exists.
+Status: 2026-09-24. Phase 1 public repository foundation is complete. Phase 2 Task 5 local authentication foundation is implemented on `feature/authentication-foundation`; no monitoring functionality exists.
 
 ## Phase 0 — environment discovery
 
@@ -42,10 +42,11 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 2: provider-neutral shared contracts, typed capability and source-health models, centralized validated application configuration, and safe configuration errors/log redaction. No PBX or persistence behavior.
 - [x] Task 3: SQLite storage abstraction, transactional migration history, setup and minimal PBX metadata persistence, and application readiness.
 - [x] Task 4: protected master-key lifecycle, AES-256-GCM PBX secret persistence, readiness integration, and recovery documentation.
-- [ ] Proposed next Phase 2 task: authentication and first-administrator setup foundation. Scope requires separate approval.
+- [x] Task 5: protected first-administrator bootstrap, local password authentication, server-side sessions, CSRF and attempt limits, and setup-state transition.
+- [ ] Proposed next Phase 2 task: PBX onboarding design and implementation, subject to separate approval.
 
 ## Future phases — pending approval
-- [ ] Phase 3: authentication and onboarding.
+- [ ] Phase 3: PBX onboarding and account management.
 - [ ] Phase 4: Asterisk provider and mock AMI.
 - [ ] Phase 5: telephony state engine.
 - [ ] Phase 6: system metrics.
@@ -56,4 +57,4 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [ ] Phase 11: hardening, backup, and tested restore.
 - [ ] Phase 12: release validation.
 
-Phase 1 is closed. Stop after Phase 2 Task 4 and await approval for the next task.
+Phase 1 is closed. Stop after Phase 2 Task 5 and await approval for the next task.

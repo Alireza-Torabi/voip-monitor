@@ -23,6 +23,7 @@ import { loadAppConfig } from '../dist/config.js';
 import { redactLogDetails } from '../dist/logger.js';
 import { createApp } from '../dist/server.js';
 import { SecretStore, SecretStorageError } from '../dist/security/secret-store.js';
+import { AuthService } from '../dist/auth/index.js';
 import { SqliteStorage } from '../dist/storage/index.js';
 
 async function fixture(run) {
@@ -216,7 +217,8 @@ test('readiness requires key foundation but never exposes key or secret', () =>
   fixture(async (config) => {
     const storage = await SqliteStorage.open(config);
     const secrets = await SecretStore.open(config, storage);
-    const server = createApp(storage, secrets);
+    const auth = await AuthService.open(config, storage);
+    const server = createApp(storage, secrets, auth);
     const base = await start(server);
     try {
       const ready = await fetch(`${base}/ready`);
