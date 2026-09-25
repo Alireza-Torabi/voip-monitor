@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-09-25. Phase 1 public repository foundation is complete. Phase 2 Task 9 provider runtime lifecycle and authenticated AMI connection-test/discovery foundation is implemented on `feature/provider-runtime-lifecycle`; network access remains disabled by default and no real PBX has been contacted.
+Status: 2026-09-25. Phase 1 public repository foundation is complete. Phase 2 Task 9 provider runtime lifecycle and authenticated AMI connection-test/discovery foundation is implemented on `feature/provider-runtime-lifecycle`. PR #10 is open and its current checks pass after the CI source-tracking fix described below. Network access remains disabled by default and no real PBX has been contacted.
 
 ## Phase 0 — environment discovery
 
@@ -49,9 +49,38 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 9: provider runtime lifecycle with one managed provider per enabled PBX, bounded reconnect/backoff and reconciliation, explicit network enablement, authenticated provider-status and connection-test/discovery APIs, persisted verification timestamp, and bilingual connection-test UI. Tests remain mock/synthetic only; no real PBX access.
 - [ ] Proposed next task: AMI event-subscription and normalized provider-event foundation, implemented against synthetic/mock AMI streams before any real PBX test.
 
+### Current execution handoff
+
+- Current branch: `feature/provider-runtime-lifecycle`.
+- Current PR: #10, targeting `main`.
+- Task 9 implementation commit: `7439e6b` (`feat(provider): add runtime lifecycle and connection verification`).
+- Task 9 CI fix commit: `8fef26d` (`fix(ci): track provider runtime source`).
+- Both GitHub Actions checks for `8fef26d` are green. Task 9 is ready to merge after normal PR review.
+- Exact next task after merge: Task 10, AMI event subscription and normalized provider-event foundation, synthetic/mock first.
+- Real PBX access still requires separate explicit approval.
+
+### Failure and bug log
+
+- **Task 9 CI failure — resolved:** the original `.gitignore` rule `runtime/` matched every directory named `runtime`, including `backend/src/providers/runtime/`. The runtime manager source existed locally but was ignored/untracked, so local typecheck passed while a clean GitHub checkout failed at typecheck because the imported module was missing. Fix: root-anchor the runtime-data rule as `/runtime/`, track `backend/src/providers/runtime/index.ts`, and narrow the foundation checker so only top-level private/runtime directories are rejected. Full local gates then passed and both GitHub Actions checks passed.
+- **Open Task 9 defects:** none currently known from the automated suite. The production limitations listed below remain planned work, not resolved features.
+
+### Persistent continuation protocol
+
+For every future task/session:
+
+1. Read `AGENTS.md`, this `MASTER_PLAN.md`, `PROJECT_CONTEXT.md`, `DECISIONS.md`, and ignored `.local/DEPLOYMENT_CONTEXT.md` when present.
+2. Inspect Git branch/status/log and synchronize `main` before creating the next feature branch.
+3. Preserve the rule that no real PBX is contacted or modified without explicit approval.
+4. Before finishing a task, update this master plan with: task result, branch/commit/PR state, failures or bugs found and their resolution/status, known limitations, and the exact next task. Update `PROJECT_CONTEXT.md` and `DECISIONS.md` when architecture/current state changes.
+5. Run the repository gates, public/secret review, commit atomically, push normally, then stop for approval/merge.
+6. Never place Remote Desktop device IDs, real PBX details, credentials, or private deployment facts in tracked public documentation.
+
 ## Future phases — pending approval
+
+Tasks 7–9 already implemented substantial Asterisk-provider foundation work earlier than the original high-level phase buckets. Task 10 continues that provider foundation; the phase labels below describe the remaining product roadmap rather than implying that completed provider work must be repeated.
+
 - [ ] Phase 3: account management and onboarding refinement.
-- [ ] Phase 4: Asterisk provider and mock AMI.
+- [~] Phase 4: Asterisk provider integration — network policy, AMI transport, login/discovery, runtime lifecycle, and connection verification foundations are implemented; event subscription and normalized event flow are next.
 - [ ] Phase 5: telephony state engine.
 - [ ] Phase 6: system metrics.
 - [ ] Phase 7: security monitoring.

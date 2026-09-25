@@ -1,6 +1,6 @@
 # Project context
 
-Status: Phase 2 Task 9 provider runtime lifecycle and authenticated connection-test/discovery foundation implemented on a feature branch, 2026-09-25. License: Apache-2.0. This is a proposed public, reusable VoIP monitoring application hosted separately from the PBX. The first provider targets Asterisk and FreePBX-based Asterisk, with Asterisk 13.x as a required compatibility baseline to verify. No real PBX has been contacted.
+Status: Phase 2 Task 9 provider runtime lifecycle and authenticated connection-test/discovery foundation implemented on a feature branch, 2026-09-25. PR #10 is open; its current checks pass after a resolved source-tracking CI issue. Task 10 is the next planned step after Task 9 is merged. License: Apache-2.0. This is a proposed public, reusable VoIP monitoring application hosted separately from the PBX. The first provider targets Asterisk and FreePBX-based Asterisk, with Asterisk 13.x as a required compatibility baseline to verify. No real PBX has been contacted.
 
 ## Repository state
 
@@ -22,3 +22,7 @@ The public foundation repository is established on `main`, tracking `origin/main
 ## Unknowns
 
 TO_VERIFY: target PBX capabilities, supported deployment hosts, operating policy, and ownership identity for NOTICE. Local development environment facts belong in ignored `.local/`.
+
+## Continuation note
+
+The authoritative execution state, failure/bug log, and handoff instructions live in `docs/MASTER_PLAN.md`. A new session should read that file before proposing or implementing work. Task failures and bugs must be recorded there before closing each task. Deployment-specific Remote Desktop identifiers and real PBX details stay out of tracked public documentation.
