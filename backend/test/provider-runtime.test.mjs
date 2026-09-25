@@ -56,6 +56,7 @@ class FakeProvider {
   connectAttempts = 0;
   disconnects = 0;
   reconciles = 0;
+  eventListeners = new Set();
 
   constructor(profile, failConnects = 0) {
     this.profile = profile;
@@ -125,6 +126,15 @@ class FakeProvider {
     };
   }
 
+  subscribeEvents(listener) {
+    this.eventListeners.add(listener);
+    return () => this.eventListeners.delete(listener);
+  }
+
+  emitEvent(event) {
+    for (const listener of this.eventListeners) listener(event);
+  }
+
   async reconcile() {
     this.reconciles += 1;
     if (this.state !== 'CONNECTED') throw new Error('not connected');
@@ -182,6 +192,58 @@ test('runtime keeps one provider per enabled PBX, reconnects with backoff, and r
 
     await runtime.stop();
     assert.equal(factory.created.length, 1);
+  }));
+
+test('runtime forwards provider events without creating browser-driven provider instances', async () =>
+  fixture(async ({ storage, secrets, setRuntime }) => {
+    const onboarding = new PbxOnboardingService(storage, secrets);
+    const profile = onboarding.create(profileInput(true));
+    const factory = new FakeFactory();
+    const runtime = new ProviderRuntimeManager(storage, secrets, factory, {
+      reconnectBaseMs: 5,
+      reconnectMaxMs: 5,
+      reconcileMs: 10_000,
+      random: () => 0.5,
+    });
+    setRuntime(runtime);
+    const events = [];
+    const unsubscribe = runtime.subscribeEvents((event) => events.push(event));
+
+    runtime.start();
+    await waitFor(() => runtime.connectionState(profile.id) === 'CONNECTED');
+    assert.equal(factory.created.length, 1);
+
+    factory.created[0].emitEvent({
+      type: 'CHANNEL_CREATED',
+      instanceId: profile.id,
+      source: 'AMI',
+      observedAt: '2026-09-25T00:00:00.000Z',
+      channelId: 'synthetic-channel-1',
+      channelName: 'SIP/100-00000001',
+      state: 'Ring',
+    });
+    assert.deepEqual(events, [
+      {
+        type: 'CHANNEL_CREATED',
+        instanceId: profile.id,
+        source: 'AMI',
+        observedAt: '2026-09-25T00:00:00.000Z',
+        channelId: 'synthetic-channel-1',
+        channelName: 'SIP/100-00000001',
+        state: 'Ring',
+      },
+    ]);
+    assert.equal(factory.created.length, 1);
+
+    unsubscribe();
+    factory.created[0].emitEvent({
+      type: 'CHANNEL_DESTROYED',
+      instanceId: profile.id,
+      source: 'AMI',
+      observedAt: '2026-09-25T00:00:01.000Z',
+      channelId: 'synthetic-channel-1',
+    });
+    assert.equal(events.length, 1);
   }));
 
 test('manual verification uses one-shot provider, persists discovery, and connection edits invalidate setup', async () =>

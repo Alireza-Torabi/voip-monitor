@@ -4,7 +4,7 @@ An Apache-2.0 public project for a separate-server VoIP/PBX monitor. Initial pla
 
 [فارسی](README.fa.md) · [Development setup](docs/INSTALL.md) · [Architecture](docs/ARCHITECTURE.md) · [Project plan](docs/MASTER_PLAN.md)
 
-The current Phase 2 foundation has SQLite, protected secret storage, first-administrator setup, local login, server-side sessions, Asterisk provider runtime lifecycle, and an authenticated connection-test/discovery flow. The bilingual browser can manage Asterisk / FreePBX profiles with encrypted write-only AMI passwords and show safe provider status. PBX network access remains disabled by default and telephony event monitoring is not implemented. It is not a production deployment. See [configuration](docs/CONFIGURATION.md) and [operations](docs/OPERATIONS.md) for the bootstrap flow.
+The current Phase 2 foundation has SQLite, protected secret storage, first-administrator setup, local login, server-side sessions, Asterisk provider runtime lifecycle, authenticated connection-test/discovery, and an internal normalized AMI event-ingestion foundation. The bilingual browser can manage Asterisk / FreePBX profiles with encrypted write-only AMI passwords and show safe provider status. PBX network access remains disabled by default; a reliable telephony state engine and realtime dashboard delivery are not implemented. It is not a production deployment. See [configuration](docs/CONFIGURATION.md) and [operations](docs/OPERATIONS.md) for the bootstrap flow.
 
 Development uses Node.js 24.21.0 and npm:
 

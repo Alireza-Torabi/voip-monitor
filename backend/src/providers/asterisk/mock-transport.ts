@@ -1,4 +1,10 @@
-import type { AmiAction, AmiConnectionTarget, AmiResponse, AmiTransport } from './transport.js';
+import type {
+  AmiAction,
+  AmiConnectionTarget,
+  AmiEventListener,
+  AmiResponse,
+  AmiTransport,
+} from './transport.js';
 
 export type MockAmiHandler = (action: AmiAction) => AmiResponse | Promise<AmiResponse>;
 
@@ -19,6 +25,7 @@ export class MockAmiTransport implements AmiTransport {
   readonly connections: AmiConnectionTarget[] = [];
   readonly actions: AmiAction[] = [];
   private readonly handlers = new Map<string, MockAmiHandler>();
+  private readonly eventListeners = new Set<AmiEventListener>();
 
   on(action: string, handler: MockAmiHandler): this {
     this.handlers.set(action.toLowerCase(), handler);
@@ -42,5 +49,17 @@ export class MockAmiTransport implements AmiTransport {
       return { response: 'Error', message: 'Mock action not configured', fields: {} };
     }
     return handler(action);
+  }
+
+  subscribeEvents(listener: AmiEventListener): () => void {
+    this.eventListeners.add(listener);
+    return () => {
+      this.eventListeners.delete(listener);
+    };
+  }
+
+  emitEvent(event: string, fields: Readonly<Record<string, string>> = {}): void {
+    const snapshot = Object.freeze({ ...fields });
+    for (const listener of this.eventListeners) listener({ event, fields: snapshot });
   }
 }
