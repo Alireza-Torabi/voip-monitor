@@ -82,6 +82,9 @@ export interface ProviderEventBase {
   instanceId: PbxInstanceId;
   source: 'AMI';
   observedAt: string;
+  /** Monotonic order within one provider connection when the transport can supply it. */
+  streamGeneration?: number;
+  streamSequence?: number;
 }
 
 export type ProviderEvent =
@@ -142,12 +145,18 @@ export interface ProviderChannelSnapshot {
   linkedId?: string;
   state?: string;
   bridgeId?: string;
+  /** Sequence of the source snapshot item within the provider connection. */
+  streamSequence?: number;
 }
 
 export interface ProviderStateSnapshot {
   instanceId: PbxInstanceId;
   source: 'AMI';
+  /** Snapshot collection start time; used to reconcile events buffered during collection. */
+  startedAt?: string;
   observedAt: string;
+  streamGeneration?: number;
+  streamStartedSequence?: number;
   channels: ProviderChannelSnapshot[];
 }
 

@@ -11,20 +11,30 @@ function optional(fields: Readonly<Record<string, string>>, name: string): strin
   return value ? value : undefined;
 }
 
+function streamOrder(event: AmiEvent): { streamGeneration?: number; streamSequence?: number } {
+  return {
+    ...(event.streamGeneration === undefined ? {} : { streamGeneration: event.streamGeneration }),
+    ...(event.streamSequence === undefined ? {} : { streamSequence: event.streamSequence }),
+  };
+}
+
 function channelBase(
   instanceId: string,
   observedAt: string,
-  fields: Readonly<Record<string, string>>,
+  event: AmiEvent,
 ):
   | {
       instanceId: string;
       source: 'AMI';
       observedAt: string;
+      streamGeneration?: number;
+      streamSequence?: number;
       channelId: string;
       channelName?: string;
       linkedId?: string;
     }
   | undefined {
+  const fields = event.fields;
   const channelId = required(fields, 'Uniqueid');
   if (!channelId) return undefined;
   const channelName = optional(fields, 'Channel');
@@ -33,6 +43,7 @@ function channelBase(
     instanceId,
     source: 'AMI',
     observedAt,
+    ...streamOrder(event),
     channelId,
     ...(channelName ? { channelName } : {}),
     ...(linkedId ? { linkedId } : {}),
@@ -55,7 +66,7 @@ export function normalizeAmiEvent(
   const fields = event.fields;
 
   if (name === 'newchannel') {
-    const base = channelBase(instanceId, observedAt, fields);
+    const base = channelBase(instanceId, observedAt, event);
     if (!base) return undefined;
     const state = optional(fields, 'ChannelStateDesc') ?? optional(fields, 'ChannelState');
     return {
@@ -66,7 +77,7 @@ export function normalizeAmiEvent(
   }
 
   if (name === 'newstate') {
-    const base = channelBase(instanceId, observedAt, fields);
+    const base = channelBase(instanceId, observedAt, event);
     if (!base) return undefined;
     const state = optional(fields, 'ChannelStateDesc') ?? optional(fields, 'ChannelState');
     if (!state) return undefined;
@@ -78,7 +89,7 @@ export function normalizeAmiEvent(
   }
 
   if (name === 'hangup') {
-    const base = channelBase(instanceId, observedAt, fields);
+    const base = channelBase(instanceId, observedAt, event);
     if (!base) return undefined;
     const cause = optional(fields, 'Cause');
     const causeText = optional(fields, 'Cause-txt');
@@ -101,6 +112,7 @@ export function normalizeAmiEvent(
       instanceId,
       source: 'AMI',
       observedAt,
+      ...streamOrder(event),
       sourceChannelId,
       ...(destinationChannelId ? { destinationChannelId } : {}),
       ...(linkedId ? { linkedId } : {}),
@@ -119,6 +131,7 @@ export function normalizeAmiEvent(
       instanceId,
       source: 'AMI',
       observedAt,
+      ...streamOrder(event),
       sourceChannelId,
       ...(destinationChannelId ? { destinationChannelId } : {}),
       ...(linkedId ? { linkedId } : {}),
@@ -137,6 +150,7 @@ export function normalizeAmiEvent(
       instanceId,
       source: 'AMI',
       observedAt,
+      ...streamOrder(event),
       bridgeId,
       channelId,
       ...(channelName ? { channelName } : {}),
@@ -153,6 +167,7 @@ export function normalizeAmiEvent(
       instanceId,
       source: 'AMI',
       observedAt,
+      ...streamOrder(event),
       endpointId,
       status,
     };

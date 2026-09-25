@@ -72,7 +72,11 @@ test('TCP AMI transport publishes events and still correlates a synthetic respon
       const response = await transport.request({ action: 'Ping' });
       assert.equal(response.response, 'Success');
       assert.equal(response.fields.Ping, 'Pong');
-      assert.deepEqual(events, [{ event: 'FullyBooted', fields: { Status: 'Fully Booted' } }]);
+      assert.equal(events.length, 1);
+      assert.equal(events[0].event, 'FullyBooted');
+      assert.deepEqual(events[0].fields, { Status: 'Fully Booted' });
+      assert.ok(Number.isInteger(events[0].streamGeneration));
+      assert.equal(events[0].streamSequence, 1);
       unsubscribe();
       await transport.disconnect();
     },
@@ -101,14 +105,22 @@ test('TCP AMI transport correlates an event-list action while forwarding interle
         { itemEvent: 'CoreShowChannel', completeEvent: 'CoreShowChannelsComplete' },
       );
       assert.equal(result.response.response, 'Success');
+      assert.ok(Number.isInteger(result.streamGeneration));
+      const generation = result.streamGeneration;
+      assert.equal(result.streamStartedSequence, 0);
       assert.equal(result.events.length, 1);
       assert.equal(result.events[0].event, 'CoreShowChannel');
       assert.equal(result.events[0].fields.Uniqueid, 'snapshot-1');
+      assert.equal(result.events[0].streamGeneration, generation);
+      assert.equal(result.events[0].streamSequence, 3);
       assert.equal(result.completion.fields.ListItems, '1');
+      assert.equal(result.completion.streamSequence, 4);
       assert.deepEqual(liveEvents, [
         {
           event: 'Newchannel',
           fields: { Uniqueid: 'live-1', Channel: 'SIP/200-00000002' },
+          streamGeneration: generation,
+          streamSequence: 2,
         },
       ]);
       await transport.disconnect();

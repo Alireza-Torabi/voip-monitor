@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-09-25. Phase 1 public repository foundation is complete. Task 11 is merged into `main` as PR #12. Phase 2 Task 12 controlled real-PBX compatibility verification is complete on `feature/real-pbx-compatibility-verification`. After correcting the dedicated AMI permission, the approved real-PBX gate passed login, discovery, channel snapshots, passive normalized live events, reconciliation, and clean disconnect on the required Asterisk 13.x baseline. No PBX setting was changed and no telephony state engine exists yet.
+Status: 2026-09-25. Phase 1 public repository foundation is complete. Task 12 is merged into `main` as PR #13. Phase 2 Task 13 telephony state engine foundation is implemented on `feature/telephony-state-engine`. It combines authoritative channel snapshots with ordered normalized live events into deterministic in-memory channel/call state with revisions and freshness; it remains internal with no browser/API exposure.
 
 ## Phase 0 — environment discovery
 
@@ -50,15 +50,15 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 10: AMI transport event subscription, provider-neutral normalized event contracts, Asterisk event normalization, and runtime event forwarding. Synthetic coverage includes channel lifecycle/state, dial lifecycle, bridge membership, and chan_sip peer status; raw AMI payloads are not forwarded to consumers.
 - [x] Task 11: ActionID-correlated AMI event-list actions, `CoreShowChannels` provider snapshots, minimal provider-neutral channel snapshots, initial snapshot publication, and periodic reconciliation snapshots. Partial/cancelled/inconsistent lists fail closed; snapshot degradation does not cause a reconnect storm.
 - [x] Task 12: controlled read-only real-PBX compatibility verification of the Asterisk 13.x baseline and Task 8–11 AMI assumptions. Local-only credential handling, bounded verifier, bilingual runbook, safe error classification, login/discovery, `CoreShowChannels`, passive normalized live events, reconciliation, and clean disconnect were validated against an approved real Asterisk 13.x system without PBX changes.
-- [ ] Proposed next task: Task 13 telephony state engine foundation that combines authoritative snapshots with buffered normalized live events, produces deterministic current channel/call state, and remains internal before any realtime browser API.
+- [x] Task 13: internal telephony state engine foundation. Provider frames now carry per-process connection generations and per-frame sequence numbers; channel snapshot items retain their source sequence. The engine subscribes before runtime start, buffers/replays events around snapshot collection boundaries, repairs drift from reconciliation snapshots, tracks `CURRENT`/`AWAITING_SNAPSHOT`/`STALE`, groups current channels into deterministic calls, and resets state when a PBX profile runtime is replaced or removed. No REST/WebSocket state endpoint exists yet.
+- [ ] Proposed next task: Task 14 endpoint/registration state foundation with authoritative provider snapshots plus normalized endpoint events, synthetic/mock first and provider-capability aware before any additional real-PBX verification.
 
 ### Current execution handoff
 
-- Current branch: `feature/real-pbx-compatibility-verification`, tracking `origin/feature/real-pbx-compatibility-verification`, from synchronized `main` after Task 11 merged as PR #12.
-- Task 12 commits include `e88e07e` (real-PBX verifier), `176002a` (safe denied-action classification), `480e73f` (least-privilege AMI documentation), and `2f24815` (completed real compatibility gate documentation).
-- The controlled real-PBX gate passed after the dedicated AMI permission was corrected. Public documentation records only the generic compatibility result; detailed target/version/count/event observations remain under ignored local storage.
-- Final local gates pass: lint, format, typecheck, backend tests 58/58, frontend tests 10/10, build, foundation check, license check, Bash syntax, and verifier Node syntax. GitHub Actions for `2f24815` passed.
-- Task 12 is ready for PR review and merge. Exact next task after merge: Task 13 telephony state engine foundation using authoritative snapshots plus buffered normalized live events. No browser realtime/API exposure is part of that first state-engine task.
+- Current branch: `feature/telephony-state-engine` from clean synchronized `main` after Task 12 merged as PR #13.
+- Task 13 implementation is complete locally. Final local gates pass: lint, format, typecheck, backend tests 64/64, frontend tests 10/10, build, foundation check, and license check. Commit/push remains for this task closure.
+- No real PBX was contacted during Task 13; all state-engine and ordering work is synthetic/loopback only.
+- Exact next task after Task 13 merge: Task 14 endpoint/registration state foundation with authoritative provider snapshots plus normalized endpoint events, synthetic/mock first.
 
 ### Failure and bug log
 
@@ -80,6 +80,13 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - **Task 12 least-privilege documentation bug — resolved:** the initial runbook suggested `write = system,reporting`. Asterisk 13 checks action authority by bitmask overlap, and both required read-only actions are registered as `system|reporting`, so `write = reporting` is sufficient and narrower. Live call/channel events still require `read = call`.
 - **Task 12 real-PBX gate — passed:** after the dedicated AMI permission was corrected, the bounded verifier passed real login, `CoreSettings`, initial `CoreShowChannels`, 60-second passive normalized event observation during a normal test call, reconciliation, and clean disconnect. The tested provider remained connected through final reconciliation and no PBX setting was changed.
 - **Task 12 compatibility scope:** the real gate establishes a verified baseline for the approved Asterisk 13.x environment only. It does not claim every Asterisk/FreePBX release, PJSIP event family, queue/agent flow, or deployment topology is compatible. Broader compatibility remains future matrix work.
+- **Task 13 snapshot/event race — resolved by design:** timestamps alone cannot safely decide whether an event interleaved with `CoreShowChannels` happened before or after a particular snapshot item. The TCP transport now assigns a process-unique connection generation and monotonic frame sequence; snapshot items retain their source sequence and the state engine replays only events newer than the applicable snapshot boundary.
+- **Task 13 reconnect/profile-reload race — resolved:** a newer connection generation is buffered until its authoritative snapshot arrives, and runtime profile replacement/removal emits an internal reset so state from a previous provider instance is not carried into the new one.
+- **Task 13 freshness gap — resolved:** runtime connection-state changes now feed the internal state engine. Initialized state becomes `STALE` on non-connected health and `AWAITING_SNAPSHOT` after reconnection until a fresh authoritative snapshot restores `CURRENT`.
+- **Task 13 bridge reducer bug — resolved before commit:** an initial `BRIDGE_LEFT` reducer draft could clear a different, newer bridge assignment. A leave event now clears bridge membership only when it matches the current bridge and otherwise preserves the newer assignment.
+- **Task 13 validation failures — resolved:** the first targeted build exposed exact-optional-property TypeScript errors in the new reducer; after those fixes, two existing transport tests failed because ordered event metadata changed the expected shape. Types/formatting and test expectations were corrected and targeted suites passed. The first complete lint gate later found two intentionally discarded destructured variables and two test uses of an undeclared `structuredClone` global under the repository ESLint environment; the reducer now constructs public objects explicitly and the fake test source uses explicit shallow copies.
+- **Task 13 bounded-buffer behavior:** event buffering is capped at 10,000 entries per PBX. If overflow loses a boundary needed for safe reconciliation, the engine fails closed and waits for a snapshot whose collection starts after the discarded boundary.
+- **Task 13 known limitations:** state is in-memory only; call state is a deterministic grouping of current channels by `linkedId` (falling back to channel ID), not a semantic call-phase model. Caller identity, dial result history, endpoint/trunk/queue/agent state, persistence, historical revisions, REST reads, and WebSocket delivery remain future work.
 
 ### Persistent continuation protocol
 
@@ -94,11 +101,11 @@ For every future task/session:
 
 ## Future phases — pending approval
 
-Tasks 7–12 implemented substantial Asterisk-provider foundation work earlier than the original high-level phase buckets. The phase labels below describe the remaining product roadmap rather than implying that completed provider work must be repeated.
+Tasks 7–13 implemented substantial Asterisk-provider and telephony-state foundation work earlier than the original high-level phase buckets. The phase labels below describe the remaining product roadmap rather than implying that completed provider work must be repeated.
 
 - [ ] Phase 3: account management and onboarding refinement.
 - [x] Phase 4 foundation gate: Asterisk provider integration — network policy, AMI transport, login/discovery, runtime lifecycle, connection verification, normalized event subscription, channel snapshots/reconciliation, and one controlled real Asterisk 13.x compatibility gate are complete.
-- [ ] Phase 5: telephony state engine — Task 13 is next.
+- [~] Phase 5: telephony state engine — deterministic channel/call state foundation is implemented; endpoint/registration state is next.
 - [ ] Phase 6: system metrics.
 - [ ] Phase 7: security monitoring.
 - [ ] Phase 8: authenticated API and realtime.
@@ -107,4 +114,4 @@ Tasks 7–12 implemented substantial Asterisk-provider foundation work earlier t
 - [ ] Phase 11: hardening, backup, tested restore, and a production deployment runbook.
 - [ ] Phase 12: release validation, including an organization-neutral fresh-deployment procedure that can onboard a new service without carrying private values from another deployment.
 
-Phase 1 is closed. Phase 2 Task 12 is complete. Stop after this Task 12 branch is merged, then begin Task 13.
+Phase 1 is closed. Phase 2 Task 13 is implemented on its feature branch. Stop after final Task 13 validation/push and await merge approval before Task 14.

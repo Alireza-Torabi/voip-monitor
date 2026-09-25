@@ -22,6 +22,8 @@ export interface AmiResponse {
 export interface AmiEvent {
   event: string;
   fields: Readonly<Record<string, string>>;
+  streamGeneration?: number;
+  streamSequence?: number;
 }
 
 export type AmiEventListener = (event: AmiEvent) => void;
@@ -35,6 +37,8 @@ export interface AmiEventListResult {
   response: AmiResponse;
   events: readonly AmiEvent[];
   completion: AmiEvent;
+  streamGeneration?: number;
+  streamStartedSequence?: number;
 }
 
 export type AmiTransportErrorCode =

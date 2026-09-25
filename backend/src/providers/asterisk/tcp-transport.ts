@@ -17,6 +17,7 @@ const LINE_END = '\r\n';
 const DEFAULT_TIMEOUT_MS = 5000;
 const MAX_BUFFER_BYTES = 1024 * 1024;
 const SAFE_NAME = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
+let nextStreamGeneration = 0;
 
 interface PendingBase {
   actionId: string;
@@ -98,6 +99,8 @@ export class TcpAmiTransport implements AmiTransport {
   private receiveBuffer = '';
   private pending: PendingOperation | undefined;
   private actionCounter = 0;
+  private streamGeneration = 0;
+  private frameSequence = 0;
   private queue: Promise<void> = Promise.resolve();
   private connectResolve: (() => void) | undefined;
   private connectReject: ((error: AmiTransportError) => void) | undefined;
@@ -111,6 +114,9 @@ export class TcpAmiTransport implements AmiTransport {
     if (!isIP(target.address) || target.port < 1 || target.port > 65535) {
       throw new AmiTransportError('CONNECTION_FAILED');
     }
+
+    this.streamGeneration = ++nextStreamGeneration;
+    this.frameSequence = 0;
 
     await new Promise<void>((resolve, reject) => {
       this.connectResolve = resolve;
@@ -218,6 +224,8 @@ export class TcpAmiTransport implements AmiTransport {
     }
     const actionId = `vm-${++this.actionCounter}`;
     const payload = serializeAction(action, actionId);
+    const streamGeneration = this.streamGeneration;
+    const streamStartedSequence = this.frameSequence;
 
     return new Promise<AmiEventListResult>((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -231,7 +239,12 @@ export class TcpAmiTransport implements AmiTransport {
         actionId,
         spec,
         events: [],
-        resolve,
+        resolve: (result) =>
+          resolve({
+            ...result,
+            streamGeneration,
+            streamStartedSequence,
+          }),
         reject,
         timer,
       };
@@ -292,6 +305,9 @@ export class TcpAmiTransport implements AmiTransport {
       return;
     }
 
+    const streamSequence = ++this.frameSequence;
+    const streamGeneration = this.streamGeneration;
+
     const response = takeCaseInsensitive(fields, 'Response');
     if (response) {
       const actionId = takeCaseInsensitive(fields, 'ActionID');
@@ -329,7 +345,12 @@ export class TcpAmiTransport implements AmiTransport {
     if (pending?.kind === 'event-list' && actionId === pending.actionId) {
       const normalized = event.toLowerCase();
       if (normalized === pending.spec.itemEvent.toLowerCase()) {
-        pending.events.push({ event, fields: Object.freeze({ ...fields }) });
+        pending.events.push({
+          event,
+          fields: Object.freeze({ ...fields }),
+          streamGeneration,
+          streamSequence,
+        });
         return;
       }
       if (normalized === pending.spec.completeEvent.toLowerCase()) {
@@ -338,7 +359,12 @@ export class TcpAmiTransport implements AmiTransport {
           this.rejectPending(new AmiTransportError('PROTOCOL_ERROR'));
           return;
         }
-        pending.completion = { event, fields: Object.freeze({ ...fields }) };
+        pending.completion = {
+          event,
+          fields: Object.freeze({ ...fields }),
+          streamGeneration,
+          streamSequence,
+        };
         this.completeEventListIfReady(pending);
         return;
       }
@@ -349,7 +375,7 @@ export class TcpAmiTransport implements AmiTransport {
     const snapshot = Object.freeze({ ...fields });
     for (const listener of this.eventListeners) {
       try {
-        listener({ event, fields: snapshot });
+        listener({ event, fields: snapshot, streamGeneration, streamSequence });
       } catch {
         // One consumer must never break AMI frame processing for other consumers.
       }
@@ -365,10 +391,20 @@ export class TcpAmiTransport implements AmiTransport {
       events: pending.events.map((event) => ({
         event: event.event,
         fields: Object.freeze({ ...event.fields }),
+        ...(event.streamGeneration === undefined
+          ? {}
+          : { streamGeneration: event.streamGeneration }),
+        ...(event.streamSequence === undefined ? {} : { streamSequence: event.streamSequence }),
       })),
       completion: {
         event: pending.completion.event,
         fields: Object.freeze({ ...pending.completion.fields }),
+        ...(pending.completion.streamGeneration === undefined
+          ? {}
+          : { streamGeneration: pending.completion.streamGeneration }),
+        ...(pending.completion.streamSequence === undefined
+          ? {}
+          : { streamSequence: pending.completion.streamSequence }),
       },
     });
   }

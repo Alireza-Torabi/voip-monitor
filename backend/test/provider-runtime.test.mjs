@@ -204,16 +204,22 @@ test('runtime keeps one provider per enabled PBX, reconnects with backoff, and r
       random: () => 0.5,
     });
     setRuntime(runtime);
+    const resets = [];
+    const connectionStates = [];
+    runtime.subscribeInstanceResets((id) => resets.push(id));
+    runtime.subscribeConnectionStates((id, state) => connectionStates.push([id, state]));
 
     runtime.start();
     await waitFor(() => factory.created[0]?.connectAttempts >= 2);
     assert.equal(factory.created.length, 1);
     assert.equal(runtime.connectionState(profile.id), 'CONNECTED');
+    assert.ok(connectionStates.some(([id, state]) => id === profile.id && state === 'CONNECTED'));
 
     onboarding.update(profile.id, { enabled: false });
     await runtime.syncProfile(profile.id);
     assert.equal(runtime.connectionState(profile.id), 'UNVERIFIED');
     assert.ok(factory.created[0].disconnects >= 1);
+    assert.deepEqual(resets, [profile.id]);
 
     await runtime.stop();
     assert.equal(factory.created.length, 1);
