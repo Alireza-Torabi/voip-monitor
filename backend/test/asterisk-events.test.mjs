@@ -148,6 +148,25 @@ test('AMI normalizer maps core channel, dial, bridge, and peer events without ra
       },
     ],
     [
+      'Registry',
+      {
+        ChannelType: 'SIP',
+        Username: 'synthetic-user',
+        Domain: 'sip.example.test',
+        Status: 'Registered',
+        Cause: 'synthetic-private-detail',
+      },
+      {
+        type: 'TRUNK_REGISTRATION_CHANGED',
+        instanceId: 'pbx-1',
+        source: 'AMI',
+        observedAt,
+        trunkId: 'SIP/synthetic-user@sip.example.test',
+        kind: 'OUTBOUND_REGISTRATION',
+        registrationState: 'REGISTERED',
+      },
+    ],
+    [
       'PeerStatus',
       { Peer: 'SIP/100', PeerStatus: 'Registered', Address: '192.0.2.40' },
       {
@@ -167,6 +186,7 @@ test('AMI normalizer maps core channel, dial, bridge, and peer events without ra
     assert.deepEqual(normalized, expected);
     assert.ok(!JSON.stringify(normalized).includes('synthetic-caller'));
     assert.ok(!JSON.stringify(normalized).includes('192.0.2.40'));
+    assert.ok(!JSON.stringify(normalized).includes('synthetic-private-detail'));
   }
 });
 

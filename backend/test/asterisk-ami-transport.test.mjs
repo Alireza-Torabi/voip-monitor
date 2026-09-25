@@ -263,6 +263,30 @@ test('Asterisk provider logs in, discovers version, reconciles, and wipes passwo
         },
       };
     })
+    .onEventList('SIPshowregistry', (_action, spec) => {
+      assert.deepEqual(spec, {
+        itemEvent: 'RegistryEntry',
+        completeEvent: 'RegistrationsComplete',
+      });
+      return {
+        response: { response: 'Success', fields: { EventList: 'start' } },
+        events: [
+          {
+            event: 'RegistryEntry',
+            fields: {
+              Username: 'synthetic-user',
+              Domain: 'sip.example.test',
+              State: 'Registered',
+              Host: '192.0.2.200',
+            },
+          },
+        ],
+        completion: {
+          event: 'RegistrationsComplete',
+          fields: { EventList: 'Complete', ListItems: '1' },
+        },
+      };
+    })
     .on('Logoff', () => ({ response: 'Goodbye', fields: {} }));
 
   const provider = new AsteriskProvider({
@@ -325,9 +349,23 @@ test('Asterisk provider logs in, discovers version, reconciles, and wipes passwo
       },
     ],
   });
+  assert.deepEqual(snapshot.trunkState, {
+    capability: 'SUPPORTED',
+    startedAt: snapshot.trunkState.startedAt,
+    observedAt: snapshot.trunkState.observedAt,
+    trunks: [
+      {
+        trunkId: 'SIP/synthetic-user@sip.example.test',
+        kind: 'OUTBOUND_REGISTRATION',
+        registrationState: 'REGISTERED',
+      },
+    ],
+  });
+  assert.ok(!JSON.stringify(snapshot.trunkState).includes('192.0.2.200'));
   const capabilities = await provider.getCapabilities();
   assert.equal(capabilities.telephony.channels, 'SUPPORTED');
   assert.equal(capabilities.telephony.endpoints, 'SUPPORTED');
+  assert.equal(capabilities.telephony.trunks, 'SUPPORTED');
   assert.equal((await provider.getHealth()).sources.AMI.freshness, 'CURRENT');
   await provider.disconnect();
   const disconnected = await provider.getHealth();
@@ -351,6 +389,14 @@ test('Asterisk provider keeps channel snapshots usable when SIP peer listing is 
       events: [],
       completion: { event: 'PeerlistComplete', fields: { EventList: 'Complete', ListItems: '0' } },
     }))
+    .onEventList('SIPshowregistry', () => ({
+      response: { response: 'Error', message: 'Permission denied', fields: {} },
+      events: [],
+      completion: {
+        event: 'RegistrationsComplete',
+        fields: { EventList: 'Complete', ListItems: '0' },
+      },
+    }))
     .on('Logoff', () => ({ response: 'Goodbye', fields: {} }));
   const provider = new AsteriskProvider({
     instanceId: 'synthetic-pbx',
@@ -372,7 +418,61 @@ test('Asterisk provider keeps channel snapshots usable when SIP peer listing is 
   assert.deepEqual(state.channels, []);
   assert.equal(state.endpointState.capability, 'PERMISSION_DENIED');
   assert.deepEqual(state.endpointState.endpoints, []);
+  assert.equal(state.trunkState.capability, 'PERMISSION_DENIED');
+  assert.deepEqual(state.trunkState.trunks, []);
   assert.equal((await provider.getCapabilities()).telephony.endpoints, 'PERMISSION_DENIED');
+  assert.equal((await provider.getHealth()).connection.state, 'CONNECTED');
+  await provider.disconnect();
+});
+
+test('Asterisk provider keeps channel and endpoint snapshots usable when SIP registry is denied', async () => {
+  const transport = new MockAmiTransport()
+    .on('Login', () => ({ response: 'Success', fields: {} }))
+    .onEventList('CoreShowChannels', () => ({
+      response: { response: 'Success', fields: { EventList: 'start' } },
+      events: [],
+      completion: {
+        event: 'CoreShowChannelsComplete',
+        fields: { EventList: 'Complete', ListItems: '0' },
+      },
+    }))
+    .onEventList('SIPpeers', () => ({
+      response: { response: 'Success', fields: { EventList: 'start' } },
+      events: [],
+      completion: { event: 'PeerlistComplete', fields: { EventList: 'Complete', ListItems: '0' } },
+    }))
+    .onEventList('SIPshowregistry', () => ({
+      response: { response: 'Error', message: 'Permission denied', fields: {} },
+      events: [],
+      completion: {
+        event: 'RegistrationsComplete',
+        fields: { EventList: 'Complete', ListItems: '0' },
+      },
+    }))
+    .on('Logoff', () => ({ response: 'Goodbye', fields: {} }));
+  const provider = new AsteriskProvider({
+    instanceId: 'synthetic-pbx',
+    displayName: 'Synthetic PBX',
+    host: '192.0.2.21',
+    port: 5038,
+    amiUsername: 'synthetic-admin',
+    readAmiPassword: () => Buffer.from('synthetic-secret'),
+    resolver: {
+      async resolve() {
+        return [];
+      },
+    },
+    transport,
+  });
+
+  await provider.connect();
+  const state = await provider.getCurrentState();
+  assert.equal(state.endpointState.capability, 'SUPPORTED');
+  assert.equal(state.trunkState.capability, 'PERMISSION_DENIED');
+  assert.deepEqual(state.trunkState.trunks, []);
+  const capabilities = await provider.getCapabilities();
+  assert.equal(capabilities.telephony.endpoints, 'SUPPORTED');
+  assert.equal(capabilities.telephony.trunks, 'PERMISSION_DENIED');
   assert.equal((await provider.getHealth()).connection.state, 'CONNECTED');
   await provider.disconnect();
 });

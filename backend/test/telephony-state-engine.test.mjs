@@ -546,3 +546,167 @@ test('unavailable endpoint capability never manufactures endpoint state from liv
 
   engine.stop();
 });
+
+test('trunk snapshot establishes outbound registration state and replays only newer Registry events', () => {
+  const source = new FakeStateSource();
+  const engine = new TelephonyStateEngine(source);
+  engine.start();
+
+  source.event(
+    baseEvent('TRUNK_REGISTRATION_CHANGED', {
+      trunkId: 'SIP/a@sip-a.example.test',
+      kind: 'OUTBOUND_REGISTRATION',
+      registrationState: 'FAILED',
+      streamSequence: 3,
+    }),
+  );
+  source.event(
+    baseEvent('TRUNK_REGISTRATION_CHANGED', {
+      trunkId: 'SIP/b@sip-b.example.test',
+      kind: 'OUTBOUND_REGISTRATION',
+      registrationState: 'REGISTERED',
+      streamSequence: 8,
+      observedAt: '2026-09-25T12:00:00.800Z',
+    }),
+  );
+
+  source.snapshot(
+    snapshot({
+      streamStartedSequence: 0,
+      trunkState: {
+        capability: 'SUPPORTED',
+        startedAt: '2026-09-25T12:00:00.200Z',
+        observedAt: '2026-09-25T12:00:01.000Z',
+        streamGeneration: 1,
+        streamStartedSequence: 2,
+        trunks: [
+          {
+            trunkId: 'SIP/a@sip-a.example.test',
+            kind: 'OUTBOUND_REGISTRATION',
+            registrationState: 'REGISTERED',
+            streamSequence: 4,
+          },
+        ],
+      },
+    }),
+  );
+
+  let current = engine.current('pbx-1');
+  assert.equal(current.trunkCapability, 'SUPPORTED');
+  assert.equal(current.trunkSynchronization, 'CURRENT');
+  assert.deepEqual(
+    current.trunks.map(({ trunkId, kind, registrationState }) => ({
+      trunkId,
+      kind,
+      registrationState,
+    })),
+    [
+      {
+        trunkId: 'SIP/a@sip-a.example.test',
+        kind: 'OUTBOUND_REGISTRATION',
+        registrationState: 'REGISTERED',
+      },
+      {
+        trunkId: 'SIP/b@sip-b.example.test',
+        kind: 'OUTBOUND_REGISTRATION',
+        registrationState: 'REGISTERED',
+      },
+    ],
+  );
+
+  source.event(
+    baseEvent('TRUNK_REGISTRATION_CHANGED', {
+      trunkId: 'SIP/a@sip-a.example.test',
+      kind: 'OUTBOUND_REGISTRATION',
+      registrationState: 'REJECTED',
+      streamSequence: 9,
+      observedAt: '2026-09-25T12:00:02.000Z',
+    }),
+  );
+  current = engine.current('pbx-1');
+  assert.equal(current.trunks[0].registrationState, 'REJECTED');
+
+  engine.stop();
+});
+
+test('unavailable trunk capability never manufactures trunk state from live Registry events', () => {
+  const source = new FakeStateSource();
+  const engine = new TelephonyStateEngine(source);
+  engine.start();
+
+  source.snapshot(
+    snapshot({
+      trunkState: {
+        capability: 'UNSUPPORTED',
+        observedAt: '2026-09-25T12:00:01.000Z',
+        trunks: [],
+      },
+    }),
+  );
+  source.event(
+    baseEvent('TRUNK_REGISTRATION_CHANGED', {
+      trunkId: 'SIP/a@sip-a.example.test',
+      kind: 'OUTBOUND_REGISTRATION',
+      registrationState: 'REGISTERED',
+      streamSequence: 3,
+      observedAt: '2026-09-25T12:00:02.000Z',
+    }),
+  );
+
+  const current = engine.current('pbx-1');
+  assert.equal(current.trunkCapability, 'UNSUPPORTED');
+  assert.equal(current.trunkSynchronization, 'UNAVAILABLE');
+  assert.deepEqual(current.trunks, []);
+
+  engine.stop();
+});
+
+test('buffer overflow waits for independent trunk snapshot boundary before claiming current state', () => {
+  const source = new FakeStateSource();
+  const engine = new TelephonyStateEngine(source, { maxBufferedEvents: 2 });
+  engine.start();
+
+  for (let sequence = 1; sequence <= 3; sequence += 1) {
+    source.event(
+      baseEvent('TRUNK_REGISTRATION_CHANGED', {
+        trunkId: `SIP/${sequence}@sip.example.test`,
+        kind: 'OUTBOUND_REGISTRATION',
+        registrationState: 'REGISTERED',
+        streamSequence: sequence,
+        observedAt: `2026-09-25T12:00:00.00${sequence}Z`,
+      }),
+    );
+  }
+
+  source.snapshot(
+    snapshot({
+      streamStartedSequence: 3,
+      trunkState: {
+        capability: 'SUPPORTED',
+        startedAt: '2026-09-25T12:00:00.001Z',
+        observedAt: '2026-09-25T12:00:01.000Z',
+        streamGeneration: 1,
+        streamStartedSequence: 0,
+        trunks: [],
+      },
+    }),
+  );
+  assert.equal(engine.current('pbx-1'), undefined);
+
+  source.snapshot(
+    snapshot({
+      streamStartedSequence: 3,
+      trunkState: {
+        capability: 'SUPPORTED',
+        startedAt: '2026-09-25T12:00:02.000Z',
+        observedAt: '2026-09-25T12:00:03.000Z',
+        streamGeneration: 1,
+        streamStartedSequence: 3,
+        trunks: [],
+      },
+    }),
+  );
+  assert.equal(engine.current('pbx-1').trunkSynchronization, 'CURRENT');
+
+  engine.stop();
+});
