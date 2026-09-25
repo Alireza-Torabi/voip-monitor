@@ -145,6 +145,15 @@ export class AsteriskProvider implements PbxProvider {
       const observedAt = this.now();
       const normalized = normalizeAmiEvent(this.instanceId, event, observedAt);
       if (!normalized) return;
+      if (
+        normalized.type === 'AGENT_CALLED' ||
+        normalized.type === 'AGENT_RING_NO_ANSWER' ||
+        normalized.type === 'AGENT_CONNECTED' ||
+        normalized.type === 'AGENT_COMPLETED' ||
+        normalized.type === 'AGENT_DUMPED'
+      ) {
+        this.capabilities.telephony.agents = 'SUPPORTED';
+      }
       this.amiHealth = {
         source: 'AMI',
         freshness: 'CURRENT',

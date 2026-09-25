@@ -100,6 +100,42 @@ function nonNegativeInteger(value: string | undefined): number | undefined {
   return Number.isSafeInteger(parsed) ? parsed : undefined;
 }
 
+export function normalizeAgentCompletionReason(
+  reason: string | undefined,
+): 'CALLER' | 'AGENT' | 'TRANSFER' | 'UNKNOWN' {
+  switch (reason?.trim().toLowerCase()) {
+    case 'caller':
+      return 'CALLER';
+    case 'agent':
+      return 'AGENT';
+    case 'transfer':
+      return 'TRANSFER';
+    default:
+      return 'UNKNOWN';
+  }
+}
+
+function agentInteractionIdentity(fields: Readonly<Record<string, string>>):
+  | {
+      queueId: string;
+      callerId: string;
+      memberId: string;
+      memberName?: string;
+    }
+  | undefined {
+  const queueId = required(fields, 'Queue');
+  const callerId = required(fields, 'Uniqueid');
+  const memberId = required(fields, 'Interface');
+  if (!queueId || !callerId || !memberId) return undefined;
+  const memberName = optional(fields, 'MemberName');
+  return {
+    queueId,
+    callerId,
+    memberId,
+    ...(memberName ? { memberName } : {}),
+  };
+}
+
 function streamOrder(event: AmiEvent): { streamGeneration?: number; streamSequence?: number } {
   return {
     ...(event.streamGeneration === undefined ? {} : { streamGeneration: event.streamGeneration }),
@@ -356,6 +392,71 @@ export function normalizeAmiEvent(
       queueId,
       callerId,
       disposition: name === 'queuecallerabandon' ? 'ABANDONED' : 'LEFT',
+    };
+  }
+  if (name === 'agentcalled') {
+    const identity = agentInteractionIdentity(fields);
+    if (!identity) return undefined;
+    return {
+      type: 'AGENT_CALLED',
+      instanceId,
+      source: 'AMI',
+      observedAt,
+      ...streamOrder(event),
+      ...identity,
+    };
+  }
+
+  if (name === 'agentringnoanswer') {
+    const identity = agentInteractionIdentity(fields);
+    if (!identity) return undefined;
+    return {
+      type: 'AGENT_RING_NO_ANSWER',
+      instanceId,
+      source: 'AMI',
+      observedAt,
+      ...streamOrder(event),
+      ...identity,
+    };
+  }
+
+  if (name === 'agentconnect') {
+    const identity = agentInteractionIdentity(fields);
+    if (!identity) return undefined;
+    return {
+      type: 'AGENT_CONNECTED',
+      instanceId,
+      source: 'AMI',
+      observedAt,
+      ...streamOrder(event),
+      ...identity,
+    };
+  }
+
+  if (name === 'agentdump') {
+    const identity = agentInteractionIdentity(fields);
+    if (!identity) return undefined;
+    return {
+      type: 'AGENT_DUMPED',
+      instanceId,
+      source: 'AMI',
+      observedAt,
+      ...streamOrder(event),
+      ...identity,
+    };
+  }
+
+  if (name === 'agentcomplete') {
+    const identity = agentInteractionIdentity(fields);
+    if (!identity) return undefined;
+    return {
+      type: 'AGENT_COMPLETED',
+      instanceId,
+      source: 'AMI',
+      observedAt,
+      ...streamOrder(event),
+      ...identity,
+      reason: normalizeAgentCompletionReason(optional(fields, 'Reason')),
     };
   }
 

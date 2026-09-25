@@ -947,3 +947,245 @@ test('buffer overflow waits for independent queue snapshot boundary before claim
 
   engine.stop();
 });
+
+test('agent interactions are live-only, support ring-all, and replay only events after the observation boundary', () => {
+  const source = new FakeStateSource();
+  const engine = new TelephonyStateEngine(source);
+  engine.start();
+
+  source.event(
+    baseEvent('AGENT_CALLED', {
+      queueId: 'support',
+      callerId: 'caller-old',
+      memberId: 'SIP/099',
+      memberName: 'Old Agent',
+      streamSequence: 3,
+      observedAt: '2026-09-25T12:00:00.100Z',
+    }),
+  );
+  source.event(
+    baseEvent('AGENT_CALLED', {
+      queueId: 'support',
+      callerId: 'caller-1',
+      memberId: 'SIP/100',
+      memberName: 'Agent 100',
+      streamSequence: 6,
+      observedAt: '2026-09-25T12:00:00.600Z',
+    }),
+  );
+  source.event(
+    baseEvent('AGENT_CALLED', {
+      queueId: 'support',
+      callerId: 'caller-1',
+      memberId: 'SIP/101',
+      memberName: 'Agent 101',
+      streamSequence: 7,
+      observedAt: '2026-09-25T12:00:00.700Z',
+    }),
+  );
+  source.event(
+    baseEvent('AGENT_CONNECTED', {
+      queueId: 'support',
+      callerId: 'caller-1',
+      memberId: 'SIP/100',
+      memberName: 'Agent 100',
+      streamSequence: 8,
+      observedAt: '2026-09-25T12:00:00.800Z',
+    }),
+  );
+
+  source.snapshot(
+    snapshot({
+      streamStartedSequence: 5,
+    }),
+  );
+
+  let current = engine.current('pbx-1');
+  assert.equal(current.agentCapability, 'SUPPORTED');
+  assert.equal(current.agentSynchronization, 'LIVE_ONLY');
+  assert.deepEqual(
+    current.agentInteractions.map(({ queueId, callerId, memberId, memberName, phase }) => ({
+      queueId,
+      callerId,
+      memberId,
+      memberName,
+      phase,
+    })),
+    [
+      {
+        queueId: 'support',
+        callerId: 'caller-1',
+        memberId: 'SIP/100',
+        memberName: 'Agent 100',
+        phase: 'CONNECTED',
+      },
+      {
+        queueId: 'support',
+        callerId: 'caller-1',
+        memberId: 'SIP/101',
+        memberName: 'Agent 101',
+        phase: 'RINGING',
+      },
+    ],
+  );
+
+  source.snapshot(
+    snapshot({
+      startedAt: '2026-09-25T12:00:02.000Z',
+      observedAt: '2026-09-25T12:00:03.000Z',
+      streamStartedSequence: 10,
+    }),
+  );
+  current = engine.current('pbx-1');
+  assert.equal(current.agentInteractions.length, 2);
+
+  source.event(
+    baseEvent('AGENT_CALLED', {
+      queueId: 'support',
+      callerId: 'caller-1',
+      memberId: 'SIP/100',
+      memberName: 'Agent 100',
+      streamSequence: 7,
+      observedAt: '2026-09-25T12:00:00.700Z',
+    }),
+  );
+  current = engine.current('pbx-1');
+  assert.equal(
+    current.agentInteractions.find((item) => item.memberId === 'SIP/100').phase,
+    'CONNECTED',
+  );
+
+  source.event(
+    baseEvent('AGENT_RING_NO_ANSWER', {
+      queueId: 'support',
+      callerId: 'caller-1',
+      memberId: 'SIP/101',
+      memberName: 'Agent 101',
+      streamSequence: 11,
+      observedAt: '2026-09-25T12:00:03.100Z',
+    }),
+  );
+  source.event(
+    baseEvent('AGENT_COMPLETED', {
+      queueId: 'support',
+      callerId: 'caller-1',
+      memberId: 'SIP/100',
+      memberName: 'Agent 100',
+      reason: 'CALLER',
+      streamSequence: 12,
+      observedAt: '2026-09-25T12:00:03.200Z',
+    }),
+  );
+
+  current = engine.current('pbx-1');
+  assert.deepEqual(current.agentInteractions, []);
+
+  source.event(
+    baseEvent('AGENT_CALLED', {
+      queueId: 'support',
+      callerId: 'caller-dump',
+      memberId: 'SIP/102',
+      memberName: 'Agent 102',
+      streamSequence: 13,
+      observedAt: '2026-09-25T12:00:03.300Z',
+    }),
+  );
+  source.event(
+    baseEvent('AGENT_DUMPED', {
+      queueId: 'support',
+      callerId: 'caller-dump',
+      memberId: 'SIP/102',
+      memberName: 'Agent 102',
+      streamSequence: 14,
+      observedAt: '2026-09-25T12:00:03.400Z',
+    }),
+  );
+  assert.deepEqual(engine.current('pbx-1').agentInteractions, []);
+
+  engine.stop();
+});
+
+test('agent interactions clear on connection loss and rebuild only from the new live generation', () => {
+  const source = new FakeStateSource();
+  const engine = new TelephonyStateEngine(source);
+  engine.start();
+
+  source.snapshot(snapshot({ streamStartedSequence: 0 }));
+  source.event(
+    baseEvent('AGENT_CALLED', {
+      queueId: 'support',
+      callerId: 'caller-1',
+      memberId: 'SIP/100',
+      memberName: 'Agent 100',
+      streamSequence: 3,
+      observedAt: '2026-09-25T12:00:02.000Z',
+    }),
+  );
+  assert.equal(engine.current('pbx-1').agentInteractions.length, 1);
+
+  source.connection('pbx-1', 'DISCONNECTED');
+  let current = engine.current('pbx-1');
+  assert.equal(current.agentSynchronization, 'STALE');
+  assert.deepEqual(current.agentInteractions, []);
+
+  source.connection('pbx-1', 'CONNECTED');
+  current = engine.current('pbx-1');
+  assert.equal(current.agentSynchronization, 'STALE');
+
+  source.event(
+    baseEvent('AGENT_CONNECTED', {
+      queueId: 'support',
+      callerId: 'caller-2',
+      memberId: 'SIP/101',
+      memberName: 'Agent 101',
+      streamGeneration: 2,
+      streamSequence: 2,
+      observedAt: '2026-09-25T12:00:04.000Z',
+    }),
+  );
+  current = engine.current('pbx-1');
+  assert.equal(current.agentSynchronization, 'STALE');
+  assert.deepEqual(current.agentInteractions, []);
+
+  source.snapshot(
+    snapshot({
+      streamGeneration: 2,
+      streamStartedSequence: 1,
+      startedAt: '2026-09-25T12:00:03.500Z',
+      observedAt: '2026-09-25T12:00:05.000Z',
+    }),
+  );
+  current = engine.current('pbx-1');
+  assert.equal(current.agentSynchronization, 'LIVE_ONLY');
+  assert.deepEqual(
+    current.agentInteractions.map(({ queueId, callerId, memberId, phase }) => ({
+      queueId,
+      callerId,
+      memberId,
+      phase,
+    })),
+    [
+      {
+        queueId: 'support',
+        callerId: 'caller-2',
+        memberId: 'SIP/101',
+        phase: 'CONNECTED',
+      },
+    ],
+  );
+
+  source.event(
+    baseEvent('AGENT_COMPLETED', {
+      queueId: 'support',
+      callerId: 'caller-2',
+      memberId: 'SIP/101',
+      reason: 'TRANSFER',
+      streamGeneration: 2,
+      streamSequence: 3,
+      observedAt: '2026-09-25T12:00:06.000Z',
+    }),
+  );
+  assert.deepEqual(engine.current('pbx-1').agentInteractions, []);
+
+  engine.stop();
+});

@@ -21,6 +21,8 @@ export type QueueMemberAvailability =
   | 'RINGING'
   | 'RINGING_IN_USE'
   | 'ON_HOLD';
+export type AgentInteractionPhase = 'RINGING' | 'CONNECTED';
+export type AgentCompletionReason = 'CALLER' | 'AGENT' | 'TRANSFER' | 'UNKNOWN';
 
 export interface PbxCapabilities {
   telephony: {
@@ -183,6 +185,42 @@ export type ProviderEvent =
       queueId: string;
       callerId: string;
       disposition: 'LEFT' | 'ABANDONED';
+    })
+  | (ProviderEventBase & {
+      type: 'AGENT_CALLED';
+      queueId: string;
+      callerId: string;
+      memberId: string;
+      memberName?: string;
+    })
+  | (ProviderEventBase & {
+      type: 'AGENT_RING_NO_ANSWER';
+      queueId: string;
+      callerId: string;
+      memberId: string;
+      memberName?: string;
+    })
+  | (ProviderEventBase & {
+      type: 'AGENT_CONNECTED';
+      queueId: string;
+      callerId: string;
+      memberId: string;
+      memberName?: string;
+    })
+  | (ProviderEventBase & {
+      type: 'AGENT_COMPLETED';
+      queueId: string;
+      callerId: string;
+      memberId: string;
+      memberName?: string;
+      reason: AgentCompletionReason;
+    })
+  | (ProviderEventBase & {
+      type: 'AGENT_DUMPED';
+      queueId: string;
+      callerId: string;
+      memberId: string;
+      memberName?: string;
     });
 
 export type ProviderEventListener = (event: ProviderEvent) => void;
