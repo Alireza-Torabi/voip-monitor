@@ -1,4 +1,5 @@
 import type {
+  AgentInteractionPhase,
   CapabilityState,
   EndpointReachability,
   EndpointRegistrationState,
@@ -19,6 +20,7 @@ import type {
 } from '@voip-monitor/shared';
 
 export type TelephonySynchronization = 'CURRENT' | 'AWAITING_SNAPSHOT' | 'STALE';
+export type AgentInteractionSynchronization = 'LIVE_ONLY' | 'STALE';
 
 export interface TelephonyChannelState {
   channelId: string;
@@ -68,6 +70,15 @@ export interface TelephonyQueueCallerState {
   updatedAt: string;
 }
 
+export interface TelephonyAgentInteractionState {
+  queueId: string;
+  callerId: string;
+  memberId: string;
+  memberName?: string;
+  phase: AgentInteractionPhase;
+  updatedAt: string;
+}
+
 export interface TelephonyCallState {
   callId: string;
   linkedId?: string;
@@ -95,6 +106,9 @@ export interface TelephonyInstanceState {
   queues: TelephonyQueueState[];
   queueMembers: TelephonyQueueMemberState[];
   queueCallers: TelephonyQueueCallerState[];
+  agentCapability: CapabilityState;
+  agentSynchronization: AgentInteractionSynchronization;
+  agentInteractions: TelephonyAgentInteractionState[];
 }
 
 export type TelephonyStateListener = (state: TelephonyInstanceState) => void;
@@ -142,6 +156,10 @@ interface MutableQueueCaller extends TelephonyQueueCallerState {
   order: ChannelOrder;
 }
 
+interface MutableAgentInteraction extends TelephonyAgentInteractionState {
+  order: ChannelOrder;
+}
+
 interface JournalEvent {
   arrival: number;
   event: ProviderEvent;
@@ -165,6 +183,9 @@ interface EngineEntry {
   queueCallers: Map<string, MutableQueueCaller>;
   queueCapability: CapabilityState;
   queueSynchronization: TelephonySynchronization | 'UNAVAILABLE';
+  agentInteractions: Map<string, MutableAgentInteraction>;
+  agentCapability: CapabilityState;
+  agentSynchronization: AgentInteractionSynchronization;
   journal: JournalEvent[];
   droppedUntil?: ChannelOrder;
   lastSnapshotAt?: string;
@@ -177,6 +198,10 @@ function queueMemberKey(queueId: string, memberId: string): string {
 
 function queueCallerKey(queueId: string, callerId: string): string {
   return `${queueId}\u0000${callerId}`;
+}
+
+function agentInteractionKey(queueId: string, callerId: string, memberId: string): string {
+  return `${queueId}\u0000${callerId}\u0000${memberId}`;
 }
 
 function cloneEvent(event: ProviderEvent): ProviderEvent {
@@ -231,6 +256,11 @@ function affectedChannelIds(event: ProviderEvent): string[] {
     case 'QUEUE_MEMBER_REMOVED':
     case 'QUEUE_CALLER_JOINED':
     case 'QUEUE_CALLER_LEFT':
+    case 'AGENT_CALLED':
+    case 'AGENT_RING_NO_ANSWER':
+    case 'AGENT_CONNECTED':
+    case 'AGENT_COMPLETED':
+    case 'AGENT_DUMPED':
       return [];
   }
 }
@@ -320,6 +350,21 @@ function publicState(entry: EngineEntry): TelephonyInstanceState | undefined {
       ...(caller.waitSeconds === undefined ? {} : { waitSeconds: caller.waitSeconds }),
       updatedAt: caller.updatedAt,
     }));
+  const agentInteractions = [...entry.agentInteractions.values()]
+    .sort(
+      (left, right) =>
+        left.queueId.localeCompare(right.queueId) ||
+        left.callerId.localeCompare(right.callerId) ||
+        left.memberId.localeCompare(right.memberId),
+    )
+    .map((interaction) => ({
+      queueId: interaction.queueId,
+      callerId: interaction.callerId,
+      memberId: interaction.memberId,
+      ...(interaction.memberName ? { memberName: interaction.memberName } : {}),
+      phase: interaction.phase,
+      updatedAt: interaction.updatedAt,
+    }));
   const queues = [...entry.queues.values()]
     .sort((left, right) => left.queueId.localeCompare(right.queueId))
     .map((queue) => ({
@@ -347,6 +392,9 @@ function publicState(entry: EngineEntry): TelephonyInstanceState | undefined {
     queues,
     queueMembers,
     queueCallers,
+    agentCapability: entry.agentCapability,
+    agentSynchronization: entry.agentSynchronization,
+    agentInteractions,
   };
 }
 function snapshotChannelOrder(
@@ -523,6 +571,29 @@ function eventIsAfterQueueSnapshot(event: ProviderEvent, snapshot: ProviderState
     return event.streamSequence > boundarySequence;
   }
   return event.observedAt >= (state.startedAt ?? state.observedAt);
+}
+
+function eventIsAfterAgentObservationBoundary(
+  event: ProviderEvent,
+  snapshot: ProviderStateSnapshot,
+): boolean {
+  if (
+    event.streamGeneration !== undefined &&
+    snapshot.streamGeneration !== undefined &&
+    event.streamGeneration !== snapshot.streamGeneration
+  ) {
+    return event.streamGeneration > snapshot.streamGeneration;
+  }
+  if (
+    event.streamSequence !== undefined &&
+    snapshot.streamStartedSequence !== undefined &&
+    (event.streamGeneration === undefined ||
+      snapshot.streamGeneration === undefined ||
+      event.streamGeneration === snapshot.streamGeneration)
+  ) {
+    return event.streamSequence > snapshot.streamStartedSequence;
+  }
+  return event.observedAt >= (snapshot.startedAt ?? snapshot.observedAt);
 }
 
 function boundaryCanRecoverDroppedJournal(
@@ -777,6 +848,53 @@ function removeQueueCaller(
   return true;
 }
 
+function mergeAgentInteraction(
+  entry: EngineEntry,
+  event: Extract<ProviderEvent, { type: 'AGENT_CALLED' | 'AGENT_CONNECTED' }>,
+  phase: AgentInteractionPhase,
+  replaySnapshot?: ProviderStateSnapshot,
+): boolean {
+  if (replaySnapshot && !eventIsAfterAgentObservationBoundary(event, replaySnapshot)) return false;
+  const key = agentInteractionKey(event.queueId, event.callerId, event.memberId);
+  const existing = entry.agentInteractions.get(key);
+  const order = orderFromEvent(event);
+  if (existing && compareOrder(order, existing.order) < 0) return false;
+  const next: MutableAgentInteraction = {
+    queueId: event.queueId,
+    callerId: event.callerId,
+    memberId: event.memberId,
+    ...(event.memberName
+      ? { memberName: event.memberName }
+      : existing?.memberName
+        ? { memberName: existing.memberName }
+        : {}),
+    phase,
+    updatedAt: event.observedAt,
+    order,
+  };
+  const changed =
+    !existing || existing.memberName !== next.memberName || existing.phase !== next.phase;
+  entry.agentInteractions.set(key, next);
+  return changed;
+}
+
+function removeAgentInteraction(
+  entry: EngineEntry,
+  event: Extract<
+    ProviderEvent,
+    { type: 'AGENT_RING_NO_ANSWER' | 'AGENT_COMPLETED' | 'AGENT_DUMPED' }
+  >,
+  replaySnapshot?: ProviderStateSnapshot,
+): boolean {
+  if (replaySnapshot && !eventIsAfterAgentObservationBoundary(event, replaySnapshot)) return false;
+  const key = agentInteractionKey(event.queueId, event.callerId, event.memberId);
+  const existing = entry.agentInteractions.get(key);
+  if (!existing) return false;
+  if (compareOrder(orderFromEvent(event), existing.order) < 0) return false;
+  entry.agentInteractions.delete(key);
+  return true;
+}
+
 function applyEvent(
   entry: EngineEntry,
   event: ProviderEvent,
@@ -905,6 +1023,17 @@ function applyEvent(
 
     case 'QUEUE_CALLER_LEFT':
       return removeQueueCaller(entry, event, replaySnapshot);
+
+    case 'AGENT_CALLED':
+      return mergeAgentInteraction(entry, event, 'RINGING', replaySnapshot);
+
+    case 'AGENT_CONNECTED':
+      return mergeAgentInteraction(entry, event, 'CONNECTED', replaySnapshot);
+
+    case 'AGENT_RING_NO_ANSWER':
+    case 'AGENT_COMPLETED':
+    case 'AGENT_DUMPED':
+      return removeAgentInteraction(entry, event, replaySnapshot);
   }
 }
 
@@ -990,6 +1119,9 @@ export class TelephonyStateEngine {
       queueCallers: new Map(),
       queueCapability: 'UNKNOWN',
       queueSynchronization: 'AWAITING_SNAPSHOT',
+      agentInteractions: new Map(),
+      agentCapability: 'UNKNOWN',
+      agentSynchronization: 'LIVE_ONLY',
       journal: [],
     };
     this.entries.set(instanceId, created);
@@ -1029,11 +1161,16 @@ export class TelephonyStateEngine {
             ? 'AWAITING_SNAPSHOT'
             : entry.queueSynchronization
           : 'STALE';
+    const agentNext: AgentInteractionSynchronization =
+      state === 'CONNECTED' ? entry.agentSynchronization : 'STALE';
+    const clearAgentInteractions = state !== 'CONNECTED' && entry.agentInteractions.size > 0;
     if (
       next === entry.synchronization &&
       endpointNext === entry.endpointSynchronization &&
       trunkNext === entry.trunkSynchronization &&
-      queueNext === entry.queueSynchronization
+      queueNext === entry.queueSynchronization &&
+      agentNext === entry.agentSynchronization &&
+      !clearAgentInteractions
     ) {
       return;
     }
@@ -1041,6 +1178,8 @@ export class TelephonyStateEngine {
     entry.endpointSynchronization = endpointNext;
     entry.trunkSynchronization = trunkNext;
     entry.queueSynchronization = queueNext;
+    entry.agentSynchronization = agentNext;
+    if (clearAgentInteractions) entry.agentInteractions = new Map();
     entry.revision += 1;
     this.emit(entry);
   }
@@ -1068,7 +1207,9 @@ export class TelephonyStateEngine {
           (entry.trunkSynchronization !== 'UNAVAILABLE' &&
             entry.trunkSynchronization !== 'AWAITING_SNAPSHOT') ||
           (entry.queueSynchronization !== 'UNAVAILABLE' &&
-            entry.queueSynchronization !== 'AWAITING_SNAPSHOT'))
+            entry.queueSynchronization !== 'AWAITING_SNAPSHOT') ||
+          entry.agentSynchronization !== 'STALE' ||
+          entry.agentInteractions.size > 0)
       ) {
         entry.synchronization = 'AWAITING_SNAPSHOT';
         if (entry.endpointSynchronization !== 'UNAVAILABLE') {
@@ -1080,10 +1221,20 @@ export class TelephonyStateEngine {
         if (entry.queueSynchronization !== 'UNAVAILABLE') {
           entry.queueSynchronization = 'AWAITING_SNAPSHOT';
         }
+        entry.agentSynchronization = 'STALE';
+        entry.agentInteractions = new Map();
         entry.revision += 1;
         this.emit(entry);
       }
     }
+
+    const isAgentEvent =
+      event.type === 'AGENT_CALLED' ||
+      event.type === 'AGENT_RING_NO_ANSWER' ||
+      event.type === 'AGENT_CONNECTED' ||
+      event.type === 'AGENT_COMPLETED' ||
+      event.type === 'AGENT_DUMPED';
+    if (isAgentEvent) entry.agentCapability = 'SUPPORTED';
 
     this.appendJournal(entry, event);
 
@@ -1101,6 +1252,9 @@ export class TelephonyStateEngine {
         event.type === 'QUEUE_CALLER_LEFT') &&
       entry.queueSynchronization !== 'CURRENT'
     ) {
+      return;
+    }
+    if (isAgentEvent && entry.agentSynchronization !== 'LIVE_ONLY') {
       return;
     }
     if (
@@ -1129,6 +1283,11 @@ export class TelephonyStateEngine {
     ) {
       return;
     }
+
+    const agentGenerationChanged =
+      entry.streamGeneration !== undefined &&
+      snapshot.streamGeneration !== undefined &&
+      entry.streamGeneration !== snapshot.streamGeneration;
 
     if (!snapshotCanRecoverDroppedJournal(snapshot, entry.droppedUntil)) {
       if (entry.initialized && entry.synchronization !== 'AWAITING_SNAPSHOT') {
@@ -1268,6 +1427,8 @@ export class TelephonyStateEngine {
       entry.queueCapability = 'UNKNOWN';
       entry.queueSynchronization = 'AWAITING_SNAPSHOT';
     }
+    if (agentGenerationChanged) entry.agentInteractions = new Map();
+    entry.agentSynchronization = 'LIVE_ONLY';
     if (snapshot.streamGeneration === undefined) delete entry.streamGeneration;
     else entry.streamGeneration = snapshot.streamGeneration;
     entry.lastSnapshotAt = snapshot.observedAt;
@@ -1303,9 +1464,15 @@ export class TelephonyStateEngine {
                 event.type === 'QUEUE_CALLER_JOINED' ||
                 event.type === 'QUEUE_CALLER_LEFT'
               ? eventIsAfterQueueSnapshot(event, snapshot)
-              : affectedChannelIds(event).some((channelId) =>
-                  eventIsAfterSnapshotChannel(event, snapshot, channelId),
-                );
+              : event.type === 'AGENT_CALLED' ||
+                  event.type === 'AGENT_RING_NO_ANSWER' ||
+                  event.type === 'AGENT_CONNECTED' ||
+                  event.type === 'AGENT_COMPLETED' ||
+                  event.type === 'AGENT_DUMPED'
+                ? eventIsAfterAgentObservationBoundary(event, snapshot)
+                : affectedChannelIds(event).some((channelId) =>
+                    eventIsAfterSnapshotChannel(event, snapshot, channelId),
+                  );
       if (!relevant) continue;
       applyEvent(entry, event, snapshot);
       if (event.observedAt > (replayedLastEventAt ?? '')) replayedLastEventAt = event.observedAt;

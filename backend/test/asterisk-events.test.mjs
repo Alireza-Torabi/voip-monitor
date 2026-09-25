@@ -239,6 +239,116 @@ test('AMI normalizer maps core channel, dial, bridge, and peer events without ra
       },
     ],
     [
+      'AgentCalled',
+      {
+        Queue: 'support',
+        Uniqueid: 'caller-1',
+        Channel: 'SIP/private-caller-channel',
+        CallerIDNum: 'synthetic-private-caller',
+        Interface: 'SIP/100',
+        MemberName: 'Synthetic Agent',
+        DestUniqueid: 'agent-channel-1',
+        DestChannel: 'SIP/private-agent-channel',
+      },
+      {
+        type: 'AGENT_CALLED',
+        instanceId: 'pbx-1',
+        source: 'AMI',
+        observedAt,
+        queueId: 'support',
+        callerId: 'caller-1',
+        memberId: 'SIP/100',
+        memberName: 'Synthetic Agent',
+      },
+    ],
+    [
+      'AgentRingNoAnswer',
+      {
+        Queue: 'support',
+        Uniqueid: 'caller-1',
+        Interface: 'SIP/100',
+        MemberName: 'Synthetic Agent',
+        RingTime: '1250',
+        CallerIDName: 'synthetic-private-name',
+      },
+      {
+        type: 'AGENT_RING_NO_ANSWER',
+        instanceId: 'pbx-1',
+        source: 'AMI',
+        observedAt,
+        queueId: 'support',
+        callerId: 'caller-1',
+        memberId: 'SIP/100',
+        memberName: 'Synthetic Agent',
+      },
+    ],
+    [
+      'AgentConnect',
+      {
+        Queue: 'support',
+        Uniqueid: 'caller-1',
+        Interface: 'SIP/100',
+        MemberName: 'Synthetic Agent',
+        HoldTime: '7',
+        RingTime: '2',
+        DestUniqueid: 'agent-channel-1',
+      },
+      {
+        type: 'AGENT_CONNECTED',
+        instanceId: 'pbx-1',
+        source: 'AMI',
+        observedAt,
+        queueId: 'support',
+        callerId: 'caller-1',
+        memberId: 'SIP/100',
+        memberName: 'Synthetic Agent',
+      },
+    ],
+    [
+      'AgentDump',
+      {
+        Queue: 'support',
+        Uniqueid: 'caller-1',
+        Interface: 'SIP/100',
+        MemberName: 'Synthetic Agent',
+        DestChannel: 'SIP/private-agent-channel',
+      },
+      {
+        type: 'AGENT_DUMPED',
+        instanceId: 'pbx-1',
+        source: 'AMI',
+        observedAt,
+        queueId: 'support',
+        callerId: 'caller-1',
+        memberId: 'SIP/100',
+        memberName: 'Synthetic Agent',
+      },
+    ],
+    [
+      'AgentComplete',
+      {
+        Queue: 'support',
+        Uniqueid: 'caller-1',
+        Interface: 'SIP/100',
+        MemberName: 'Synthetic Agent',
+        HoldTime: '7',
+        TalkTime: '30',
+        Reason: 'transfer',
+        DestChannel: 'SIP/private-agent-channel',
+      },
+      {
+        type: 'AGENT_COMPLETED',
+        instanceId: 'pbx-1',
+        source: 'AMI',
+        observedAt,
+        queueId: 'support',
+        callerId: 'caller-1',
+        memberId: 'SIP/100',
+        memberName: 'Synthetic Agent',
+        reason: 'TRANSFER',
+      },
+    ],
+    [
       'PeerStatus',
       { Peer: 'SIP/100', PeerStatus: 'Registered', Address: '192.0.2.40' },
       {
@@ -262,6 +372,9 @@ test('AMI normalizer maps core channel, dial, bridge, and peer events without ra
     assert.ok(!JSON.stringify(normalized).includes('synthetic-private-caller'));
     assert.ok(!JSON.stringify(normalized).includes('synthetic-private-name'));
     assert.ok(!JSON.stringify(normalized).includes('private-reason'));
+    assert.ok(!JSON.stringify(normalized).includes('private-caller-channel'));
+    assert.ok(!JSON.stringify(normalized).includes('private-agent-channel'));
+    assert.ok(!JSON.stringify(normalized).includes('agent-channel-1'));
   }
 });
 
@@ -284,6 +397,14 @@ test('AMI normalizer ignores unknown or identity-incomplete events', () => {
   );
   assert.equal(
     normalizeAmiEvent('pbx-1', { event: 'Newstate', fields: { Uniqueid: 'chan-1' } }, observedAt),
+    undefined,
+  );
+  assert.equal(
+    normalizeAmiEvent(
+      'pbx-1',
+      { event: 'AgentCalled', fields: { Queue: 'support', Uniqueid: 'caller-1' } },
+      observedAt,
+    ),
     undefined,
   );
 });
@@ -324,18 +445,28 @@ test('provider publishes normalized events, isolates listeners, and updates AMI 
     ChannelStateDesc: 'Ring',
   });
   transport.emitEvent('UnknownSyntheticEvent', { Secret: 'must-not-propagate' });
+  transport.emitEvent('AgentCalled', {
+    Queue: 'support',
+    Uniqueid: 'caller-1',
+    Interface: 'SIP/100',
+    MemberName: 'Synthetic Agent',
+    CallerIDNum: 'must-not-propagate-agent-pii',
+  });
 
-  assert.equal(events.length, 1);
+  assert.equal(events.length, 2);
   assert.equal(events[0].type, 'CHANNEL_CREATED');
   assert.equal(events[0].channelId, 'chan-1');
+  assert.equal(events[1].type, 'AGENT_CALLED');
   assert.ok(!JSON.stringify(events).includes('must-not-propagate'));
+  assert.ok(!JSON.stringify(events).includes('must-not-propagate-agent-pii'));
+  assert.equal((await provider.getCapabilities()).telephony.agents, 'SUPPORTED');
 
   const health = await provider.getHealth();
   assert.equal(health.sources.AMI.freshness, 'CURRENT');
-  assert.equal(health.sources.AMI.lastUpdate, events[0].observedAt);
+  assert.equal(health.sources.AMI.lastUpdate, events[1].observedAt);
 
   unsubscribe();
   transport.emitEvent('Hangup', { Uniqueid: 'chan-1' });
-  assert.equal(events.length, 1);
+  assert.equal(events.length, 2);
   await provider.disconnect();
 });
