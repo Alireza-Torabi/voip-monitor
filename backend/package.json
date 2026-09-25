@@ -11,7 +11,11 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "zod": "4.6.5",
-    "@voip-monitor/shared": "0.1.0"
+    "@voip-monitor/shared": "0.1.0",
+    "ssh2": "^1.17.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/ssh2": "^1.15.6"
   }
 }

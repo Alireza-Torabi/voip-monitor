@@ -11,6 +11,7 @@ export * from './collector.js';
 export * from './parsers.js';
 export * from './restricted-ssh-collector.js';
 export * from './ssh-transport.js';
+export * from './ssh-client-transport.js';
 
 const CAPABILITY_STATES = new Set<CapabilityState>([
   'SUPPORTED',

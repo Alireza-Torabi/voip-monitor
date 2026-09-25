@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Reject unreviewed license identifiers in the npm lockfile."""
 
 import argparse
@@ -17,6 +16,7 @@ REVIEWED = {
     "BlueOak-1.0.0",
     "MIT-0",
     "CC0-1.0",
+    "Unlicense",
 }
 
 

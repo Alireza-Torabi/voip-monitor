@@ -150,7 +150,7 @@ export async function runRestrictedSshCommand(
         () => reject(new RestrictedSshTransportError('TIMEOUT')),
         limits.timeoutMs,
       );
-      timer.unref();
+      // Keep the safety timeout referenced so a pending transport cannot let the process exit early.
     });
 
     const result = await Promise.race([transport.execute(command, { ...limits }), timeout]);
