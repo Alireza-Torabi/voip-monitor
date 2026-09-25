@@ -1,6 +1,6 @@
 # Proposed architecture
 
-Status: Phase 2 Task 12 is validating the existing Asterisk provider against an approved real PBX. The first controlled probe passed AMI reachability/login and stopped safely at a `CoreSettings` permission denial. PBX networking remains disabled by default outside explicit validation/runtime opt-in.
+Status: Phase 2 Task 12 completed a controlled real-PBX compatibility gate against the required Asterisk 13.x baseline. After correcting the dedicated AMI permission, login, discovery, channel snapshots, normalized live events, reconciliation, and clean disconnect passed without changing PBX configuration. PBX networking remains disabled by default outside explicit validation/runtime opt-in.
 
 ```text
 PBX (Asterisk / FreePBX)

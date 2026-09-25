@@ -1,6 +1,6 @@
 # VoIP Monitoring Platform
 
-An Apache-2.0 public project for a separate-server VoIP/PBX monitor. Initial planned support is Asterisk and FreePBX-based Asterisk, with Asterisk 13.x compatibility to verify. Asterisk provider transport and runtime foundations now exist, but PBX networking is disabled by default and production monitoring is not complete.
+An Apache-2.0 public project for a separate-server VoIP/PBX monitor. Initial support targets Asterisk and FreePBX-based Asterisk. One controlled real Asterisk 13.x compatibility baseline has passed; broader release and feature coverage remains to be validated. PBX networking is disabled by default and production monitoring is not complete.
 
 [فارسی](README.fa.md) · [Development setup](docs/INSTALL.md) · [Architecture](docs/ARCHITECTURE.md) · [Project plan](docs/MASTER_PLAN.md)
 

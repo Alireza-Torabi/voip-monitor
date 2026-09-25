@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-09-25. Phase 1 public repository foundation is complete. Task 11 is merged into `main` as PR #12. Phase 2 Task 12 controlled real-PBX compatibility verification is in progress on `feature/real-pbx-compatibility-verification`. The first approved real-PBX probe reached AMI successfully: login passed, but `CoreSettings` discovery was denied by AMI permissions, so the gate is paused before snapshots/events. No PBX setting was changed and no telephony state engine exists yet.
+Status: 2026-09-25. Phase 1 public repository foundation is complete. Task 11 is merged into `main` as PR #12. Phase 2 Task 12 controlled real-PBX compatibility verification is complete on `feature/real-pbx-compatibility-verification`. After correcting the dedicated AMI permission, the approved real-PBX gate passed login, discovery, channel snapshots, passive normalized live events, reconciliation, and clean disconnect on the required Asterisk 13.x baseline. No PBX setting was changed and no telephony state engine exists yet.
 
 ## Phase 0 — environment discovery
 
@@ -49,18 +49,16 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 9: provider runtime lifecycle with one managed provider per enabled PBX, bounded reconnect/backoff and reconciliation, explicit network enablement, authenticated provider-status and connection-test/discovery APIs, persisted verification timestamp, and bilingual connection-test UI. Tests remain mock/synthetic only; no real PBX access.
 - [x] Task 10: AMI transport event subscription, provider-neutral normalized event contracts, Asterisk event normalization, and runtime event forwarding. Synthetic coverage includes channel lifecycle/state, dial lifecycle, bridge membership, and chan_sip peer status; raw AMI payloads are not forwarded to consumers.
 - [x] Task 11: ActionID-correlated AMI event-list actions, `CoreShowChannels` provider snapshots, minimal provider-neutral channel snapshots, initial snapshot publication, and periodic reconciliation snapshots. Partial/cancelled/inconsistent lists fail closed; snapshot degradation does not cause a reconnect storm.
-- [~] Task 12: controlled read-only real-PBX compatibility verification of the Asterisk 13.x baseline and Task 8–11 AMI assumptions. Local-only interactive credential preparation, a bounded verifier, bilingual runbook, CI syntax checks, and safe result storage are prepared. The real-PBX execution is waiting only for operator-supplied local inputs and explicit target readiness.
-- [ ] Proposed next task after Task 12 passes: telephony state engine foundation that combines authoritative snapshots with buffered normalized live events.
+- [x] Task 12: controlled read-only real-PBX compatibility verification of the Asterisk 13.x baseline and Task 8–11 AMI assumptions. Local-only credential handling, bounded verifier, bilingual runbook, safe error classification, login/discovery, `CoreShowChannels`, passive normalized live events, reconciliation, and clean disconnect were validated against an approved real Asterisk 13.x system without PBX changes.
+- [ ] Proposed next task: Task 13 telephony state engine foundation that combines authoritative snapshots with buffered normalized live events, produces deterministic current channel/call state, and remains internal before any realtime browser API.
 
 ### Current execution handoff
 
-- Current branch: `feature/real-pbx-compatibility-verification`, tracking `origin/feature/real-pbx-compatibility-verification`, from clean synchronized `main` after Task 11 merged as PR #12.
-- Task 12 preflight commit: `e88e07e` (`test(provider): add real PBX compatibility verifier`). The branch is pushed; no Task 12 PR should be created until the real compatibility gate has run.
-- Preflight local gates pass: lint, format, typecheck, backend tests 57/57, frontend tests 10/10, build, foundation check, license check, Bash syntax, and verifier Node syntax. GitHub Actions for `e88e07e` also passed.
-- The helper writes target metadata and AMI password only under ignored `.local/real-pbx-verification/`, mode 0700/0600, with terminal echo disabled for the password. The verifier never prints target/username/password/raw AMI data and stores the detailed result only under `.local/`.
-- Synthetic preflight confirmed the network boundary blocks loopback without opening a transport connection. During that test, provider error mapping was improved so a blocked network target reports bounded `CONNECTION_FAILED` instead of `UNKNOWN`.
-- Exact next action: the operator runs `./scripts/setup-real-pbx-verification.sh` directly on this monitoring host and supplies the real PBX target and AMI credential locally. Only after those files exist should the bounded real-PBX verifier be executed. Do not send the AMI password through chat or commit it anywhere.
-- After Task 12 passes, begin the telephony state engine foundation.
+- Current branch: `feature/real-pbx-compatibility-verification`, tracking `origin/feature/real-pbx-compatibility-verification`, from synchronized `main` after Task 11 merged as PR #12.
+- Task 12 preflight/tooling commit: `e88e07e` (`test(provider): add real PBX compatibility verifier`). Permission/error classification and least-privilege documentation fixes followed on the same branch.
+- The controlled real-PBX gate passed after the dedicated AMI permission was corrected. Public documentation records only the generic compatibility result; detailed target/version/count/event observations remain under ignored local storage.
+- Final task closure requires rerunning the complete repository gates, committing this result/handoff documentation, pushing the branch, and waiting for Task 12 merge approval.
+- Exact next task after merge: Task 13 telephony state engine foundation using authoritative snapshots plus buffered normalized live events. No browser realtime/API exposure is part of that first state-engine task.
 
 ### Failure and bug log
 
@@ -80,7 +78,8 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - **Task 12 first real-PBX probe — blocked by permission:** AMI network reachability and authentication passed, then `CoreSettings` returned a permission denial. The probe disconnected cleanly and made no PBX change. Discovery, snapshots, live events, and reconciliation were not attempted after the denied action. The next operator action is to review the dedicated AMI account permissions; do not broaden them blindly.
 - **Task 12 diagnostic gap — resolved:** the first real probe originally surfaced the denied discovery as `UNKNOWN` because non-success AMI responses were not safely classified. The provider now maps permission-like responses to `PERMISSION_DENIED` and unsupported-action responses to `UNSUPPORTED`; a synthetic regression test covers denied discovery.
 - **Task 12 least-privilege documentation bug — resolved:** the initial runbook suggested `write = system,reporting`. Asterisk 13 checks action authority by bitmask overlap, and both required read-only actions are registered as `system|reporting`, so `write = reporting` is sufficient and narrower. Live call/channel events still require `read = call`.
-- **Task 12 remaining verification:** after the AMI permission gate is corrected, rerun real `CoreSettings`, `CoreShowChannels` event-list behavior, normalized live events, reconciliation, and the required Asterisk 13.x compatibility claim.
+- **Task 12 real-PBX gate — passed:** after the dedicated AMI permission was corrected, the bounded verifier passed real login, `CoreSettings`, initial `CoreShowChannels`, 60-second passive normalized event observation during a normal test call, reconciliation, and clean disconnect. The tested provider remained connected through final reconciliation and no PBX setting was changed.
+- **Task 12 compatibility scope:** the real gate establishes a verified baseline for the approved Asterisk 13.x environment only. It does not claim every Asterisk/FreePBX release, PJSIP event family, queue/agent flow, or deployment topology is compatible. Broader compatibility remains future matrix work.
 
 ### Persistent continuation protocol
 
@@ -95,11 +94,11 @@ For every future task/session:
 
 ## Future phases — pending approval
 
-Tasks 7–11 implemented substantial Asterisk-provider foundation work earlier than the original high-level phase buckets. The phase labels below describe the remaining product roadmap rather than implying that completed provider work must be repeated.
+Tasks 7–12 implemented substantial Asterisk-provider foundation work earlier than the original high-level phase buckets. The phase labels below describe the remaining product roadmap rather than implying that completed provider work must be repeated.
 
 - [ ] Phase 3: account management and onboarding refinement.
-- [~] Phase 4: Asterisk provider integration — network policy, AMI transport, login/discovery, runtime lifecycle, connection verification, normalized event subscription, and channel snapshots/reconciliation are implemented; controlled real Asterisk 13.x compatibility verification is now in progress.
-- [ ] Phase 5: telephony state engine — begins only after Task 12 real-PBX verification passes.
+- [x] Phase 4 foundation gate: Asterisk provider integration — network policy, AMI transport, login/discovery, runtime lifecycle, connection verification, normalized event subscription, channel snapshots/reconciliation, and one controlled real Asterisk 13.x compatibility gate are complete.
+- [ ] Phase 5: telephony state engine — Task 13 is next.
 - [ ] Phase 6: system metrics.
 - [ ] Phase 7: security monitoring.
 - [ ] Phase 8: authenticated API and realtime.
@@ -108,4 +107,4 @@ Tasks 7–11 implemented substantial Asterisk-provider foundation work earlier t
 - [ ] Phase 11: hardening, backup, tested restore, and a production deployment runbook.
 - [ ] Phase 12: release validation, including an organization-neutral fresh-deployment procedure that can onboard a new service without carrying private values from another deployment.
 
-Phase 1 is closed. Phase 2 Task 12 is in progress and pauses at the real-PBX credential/target handoff until the operator prepares local-only inputs.
+Phase 1 is closed. Phase 2 Task 12 is complete. Stop after this Task 12 branch is merged, then begin Task 13.
