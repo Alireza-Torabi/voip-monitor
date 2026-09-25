@@ -4,6 +4,11 @@ import { log, setLogLevel } from './logger.js';
 import { SqliteStorage } from './storage/index.js';
 import { SecretStore } from './security/secret-store.js';
 import { AuthService } from './auth/index.js';
+import { SshConfigurationService } from './ssh/configuration.js';
+import {
+  RestrictedSshSystemMetricsCollectorFactory,
+  SystemMetricsRuntime,
+} from './collectors/system/runtime.js';
 import { AsteriskProviderFactory, ProviderRuntimeManager } from './providers/runtime/index.js';
 import { TelephonyStateEngine } from './telephony/state-engine.js';
 
@@ -51,13 +56,25 @@ if (config) {
         const providerFactory =
           config.pbxNetworkMode === 'plain_tcp' ? new AsteriskProviderFactory(secrets) : undefined;
         const runtime = new ProviderRuntimeManager(storage, secrets, providerFactory);
+        const sshConfiguration = new SshConfigurationService(storage, secrets);
+        const systemMetricsFactory =
+          config.pbxNetworkMode === 'plain_tcp'
+            ? new RestrictedSshSystemMetricsCollectorFactory(sshConfiguration, secrets)
+            : undefined;
+        const systemMetricsRuntime = new SystemMetricsRuntime(
+          storage,
+          sshConfiguration,
+          systemMetricsFactory,
+        );
         const telephonyState = new TelephonyStateEngine(runtime);
         telephonyState.start();
         runtime.start();
+        systemMetricsRuntime.start();
         const server = createApp(storage, secrets, auth, runtime);
         server.on('error', () => {
           log('error', 'server_error');
           void runtime.stop().finally(() => {
+            systemMetricsRuntime.stop();
             telephonyState.stop();
             secrets.close();
             storage.close();
@@ -83,6 +100,7 @@ if (config) {
             void (async () => {
               clearTimeout(timer);
               await runtime.stop();
+              systemMetricsRuntime.stop();
               telephonyState.stop();
               secrets.close();
               storage.close();
