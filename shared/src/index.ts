@@ -136,6 +136,23 @@ export type ProviderEvent =
 
 export type ProviderEventListener = (event: ProviderEvent) => void;
 
+export interface ProviderChannelSnapshot {
+  channelId: string;
+  channelName?: string;
+  linkedId?: string;
+  state?: string;
+  bridgeId?: string;
+}
+
+export interface ProviderStateSnapshot {
+  instanceId: PbxInstanceId;
+  source: 'AMI';
+  observedAt: string;
+  channels: ProviderChannelSnapshot[];
+}
+
+export type ProviderStateSnapshotListener = (snapshot: ProviderStateSnapshot) => void;
+
 export interface ProviderDiscoveryResult {
   metadata: PbxInstanceMetadata;
   capabilities: PbxCapabilities;
@@ -150,7 +167,8 @@ export interface PbxProvider {
   discover(): Promise<ProviderDiscoveryResult>;
   getCapabilities(): Promise<PbxCapabilities>;
   getHealth(): Promise<PbxHealth>;
+  getCurrentState(): Promise<ProviderStateSnapshot>;
   /** Runtime owners register before connect so the provider can enable its event stream. */
   subscribeEvents(listener: ProviderEventListener): () => void;
-  reconcile(): Promise<void>;
+  reconcile(): Promise<ProviderStateSnapshot>;
 }

@@ -56,6 +56,8 @@ class FakeProvider {
   connectAttempts = 0;
   disconnects = 0;
   reconciles = 0;
+  snapshotReads = 0;
+  failSnapshots = 0;
   eventListeners = new Set();
 
   constructor(profile, failConnects = 0) {
@@ -126,6 +128,29 @@ class FakeProvider {
     };
   }
 
+  async getCurrentState() {
+    if (this.state !== 'CONNECTED' && this.state !== 'DEGRADED') throw new Error('not connected');
+    this.snapshotReads += 1;
+    if (this.snapshotReads <= this.failSnapshots) {
+      this.state = 'DEGRADED';
+      throw new Error('synthetic snapshot failure');
+    }
+    this.state = 'CONNECTED';
+    return {
+      instanceId: this.profile.id,
+      source: 'AMI',
+      observedAt: `2026-09-25T00:00:${String(this.snapshotReads).padStart(2, '0')}.000Z`,
+      channels: [
+        {
+          channelId: `synthetic-channel-${this.snapshotReads}`,
+          channelName: 'SIP/100-00000001',
+          linkedId: 'synthetic-call-1',
+          state: 'Up',
+        },
+      ],
+    };
+  }
+
   subscribeEvents(listener) {
     this.eventListeners.add(listener);
     return () => this.eventListeners.delete(listener);
@@ -137,7 +162,7 @@ class FakeProvider {
 
   async reconcile() {
     this.reconciles += 1;
-    if (this.state !== 'CONNECTED') throw new Error('not connected');
+    return this.getCurrentState();
   }
 }
 
@@ -192,6 +217,56 @@ test('runtime keeps one provider per enabled PBX, reconnects with backoff, and r
 
     await runtime.stop();
     assert.equal(factory.created.length, 1);
+  }));
+
+test('runtime publishes initial and reconciliation snapshots without extra provider instances', async () =>
+  fixture(async ({ storage, secrets, setRuntime }) => {
+    const onboarding = new PbxOnboardingService(storage, secrets);
+    const profile = onboarding.create(profileInput(true));
+    const factory = new FakeFactory();
+    const runtime = new ProviderRuntimeManager(storage, secrets, factory, {
+      reconnectBaseMs: 5,
+      reconnectMaxMs: 5,
+      reconcileMs: 15,
+      random: () => 0.5,
+    });
+    setRuntime(runtime);
+    const snapshots = [];
+    const unsubscribe = runtime.subscribeSnapshots((snapshot) => snapshots.push(snapshot));
+
+    runtime.start();
+    await waitFor(() => snapshots.length >= 2);
+    assert.equal(factory.created.length, 1);
+    assert.equal(snapshots[0].channels[0].channelId, 'synthetic-channel-1');
+    assert.equal(snapshots[1].channels[0].channelId, 'synthetic-channel-2');
+    assert.deepEqual(runtime.currentState(profile.id), snapshots.at(-1));
+    assert.equal(runtime.status(profile.id).snapshot.currentState, undefined);
+
+    unsubscribe();
+  }));
+
+test('snapshot degradation keeps the provider connected and recovers on reconciliation', async () =>
+  fixture(async ({ storage, secrets, setRuntime }) => {
+    const onboarding = new PbxOnboardingService(storage, secrets);
+    const profile = onboarding.create(profileInput(true));
+    const factory = new FakeFactory();
+    const runtime = new ProviderRuntimeManager(storage, secrets, factory, {
+      reconnectBaseMs: 5,
+      reconnectMaxMs: 5,
+      reconcileMs: 15,
+      random: () => 0.5,
+    });
+    setRuntime(runtime);
+
+    runtime.start();
+    factory.created[0].failSnapshots = 1;
+    await waitFor(() => runtime.connectionState(profile.id) === 'DEGRADED');
+    assert.equal(factory.created[0].connectAttempts, 1);
+    assert.equal(factory.created[0].disconnects, 0);
+
+    await waitFor(() => runtime.currentState(profile.id) !== undefined);
+    assert.equal(runtime.connectionState(profile.id), 'CONNECTED');
+    assert.equal(factory.created[0].connectAttempts, 1);
   }));
 
 test('runtime forwards provider events without creating browser-driven provider instances', async () =>

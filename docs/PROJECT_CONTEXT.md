@@ -1,10 +1,10 @@
 # Project context
 
-Status: Phase 2 Task 10 AMI event subscription and normalized provider-event foundation implemented on a feature branch, 2026-09-25. Task 9 is merged into `main` by PR #10. Task 11 is the next planned step after Task 10 is merged. License: Apache-2.0. This is a proposed public, reusable VoIP monitoring application hosted separately from the PBX. The first provider targets Asterisk and FreePBX-based Asterisk, with Asterisk 13.x as a required compatibility baseline to verify. No real PBX has been contacted.
+Status: Phase 2 Task 11 AMI event-list correlation and channel snapshot/reconciliation foundation implemented on a feature branch, 2026-09-25. Task 10 is merged into `main` by PR #11. The next gate is controlled read-only compatibility verification against an explicitly approved real Asterisk deployment before the telephony state engine. License: Apache-2.0. This is a public, reusable VoIP monitoring application hosted separately from the PBX. The first provider targets Asterisk and FreePBX-based Asterisk, with Asterisk 13.x as a required compatibility baseline to verify. No real PBX has been contacted yet.
 
 ## Repository state
 
-The public foundation repository is established on `main`, tracking `origin/main`. Task 9 is merged. The current feature branch adds transport-level AMI event subscriptions, provider-neutral event types, Asterisk normalization for a bounded initial event subset, and one runtime event-forwarding boundary per managed PBX. PBX networking remains disabled unless the operator explicitly sets `APP_PBX_NETWORK_MODE=plain_tcp`; tests use mocks or loopback synthetic servers and no real PBX has been accessed. The configured `origin` points to the user-supplied GitHub repository via SSH.
+The public foundation repository is established on `main`, tracking `origin/main`. Task 10 is merged. The current feature branch adds ActionID-correlated AMI event-list collection, provider-neutral channel snapshots, initial snapshot publication, and periodic reconciliation snapshots while preserving one provider connection per enabled PBX. PBX networking remains disabled unless the operator explicitly sets `APP_PBX_NETWORK_MODE=plain_tcp`; tests use mocks or loopback synthetic servers and no real PBX has been accessed. The configured `origin` points to the user-supplied GitHub repository via SSH.
 
 ## Product constraints
 
@@ -14,6 +14,7 @@ The public foundation repository is established on `main`, tracking `origin/main
 - Backend entities and metrics are keyed by PBX instance from the start.
 - Monitoring failure must not affect telephony.
 - Public docs are English and Persian; demo and tests use synthetic data.
+- The Git repository stays organization-neutral and portable. Real deployment addresses, credentials, topology, runtime databases, and keys remain outside Git. Before production release, the repository must include a tested fresh-deployment runbook suitable for onboarding a new organization without copying private values from another deployment.
 
 ## Private context
 

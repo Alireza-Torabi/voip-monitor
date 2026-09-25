@@ -1,6 +1,6 @@
 # Installation status and planned procedure
 
-**Status:** A local development skeleton exists. There is no Docker image, first-run wizard, or supported production deployment yet. Do not point this repository at a PBX.
+**Status:** The application foundation now includes onboarding, encrypted AMI credentials, provider runtime, read-only connection verification, normalized events, and synthetic channel snapshots. There is still no supported production deployment, Docker image, tested restore, or completed telephony state engine. Real PBX connectivity is allowed only as an explicitly approved controlled validation until the production runbook is complete.
 
 ## Planned architecture and compatibility
 
@@ -9,6 +9,10 @@ The monitor will run on a separate Linux server or VM, outside the PBX call path
 ## Prerequisites to validate before a release
 
 Node.js 24 LTS is the planned development runtime. A supported Docker Engine and Docker Compose plugin will be required for the intended deployment. CPU, memory, disk, and supported host versions are not yet measured. Do not infer minimum hardware requirements from this planning scaffold.
+
+## Deployment portability requirement
+
+The public repository must stay reusable across organizations. A fresh deployment starts from the tracked source and generic instructions only; it must not copy another deployment's database, master key, credentials, hostnames, topology, or private `.local/` notes. Organization-specific values are entered during that deployment and remain in its runtime/secret storage outside Git. The production release must turn this planned sequence into a tested installation, verification, upgrade, backup/restore, rollback, and uninstall runbook.
 
 ## Planned operator sequence
 

@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-09-25. Phase 1 public repository foundation is complete. Task 9 is merged into `main` as PR #10. Phase 2 Task 10 AMI event subscription and normalized provider-event foundation is implemented on `feature/ami-event-subscription`; no real PBX has been contacted and no telephony state engine exists yet.
+Status: 2026-09-25. Phase 1 public repository foundation is complete. Task 10 is merged into `main` as PR #11. Phase 2 Task 11 AMI event-list correlation and channel snapshot/reconciliation foundation is implemented on `feature/channel-snapshot-reconciliation`; no real PBX has been contacted and no telephony state engine exists yet.
 
 ## Phase 0 — environment discovery
 
@@ -48,16 +48,16 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 8: plain TCP AMI wire transport, safe action framing/ActionID/timeout handling, Node DNS resolver boundary, and an Asterisk provider login/discovery/reconcile foundation. Tests use only mocks and a synthetic loopback AMI server; runtime startup still creates no PBX connection.
 - [x] Task 9: provider runtime lifecycle with one managed provider per enabled PBX, bounded reconnect/backoff and reconciliation, explicit network enablement, authenticated provider-status and connection-test/discovery APIs, persisted verification timestamp, and bilingual connection-test UI. Tests remain mock/synthetic only; no real PBX access.
 - [x] Task 10: AMI transport event subscription, provider-neutral normalized event contracts, Asterisk event normalization, and runtime event forwarding. Synthetic coverage includes channel lifecycle/state, dial lifecycle, bridge membership, and chan_sip peer status; raw AMI payloads are not forwarded to consumers.
-- [ ] Proposed next task: AMI event-list action correlation plus initial channel snapshot/reconciliation foundation, implemented against synthetic/mock AMI streams before any real PBX test.
+- [x] Task 11: ActionID-correlated AMI event-list actions, `CoreShowChannels` provider snapshots, minimal provider-neutral channel snapshots, initial snapshot publication, and periodic reconciliation snapshots. Partial/cancelled/inconsistent lists fail closed; snapshot degradation does not cause a reconnect storm.
+- [ ] Proposed next task: controlled read-only real-PBX compatibility verification of the Asterisk 13.x baseline and Task 8–11 AMI assumptions, using local-only deployment credentials and recording no private values in Git. After that gate, begin the telephony state engine.
 
 ### Current execution handoff
 
-- Current branch: `feature/ami-event-subscription`, tracking `origin/feature/ami-event-subscription`.
-- Task 9 is merged into `main` by PR #10.
-- Task 10 implementation commit: `3f91c90` (`feat(provider): add normalized AMI event subscriptions`). The branch is pushed; no Task 10 PR has been created yet.
-- Final local gates pass: lint, format, typecheck, backend tests 51/51, frontend tests 10/10, build, foundation check, and license check.
-- Exact next task after Task 10 merge: Task 11, AMI event-list action correlation plus initial channel snapshot/reconciliation foundation, synthetic/mock first.
-- Real PBX access still requires separate explicit approval.
+- Current branch: `feature/channel-snapshot-reconciliation`.
+- Task 10 is merged into `main` by PR #11.
+- Task 11 implementation is complete locally and awaiting final validation/commit/push in this task closure.
+- Exact next task after Task 11 merge: a controlled read-only real-PBX compatibility verification gate for Asterisk 13.x and the AMI transport/event/snapshot behavior, followed by the telephony state engine if the gate passes.
+- Real deployment values and credentials stay only in ignored/runtime storage on the monitoring host and must never enter Git, CI, examples, screenshots, or public docs.
 
 ### Failure and bug log
 
@@ -65,6 +65,11 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - **Task 10 validation failure — resolved:** the first full lint gate failed because the new Node event test referenced `Buffer` without an explicit `node:buffer` import under the repository ESLint environment. The import was added and the complete gate suite was rerun successfully.
 - **Task 10 open defects:** none currently known from the automated suite. Event consumers are isolated from transport/provider/runtime failures by listener boundaries.
 - **Task 10 known limitations:** only the deliberately selected normalized event subset is implemented (`Newchannel`, `Newstate`, `Hangup`, `DialBegin`, `DialEnd`, `BridgeEnter`, `BridgeLeave`, and chan_sip `PeerStatus`). PJSIP contact/endpoint events, queue/agent events, registration/trunk events, duplicate AMI header preservation, state reconstruction, historical persistence, and browser realtime delivery remain future work.
+- **Task 11 design bug — resolved before commit:** the first snapshot draft treated any initial snapshot failure like a broken PBX connection, which would disconnect and reconnect repeatedly even when AMI remained connected but `CoreShowChannels` was unsupported or denied. Runtime now keeps the provider connected in `DEGRADED`, retries snapshot reconciliation on the normal interval, and reconnects only when connection health is no longer usable.
+- **Task 11 data-exposure bug — resolved before commit:** adding `currentState` directly to the runtime entry status would also have exposed channel snapshot data through the existing authenticated `provider-status` endpoint because that endpoint spreads `runtime.status()`. The public runtime status now deliberately omits current channel state; snapshots remain an internal state-engine boundary only.
+- **Task 11 validation failure — resolved:** the first complete quality-gate run stopped at `format:check` because `backend/src/providers/runtime/index.ts` needed Prettier formatting after the status-boundary fix. Prettier was applied and the complete gate suite was rerun from the start.
+- **Task 11 open defects:** none currently known from the synthetic suite.
+- **Task 11 known limitations:** `CoreShowChannels` behavior and AMI permissions are not yet verified against the required real Asterisk 13.x baseline. Snapshot data intentionally contains only stable channel identity/name, linked ID, state, and bridge ID; caller identity and arbitrary AMI fields are excluded. Live-event/snapshot buffering and idempotent replay belong to the future state engine. The parser still keeps only one value per AMI header name.
 
 ### Persistent continuation protocol
 
@@ -79,17 +84,17 @@ For every future task/session:
 
 ## Future phases — pending approval
 
-Tasks 7–9 already implemented substantial Asterisk-provider foundation work earlier than the original high-level phase buckets. Task 10 continues that provider foundation; the phase labels below describe the remaining product roadmap rather than implying that completed provider work must be repeated.
+Tasks 7–11 implemented substantial Asterisk-provider foundation work earlier than the original high-level phase buckets. The phase labels below describe the remaining product roadmap rather than implying that completed provider work must be repeated.
 
 - [ ] Phase 3: account management and onboarding refinement.
-- [~] Phase 4: Asterisk provider integration — network policy, AMI transport, login/discovery, runtime lifecycle, connection verification, and normalized event subscription are implemented; event-list snapshots/reconciliation are next.
+- [~] Phase 4: Asterisk provider integration — network policy, AMI transport, login/discovery, runtime lifecycle, connection verification, normalized event subscription, and channel snapshots/reconciliation are implemented; real Asterisk 13.x compatibility verification is the next gate.
 - [ ] Phase 5: telephony state engine.
 - [ ] Phase 6: system metrics.
 - [ ] Phase 7: security monitoring.
 - [ ] Phase 8: authenticated API and realtime.
 - [ ] Phase 9: bilingual dashboard.
 - [ ] Phase 10: history and retention.
-- [ ] Phase 11: hardening, backup, and tested restore.
-- [ ] Phase 12: release validation.
+- [ ] Phase 11: hardening, backup, tested restore, and a production deployment runbook.
+- [ ] Phase 12: release validation, including an organization-neutral fresh-deployment procedure that can onboard a new service without carrying private values from another deployment.
 
-Phase 1 is closed. Stop after Phase 2 Task 10 and await approval for the next task.
+Phase 1 is closed. Stop after Phase 2 Task 11 and await approval for the next task.

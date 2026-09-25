@@ -79,6 +79,67 @@ test('TCP AMI transport publishes events and still correlates a synthetic respon
   );
 });
 
+test('TCP AMI transport correlates an event-list action while forwarding interleaved live events', async () => {
+  await syntheticAmi(
+    async (action, socket) => {
+      assert.equal(action.Action, 'CoreShowChannels');
+      assert.match(action.ActionID, /^vm-[0-9]+$/);
+      socket.write(
+        `Response: Success\r\nActionID: ${action.ActionID}\r\nEventList: start\r\n\r\n` +
+          'Event: Newchannel\r\nUniqueid: live-1\r\nChannel: SIP/200-00000002\r\n\r\n' +
+          `Event: CoreShowChannel\r\nActionID: ${action.ActionID}\r\nUniqueid: snapshot-1\r\nChannel: SIP/100-00000001\r\nChannelStateDesc: Up\r\nLinkedid: call-1\r\n\r\n` +
+          `Event: CoreShowChannelsComplete\r\nActionID: ${action.ActionID}\r\nEventList: Complete\r\nListItems: 1\r\n\r\n`,
+      );
+    },
+    async (port) => {
+      const transport = new TcpAmiTransport(1000);
+      const liveEvents = [];
+      transport.subscribeEvents((event) => liveEvents.push(event));
+      await transport.connect({ host: 'synthetic.test', address: '127.0.0.1', port });
+      const result = await transport.requestEventList(
+        { action: 'CoreShowChannels' },
+        { itemEvent: 'CoreShowChannel', completeEvent: 'CoreShowChannelsComplete' },
+      );
+      assert.equal(result.response.response, 'Success');
+      assert.equal(result.events.length, 1);
+      assert.equal(result.events[0].event, 'CoreShowChannel');
+      assert.equal(result.events[0].fields.Uniqueid, 'snapshot-1');
+      assert.equal(result.completion.fields.ListItems, '1');
+      assert.deepEqual(liveEvents, [
+        {
+          event: 'Newchannel',
+          fields: { Uniqueid: 'live-1', Channel: 'SIP/200-00000002' },
+        },
+      ]);
+      await transport.disconnect();
+    },
+  );
+});
+
+test('TCP AMI transport rejects a cancelled event-list instead of returning a partial snapshot', async () => {
+  await syntheticAmi(
+    async (action, socket) => {
+      socket.write(
+        `Response: Success\r\nActionID: ${action.ActionID}\r\nEventList: start\r\n\r\n` +
+          `Event: CoreShowChannel\r\nActionID: ${action.ActionID}\r\nUniqueid: partial-1\r\n\r\n` +
+          `Event: CoreShowChannelsComplete\r\nActionID: ${action.ActionID}\r\nEventList: cancelled\r\nListItems: 1\r\n\r\n`,
+      );
+    },
+    async (port) => {
+      const transport = new TcpAmiTransport(1000);
+      await transport.connect({ host: 'synthetic.test', address: '127.0.0.1', port });
+      await assert.rejects(
+        transport.requestEventList(
+          { action: 'CoreShowChannels' },
+          { itemEvent: 'CoreShowChannel', completeEvent: 'CoreShowChannelsComplete' },
+        ),
+        (error) => error instanceof AmiTransportError && error.code === 'PROTOCOL_ERROR',
+      );
+      await transport.disconnect();
+    },
+  );
+});
+
 test('TCP AMI transport rejects header injection before sending an action', async () => {
   let received = 0;
   await syntheticAmi(
@@ -130,7 +191,31 @@ test('Asterisk provider logs in, discovers version, reconciles, and wipes passwo
       response: 'Success',
       fields: { AsteriskVersion: '13.20.0', AMIversion: '2.10.4' },
     }))
-    .on('Ping', () => ({ response: 'Success', fields: { Ping: 'Pong' } }))
+    .onEventList('CoreShowChannels', (_action, spec) => {
+      assert.deepEqual(spec, {
+        itemEvent: 'CoreShowChannel',
+        completeEvent: 'CoreShowChannelsComplete',
+      });
+      return {
+        response: { response: 'Success', fields: { EventList: 'start' } },
+        events: [
+          {
+            event: 'CoreShowChannel',
+            fields: {
+              Uniqueid: 'snapshot-1',
+              Channel: 'SIP/100-00000001',
+              Linkedid: 'call-1',
+              ChannelStateDesc: 'Up',
+              BridgeId: 'bridge-1',
+            },
+          },
+        ],
+        completion: {
+          event: 'CoreShowChannelsComplete',
+          fields: { EventList: 'Complete', ListItems: '1' },
+        },
+      };
+    })
     .on('Logoff', () => ({ response: 'Goodbye', fields: {} }));
 
   const provider = new AsteriskProvider({
@@ -166,12 +251,60 @@ test('Asterisk provider logs in, discovers version, reconciles, and wipes passwo
   });
   assert.equal(discovery.capabilities.telephony.channels, 'UNKNOWN');
 
-  await provider.reconcile();
+  const snapshot = await provider.reconcile();
+  assert.deepEqual(snapshot.channels, [
+    {
+      channelId: 'snapshot-1',
+      channelName: 'SIP/100-00000001',
+      linkedId: 'call-1',
+      state: 'Up',
+      bridgeId: 'bridge-1',
+    },
+  ]);
+  assert.equal((await provider.getCapabilities()).telephony.channels, 'SUPPORTED');
   assert.equal((await provider.getHealth()).sources.AMI.freshness, 'CURRENT');
   await provider.disconnect();
   const disconnected = await provider.getHealth();
   assert.equal(disconnected.connection.state, 'DISCONNECTED');
   assert.equal(disconnected.sources.AMI.freshness, 'UNAVAILABLE');
+});
+
+test('Asterisk provider rejects an inconsistent channel-list count as degraded state', async () => {
+  const transport = new MockAmiTransport()
+    .on('Login', () => ({ response: 'Success', fields: {} }))
+    .onEventList('CoreShowChannels', () => ({
+      response: { response: 'Success', fields: { EventList: 'start' } },
+      events: [
+        {
+          event: 'CoreShowChannel',
+          fields: { Uniqueid: 'snapshot-1', Channel: 'SIP/100-00000001' },
+        },
+      ],
+      completion: {
+        event: 'CoreShowChannelsComplete',
+        fields: { EventList: 'Complete', ListItems: '2' },
+      },
+    }))
+    .on('Logoff', () => ({ response: 'Goodbye', fields: {} }));
+  const provider = new AsteriskProvider({
+    instanceId: 'synthetic-pbx',
+    displayName: 'Synthetic PBX',
+    host: '192.0.2.21',
+    port: 5038,
+    amiUsername: 'synthetic-admin',
+    readAmiPassword: () => Buffer.from('synthetic-secret'),
+    resolver: {
+      async resolve() {
+        return [];
+      },
+    },
+    transport,
+  });
+
+  await provider.connect();
+  await assert.rejects(provider.getCurrentState(), (error) => error.code === 'UNKNOWN');
+  assert.equal((await provider.getHealth()).connection.state, 'DEGRADED');
+  await provider.disconnect();
 });
 
 test('Asterisk provider maps rejected login to safe authentication failure health', async () => {
