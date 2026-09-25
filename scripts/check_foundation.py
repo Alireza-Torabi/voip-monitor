@@ -18,12 +18,14 @@ REQUIRED = [
     "frontend/src/main.tsx", "frontend/test/App.test.tsx", "shared/package.json",
     "shared/src/index.ts", "shared/tsconfig.json",
     ".github/workflows/foundation.yml", "scripts/check_licenses.py",
+    "scripts/setup-real-pbx-verification.sh", "scripts/verify-real-pbx-compatibility.mjs",
     "docs/PROJECT_CONTEXT.md", "docs/MASTER_PLAN.md", "docs/DECISIONS.md",
     "docs/ARCHITECTURE.md", "docs/DEPENDENCY_REVIEW.md",
     "docs/INSTALL.md", "docs/INSTALL.fa.md",
     "docs/CONFIGURATION.md", "docs/CONFIGURATION.fa.md",
     "docs/OPERATIONS.md", "docs/OPERATIONS.fa.md",
     "docs/TROUBLESHOOTING.md", "docs/TROUBLESHOOTING.fa.md",
+    "docs/REAL_PBX_VERIFICATION.md", "docs/REAL_PBX_VERIFICATION.fa.md",
 ]
 FORBIDDEN_SUFFIXES = (".db", ".sqlite", ".sqlite3", ".pcap", ".pcapng",
                       ".pem", ".key", ".p12", ".pfx", ".log")
@@ -98,11 +100,14 @@ def check() -> list[str]:
     if "README.md" not in (ROOT / "README.fa.md").read_text(encoding="utf-8"):
         errors.append("README.fa.md must link to README.md")
     for name in ("README.fa.md", "docs/INSTALL.fa.md", "docs/CONFIGURATION.fa.md",
-                 "docs/OPERATIONS.fa.md", "docs/TROUBLESHOOTING.fa.md"):
+                 "docs/OPERATIONS.fa.md", "docs/TROUBLESHOOTING.fa.md",
+                 "docs/REAL_PBX_VERIFICATION.fa.md"):
         content = (ROOT / name).read_text(encoding="utf-8")
-        if content.count('<div dir="rtl">') != content.count("</div>"):
+        opening = re.findall(r'<div dir="rtl"(?: align="right")?>', content)
+        if len(opening) != content.count("</div>"):
             errors.append(f"Unbalanced RTL container: {name}")
-        if any("```" in block for block in re.findall(r'<div dir="rtl">(.*?)</div>', content, flags=re.S)):
+        blocks = re.findall(r'<div dir="rtl"(?: align="right")?>(.*?)</div>', content, flags=re.S)
+        if any("```" in block for block in blocks):
             errors.append(f"Code fence inside RTL container: {name}")
     try:
         manifest = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))

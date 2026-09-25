@@ -12,9 +12,9 @@
     "shared"
   ],
   "scripts": {
-    "lint": "eslint backend/src backend/test frontend/src frontend/test frontend/vite.config.ts shared/src",
-    "format": "prettier --write backend/src backend/test frontend/src frontend/test frontend/index.html frontend/vite.config.ts shared/src shared/package.json shared/tsconfig.json backend/package.json frontend/package.json package.json tsconfig.base.json backend/tsconfig.json frontend/tsconfig.json eslint.config.mjs",
-    "format:check": "prettier --check backend/src backend/test frontend/src frontend/test frontend/index.html frontend/vite.config.ts shared/src shared/package.json shared/tsconfig.json backend/package.json frontend/package.json package.json tsconfig.base.json backend/tsconfig.json frontend/tsconfig.json eslint.config.mjs",
+    "lint": "eslint backend/src backend/test frontend/src frontend/test frontend/vite.config.ts shared/src scripts/verify-real-pbx-compatibility.mjs",
+    "format": "prettier --write backend/src backend/test frontend/src frontend/test frontend/index.html frontend/vite.config.ts shared/src shared/package.json shared/tsconfig.json backend/package.json frontend/package.json package.json tsconfig.base.json backend/tsconfig.json frontend/tsconfig.json eslint.config.mjs scripts/verify-real-pbx-compatibility.mjs",
+    "format:check": "prettier --check backend/src backend/test frontend/src frontend/test frontend/index.html frontend/vite.config.ts shared/src shared/package.json shared/tsconfig.json backend/package.json frontend/package.json package.json tsconfig.base.json backend/tsconfig.json frontend/tsconfig.json eslint.config.mjs scripts/verify-real-pbx-compatibility.mjs",
     "typecheck": "npm run build -w shared && npm run typecheck -w backend && npm run typecheck -w frontend",
     "test": "npm run build -w shared && npm run test -w backend && npm run test -w frontend",
     "build": "npm run build -w shared && npm run build -w backend && npm run build -w frontend"

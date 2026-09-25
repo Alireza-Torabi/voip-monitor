@@ -24,6 +24,10 @@ jobs:
           package-manager-cache: false
       - name: Validate public foundation
         run: python3 scripts/check_foundation.py
+      - name: Validate real-PBX verification tooling
+        run: |
+          bash -n scripts/setup-real-pbx-verification.sh
+          node --check scripts/verify-real-pbx-compatibility.mjs
       - name: Install locked dependencies
         run: npm ci --ignore-scripts
       - name: Review resolved license identifiers

@@ -307,6 +307,28 @@ test('Asterisk provider rejects an inconsistent channel-list count as degraded s
   await provider.disconnect();
 });
 
+test('Asterisk provider maps a blocked network target to safe connection failure', async () => {
+  const transport = new MockAmiTransport();
+  const provider = new AsteriskProvider({
+    instanceId: 'synthetic-pbx',
+    displayName: 'Synthetic PBX',
+    host: '127.0.0.1',
+    port: 5038,
+    amiUsername: 'synthetic-admin',
+    readAmiPassword: () => Buffer.from('synthetic-secret'),
+    resolver: {
+      async resolve() {
+        return [];
+      },
+    },
+    transport,
+  });
+
+  await assert.rejects(provider.connect(), (error) => error.code === 'CONNECTION_FAILED');
+  assert.equal((await provider.getHealth()).sources.AMI.error.code, 'CONNECTION_FAILED');
+  assert.equal(transport.connections.length, 0);
+});
+
 test('Asterisk provider maps rejected login to safe authentication failure health', async () => {
   const transport = new MockAmiTransport().on('Login', () => ({
     response: 'Error',

@@ -12,6 +12,7 @@ import type {
 } from '@voip-monitor/shared';
 import { AsteriskConnection, type AddressResolver } from './connection.js';
 import { normalizeAmiEvent } from './events.js';
+import { NetworkBoundaryError } from './network-policy.js';
 import { AmiTransportError, amiField, type AmiResponse, type AmiTransport } from './transport.js';
 
 const UNKNOWN: CapabilityState = 'UNKNOWN';
@@ -49,6 +50,7 @@ function cloneCapabilities(capabilities: PbxCapabilities): PbxCapabilities {
 
 function providerCode(error: unknown): ProviderErrorCode {
   if (error instanceof AsteriskProviderError) return error.code;
+  if (error instanceof NetworkBoundaryError) return 'CONNECTION_FAILED';
   if (error instanceof AmiTransportError && error.code === 'TIMEOUT') return 'TIMEOUT';
   if (error instanceof AmiTransportError) return 'CONNECTION_FAILED';
   return 'UNKNOWN';
