@@ -55,10 +55,10 @@ These later checks do not change the historical Phase 1 validation record. Docke
 ### Current execution handoff
 
 - Current branch: `feature/real-pbx-compatibility-verification`, tracking `origin/feature/real-pbx-compatibility-verification`, from synchronized `main` after Task 11 merged as PR #12.
-- Task 12 preflight/tooling commit: `e88e07e` (`test(provider): add real PBX compatibility verifier`). Permission/error classification and least-privilege documentation fixes followed on the same branch.
+- Task 12 commits include `e88e07e` (real-PBX verifier), `176002a` (safe denied-action classification), `480e73f` (least-privilege AMI documentation), and `2f24815` (completed real compatibility gate documentation).
 - The controlled real-PBX gate passed after the dedicated AMI permission was corrected. Public documentation records only the generic compatibility result; detailed target/version/count/event observations remain under ignored local storage.
-- Final task closure requires rerunning the complete repository gates, committing this result/handoff documentation, pushing the branch, and waiting for Task 12 merge approval.
-- Exact next task after merge: Task 13 telephony state engine foundation using authoritative snapshots plus buffered normalized live events. No browser realtime/API exposure is part of that first state-engine task.
+- Final local gates pass: lint, format, typecheck, backend tests 58/58, frontend tests 10/10, build, foundation check, license check, Bash syntax, and verifier Node syntax. GitHub Actions for `2f24815` passed.
+- Task 12 is ready for PR review and merge. Exact next task after merge: Task 13 telephony state engine foundation using authoritative snapshots plus buffered normalized live events. No browser realtime/API exposure is part of that first state-engine task.
 
 ### Failure and bug log
 
