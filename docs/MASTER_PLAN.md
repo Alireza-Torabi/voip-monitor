@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-09-25. Phase 1 public repository foundation is complete. Phase 2 Task 6 authenticated PBX onboarding foundation is implemented on `feature/pbx-onboarding-foundation`; no monitoring functionality exists.
+Status: 2026-09-25. Phase 1 public repository foundation is complete. Phase 2 Task 7 Asterisk network-boundary and mock transport foundation is implemented on `feature/asterisk-provider-foundation`; no real PBX transport or monitoring functionality exists.
 
 ## Phase 0 — environment discovery
 
@@ -44,7 +44,8 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 4: protected master-key lifecycle, AES-256-GCM PBX secret persistence, readiness integration, and recovery documentation.
 - [x] Task 5: protected first-administrator bootstrap, local password authentication, server-side sessions, CSRF and attempt limits, and setup-state transition.
 - [x] Task 6: authenticated PBX profile CRUD, provider-scoped AMI metadata, encrypted write-only credentials, configured-unverified setup state, and bilingual setup/login/onboarding UI. No PBX network access.
-- [ ] Proposed next Phase 2 task: Asterisk provider network-boundary policy and mock transport foundation, subject to separate approval.
+- [x] Task 7: Asterisk provider network-boundary policy, injected address-resolution boundary, and mock AMI transport foundation. No real DNS lookup, socket, AMI login, or PBX access.
+- [ ] Proposed next task: real Asterisk AMI protocol transport and provider connection/discovery foundation, developed first against synthetic/mock fixtures and requiring separate approval before any real PBX test.
 
 ## Future phases — pending approval
 - [ ] Phase 3: account management and onboarding refinement.
@@ -58,4 +59,4 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [ ] Phase 11: hardening, backup, and tested restore.
 - [ ] Phase 12: release validation.
 
-Phase 1 is closed. Stop after Phase 2 Task 6 and await approval for the next task.
+Phase 1 is closed. Stop after Phase 2 Task 7 and await approval for the next task.
