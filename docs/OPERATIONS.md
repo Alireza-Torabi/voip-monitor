@@ -1,6 +1,6 @@
 # Operations
 
-**Status:** The local backend has authenticated PBX onboarding, encrypted AMI credentials, provider runtime lifecycle, authenticated connection testing, normalized AMI events, and synthetic authoritative channel snapshots/reconciliation. The telephony state engine, production deployment, and tested backup/restore are not implemented yet.
+**Status:** The local backend has authenticated PBX onboarding, encrypted AMI credentials, provider runtime lifecycle, authenticated connection testing, normalized AMI events, authoritative channel snapshots/reconciliation, and an internal deterministic channel/call state engine. The state engine is not exposed through REST/WebSocket; production deployment and tested backup/restore are not implemented yet.
 
 ## Current checks
 

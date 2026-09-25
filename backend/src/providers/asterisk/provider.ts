@@ -275,6 +275,7 @@ export class AsteriskProvider implements PbxProvider {
         const bridgeId = amiField(event.fields, 'BridgeId')?.trim();
         return {
           channelId,
+          ...(event.streamSequence === undefined ? {} : { streamSequence: event.streamSequence }),
           ...(channelName ? { channelName } : {}),
           ...(linkedId ? { linkedId } : {}),
           ...(state ? { state } : {}),
@@ -302,7 +303,14 @@ export class AsteriskProvider implements PbxProvider {
       return {
         instanceId: this.instanceId,
         source: 'AMI',
+        startedAt: attempt,
         observedAt,
+        ...(result.streamGeneration === undefined
+          ? {}
+          : { streamGeneration: result.streamGeneration }),
+        ...(result.streamStartedSequence === undefined
+          ? {}
+          : { streamStartedSequence: result.streamStartedSequence }),
         channels,
       };
     } catch (error) {

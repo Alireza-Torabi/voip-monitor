@@ -5,6 +5,7 @@ import { SqliteStorage } from './storage/index.js';
 import { SecretStore } from './security/secret-store.js';
 import { AuthService } from './auth/index.js';
 import { AsteriskProviderFactory, ProviderRuntimeManager } from './providers/runtime/index.js';
+import { TelephonyStateEngine } from './telephony/state-engine.js';
 
 let config;
 try {
@@ -50,11 +51,14 @@ if (config) {
         const providerFactory =
           config.pbxNetworkMode === 'plain_tcp' ? new AsteriskProviderFactory(secrets) : undefined;
         const runtime = new ProviderRuntimeManager(storage, secrets, providerFactory);
+        const telephonyState = new TelephonyStateEngine(runtime);
+        telephonyState.start();
         runtime.start();
         const server = createApp(storage, secrets, auth, runtime);
         server.on('error', () => {
           log('error', 'server_error');
           void runtime.stop().finally(() => {
+            telephonyState.stop();
             secrets.close();
             storage.close();
             process.exitCode = 1;
@@ -79,6 +83,7 @@ if (config) {
             void (async () => {
               clearTimeout(timer);
               await runtime.stop();
+              telephonyState.stop();
               secrets.close();
               storage.close();
               if (error) {

@@ -30,6 +30,12 @@ export interface ProviderFactory {
   create(profile: PbxProfileRecord): PbxProvider;
 }
 
+export type ProviderRuntimeConnectionListener = (
+  instanceId: string,
+  state: PbxConnectionState,
+) => void;
+export type ProviderRuntimeResetListener = (instanceId: string) => void;
+
 export class AsteriskProviderFactory implements ProviderFactory {
   constructor(private readonly secrets: SecretStore) {}
 
@@ -77,6 +83,7 @@ class ProviderEntry {
     private readonly options: Required<ProviderRuntimeOptions>,
     onEvent: ProviderEventListener,
     private readonly onSnapshot: ProviderStateSnapshotListener,
+    private readonly onConnectionState: ProviderRuntimeConnectionListener,
   ) {
     this.unsubscribeProviderEvents = provider.subscribeEvents(onEvent);
   }
@@ -127,11 +134,11 @@ class ProviderEntry {
       } catch {
         // Shutdown is best-effort; callers receive the final disconnected snapshot.
       }
-      this.snapshot.state = 'DISCONNECTED';
       try {
-        this.snapshot.health = await this.provider.getHealth();
+        await this.refreshHealth();
       } catch {
         delete this.snapshot.health;
+        this.setConnectionState('DISCONNECTED');
       }
       this.unsubscribeProviderEvents();
     });
@@ -223,7 +230,13 @@ class ProviderEntry {
   private async refreshHealth(): Promise<void> {
     const health = await this.provider.getHealth();
     this.snapshot.health = health;
-    this.snapshot.state = health.connection.state;
+    this.setConnectionState(health.connection.state);
+  }
+
+  private setConnectionState(state: PbxConnectionState): void {
+    if (this.snapshot.state === state) return;
+    this.snapshot.state = state;
+    this.onConnectionState(this.instanceId, state);
   }
 
   private clearTimer(): void {
@@ -251,6 +264,8 @@ export class ProviderRuntimeManager {
   private readonly testing = new Set<string>();
   private readonly eventListeners = new Set<ProviderEventListener>();
   private readonly snapshotListeners = new Set<ProviderStateSnapshotListener>();
+  private readonly connectionListeners = new Set<ProviderRuntimeConnectionListener>();
+  private readonly resetListeners = new Set<ProviderRuntimeResetListener>();
   private started = false;
   private readonly options: Required<ProviderRuntimeOptions>;
 
@@ -287,6 +302,7 @@ export class ProviderRuntimeManager {
       this.entries.delete(id);
       await current.stop();
     }
+    this.emitReset(id);
     if (!this.started) return;
     const profile = this.storage.pbxProfiles.get(id);
     if (profile) this.activate(profile);
@@ -294,9 +310,11 @@ export class ProviderRuntimeManager {
 
   async remove(id: string): Promise<void> {
     const current = this.entries.get(id);
-    if (!current) return;
-    this.entries.delete(id);
-    await current.stop();
+    if (current) {
+      this.entries.delete(id);
+      await current.stop();
+    }
+    this.emitReset(id);
   }
 
   subscribeEvents(listener: ProviderEventListener): () => void {
@@ -310,6 +328,20 @@ export class ProviderRuntimeManager {
     this.snapshotListeners.add(listener);
     return () => {
       this.snapshotListeners.delete(listener);
+    };
+  }
+
+  subscribeConnectionStates(listener: ProviderRuntimeConnectionListener): () => void {
+    this.connectionListeners.add(listener);
+    return () => {
+      this.connectionListeners.delete(listener);
+    };
+  }
+
+  subscribeInstanceResets(listener: ProviderRuntimeResetListener): () => void {
+    this.resetListeners.add(listener);
+    return () => {
+      this.resetListeners.delete(listener);
     };
   }
 
@@ -379,6 +411,7 @@ export class ProviderRuntimeManager {
       this.options,
       (event) => this.emitEvent(event),
       (snapshot) => this.emitSnapshot(snapshot),
+      (instanceId, state) => this.emitConnectionState(instanceId, state),
     );
     this.entries.set(profile.id, entry);
     entry.start();
@@ -400,6 +433,26 @@ export class ProviderRuntimeManager {
         listener(structuredClone(snapshot));
       } catch {
         // Snapshot consumers are isolated from PBX connection lifecycles.
+      }
+    }
+  }
+
+  private emitConnectionState(instanceId: string, state: PbxConnectionState): void {
+    for (const listener of this.connectionListeners) {
+      try {
+        listener(instanceId, state);
+      } catch {
+        // Connection-state consumers are isolated from provider lifecycles.
+      }
+    }
+  }
+
+  private emitReset(instanceId: string): void {
+    for (const listener of this.resetListeners) {
+      try {
+        listener(instanceId);
+      } catch {
+        // State-reset consumers are isolated from provider lifecycles.
       }
     }
   }
