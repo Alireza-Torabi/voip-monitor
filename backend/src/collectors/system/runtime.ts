@@ -33,6 +33,7 @@ export interface SystemMetricsRuntimeOptions {
   intervalMs?: number;
   failureBackoffBaseMs?: number;
   failureBackoffMaxMs?: number;
+  historyRetentionDays?: number;
   random?: () => number;
 }
 
@@ -49,6 +50,8 @@ export type SystemMetricsHealthListener = (status: SystemMetricsSourceStatus) =>
 const DEFAULT_INTERVAL_MS = 30_000;
 const DEFAULT_FAILURE_BACKOFF_BASE_MS = 5_000;
 const DEFAULT_FAILURE_BACKOFF_MAX_MS = 60_000;
+const DEFAULT_HISTORY_RETENTION_DAYS = 7;
+const MAX_HISTORY_RETENTION_DAYS = 90;
 
 function unavailable(instanceId: PbxInstanceId): SystemMetricsSourceStatus {
   return {
@@ -73,6 +76,13 @@ function validatePositive(value: number): number {
   return value;
 }
 
+function validateRetentionDays(value: number): number {
+  if (!Number.isSafeInteger(value) || value <= 0 || value > MAX_HISTORY_RETENTION_DAYS) {
+    throw new Error('invalid runtime retention');
+  }
+  return value;
+}
+
 class SystemMetricsEntry {
   private timer: NodeJS.Timeout | undefined;
   private stopped = false;
@@ -84,7 +94,7 @@ class SystemMetricsEntry {
   constructor(
     readonly instanceId: PbxInstanceId,
     private readonly collector: SystemMetricsCollector,
-    private readonly options: Required<SystemMetricsRuntimeOptions>,
+    private readonly options: Required<SystemMetricsRuntimeOptions> & { storage: AppStorage },
     private readonly emitSample: SystemMetricsSampleListener,
     private readonly emitHealth: SystemMetricsHealthListener,
   ) {}
@@ -128,6 +138,14 @@ class SystemMetricsEntry {
       const sample = await collectSystemMetrics(this.collector, this.instanceId);
       this.lastSample = sample;
       this.failures = 0;
+      const retentionCutoff = new Date(
+        Date.now() - this.options.historyRetentionDays * 24 * 60 * 60 * 1000,
+      ).toISOString();
+      try {
+        this.options.storage.systemMetrics.save(sample, retentionCutoff);
+      } catch {
+        // Persistence failures never stop or mark down the read-only collector.
+      }
       this.health = {
         source: 'SSH',
         freshness: 'CURRENT',
@@ -168,7 +186,7 @@ export class SystemMetricsRuntime {
   private readonly entries = new Map<PbxInstanceId, SystemMetricsEntry>();
   private readonly sampleListeners = new Set<SystemMetricsSampleListener>();
   private readonly healthListeners = new Set<SystemMetricsHealthListener>();
-  private readonly options: Required<SystemMetricsRuntimeOptions>;
+  private readonly options: Required<SystemMetricsRuntimeOptions> & { storage: AppStorage };
   private started = false;
 
   constructor(
@@ -185,7 +203,11 @@ export class SystemMetricsRuntime {
       failureBackoffMaxMs: validatePositive(
         options.failureBackoffMaxMs ?? DEFAULT_FAILURE_BACKOFF_MAX_MS,
       ),
+      historyRetentionDays: validateRetentionDays(
+        options.historyRetentionDays ?? DEFAULT_HISTORY_RETENTION_DAYS,
+      ),
       random: options.random ?? Math.random,
+      storage,
     };
     if (this.options.failureBackoffBaseMs > this.options.failureBackoffMaxMs) {
       throw new Error('invalid runtime backoff options');

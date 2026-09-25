@@ -135,6 +135,16 @@ test('system metrics runtime keeps SSH health per PBX and publishes bounded samp
     assert.equal(factory.created[0].calls, 1);
     assert.equal(runtime.status(profile.id).health.freshness, 'CURRENT');
     assert.equal(runtime.status(profile.id).sample.cpu.utilizationPercent, 12.5);
+    assert.equal(storage.systemMetrics.getCurrent(profile.id).observedAt, samples[0].observedAt);
+    assert.equal(
+      storage.systemMetrics.listHistory(
+        profile.id,
+        '2026-09-25T00:00:00.000Z',
+        '2026-09-25T00:01:00.000Z',
+        10,
+      ).length,
+      1,
+    );
     assert.equal(health.at(-1).health.source, 'SSH');
     assert.equal(health.at(-1).consecutiveFailures, 0);
   });

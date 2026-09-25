@@ -314,7 +314,7 @@ test('migration chain upgrades schema 3 without modifying published migrations',
     try {
       assert.deepEqual(
         upgraded.migrationHistory().map((row) => row.version),
-        [1, 2, 3, 4, 5, 6],
+        [1, 2, 3, 4, 5, 6, 7],
       );
       assert.equal(upgraded.setup.get().state, 'SETUP_REQUIRED');
     } finally {

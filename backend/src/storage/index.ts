@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, chmod } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import type { PbxInstanceMetadata } from '@voip-monitor/shared';
+import type { PbxInstanceMetadata, SystemMetricsSample } from '@voip-monitor/shared';
 import type { AppConfig } from '../config.js';
 import { migrations } from './migrations.js';
 
@@ -79,6 +79,13 @@ export interface SshConfigRepository {
   list(): SshConfigRecord[];
 }
 
+export interface SystemMetricsRepository {
+  save(sample: SystemMetricsSample, retentionCutoff: string): void;
+  getCurrent(instanceId: string): SystemMetricsSample | undefined;
+  listHistory(instanceId: string, from: string, to: string, limit: number): SystemMetricsSample[];
+  pruneBefore(cutoff: string): number;
+}
+
 export interface AppStorage {
   transaction<T>(action: () => T): T;
   readonly setup: SetupRepository;
@@ -86,6 +93,7 @@ export interface AppStorage {
   readonly pbxInstances: PbxInstanceRepository;
   readonly pbxProfiles: PbxProfileRepository;
   readonly sshConfigs: SshConfigRepository;
+  readonly systemMetrics: SystemMetricsRepository;
   readonly secretRecords: EncryptedSecretRepository;
   hasEncryptedSecrets(): boolean;
   migrationHistory(): MigrationRecord[];
@@ -196,6 +204,7 @@ export class SqliteStorage implements AppStorage {
   readonly pbxInstances: PbxInstanceRepository;
   readonly pbxProfiles: PbxProfileRepository;
   readonly sshConfigs: SshConfigRepository;
+  readonly systemMetrics: SystemMetricsRepository;
   readonly secretRecords: EncryptedSecretRepository;
   private closed = false;
 
@@ -430,6 +439,60 @@ export class SqliteStorage implements AppStorage {
           .all()
           .map(mapSshConfig),
     };
+    this.systemMetrics = {
+      save: (sample, retentionCutoff) => {
+        const sampleJson = JSON.stringify(sample);
+        const now = new Date().toISOString();
+        inTransaction(this.db, () => {
+          this.db
+            .prepare(
+              `INSERT INTO system_metric_history
+              (pbx_instance_id, source, observed_at, sample_json)
+              VALUES (?, ?, ?, ?)
+              ON CONFLICT(pbx_instance_id, source, observed_at) DO NOTHING`,
+            )
+            .run(sample.instanceId, sample.source, sample.observedAt, sampleJson);
+          this.db
+            .prepare(
+              `INSERT INTO system_metric_current
+              (pbx_instance_id, source, observed_at, sample_json, updated_at)
+              VALUES (?, ?, ?, ?, ?)
+              ON CONFLICT(pbx_instance_id) DO UPDATE SET
+                source=excluded.source,
+                observed_at=excluded.observed_at,
+                sample_json=excluded.sample_json,
+                updated_at=excluded.updated_at
+              WHERE excluded.observed_at > system_metric_current.observed_at`,
+            )
+            .run(sample.instanceId, sample.source, sample.observedAt, sampleJson, now);
+          this.db
+            .prepare('DELETE FROM system_metric_history WHERE observed_at < ?')
+            .run(retentionCutoff);
+        });
+      },
+      getCurrent: (instanceId) => {
+        const row = this.db
+          .prepare('SELECT sample_json FROM system_metric_current WHERE pbx_instance_id = ?')
+          .get(instanceId) as { sample_json: string } | undefined;
+        return row ? parseSystemMetricsSample(row.sample_json) : undefined;
+      },
+      listHistory: (instanceId, from, to, limit) => {
+        if (!Number.isSafeInteger(limit) || limit <= 0) throw new StorageError();
+        const rows = this.db
+          .prepare(
+            `SELECT sample_json FROM system_metric_history
+             WHERE pbx_instance_id = ? AND observed_at >= ? AND observed_at <= ?
+             ORDER BY observed_at DESC LIMIT ?`,
+          )
+          .all(instanceId, from, to, limit) as { sample_json: string }[];
+        return rows.map((row) => parseSystemMetricsSample(row.sample_json));
+      },
+      pruneBefore: (cutoff) =>
+        Number(
+          this.db.prepare('DELETE FROM system_metric_history WHERE observed_at < ?').run(cutoff)
+            .changes,
+        ),
+    };
     this.secretRecords = {
       firstIdentity: () => {
         const row = this.db
@@ -559,6 +622,24 @@ export class SqliteStorage implements AppStorage {
     if (this.closed) return;
     this.closed = true;
     this.db.close();
+  }
+}
+
+function parseSystemMetricsSample(value: string): SystemMetricsSample {
+  try {
+    const sample = JSON.parse(value) as Partial<SystemMetricsSample>;
+    if (
+      typeof sample.instanceId !== 'string' ||
+      sample.source !== 'SSH' ||
+      typeof sample.observedAt !== 'string' ||
+      !sample.capabilities ||
+      typeof sample.capabilities !== 'object'
+    ) {
+      throw new Error();
+    }
+    return sample as SystemMetricsSample;
+  } catch {
+    throw new StorageError();
   }
 }
 

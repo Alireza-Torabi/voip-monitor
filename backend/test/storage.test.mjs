@@ -38,10 +38,10 @@ test('fresh database migrates once and persists setup and PBX metadata across re
     assert.equal(first.setup.get().state, 'SETUP_REQUIRED');
     assert.deepEqual(first.pbxInstances.list(), []);
     const history = first.migrationHistory();
-    assert.equal(history.length, 6);
+    assert.equal(history.length, 7);
     assert.deepEqual(
       history.map((row) => row.version),
-      [1, 2, 3, 4, 5, 6],
+      [1, 2, 3, 4, 5, 6, 7],
     );
     assert.match(history[0].checksum, /^[a-f0-9]{64}$/);
     first.setup.set('SETUP_IN_PROGRESS');
@@ -64,6 +64,67 @@ test('fresh database migrates once and persists setup and PBX metadata across re
       assert.deepEqual(second.migrationHistory(), history);
     } finally {
       second.close();
+    }
+  }));
+
+test('system metrics persistence keeps current state monotonic and history retention bounded', () =>
+  fixture(async (config) => {
+    const storage = await SqliteStorage.open(config);
+    try {
+      storage.pbxInstances.save({
+        id: 'metrics-pbx',
+        providerType: 'ASTERISK',
+        displayName: 'Metrics',
+      });
+      const sample = (observedAt) => ({
+        instanceId: 'metrics-pbx',
+        source: 'SSH',
+        observedAt,
+        capabilities: {
+          cpu: 'SUPPORTED',
+          memory: 'NOT_CONFIGURED',
+          filesystems: 'NOT_CONFIGURED',
+          uptime: 'NOT_CONFIGURED',
+          services: 'NOT_CONFIGURED',
+        },
+        cpu: { utilizationPercent: 25 },
+      });
+      storage.systemMetrics.save(sample('2026-09-26T10:00:00.000Z'), '2026-09-26T09:00:00.000Z');
+      storage.systemMetrics.save(sample('2026-09-26T09:30:00.000Z'), '2026-09-26T09:00:00.000Z');
+      assert.equal(
+        storage.systemMetrics.getCurrent('metrics-pbx').observedAt,
+        '2026-09-26T10:00:00.000Z',
+      );
+      assert.equal(
+        storage.systemMetrics.listHistory(
+          'metrics-pbx',
+          '2026-09-26T09:00:00.000Z',
+          '2026-09-26T11:00:00.000Z',
+          10,
+        ).length,
+        2,
+      );
+      storage.systemMetrics.save(sample('2026-09-26T09:15:00.000Z'), '2026-09-26T09:20:00.000Z');
+      assert.equal(
+        storage.systemMetrics.getCurrent('metrics-pbx').observedAt,
+        '2026-09-26T10:00:00.000Z',
+      );
+      assert.equal(
+        storage.systemMetrics.listHistory(
+          'metrics-pbx',
+          '2026-09-26T09:00:00.000Z',
+          '2026-09-26T11:00:00.000Z',
+          10,
+        ).length,
+        2,
+      );
+      assert.equal(storage.systemMetrics.pruneBefore('2026-09-26T09:31:00.000Z'), 1);
+      assert.equal(
+        storage.systemMetrics.getCurrent('metrics-pbx').observedAt,
+        '2026-09-26T10:00:00.000Z',
+      );
+    } finally {
+      storage.close();
     }
   }));
 
