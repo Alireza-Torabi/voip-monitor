@@ -1,20 +1,14 @@
 import { randomUUID } from 'node:crypto';
-import { isIP } from 'node:net';
 import type { PbxConnectionState } from '@voip-monitor/shared';
+import { validHostSyntax } from '../network/policy.js';
 import { z } from 'zod';
 import type { SecretStore } from '../security/secret-store.js';
 import type { AppStorage, PbxProfileRecord } from '../storage/index.js';
 
 const AMI_SECRET = 'ami-password';
 const idPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-const hostnameLabel = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$/;
-export function validHost(value: string): boolean {
-  if (value.length < 1 || value.length > 253) return false;
-  if (isIP(value) !== 0) return true;
-  if (/^[0-9.]+$/.test(value)) return false;
-  return value.split('.').every((label) => hostnameLabel.test(label));
-}
-const host = z.string().refine(validHost);
+export const validHost = validHostSyntax;
+const host = z.string().refine(validHostSyntax);
 const secret = z
   .string()
   .min(1)

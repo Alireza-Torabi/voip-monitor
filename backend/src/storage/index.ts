@@ -59,12 +59,33 @@ export interface PbxProfileRepository {
   verifiedCount(): number;
 }
 
+export type SshAuthMethod = 'PASSWORD' | 'PRIVATE_KEY';
+export type SshHostKeyPolicy = 'PINNED_SHA256';
+export interface SshConfigRecord {
+  pbxInstanceId: string;
+  host: string;
+  port: number;
+  username: string;
+  authMethod: SshAuthMethod;
+  hostKeyPolicy: SshHostKeyPolicy;
+  hostKeyFingerprint: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface SshConfigRepository {
+  put(config: SshConfigRecord): void;
+  get(pbxInstanceId: string): SshConfigRecord | undefined;
+  delete(pbxInstanceId: string): boolean;
+  list(): SshConfigRecord[];
+}
+
 export interface AppStorage {
   transaction<T>(action: () => T): T;
   readonly setup: SetupRepository;
   readonly auth: AuthRepository;
   readonly pbxInstances: PbxInstanceRepository;
   readonly pbxProfiles: PbxProfileRepository;
+  readonly sshConfigs: SshConfigRepository;
   readonly secretRecords: EncryptedSecretRepository;
   hasEncryptedSecrets(): boolean;
   migrationHistory(): MigrationRecord[];
@@ -174,6 +195,7 @@ export class SqliteStorage implements AppStorage {
   readonly auth: AuthRepository;
   readonly pbxInstances: PbxInstanceRepository;
   readonly pbxProfiles: PbxProfileRepository;
+  readonly sshConfigs: SshConfigRepository;
   readonly secretRecords: EncryptedSecretRepository;
   private closed = false;
 
@@ -366,6 +388,48 @@ export class SqliteStorage implements AppStorage {
           )
           .get()!.total as number,
     };
+    this.sshConfigs = {
+      put: (config) => {
+        this.db
+          .prepare(
+            `INSERT INTO ssh_config
+          (pbx_instance_id, ssh_host, ssh_port, ssh_username, auth_method,
+           host_key_policy, host_key_fingerprint, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(pbx_instance_id) DO UPDATE SET
+          ssh_host=excluded.ssh_host, ssh_port=excluded.ssh_port,
+          ssh_username=excluded.ssh_username, auth_method=excluded.auth_method,
+          host_key_policy=excluded.host_key_policy,
+          host_key_fingerprint=excluded.host_key_fingerprint,
+          updated_at=excluded.updated_at`,
+          )
+          .run(
+            config.pbxInstanceId,
+            config.host,
+            config.port,
+            config.username,
+            config.authMethod,
+            config.hostKeyPolicy,
+            config.hostKeyFingerprint,
+            config.createdAt,
+            config.updatedAt,
+          );
+      },
+      get: (pbxInstanceId) => {
+        const row = this.db
+          .prepare('SELECT * FROM ssh_config WHERE pbx_instance_id = ?')
+          .get(pbxInstanceId);
+        return row ? mapSshConfig(row) : undefined;
+      },
+      delete: (pbxInstanceId) =>
+        this.db.prepare('DELETE FROM ssh_config WHERE pbx_instance_id = ?').run(pbxInstanceId)
+          .changes > 0,
+      list: () =>
+        this.db
+          .prepare('SELECT * FROM ssh_config ORDER BY created_at, pbx_instance_id')
+          .all()
+          .map(mapSshConfig),
+    };
     this.secretRecords = {
       firstIdentity: () => {
         const row = this.db
@@ -506,6 +570,20 @@ function mapPbx(row: Record<string, unknown>): PbxInstanceMetadata {
     ...(row.product === null ? {} : { product: row.product as string }),
     ...(row.version === null ? {} : { version: row.version as string }),
     ...(row.timezone === null ? {} : { timezone: row.timezone as string }),
+  };
+}
+
+function mapSshConfig(row: Record<string, unknown>): SshConfigRecord {
+  return {
+    pbxInstanceId: row.pbx_instance_id as string,
+    host: row.ssh_host as string,
+    port: row.ssh_port as number,
+    username: row.ssh_username as string,
+    authMethod: row.auth_method as SshAuthMethod,
+    hostKeyPolicy: row.host_key_policy as SshHostKeyPolicy,
+    hostKeyFingerprint: row.host_key_fingerprint as string,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
   };
 }
 
