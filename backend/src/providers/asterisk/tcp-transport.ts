@@ -3,6 +3,7 @@ import {
   AmiTransportError,
   type AmiAction,
   type AmiConnectionTarget,
+  type AmiEventListener,
   type AmiResponse,
   type AmiTransport,
 } from './transport.js';
@@ -67,9 +68,9 @@ function takeCaseInsensitive(fields: Record<string, string>, name: string): stri
  * Plain TCP AMI transport.
  *
  * It always connects to target.address, never target.host, so DNS cannot be
- * re-run after the network policy approved an address. This transport is not
- * wired into application startup yet and tests use only a synthetic loopback
- * AMI server.
+ * re-run after the network policy approved an address. Runtime use remains
+ * behind the default-disabled PBX network gate; protocol tests use only a
+ * synthetic loopback AMI server.
  */
 export class TcpAmiTransport implements AmiTransport {
   connected = false;
@@ -82,6 +83,7 @@ export class TcpAmiTransport implements AmiTransport {
   private connectResolve: (() => void) | undefined;
   private connectReject: ((error: AmiTransportError) => void) | undefined;
   private connectTimer: NodeJS.Timeout | undefined;
+  private readonly eventListeners = new Set<AmiEventListener>();
 
   constructor(private readonly timeoutMs = DEFAULT_TIMEOUT_MS) {}
 
@@ -134,6 +136,13 @@ export class TcpAmiTransport implements AmiTransport {
       () => undefined,
     );
     return run;
+  }
+
+  subscribeEvents(listener: AmiEventListener): () => void {
+    this.eventListeners.add(listener);
+    return () => {
+      this.eventListeners.delete(listener);
+    };
   }
 
   private async performRequest(action: AmiAction): Promise<AmiResponse> {
@@ -216,7 +225,16 @@ export class TcpAmiTransport implements AmiTransport {
 
     const response = takeCaseInsensitive(fields, 'Response');
     if (!response) {
-      // AMI events are intentionally ignored until the event-subscription task.
+      const event = takeCaseInsensitive(fields, 'Event');
+      if (!event) return;
+      const snapshot = Object.freeze({ ...fields });
+      for (const listener of this.eventListeners) {
+        try {
+          listener({ event, fields: snapshot });
+        } catch {
+          // One consumer must never break AMI frame processing for other consumers.
+        }
+      }
       return;
     }
 

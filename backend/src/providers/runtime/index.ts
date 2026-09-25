@@ -3,6 +3,8 @@ import type {
   PbxHealth,
   PbxProvider,
   ProviderDiscoveryResult,
+  ProviderEvent,
+  ProviderEventListener,
 } from '@voip-monitor/shared';
 import type { SecretStore } from '../../security/secret-store.js';
 import type { AppStorage, PbxProfileRecord } from '../../storage/index.js';
@@ -62,12 +64,16 @@ class ProviderEntry {
   private operation: Promise<void> = Promise.resolve();
   private retryAttempt = 0;
   private snapshot: EntrySnapshot = { state: 'DISCONNECTED' };
+  private readonly unsubscribeProviderEvents: () => void;
 
   constructor(
     readonly instanceId: string,
     private readonly provider: PbxProvider,
     private readonly options: Required<ProviderRuntimeOptions>,
-  ) {}
+    onEvent: ProviderEventListener,
+  ) {
+    this.unsubscribeProviderEvents = provider.subscribeEvents(onEvent);
+  }
 
   start(): void {
     this.schedule(0, 'connect');
@@ -117,6 +123,7 @@ class ProviderEntry {
       } catch {
         delete this.snapshot.health;
       }
+      this.unsubscribeProviderEvents();
     });
   }
 
@@ -210,6 +217,7 @@ export interface VerifyResult {
 export class ProviderRuntimeManager {
   private readonly entries = new Map<string, ProviderEntry>();
   private readonly testing = new Set<string>();
+  private readonly eventListeners = new Set<ProviderEventListener>();
   private started = false;
   private readonly options: Required<ProviderRuntimeOptions>;
 
@@ -256,6 +264,13 @@ export class ProviderRuntimeManager {
     if (!current) return;
     this.entries.delete(id);
     await current.stop();
+  }
+
+  subscribeEvents(listener: ProviderEventListener): () => void {
+    this.eventListeners.add(listener);
+    return () => {
+      this.eventListeners.delete(listener);
+    };
   }
 
   connectionState(id: string): PbxConnectionState {
@@ -310,9 +325,24 @@ export class ProviderRuntimeManager {
   private activate(profile: PbxProfileRecord): void {
     if (!this.factory || !profile.enabled || !this.secrets.hasSecret(profile.id, AMI_SECRET))
       return;
-    const entry = new ProviderEntry(profile.id, this.factory.create(profile), this.options);
+    const entry = new ProviderEntry(
+      profile.id,
+      this.factory.create(profile),
+      this.options,
+      (event) => this.emitEvent(event),
+    );
     this.entries.set(profile.id, entry);
     entry.start();
+  }
+
+  private emitEvent(event: ProviderEvent): void {
+    for (const listener of this.eventListeners) {
+      try {
+        listener(structuredClone(event));
+      } catch {
+        // Runtime event consumers are isolated from PBX connection lifecycles.
+      }
+    }
   }
 
   private async verifyEphemeral(profile: PbxProfileRecord): Promise<ProviderDiscoveryResult> {

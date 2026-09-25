@@ -1,10 +1,10 @@
 # Project context
 
-Status: Phase 2 Task 9 provider runtime lifecycle and authenticated connection-test/discovery foundation implemented on a feature branch, 2026-09-25. PR #10 is open; its current checks pass after a resolved source-tracking CI issue. Task 10 is the next planned step after Task 9 is merged. License: Apache-2.0. This is a proposed public, reusable VoIP monitoring application hosted separately from the PBX. The first provider targets Asterisk and FreePBX-based Asterisk, with Asterisk 13.x as a required compatibility baseline to verify. No real PBX has been contacted.
+Status: Phase 2 Task 10 AMI event subscription and normalized provider-event foundation implemented on a feature branch, 2026-09-25. Task 9 is merged into `main` by PR #10. Task 11 is the next planned step after Task 10 is merged. License: Apache-2.0. This is a proposed public, reusable VoIP monitoring application hosted separately from the PBX. The first provider targets Asterisk and FreePBX-based Asterisk, with Asterisk 13.x as a required compatibility baseline to verify. No real PBX has been contacted.
 
 ## Repository state
 
-The public foundation repository is established on `main`, tracking `origin/main`. The merged application skeleton provides a minimal backend health server and bilingual frontend shell. The current feature branch adds a runtime manager that owns one provider per enabled PBX, safe reconnect/reconciliation scheduling, authenticated provider-status and connection-test/discovery APIs, persisted verification timestamps, and a bilingual connection-test control. PBX networking is disabled unless the operator explicitly sets `APP_PBX_NETWORK_MODE=plain_tcp`; no real PBX has been accessed. The configured `origin` points to the user-supplied GitHub repository via SSH.
+The public foundation repository is established on `main`, tracking `origin/main`. Task 9 is merged. The current feature branch adds transport-level AMI event subscriptions, provider-neutral event types, Asterisk normalization for a bounded initial event subset, and one runtime event-forwarding boundary per managed PBX. PBX networking remains disabled unless the operator explicitly sets `APP_PBX_NETWORK_MODE=plain_tcp`; tests use mocks or loopback synthetic servers and no real PBX has been accessed. The configured `origin` points to the user-supplied GitHub repository via SSH.
 
 ## Product constraints
 

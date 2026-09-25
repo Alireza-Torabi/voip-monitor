@@ -78,6 +78,64 @@ export interface PbxHealth {
   sources: Partial<Record<DataSourceType, DataSourceHealth>>;
 }
 
+export interface ProviderEventBase {
+  instanceId: PbxInstanceId;
+  source: 'AMI';
+  observedAt: string;
+}
+
+export type ProviderEvent =
+  | (ProviderEventBase & {
+      type: 'CHANNEL_CREATED';
+      channelId: string;
+      channelName?: string;
+      linkedId?: string;
+      state?: string;
+    })
+  | (ProviderEventBase & {
+      type: 'CHANNEL_STATE_CHANGED';
+      channelId: string;
+      channelName?: string;
+      linkedId?: string;
+      state: string;
+    })
+  | (ProviderEventBase & {
+      type: 'CHANNEL_DESTROYED';
+      channelId: string;
+      channelName?: string;
+      linkedId?: string;
+      cause?: string;
+      causeText?: string;
+    })
+  | (ProviderEventBase & {
+      type: 'DIAL_STARTED';
+      sourceChannelId: string;
+      destinationChannelId?: string;
+      linkedId?: string;
+      dialString?: string;
+    })
+  | (ProviderEventBase & {
+      type: 'DIAL_ENDED';
+      sourceChannelId: string;
+      destinationChannelId?: string;
+      linkedId?: string;
+      dialStatus?: string;
+    })
+  | (ProviderEventBase & {
+      type: 'BRIDGE_ENTERED' | 'BRIDGE_LEFT';
+      bridgeId: string;
+      channelId: string;
+      channelName?: string;
+      linkedId?: string;
+    })
+  | (ProviderEventBase & {
+      type: 'ENDPOINT_STATUS_CHANGED';
+      endpointId: string;
+      status: string;
+    });
+
+export type ProviderEventListener = (event: ProviderEvent) => void;
+
 export interface ProviderDiscoveryResult {
   metadata: PbxInstanceMetadata;
   capabilities: PbxCapabilities;
@@ -92,5 +150,7 @@ export interface PbxProvider {
   discover(): Promise<ProviderDiscoveryResult>;
   getCapabilities(): Promise<PbxCapabilities>;
   getHealth(): Promise<PbxHealth>;
+  /** Runtime owners register before connect so the provider can enable its event stream. */
+  subscribeEvents(listener: ProviderEventListener): () => void;
   reconcile(): Promise<void>;
 }

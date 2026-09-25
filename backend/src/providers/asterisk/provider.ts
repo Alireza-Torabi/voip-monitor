@@ -5,10 +5,12 @@ import type {
   PbxConnectionState,
   PbxHealth,
   PbxProvider,
+  ProviderEventListener,
   ProviderDiscoveryResult,
   ProviderErrorCode,
 } from '@voip-monitor/shared';
 import { AsteriskConnection, type AddressResolver } from './connection.js';
+import { normalizeAmiEvent } from './events.js';
 import { AmiTransportError, amiField, type AmiResponse, type AmiTransport } from './transport.js';
 
 const UNKNOWN: CapabilityState = 'UNKNOWN';
@@ -77,10 +79,10 @@ export interface AsteriskProviderOptions {
 }
 
 /**
- * Provider connection/discovery foundation.
+ * Asterisk provider connection, discovery, reconciliation, and event normalization.
  *
- * The runtime application does not instantiate this provider yet. A later task
- * will own lifecycle/reconnect and event subscriptions per enabled PBX.
+ * Runtime lifecycle remains outside the provider so one provider instance is
+ * owned per enabled PBX rather than per browser.
  */
 export class AsteriskProvider implements PbxProvider {
   readonly instanceId: string;
@@ -88,6 +90,7 @@ export class AsteriskProvider implements PbxProvider {
   private readonly capabilities = unknownCapabilities();
   private connectionState: PbxConnectionState = 'DISCONNECTED';
   private lastChangedAt: string;
+  private readonly eventListeners = new Set<ProviderEventListener>();
   private amiHealth: DataSourceHealth = {
     source: 'AMI',
     freshness: 'NEVER_COLLECTED',
@@ -97,6 +100,25 @@ export class AsteriskProvider implements PbxProvider {
     this.instanceId = options.instanceId;
     this.connection = new AsteriskConnection(options.resolver, options.transport);
     this.lastChangedAt = this.now();
+    options.transport.subscribeEvents((event) => {
+      const observedAt = this.now();
+      const normalized = normalizeAmiEvent(this.instanceId, event, observedAt);
+      if (!normalized) return;
+      this.amiHealth = {
+        source: 'AMI',
+        freshness: 'CURRENT',
+        ...(this.amiHealth.lastAttempt ? { lastAttempt: this.amiHealth.lastAttempt } : {}),
+        lastSuccess: observedAt,
+        lastUpdate: observedAt,
+      };
+      for (const listener of this.eventListeners) {
+        try {
+          listener(normalized);
+        } catch {
+          // Event consumers are isolated from provider connection processing.
+        }
+      }
+    });
   }
 
   async connect(): Promise<void> {
@@ -123,7 +145,7 @@ export class AsteriskProvider implements PbxProvider {
           fields: {
             Username: this.options.amiUsername,
             Secret: passwordText,
-            Events: 'off',
+            Events: this.eventListeners.size > 0 ? 'on' : 'off',
           },
         });
         if (login.response.toLowerCase() !== 'success') {
@@ -210,6 +232,13 @@ export class AsteriskProvider implements PbxProvider {
 
   async getCapabilities(): Promise<PbxCapabilities> {
     return cloneCapabilities(this.capabilities);
+  }
+
+  subscribeEvents(listener: ProviderEventListener): () => void {
+    this.eventListeners.add(listener);
+    return () => {
+      this.eventListeners.delete(listener);
+    };
   }
 
   async getHealth(): Promise<PbxHealth> {

@@ -19,6 +19,13 @@ export interface AmiResponse {
   fields: Readonly<Record<string, string>>;
 }
 
+export interface AmiEvent {
+  event: string;
+  fields: Readonly<Record<string, string>>;
+}
+
+export type AmiEventListener = (event: AmiEvent) => void;
+
 export type AmiTransportErrorCode =
   'CONNECTION_FAILED' | 'TIMEOUT' | 'PROTOCOL_ERROR' | 'DISCONNECTED' | 'INVALID_ACTION';
 
@@ -35,6 +42,7 @@ export interface AmiTransport {
   connect(target: AmiConnectionTarget): Promise<void>;
   disconnect(): Promise<void>;
   request(action: AmiAction): Promise<AmiResponse>;
+  subscribeEvents(listener: AmiEventListener): () => void;
 }
 
 export function amiField(

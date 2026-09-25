@@ -50,7 +50,7 @@ async function syntheticAmi(handler, run) {
   }
 }
 
-test('TCP AMI transport parses banner, ignores events, and correlates a synthetic response', async () => {
+test('TCP AMI transport publishes events and still correlates a synthetic response', async () => {
   await syntheticAmi(
     async (action, socket) => {
       assert.equal(action.Action, 'Ping');
@@ -62,11 +62,18 @@ test('TCP AMI transport parses banner, ignores events, and correlates a syntheti
     },
     async (port) => {
       const transport = new TcpAmiTransport(1000);
+      const events = [];
+      transport.subscribeEvents(() => {
+        throw new Error('synthetic raw-event consumer failure');
+      });
+      const unsubscribe = transport.subscribeEvents((event) => events.push(event));
       await transport.connect({ host: 'synthetic.test', address: '127.0.0.1', port });
       assert.equal(transport.banner, 'Asterisk Call Manager/2.10.4');
       const response = await transport.request({ action: 'Ping' });
       assert.equal(response.response, 'Success');
       assert.equal(response.fields.Ping, 'Pong');
+      assert.deepEqual(events, [{ event: 'FullyBooted', fields: { Status: 'Fully Booted' } }]);
+      unsubscribe();
       await transport.disconnect();
     },
   );

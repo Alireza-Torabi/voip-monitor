@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-09-25. Phase 1 public repository foundation is complete. Phase 2 Task 9 provider runtime lifecycle and authenticated AMI connection-test/discovery foundation is implemented on `feature/provider-runtime-lifecycle`. PR #10 is open and its current checks pass after the CI source-tracking fix described below. Network access remains disabled by default and no real PBX has been contacted.
+Status: 2026-09-25. Phase 1 public repository foundation is complete. Task 9 is merged into `main` as PR #10. Phase 2 Task 10 AMI event subscription and normalized provider-event foundation is implemented on `feature/ami-event-subscription`; no real PBX has been contacted and no telephony state engine exists yet.
 
 ## Phase 0 — environment discovery
 
@@ -47,22 +47,24 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 7: Asterisk provider network-boundary policy, injected address-resolution boundary, and mock AMI transport foundation. No real DNS lookup, socket, AMI login, or PBX access.
 - [x] Task 8: plain TCP AMI wire transport, safe action framing/ActionID/timeout handling, Node DNS resolver boundary, and an Asterisk provider login/discovery/reconcile foundation. Tests use only mocks and a synthetic loopback AMI server; runtime startup still creates no PBX connection.
 - [x] Task 9: provider runtime lifecycle with one managed provider per enabled PBX, bounded reconnect/backoff and reconciliation, explicit network enablement, authenticated provider-status and connection-test/discovery APIs, persisted verification timestamp, and bilingual connection-test UI. Tests remain mock/synthetic only; no real PBX access.
-- [ ] Proposed next task: AMI event-subscription and normalized provider-event foundation, implemented against synthetic/mock AMI streams before any real PBX test.
+- [x] Task 10: AMI transport event subscription, provider-neutral normalized event contracts, Asterisk event normalization, and runtime event forwarding. Synthetic coverage includes channel lifecycle/state, dial lifecycle, bridge membership, and chan_sip peer status; raw AMI payloads are not forwarded to consumers.
+- [ ] Proposed next task: AMI event-list action correlation plus initial channel snapshot/reconciliation foundation, implemented against synthetic/mock AMI streams before any real PBX test.
 
 ### Current execution handoff
 
-- Current branch: `feature/provider-runtime-lifecycle`.
-- Current PR: #10, targeting `main`.
-- Task 9 implementation commit: `7439e6b` (`feat(provider): add runtime lifecycle and connection verification`).
-- Task 9 CI fix commit: `8fef26d` (`fix(ci): track provider runtime source`).
-- Both GitHub Actions checks for `8fef26d` are green. Task 9 is ready to merge after normal PR review.
-- Exact next task after merge: Task 10, AMI event subscription and normalized provider-event foundation, synthetic/mock first.
+- Current branch: `feature/ami-event-subscription`, tracking `origin/feature/ami-event-subscription`.
+- Task 9 is merged into `main` by PR #10.
+- Task 10 implementation commit: `3f91c90` (`feat(provider): add normalized AMI event subscriptions`). The branch is pushed; no Task 10 PR has been created yet.
+- Final local gates pass: lint, format, typecheck, backend tests 51/51, frontend tests 10/10, build, foundation check, and license check.
+- Exact next task after Task 10 merge: Task 11, AMI event-list action correlation plus initial channel snapshot/reconciliation foundation, synthetic/mock first.
 - Real PBX access still requires separate explicit approval.
 
 ### Failure and bug log
 
 - **Task 9 CI failure — resolved:** the original `.gitignore` rule `runtime/` matched every directory named `runtime`, including `backend/src/providers/runtime/`. The runtime manager source existed locally but was ignored/untracked, so local typecheck passed while a clean GitHub checkout failed at typecheck because the imported module was missing. Fix: root-anchor the runtime-data rule as `/runtime/`, track `backend/src/providers/runtime/index.ts`, and narrow the foundation checker so only top-level private/runtime directories are rejected. Full local gates then passed and both GitHub Actions checks passed.
-- **Open Task 9 defects:** none currently known from the automated suite. The production limitations listed below remain planned work, not resolved features.
+- **Task 10 validation failure — resolved:** the first full lint gate failed because the new Node event test referenced `Buffer` without an explicit `node:buffer` import under the repository ESLint environment. The import was added and the complete gate suite was rerun successfully.
+- **Task 10 open defects:** none currently known from the automated suite. Event consumers are isolated from transport/provider/runtime failures by listener boundaries.
+- **Task 10 known limitations:** only the deliberately selected normalized event subset is implemented (`Newchannel`, `Newstate`, `Hangup`, `DialBegin`, `DialEnd`, `BridgeEnter`, `BridgeLeave`, and chan_sip `PeerStatus`). PJSIP contact/endpoint events, queue/agent events, registration/trunk events, duplicate AMI header preservation, state reconstruction, historical persistence, and browser realtime delivery remain future work.
 
 ### Persistent continuation protocol
 
@@ -80,7 +82,7 @@ For every future task/session:
 Tasks 7–9 already implemented substantial Asterisk-provider foundation work earlier than the original high-level phase buckets. Task 10 continues that provider foundation; the phase labels below describe the remaining product roadmap rather than implying that completed provider work must be repeated.
 
 - [ ] Phase 3: account management and onboarding refinement.
-- [~] Phase 4: Asterisk provider integration — network policy, AMI transport, login/discovery, runtime lifecycle, and connection verification foundations are implemented; event subscription and normalized event flow are next.
+- [~] Phase 4: Asterisk provider integration — network policy, AMI transport, login/discovery, runtime lifecycle, connection verification, and normalized event subscription are implemented; event-list snapshots/reconciliation are next.
 - [ ] Phase 5: telephony state engine.
 - [ ] Phase 6: system metrics.
 - [ ] Phase 7: security monitoring.
@@ -90,4 +92,4 @@ Tasks 7–9 already implemented substantial Asterisk-provider foundation work ea
 - [ ] Phase 11: hardening, backup, and tested restore.
 - [ ] Phase 12: release validation.
 
-Phase 1 is closed. Stop after Phase 2 Task 9 and await approval for the next task.
+Phase 1 is closed. Stop after Phase 2 Task 10 and await approval for the next task.
