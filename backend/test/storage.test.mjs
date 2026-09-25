@@ -38,10 +38,10 @@ test('fresh database migrates once and persists setup and PBX metadata across re
     assert.equal(first.setup.get().state, 'SETUP_REQUIRED');
     assert.deepEqual(first.pbxInstances.list(), []);
     const history = first.migrationHistory();
-    assert.equal(history.length, 3);
+    assert.equal(history.length, 4);
     assert.deepEqual(
       history.map((row) => row.version),
-      [1, 2, 3],
+      [1, 2, 3, 4],
     );
     assert.match(history[0].checksum, /^[a-f0-9]{64}$/);
     first.setup.set('SETUP_IN_PROGRESS');

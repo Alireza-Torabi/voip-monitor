@@ -6,7 +6,8 @@ import type { PbxInstanceMetadata } from '@voip-monitor/shared';
 import type { AppConfig } from '../config.js';
 import { migrations } from './migrations.js';
 
-export type SetupState = 'SETUP_REQUIRED' | 'SETUP_IN_PROGRESS' | 'COMPLETE';
+export type SetupState =
+  'SETUP_REQUIRED' | 'SETUP_IN_PROGRESS' | 'PBX_CONFIGURED_UNVERIFIED' | 'COMPLETE';
 export interface SetupSnapshot {
   state: SetupState;
   updatedAt: string;
@@ -34,10 +35,32 @@ export interface AuthRepository {
   markLogin(id: string): void;
 }
 
+export interface PbxProfileRecord {
+  id: string;
+  displayName: string;
+  providerType: 'ASTERISK';
+  enabled: boolean;
+  amiHost: string;
+  amiPort: number;
+  amiUsername: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface PbxProfileRepository {
+  create(profile: PbxProfileRecord): void;
+  update(profile: PbxProfileRecord): void;
+  get(id: string): PbxProfileRecord | undefined;
+  list(): PbxProfileRecord[];
+  delete(id: string): boolean;
+  count(): number;
+}
+
 export interface AppStorage {
+  transaction<T>(action: () => T): T;
   readonly setup: SetupRepository;
   readonly auth: AuthRepository;
   readonly pbxInstances: PbxInstanceRepository;
+  readonly pbxProfiles: PbxProfileRepository;
   readonly secretRecords: EncryptedSecretRepository;
   hasEncryptedSecrets(): boolean;
   migrationHistory(): MigrationRecord[];
@@ -145,6 +168,7 @@ export class SqliteStorage implements AppStorage {
   readonly setup: SetupRepository;
   readonly auth: AuthRepository;
   readonly pbxInstances: PbxInstanceRepository;
+  readonly pbxProfiles: PbxProfileRepository;
   readonly secretRecords: EncryptedSecretRepository;
   private closed = false;
 
@@ -252,6 +276,68 @@ export class SqliteStorage implements AppStorage {
       },
       list: () => this.db.prepare('SELECT * FROM pbx_instance ORDER BY id').all().map(mapPbx),
     };
+    this.pbxProfiles = {
+      create: (profile) => {
+        this.db
+          .prepare(
+            `INSERT INTO pbx_instance
+          (id, provider_type, display_name, enabled, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?)`,
+          )
+          .run(
+            profile.id,
+            profile.providerType,
+            profile.displayName,
+            Number(profile.enabled),
+            profile.createdAt,
+            profile.updatedAt,
+          );
+        this.db
+          .prepare(
+            `INSERT INTO asterisk_config
+          (pbx_instance_id, ami_host, ami_port, ami_username) VALUES (?, ?, ?, ?)`,
+          )
+          .run(profile.id, profile.amiHost, profile.amiPort, profile.amiUsername);
+      },
+      update: (profile) => {
+        this.db
+          .prepare(
+            `UPDATE pbx_instance SET display_name = ?, enabled = ?, updated_at = ?
+          WHERE id = ?`,
+          )
+          .run(profile.displayName, Number(profile.enabled), profile.updatedAt, profile.id);
+        this.db
+          .prepare(
+            `UPDATE asterisk_config SET ami_host = ?, ami_port = ?, ami_username = ?
+          WHERE pbx_instance_id = ?`,
+          )
+          .run(profile.amiHost, profile.amiPort, profile.amiUsername, profile.id);
+      },
+      get: (id) => {
+        const row = this.db
+          .prepare(
+            `SELECT p.id, p.display_name, p.provider_type, p.enabled,
+          p.created_at, p.updated_at, a.ami_host, a.ami_port, a.ami_username
+          FROM pbx_instance p JOIN asterisk_config a ON a.pbx_instance_id = p.id
+          WHERE p.id = ?`,
+          )
+          .get(id);
+        return row ? mapPbxProfile(row) : undefined;
+      },
+      list: () =>
+        this.db
+          .prepare(
+            `SELECT p.id, p.display_name, p.provider_type, p.enabled,
+          p.created_at, p.updated_at, a.ami_host, a.ami_port, a.ami_username
+          FROM pbx_instance p JOIN asterisk_config a ON a.pbx_instance_id = p.id
+          ORDER BY p.created_at, p.id`,
+          )
+          .all()
+          .map(mapPbxProfile),
+      delete: (id) => this.db.prepare('DELETE FROM pbx_instance WHERE id = ?').run(id).changes > 0,
+      count: () =>
+        this.db.prepare('SELECT COUNT(*) AS total FROM asterisk_config').get()!.total as number,
+    };
     this.secretRecords = {
       firstIdentity: () => {
         const row = this.db
@@ -331,6 +417,14 @@ export class SqliteStorage implements AppStorage {
       db?.close();
       throw new StorageError();
     }
+  }
+
+  transaction<T>(action: () => T): T {
+    let result!: T;
+    inTransaction(this.db, () => {
+      result = action();
+    });
+    return result;
   }
 
   hasEncryptedSecrets(): boolean {
@@ -413,5 +507,19 @@ function mapAdministrator(row: Record<string, unknown>): AdministratorRecord {
     username: row.username as string,
     passwordHash: row.password_hash as string,
     enabled: row.enabled === 1,
+  };
+}
+
+function mapPbxProfile(row: Record<string, unknown>): PbxProfileRecord {
+  return {
+    id: row.id as string,
+    displayName: row.display_name as string,
+    providerType: row.provider_type as 'ASTERISK',
+    enabled: row.enabled === 1,
+    amiHost: row.ami_host as string,
+    amiPort: row.ami_port as number,
+    amiUsername: row.ami_username as string,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
   };
 }

@@ -1,26 +1,82 @@
-body {
-  margin: 0;
+:root {
   font-family: system-ui, sans-serif;
   color: #17212b;
   background: #f5f7f9;
 }
-
+body {
+  margin: 0;
+}
 main {
-  max-width: 48rem;
-  margin: 4rem auto;
+  max-width: 56rem;
+  margin: 2rem auto;
   padding: 2rem;
   background: white;
   border-radius: 0.5rem;
 }
-
-header {
+header,
+.session,
+.actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+header {
+  border-bottom: 1px solid #d5dde4;
+  margin-bottom: 1.5rem;
+}
+section {
+  margin-top: 1.5rem;
+}
+form {
+  display: grid;
+  gap: 0.9rem;
+  max-width: 32rem;
+}
+label {
+  display: grid;
+  gap: 0.25rem;
+  font-weight: 600;
+}
+label.check {
+  display: flex;
+  align-items: center;
+}
+input,
+select,
+button {
+  font: inherit;
+  padding: 0.55rem;
+}
+input,
+select {
+  border: 1px solid #8b9baa;
+  border-radius: 0.25rem;
+}
+button {
+  border: 1px solid #244e78;
+  background: #eef5fb;
+  color: #173b61;
+  border-radius: 0.25rem;
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.profiles {
+  list-style: none;
+  padding: 0;
+  display: grid;
   gap: 1rem;
 }
-
-button {
-  padding: 0.5rem 0.75rem;
-  cursor: pointer;
+.profiles li {
+  border: 1px solid #d5dde4;
+  border-radius: 0.25rem;
+  padding: 1rem;
+  overflow-wrap: anywhere;
+}
+[role='alert'] {
+  color: #a51d26;
 }
