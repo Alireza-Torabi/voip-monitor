@@ -4,6 +4,7 @@ import { log, setLogLevel } from './logger.js';
 import { SqliteStorage } from './storage/index.js';
 import { SecretStore } from './security/secret-store.js';
 import { AuthService } from './auth/index.js';
+import { AsteriskProviderFactory, ProviderRuntimeManager } from './providers/runtime/index.js';
 
 let config;
 try {
@@ -46,12 +47,18 @@ if (config) {
         process.exitCode = 1;
       }
       if (auth) {
-        const server = createApp(storage, secrets, auth);
+        const providerFactory =
+          config.pbxNetworkMode === 'plain_tcp' ? new AsteriskProviderFactory(secrets) : undefined;
+        const runtime = new ProviderRuntimeManager(storage, secrets, providerFactory);
+        runtime.start();
+        const server = createApp(storage, secrets, auth, runtime);
         server.on('error', () => {
           log('error', 'server_error');
-          secrets.close();
-          storage.close();
-          process.exitCode = 1;
+          void runtime.stop().finally(() => {
+            secrets.close();
+            storage.close();
+            process.exitCode = 1;
+          });
         });
         server.listen(config.http.port, config.http.host, () => {
           log('info', 'server_started', { host: config.http.host, port: config.http.port });
@@ -69,15 +76,18 @@ if (config) {
           }, 5000);
           timer.unref();
           server.close((error) => {
-            clearTimeout(timer);
-            secrets.close();
-            storage.close();
-            if (error) {
-              log('error', 'shutdown_error');
-              process.exitCode = 1;
-            } else {
-              log('info', 'server_stopped');
-            }
+            void (async () => {
+              clearTimeout(timer);
+              await runtime.stop();
+              secrets.close();
+              storage.close();
+              if (error) {
+                log('error', 'shutdown_error');
+                process.exitCode = 1;
+              } else {
+                log('info', 'server_stopped');
+              }
+            })();
           });
         };
         process.once('SIGINT', () => shutdown('SIGINT'));

@@ -2,6 +2,9 @@ export interface Principal {
   id: string;
   username: string;
 }
+export type PbxConnectionState =
+  'UNVERIFIED' | 'DISCONNECTED' | 'CONNECTING' | 'CONNECTED' | 'DEGRADED' | 'ERROR';
+
 export interface PbxProfile {
   id: string;
   displayName: string;
@@ -11,12 +14,16 @@ export interface PbxProfile {
   amiPort: number;
   amiUsername: string;
   hasAmiPassword: boolean;
-  connectionStatus: 'UNVERIFIED';
+  connectionStatus: PbxConnectionState;
+  lastVerifiedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
 export class ApiError extends Error {
-  constructor(readonly status: number) {
+  constructor(
+    readonly status: number,
+    readonly code?: string,
+  ) {
     super('Request failed');
   }
 }
@@ -28,7 +35,16 @@ async function request<T>(path: string, method = 'GET', body?: object): Promise<
       ? { headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }
       : {}),
   });
-  if (!response.ok) throw new ApiError(response.status);
+  if (!response.ok) {
+    let code: string | undefined;
+    try {
+      const error = (await response.json()) as { error?: unknown };
+      if (typeof error.error === 'string') code = error.error;
+    } catch {
+      // Error bodies are intentionally optional.
+    }
+    throw new ApiError(response.status, code);
+  }
   return (await response.json()) as T;
 }
 export const api = {
@@ -44,4 +60,18 @@ export const api = {
   updatePbx: (id: string, value: object) =>
     request<PbxProfile>(`/api/pbx-instances/${id}`, 'PATCH', value),
   deletePbx: (id: string) => request<{ status: string }>(`/api/pbx-instances/${id}`, 'DELETE'),
+  testPbxConnection: (id: string) =>
+    request<{
+      status: 'verified';
+      discovery: {
+        metadata: {
+          id: string;
+          providerType: 'ASTERISK';
+          displayName: string;
+          product?: string;
+          version?: string;
+        };
+        observedAt: string;
+      };
+    }>(`/api/pbx-instances/${id}/test-connection`, 'POST'),
 };

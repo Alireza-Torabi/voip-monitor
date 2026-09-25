@@ -84,4 +84,11 @@ export const migrations = [
       ALTER TABLE application_state_next RENAME TO application_state;
     `,
   },
+  {
+    version: 5,
+    name: 'pbx_verification_state',
+    sql: `
+      ALTER TABLE asterisk_config ADD COLUMN last_verified_at TEXT;
+    `,
+  },
 ] as const;

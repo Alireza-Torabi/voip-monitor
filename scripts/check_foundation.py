@@ -88,11 +88,11 @@ def check() -> list[str]:
             errors.append(f"Runtime/private path is not ignored: {example}")
 
     env = (ROOT / ".env.example").read_text(encoding="utf-8")
-    expected = {"APP_ENV", "APP_HOST", "APP_PORT", "APP_LOG_LEVEL", "DATA_PATH"}
+    expected = {"APP_ENV", "APP_HOST", "APP_PORT", "APP_LOG_LEVEL", "APP_PBX_NETWORK_MODE", "DATA_PATH"}
     present = {line.split("=", 1)[0] for line in env.splitlines()
                if "=" in line and not line.lstrip().startswith("#")}
     if present != expected:
-        errors.append(".env.example must contain only APP_ENV, APP_HOST, APP_PORT, APP_LOG_LEVEL, and DATA_PATH")
+        errors.append(".env.example must contain only APP_ENV, APP_HOST, APP_PORT, APP_LOG_LEVEL, APP_PBX_NETWORK_MODE, and DATA_PATH")
     if "README.fa.md" not in (ROOT / "README.md").read_text(encoding="utf-8"):
         errors.append("README.md must link to README.fa.md")
     if "README.md" not in (ROOT / "README.fa.md").read_text(encoding="utf-8"):

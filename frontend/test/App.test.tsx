@@ -18,7 +18,7 @@ describe('bilingual onboarding shell', () => {
     expect(html).toContain('ورود مدیر');
     expect(html).toContain('type="password"');
   });
-  it('renders an authenticated first PBX form without a connection test', () => {
+  it('renders an authenticated first PBX form before a connection test is available', () => {
     const html = renderToStaticMarkup(<App initialLanguage="en" initialView="ready" />);
     expect(html).toContain('Add the first PBX profile');
     expect(html).toContain('Asterisk / FreePBX');
@@ -39,7 +39,8 @@ describe('bilingual onboarding shell', () => {
             amiPort: 5038,
             amiUsername: 'synthetic-user',
             hasAmiPassword: true,
-            connectionStatus: 'UNVERIFIED',
+            connectionStatus: 'DISCONNECTED',
+            lastVerifiedAt: '2026-09-25T00:00:00.000Z',
             createdAt: '',
             updatedAt: '',
           },
@@ -48,8 +49,10 @@ describe('bilingual onboarding shell', () => {
         onUnauthorized={() => {}}
       />,
     );
-    expect(html).toContain('Configured, unverified');
+    expect(html).toContain('Disconnected');
     expect(html).toContain('Password configured');
+    expect(html).toContain('Test connection');
+    expect(html).toContain('2026-09-25T00:00:00.000Z');
     expect(html).not.toContain('synthetic-ami-secret');
   });
 });

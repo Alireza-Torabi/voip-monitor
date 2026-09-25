@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { api, ApiError, type PbxProfile, type Principal } from './api.js';
+import { api, ApiError, type PbxConnectionState, type PbxProfile, type Principal } from './api.js';
 import { messages, type Language } from './i18n.js';
 
 type Text = (typeof messages)[Language];
@@ -194,6 +194,7 @@ export function PbxWorkspace({
   const [showForm, setShowForm] = useState(profiles.length === 0);
   const [form, setForm] = useState<PbxFormState>(emptyForm);
   const [error, setError] = useState('');
+  const [testResult, setTestResult] = useState<Record<string, string>>({});
   const [pending, setPending] = useState(false);
   function handleFailure(failure: unknown, message: string) {
     if (failure instanceof ApiError && failure.status === 401) {
@@ -279,10 +280,44 @@ export function PbxWorkspace({
       setPending(false);
     }
   }
+  function connectionLabel(state: PbxConnectionState) {
+    if (state === 'CONNECTED') return text.connected;
+    if (state === 'CONNECTING') return text.connecting;
+    if (state === 'DISCONNECTED') return text.disconnected;
+    if (state === 'DEGRADED') return text.degraded;
+    if (state === 'ERROR') return text.connectionError;
+    return text.unverified;
+  }
+  async function testConnection(profile: PbxProfile) {
+    setPending(true);
+    setError('');
+    setTestResult((current) => ({ ...current, [profile.id]: '' }));
+    try {
+      const result = await api.testPbxConnection(profile.id);
+      const version = result.discovery.metadata.version;
+      setTestResult((current) => ({
+        ...current,
+        [profile.id]: version
+          ? `${text.connectionVerified}: ${result.discovery.metadata.product ?? 'Asterisk'} ${version}`
+          : text.connectionVerified,
+      }));
+      await onRefresh();
+    } catch (failure) {
+      if (failure instanceof ApiError && failure.status === 401) {
+        onUnauthorized();
+      } else if (failure instanceof ApiError && failure.code === 'pbx_network_disabled') {
+        setTestResult((current) => ({ ...current, [profile.id]: text.networkDisabled }));
+      } else {
+        setTestResult((current) => ({ ...current, [profile.id]: text.connectionTestFailed }));
+      }
+    } finally {
+      setPending(false);
+    }
+  }
   return (
     <section aria-labelledby="pbx-title">
       <h2 id="pbx-title">{text.pbxTitle}</h2>
-      <p>{text.noConnection}</p>
+      <p>{text.connectionHint}</p>
       {profiles.length > 0 && (
         <ul className="profiles">
           {profiles.map((profile) => (
@@ -292,10 +327,28 @@ export function PbxWorkspace({
                 {text.asterisk} · {profile.amiHost}:{profile.amiPort} · {profile.amiUsername}
               </p>
               <p>
-                {text.unverified} · {profile.enabled ? text.enabled : text.disabled} ·{' '}
+                {connectionLabel(profile.connectionStatus)} ·{' '}
+                {profile.enabled ? text.enabled : text.disabled} ·{' '}
                 {profile.hasAmiPassword ? text.passwordConfigured : text.passwordMissing}
               </p>
+              {profile.lastVerifiedAt && (
+                <p>
+                  {text.lastVerified}: <span dir="ltr">{profile.lastVerifiedAt}</span>
+                </p>
+              )}
+              {testResult[profile.id] && <p role="status">{testResult[profile.id]}</p>}
               <div className="actions">
+                {profile.hasAmiPassword && (
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => {
+                      void testConnection(profile);
+                    }}
+                  >
+                    {text.testConnection}
+                  </button>
+                )}
                 <button type="button" disabled={pending} onClick={() => edit(profile)}>
                   {text.editPbx}
                 </button>
@@ -355,7 +408,7 @@ export function PbxWorkspace({
           <h3>{editingId ? text.editPbx : profiles.length === 0 ? text.firstPbx : text.addPbx}</h3>
           <label>
             {text.provider}
-            <select name="provider" value="ASTERISK">
+            <select name="provider" defaultValue="ASTERISK">
               <option value="ASTERISK">{text.asterisk}</option>
             </select>
           </label>

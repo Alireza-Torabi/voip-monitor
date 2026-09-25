@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { isIP } from 'node:net';
+import type { PbxConnectionState } from '@voip-monitor/shared';
 import { z } from 'zod';
 import type { SecretStore } from '../security/secret-store.js';
 import type { AppStorage, PbxProfileRecord } from '../storage/index.js';
@@ -54,7 +55,7 @@ const updateSchema = z
     (value) => Object.keys(value).length > 0 && !(value.amiPassword && value.removeAmiPassword),
   );
 export type SafePbxProfile = PbxProfileRecord & {
-  connectionStatus: 'UNVERIFIED';
+  connectionStatus: PbxConnectionState;
   hasAmiPassword: boolean;
 };
 export class OnboardingInputError extends Error {
@@ -67,11 +68,12 @@ export class PbxOnboardingService {
   constructor(
     private readonly storage: AppStorage,
     private readonly secrets: SecretStore,
+    private readonly connectionState: (id: string) => PbxConnectionState = () => 'UNVERIFIED',
   ) {}
   private safe(profile: PbxProfileRecord): SafePbxProfile {
     return {
       ...profile,
-      connectionStatus: 'UNVERIFIED',
+      connectionStatus: this.connectionState(profile.id),
       hasAmiPassword: this.secrets.hasSecret(profile.id, AMI_SECRET),
     };
   }
@@ -129,6 +131,19 @@ export class PbxOnboardingService {
       } else if (removeAmiPassword) {
         this.secrets.deleteSecret(id, AMI_SECRET);
       }
+      const connectionChanged =
+        changes.amiHost !== undefined ||
+        changes.amiPort !== undefined ||
+        changes.amiUsername !== undefined ||
+        amiPassword !== undefined ||
+        removeAmiPassword === true;
+      if (connectionChanged) {
+        this.storage.pbxProfiles.clearVerification(id);
+        this.storage.pbxInstances.clearDiscovery(id);
+        this.storage.setup.set(
+          this.storage.pbxProfiles.verifiedCount() > 0 ? 'COMPLETE' : 'PBX_CONFIGURED_UNVERIFIED',
+        );
+      }
       return this.safe(updated);
     });
   }
@@ -137,8 +152,13 @@ export class PbxOnboardingService {
     let removed = false;
     this.storage.transaction(() => {
       removed = this.storage.pbxProfiles.delete(id);
-      if (removed && this.storage.pbxProfiles.count() === 0)
-        this.storage.setup.set('SETUP_IN_PROGRESS');
+      if (removed) {
+        if (this.storage.pbxProfiles.count() === 0) this.storage.setup.set('SETUP_IN_PROGRESS');
+        else
+          this.storage.setup.set(
+            this.storage.pbxProfiles.verifiedCount() > 0 ? 'COMPLETE' : 'PBX_CONFIGURED_UNVERIFIED',
+          );
+      }
     });
     return removed;
   }

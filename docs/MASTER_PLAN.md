@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-09-25. Phase 1 public repository foundation is complete. Phase 2 Task 8 Asterisk AMI TCP transport and provider connection/discovery foundation is implemented on `feature/asterisk-ami-transport`; it is not wired into runtime PBX lifecycle and no real PBX has been contacted.
+Status: 2026-09-25. Phase 1 public repository foundation is complete. Phase 2 Task 9 provider runtime lifecycle and authenticated AMI connection-test/discovery foundation is implemented on `feature/provider-runtime-lifecycle`; network access remains disabled by default and no real PBX has been contacted.
 
 ## Phase 0 — environment discovery
 
@@ -46,7 +46,8 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 6: authenticated PBX profile CRUD, provider-scoped AMI metadata, encrypted write-only credentials, configured-unverified setup state, and bilingual setup/login/onboarding UI. No PBX network access.
 - [x] Task 7: Asterisk provider network-boundary policy, injected address-resolution boundary, and mock AMI transport foundation. No real DNS lookup, socket, AMI login, or PBX access.
 - [x] Task 8: plain TCP AMI wire transport, safe action framing/ActionID/timeout handling, Node DNS resolver boundary, and an Asterisk provider login/discovery/reconcile foundation. Tests use only mocks and a synthetic loopback AMI server; runtime startup still creates no PBX connection.
-- [ ] Proposed next task: provider runtime lifecycle plus authenticated AMI connection-test/discovery API, implemented and CI-tested with mocks first. Any test against a real PBX requires separate explicit approval.
+- [x] Task 9: provider runtime lifecycle with one managed provider per enabled PBX, bounded reconnect/backoff and reconciliation, explicit network enablement, authenticated provider-status and connection-test/discovery APIs, persisted verification timestamp, and bilingual connection-test UI. Tests remain mock/synthetic only; no real PBX access.
+- [ ] Proposed next task: AMI event-subscription and normalized provider-event foundation, implemented against synthetic/mock AMI streams before any real PBX test.
 
 ## Future phases — pending approval
 - [ ] Phase 3: account management and onboarding refinement.
@@ -60,4 +61,4 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [ ] Phase 11: hardening, backup, and tested restore.
 - [ ] Phase 12: release validation.
 
-Phase 1 is closed. Stop after Phase 2 Task 8 and await approval for the next task.
+Phase 1 is closed. Stop after Phase 2 Task 9 and await approval for the next task.
