@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-09-25. Phase 1 public repository foundation is complete. Task 13 is merged into `main` as PR #14. Phase 2 Task 14 endpoint/registration state foundation is implemented on `feature/endpoint-registration-state`. It adds capability-aware chan_sip endpoint snapshots, normalized registration/reachability events, and deterministic in-memory endpoint state alongside channel/call state; it remains internal with no browser/API exposure.
+Status: 2026-09-25. Phase 1 public repository foundation is complete. Task 14 is merged into `main` as PR #15. Phase 2 Task 15 trunk state foundation is implemented on `feature/trunk-state-foundation`. It adds provider-neutral outbound-registration trunk state, capability-aware chan_sip registry snapshots, normalized Registry events, and deterministic in-memory trunk state alongside channel/call/endpoint state; it remains internal with no browser/API exposure.
 
 ## Phase 0 — environment discovery
 
@@ -52,14 +52,15 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 12: controlled read-only real-PBX compatibility verification of the Asterisk 13.x baseline and Task 8–11 AMI assumptions. Local-only credential handling, bounded verifier, bilingual runbook, safe error classification, login/discovery, `CoreShowChannels`, passive normalized live events, reconciliation, and clean disconnect were validated against an approved real Asterisk 13.x system without PBX changes.
 - [x] Task 13: internal telephony state engine foundation. Provider frames now carry per-process connection generations and per-frame sequence numbers; channel snapshot items retain their source sequence. The engine subscribes before runtime start, buffers/replays events around snapshot collection boundaries, repairs drift from reconciliation snapshots, tracks `CURRENT`/`AWAITING_SNAPSHOT`/`STALE`, groups current channels into deterministic calls, and resets state when a PBX profile runtime is replaced or removed. No REST/WebSocket state endpoint exists yet.
 - [x] Task 14: endpoint/registration state foundation. The Asterisk provider now collects an independent `SIPpeers`/PeerEntry snapshot for chan_sip endpoints, normalizes registration and reachability without forwarding addresses/raw AMI fields, records endpoint capability as `SUPPORTED`, `PERMISSION_DENIED`, or `UNSUPPORTED`, and keeps channel snapshots usable when endpoint listing is unavailable by capability. The state engine reconciles endpoint snapshots using their own sequence boundary, replays only newer PeerStatus events, preserves known dimensions when an event reports `UNKNOWN`, and refuses to manufacture endpoint state when no authoritative endpoint snapshot is available. Synthetic/mock only; no real PBX access.
-- [ ] Proposed next task: Task 15 trunk state foundation with provider-neutral trunk contracts plus capability-aware authoritative snapshots/events, synthetic/mock first and without real-PBX access.
+- [x] Task 15: trunk state foundation. Provider-neutral trunk contracts distinguish outbound-registration trunks explicitly. The Asterisk provider uses an independent `SIPshowregistry` / `RegistryEntry` / `RegistrationsComplete` snapshot boundary, normalizes live `Registry` events, reports trunk capability independently, and keeps channel/endpoint state usable when registry listing is denied or unsupported. The state engine reconciles trunk snapshots with their own ordering boundary, replays only newer registry events, and fails closed if journal overflow makes any supported independent snapshot boundary unsafe. Synthetic/mock only; no real PBX access.
+- [ ] Proposed next task: Task 16 queue state foundation with provider-neutral queue/member/caller contracts plus capability-aware authoritative snapshots and normalized queue events, synthetic/mock first and without real-PBX access.
 
 ### Current execution handoff
 
-- Current branch: `feature/endpoint-registration-state`, created from synchronized `main` after Task 13 merged as PR #14.
-- Task 14 implementation is complete locally. Final local gates pass: lint, format check, typecheck, backend tests 67/67, frontend tests 10/10, build, foundation check, and license check. Public/secret review found no deployment-specific identifiers or tracked private runtime paths; the only credential-like added value is an explicitly synthetic test secret.
-- No real PBX was contacted during Task 14; all endpoint snapshot/event and state-engine validation is synthetic/mock only.
-- Exact next task after Task 14 merge: Task 15 trunk state foundation with provider-neutral trunk contracts plus capability-aware authoritative snapshots/events, synthetic/mock first.
+- Current branch: `feature/trunk-state-foundation`, created from synchronized `main` after Task 14 merged as PR #15.
+- Task 15 implementation is complete locally. Final local gates pass: lint, format check, typecheck, backend tests 71/71, frontend tests 10/10, build, foundation check, and license check. Public/secret review found no deployment-specific identifiers or tracked private runtime paths; credential-like additions are synthetic test values only.
+- No real PBX was contacted during Task 15; all trunk snapshot/event and state-engine validation is synthetic/mock only.
+- Exact next task after Task 15 merge: Task 16 queue state foundation with provider-neutral queue/member/caller contracts plus capability-aware authoritative snapshots and normalized queue events, synthetic/mock first.
 
 ### Failure and bug log
 
@@ -92,6 +93,10 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - **Task 14 endpoint partial-update bug — resolved before commit:** a first reducer draft would replace known registration or reachability with `UNKNOWN` when a PeerStatus event only described the other dimension. Live endpoint updates now preserve the existing value for dimensions the event does not authoritatively describe.
 - **Task 14 open defects:** none currently known from the synthetic suite.
 - **Task 14 known limitations:** authoritative endpoint discovery currently targets Asterisk 13 chan_sip through `SIPpeers`/PeerEntry. PJSIP endpoint/contact actions and event families are not implemented or claimed. Dynamic chan_sip registration in the snapshot is inferred from the peer's dynamic flag plus presence/absence of a bound IP address; static peers remain `UNKNOWN` for registration. Endpoint state is in-memory only and has no REST/WebSocket exposure or history.
+- **Task 15 replay-dispatch bug — resolved before commit:** the first trunk reducer passed typecheck and provider tests, but a targeted state-engine test showed a newer `TRUNK_REGISTRATION_CHANGED` event was not replayed after the authoritative trunk snapshot. The trunk boundary function was correct; the main journal replay selector still routed every non-endpoint event through channel relevance, so trunk events had no affected channel IDs and were dropped. Fix: dispatch trunk events explicitly through the independent trunk snapshot boundary before channel relevance. The targeted suite then passed 26/26.
+- **Task 15 independent-boundary safety gap — resolved:** the previous journal-overflow recovery check only proved the channel snapshot started after a discarded event boundary. With independent endpoint/trunk collection windows, that could falsely claim current auxiliary state. Recovery now requires every supported independent snapshot boundary in the combined provider snapshot to be safe before clearing the dropped-journal condition.
+- **Task 15 open defects:** none currently known from the synthetic suite.
+- **Task 15 known limitations:** the first trunk source represents only chan_sip outbound registrations visible through `SIPshowregistry`; it does not identify static/IP-auth trunks that do not register, and it does not claim PJSIP trunk support. Trunk identity is the provider-derived channel-type/username/domain registration key and remains internal. Live `Registry` events depend on the AMI SYSTEM event class; a future controlled real-PBX compatibility gate must verify event visibility without broadening permissions blindly. Trunk state is in-memory only and has no REST/WebSocket exposure or history.
 
 ### Persistent continuation protocol
 
@@ -110,7 +115,7 @@ Tasks 7–13 implemented substantial Asterisk-provider and telephony-state found
 
 - [ ] Phase 3: account management and onboarding refinement.
 - [x] Phase 4 foundation gate: Asterisk provider integration — network policy, AMI transport, login/discovery, runtime lifecycle, connection verification, normalized event subscription, channel snapshots/reconciliation, and one controlled real Asterisk 13.x compatibility gate are complete.
-- [~] Phase 5: telephony state engine — deterministic channel/call and chan_sip endpoint/registration state foundations are implemented; trunk state is next.
+- [~] Phase 5: telephony state engine — deterministic channel/call, chan_sip endpoint/registration, and outbound-registration trunk state foundations are implemented; queue state is next.
 - [ ] Phase 6: system metrics.
 - [ ] Phase 7: security monitoring.
 - [ ] Phase 8: authenticated API and realtime.
@@ -119,4 +124,4 @@ Tasks 7–13 implemented substantial Asterisk-provider and telephony-state found
 - [ ] Phase 11: hardening, backup, tested restore, and a production deployment runbook.
 - [ ] Phase 12: release validation, including an organization-neutral fresh-deployment procedure that can onboard a new service without carrying private values from another deployment.
 
-Phase 1 is closed. Phase 2 Task 13 is implemented on its feature branch. Stop after final Task 13 validation/push and await merge approval before Task 14.
+Phase 1 is closed. Phase 2 Task 15 is implemented on its feature branch. Stop after final Task 15 validation/push and await merge approval before Task 16.

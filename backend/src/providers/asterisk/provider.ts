@@ -10,9 +10,14 @@ import type {
   ProviderEndpointStateSnapshot,
   ProviderErrorCode,
   ProviderStateSnapshot,
+  ProviderTrunkStateSnapshot,
 } from '@voip-monitor/shared';
 import { AsteriskConnection, type AddressResolver } from './connection.js';
-import { normalizeAmiEvent, normalizeEndpointStatus } from './events.js';
+import {
+  normalizeAmiEvent,
+  normalizeEndpointStatus,
+  normalizeTrunkRegistrationState,
+} from './events.js';
 import { NetworkBoundaryError } from './network-policy.js';
 import { AmiTransportError, amiField, type AmiResponse, type AmiTransport } from './transport.js';
 
@@ -287,6 +292,7 @@ export class AsteriskProvider implements PbxProvider {
 
       this.capabilities.telephony.channels = 'SUPPORTED';
       const endpointState = await this.getEndpointState();
+      const trunkState = await this.getTrunkState();
       const observedAt = this.now();
       this.setConnectionState('CONNECTED');
       this.amiHealth = {
@@ -309,6 +315,7 @@ export class AsteriskProvider implements PbxProvider {
           : { streamStartedSequence: result.streamStartedSequence }),
         channels,
         endpointState,
+        trunkState,
       };
     } catch (error) {
       this.markOperationFailure(attempt, error);
@@ -375,6 +382,54 @@ export class AsteriskProvider implements PbxProvider {
         startedAt,
         observedAt: this.now(),
         endpoints: [],
+      };
+    }
+  }
+
+  private async getTrunkState(): Promise<ProviderTrunkStateSnapshot> {
+    const startedAt = this.now();
+    try {
+      const result = await this.options.transport.requestEventList(
+        { action: 'SIPshowregistry' },
+        { itemEvent: 'RegistryEntry', completeEvent: 'RegistrationsComplete' },
+      );
+      requireSuccess(result.response);
+      const trunks = result.events.map((event) => {
+        const username = amiField(event.fields, 'Username')?.trim();
+        const domain = amiField(event.fields, 'Domain')?.trim();
+        const state = amiField(event.fields, 'State')?.trim();
+        if (!username || !domain || !state) throw new AsteriskProviderError('UNKNOWN');
+        return {
+          trunkId: `SIP/${username}@${domain}`,
+          kind: 'OUTBOUND_REGISTRATION' as const,
+          registrationState: normalizeTrunkRegistrationState(state),
+          ...(event.streamSequence === undefined ? {} : { streamSequence: event.streamSequence }),
+        };
+      });
+      this.requireListCount(result.completion.fields, trunks.length);
+      this.capabilities.telephony.trunks = 'SUPPORTED';
+      return {
+        capability: 'SUPPORTED',
+        startedAt,
+        observedAt: this.now(),
+        ...(result.streamGeneration === undefined
+          ? {}
+          : { streamGeneration: result.streamGeneration }),
+        ...(result.streamStartedSequence === undefined
+          ? {}
+          : { streamStartedSequence: result.streamStartedSequence }),
+        trunks,
+      };
+    } catch (error) {
+      const code = providerCode(error);
+      if (code !== 'PERMISSION_DENIED' && code !== 'UNSUPPORTED') throw error;
+      const capability = code === 'PERMISSION_DENIED' ? 'PERMISSION_DENIED' : 'UNSUPPORTED';
+      this.capabilities.telephony.trunks = capability;
+      return {
+        capability,
+        startedAt,
+        observedAt: this.now(),
+        trunks: [],
       };
     }
   }

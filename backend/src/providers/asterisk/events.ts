@@ -31,6 +31,27 @@ export function normalizeEndpointStatus(status: string): {
   return { registrationState: 'UNKNOWN', reachability: 'UNKNOWN' };
 }
 
+export function normalizeTrunkRegistrationState(
+  status: string,
+): 'REGISTERED' | 'UNREGISTERED' | 'REGISTERING' | 'REJECTED' | 'FAILED' | 'UNKNOWN' {
+  switch (status.trim().toLowerCase()) {
+    case 'registered':
+      return 'REGISTERED';
+    case 'unregistered':
+      return 'UNREGISTERED';
+    case 'request sent':
+    case 'auth. sent':
+      return 'REGISTERING';
+    case 'rejected':
+      return 'REJECTED';
+    case 'failed':
+    case 'no authentication':
+      return 'FAILED';
+    default:
+      return 'UNKNOWN';
+  }
+}
+
 function streamOrder(event: AmiEvent): { streamGeneration?: number; streamSequence?: number } {
   return {
     ...(event.streamGeneration === undefined ? {} : { streamGeneration: event.streamGeneration }),
@@ -190,6 +211,24 @@ export function normalizeAmiEvent(
       ...streamOrder(event),
       endpointId,
       ...normalizeEndpointStatus(status),
+    };
+  }
+
+  if (name === 'registry') {
+    const channelType = required(fields, 'ChannelType');
+    const username = required(fields, 'Username');
+    const domain = required(fields, 'Domain');
+    const status = required(fields, 'Status');
+    if (!channelType || !username || !domain || !status) return undefined;
+    return {
+      type: 'TRUNK_REGISTRATION_CHANGED',
+      instanceId,
+      source: 'AMI',
+      observedAt,
+      ...streamOrder(event),
+      trunkId: `${channelType}/${username}@${domain}`,
+      kind: 'OUTBOUND_REGISTRATION',
+      registrationState: normalizeTrunkRegistrationState(status),
     };
   }
 
