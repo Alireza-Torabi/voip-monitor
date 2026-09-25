@@ -5,20 +5,12 @@ import type {
   SystemMetricsSample,
   SystemServiceHealthSample,
 } from '@voip-monitor/shared';
+import { SystemMetricsCollectorError, type SystemMetricsCollector } from './collector.js';
 
-export type SystemMetricsCollectorErrorCode = 'COLLECTION_FAILED' | 'INVALID_SAMPLE';
-
-export class SystemMetricsCollectorError extends Error {
-  constructor(readonly code: SystemMetricsCollectorErrorCode) {
-    super(`System metrics collector ${code.toLowerCase().replaceAll('_', ' ')}`);
-    this.name = 'SystemMetricsCollectorError';
-  }
-}
-
-export interface SystemMetricsCollector {
-  readonly source: 'SSH';
-  collect(instanceId: PbxInstanceId): Promise<SystemMetricsSample>;
-}
+export * from './collector.js';
+export * from './parsers.js';
+export * from './restricted-ssh-collector.js';
+export * from './ssh-transport.js';
 
 const CAPABILITY_STATES = new Set<CapabilityState>([
   'SUPPORTED',
