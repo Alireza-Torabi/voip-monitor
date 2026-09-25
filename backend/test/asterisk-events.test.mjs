@@ -156,7 +156,8 @@ test('AMI normalizer maps core channel, dial, bridge, and peer events without ra
         source: 'AMI',
         observedAt,
         endpointId: 'SIP/100',
-        status: 'Registered',
+        registrationState: 'REGISTERED',
+        reachability: 'UNKNOWN',
       },
     ],
   ];

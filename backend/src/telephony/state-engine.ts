@@ -1,6 +1,10 @@
 import type {
+  CapabilityState,
+  EndpointReachability,
+  EndpointRegistrationState,
   PbxConnectionState,
   ProviderChannelSnapshot,
+  ProviderEndpointSnapshot,
   ProviderEvent,
   ProviderEventListener,
   ProviderStateSnapshot,
@@ -15,6 +19,13 @@ export interface TelephonyChannelState {
   linkedId?: string;
   state?: string;
   bridgeId?: string;
+  updatedAt: string;
+}
+
+export interface TelephonyEndpointState {
+  endpointId: string;
+  registrationState: EndpointRegistrationState;
+  reachability: EndpointReachability;
   updatedAt: string;
 }
 
@@ -34,6 +45,9 @@ export interface TelephonyInstanceState {
   lastEventAt?: string;
   channels: TelephonyChannelState[];
   calls: TelephonyCallState[];
+  endpointCapability: CapabilityState;
+  endpointSynchronization: TelephonySynchronization | 'UNAVAILABLE';
+  endpoints: TelephonyEndpointState[];
 }
 
 export type TelephonyStateListener = (state: TelephonyInstanceState) => void;
@@ -61,6 +75,10 @@ interface MutableChannel extends TelephonyChannelState {
   order: ChannelOrder;
 }
 
+interface MutableEndpoint extends TelephonyEndpointState {
+  order: ChannelOrder;
+}
+
 interface JournalEvent {
   arrival: number;
   event: ProviderEvent;
@@ -73,6 +91,9 @@ interface EngineEntry {
   synchronization: TelephonySynchronization;
   streamGeneration?: number;
   channels: Map<string, MutableChannel>;
+  endpoints: Map<string, MutableEndpoint>;
+  endpointCapability: CapabilityState;
+  endpointSynchronization: TelephonySynchronization | 'UNAVAILABLE';
   journal: JournalEvent[];
   droppedUntil?: ChannelOrder;
   lastSnapshotAt?: string;
@@ -173,6 +194,14 @@ function publicState(entry: EngineEntry): TelephonyInstanceState | undefined {
       ...(channel.bridgeId ? { bridgeId: channel.bridgeId } : {}),
       updatedAt: channel.updatedAt,
     }));
+  const endpoints = [...entry.endpoints.values()]
+    .sort((left, right) => left.endpointId.localeCompare(right.endpointId))
+    .map((endpoint) => ({
+      endpointId: endpoint.endpointId,
+      registrationState: endpoint.registrationState,
+      reachability: endpoint.reachability,
+      updatedAt: endpoint.updatedAt,
+    }));
   return {
     instanceId: entry.instanceId,
     revision: entry.revision,
@@ -181,6 +210,9 @@ function publicState(entry: EngineEntry): TelephonyInstanceState | undefined {
     ...(entry.lastEventAt ? { lastEventAt: entry.lastEventAt } : {}),
     channels,
     calls: callStates(entry.channels.values()),
+    endpointCapability: entry.endpointCapability,
+    endpointSynchronization: entry.endpointSynchronization,
+    endpoints,
   };
 }
 function snapshotChannelOrder(
@@ -223,6 +255,51 @@ function eventIsAfterSnapshotChannel(
 
   const boundaryTime = snapshot.startedAt ?? snapshot.observedAt;
   return event.observedAt >= boundaryTime;
+}
+
+function endpointSnapshotOrder(
+  snapshot: ProviderStateSnapshot,
+  endpoint: ProviderEndpointSnapshot,
+): ChannelOrder {
+  const state = snapshot.endpointState;
+  if (!state) {
+    return { observedAt: snapshot.observedAt };
+  }
+  return {
+    ...(state.streamGeneration === undefined ? {} : { streamGeneration: state.streamGeneration }),
+    ...(endpoint.streamSequence === undefined ? {} : { streamSequence: endpoint.streamSequence }),
+    observedAt: state.observedAt,
+  };
+}
+
+function eventIsAfterEndpointSnapshot(
+  event: ProviderEvent,
+  snapshot: ProviderStateSnapshot,
+): boolean {
+  const state = snapshot.endpointState;
+  if (!state || state.capability !== 'SUPPORTED') return false;
+  if (
+    event.streamGeneration !== undefined &&
+    state.streamGeneration !== undefined &&
+    event.streamGeneration !== state.streamGeneration
+  ) {
+    return event.streamGeneration > state.streamGeneration;
+  }
+  const endpoint =
+    event.type === 'ENDPOINT_STATUS_CHANGED'
+      ? state.endpoints.find((item) => item.endpointId === event.endpointId)
+      : undefined;
+  const boundarySequence = endpoint?.streamSequence ?? state.streamStartedSequence;
+  if (
+    event.streamSequence !== undefined &&
+    boundarySequence !== undefined &&
+    (event.streamGeneration === undefined ||
+      state.streamGeneration === undefined ||
+      event.streamGeneration === state.streamGeneration)
+  ) {
+    return event.streamSequence > boundarySequence;
+  }
+  return event.observedAt >= (state.startedAt ?? state.observedAt);
 }
 
 function snapshotCanRecoverDroppedJournal(
@@ -285,6 +362,34 @@ function mergeChannel(
     existing.bridgeId !== next.bridgeId;
 
   entry.channels.set(channelId, next);
+  return changed;
+}
+
+function mergeEndpoint(
+  entry: EngineEntry,
+  event: Extract<ProviderEvent, { type: 'ENDPOINT_STATUS_CHANGED' }>,
+  replaySnapshot?: ProviderStateSnapshot,
+): boolean {
+  if (replaySnapshot && !eventIsAfterEndpointSnapshot(event, replaySnapshot)) return false;
+  const order = orderFromEvent(event);
+  const existing = entry.endpoints.get(event.endpointId);
+  if (!replaySnapshot && existing && compareOrder(order, existing.order) < 0) return false;
+  const next: MutableEndpoint = {
+    endpointId: event.endpointId,
+    registrationState:
+      event.registrationState === 'UNKNOWN'
+        ? (existing?.registrationState ?? 'UNKNOWN')
+        : event.registrationState,
+    reachability:
+      event.reachability === 'UNKNOWN' ? (existing?.reachability ?? 'UNKNOWN') : event.reachability,
+    updatedAt: event.observedAt,
+    order,
+  };
+  const changed =
+    !existing ||
+    existing.registrationState !== next.registrationState ||
+    existing.reachability !== next.reachability;
+  entry.endpoints.set(event.endpointId, next);
   return changed;
 }
 
@@ -400,7 +505,7 @@ function applyEvent(
     }
 
     case 'ENDPOINT_STATUS_CHANGED':
-      return false;
+      return mergeEndpoint(entry, event, replaySnapshot);
   }
 }
 
@@ -475,6 +580,9 @@ export class TelephonyStateEngine {
       revision: 0,
       synchronization: 'AWAITING_SNAPSHOT',
       channels: new Map(),
+      endpoints: new Map(),
+      endpointCapability: 'UNKNOWN',
+      endpointSynchronization: 'AWAITING_SNAPSHOT',
       journal: [],
     };
     this.entries.set(instanceId, created);
@@ -490,8 +598,17 @@ export class TelephonyStateEngine {
           ? 'AWAITING_SNAPSHOT'
           : entry.synchronization
         : 'STALE';
-    if (next === entry.synchronization) return;
+    const endpointNext =
+      entry.endpointSynchronization === 'UNAVAILABLE'
+        ? 'UNAVAILABLE'
+        : state === 'CONNECTED'
+          ? entry.endpointSynchronization === 'STALE'
+            ? 'AWAITING_SNAPSHOT'
+            : entry.endpointSynchronization
+          : 'STALE';
+    if (next === entry.synchronization && endpointNext === entry.endpointSynchronization) return;
     entry.synchronization = next;
+    entry.endpointSynchronization = endpointNext;
     entry.revision += 1;
     this.emit(entry);
   }
@@ -511,8 +628,16 @@ export class TelephonyStateEngine {
           buffered.streamGeneration >= event.streamGeneration!,
       );
       delete entry.droppedUntil;
-      if (entry.initialized && entry.synchronization !== 'AWAITING_SNAPSHOT') {
+      if (
+        entry.initialized &&
+        (entry.synchronization !== 'AWAITING_SNAPSHOT' ||
+          (entry.endpointSynchronization !== 'UNAVAILABLE' &&
+            entry.endpointSynchronization !== 'AWAITING_SNAPSHOT'))
+      ) {
         entry.synchronization = 'AWAITING_SNAPSHOT';
+        if (entry.endpointSynchronization !== 'UNAVAILABLE') {
+          entry.endpointSynchronization = 'AWAITING_SNAPSHOT';
+        }
         entry.revision += 1;
         this.emit(entry);
       }
@@ -521,6 +646,9 @@ export class TelephonyStateEngine {
     this.appendJournal(entry, event);
 
     if (!entry.initialized) return;
+    if (event.type === 'ENDPOINT_STATUS_CHANGED' && entry.endpointSynchronization !== 'CURRENT') {
+      return;
+    }
     if (
       entry.streamGeneration !== undefined &&
       event.streamGeneration !== undefined &&
@@ -571,6 +699,30 @@ export class TelephonyStateEngine {
     }
 
     entry.channels = channels;
+    const endpointState = snapshot.endpointState;
+    if (endpointState?.capability === 'SUPPORTED') {
+      const endpoints = new Map<string, MutableEndpoint>();
+      for (const endpoint of endpointState.endpoints) {
+        endpoints.set(endpoint.endpointId, {
+          endpointId: endpoint.endpointId,
+          registrationState: endpoint.registrationState,
+          reachability: endpoint.reachability,
+          updatedAt: endpointState.observedAt,
+          order: endpointSnapshotOrder(snapshot, endpoint),
+        });
+      }
+      entry.endpoints = endpoints;
+      entry.endpointCapability = 'SUPPORTED';
+      entry.endpointSynchronization = 'CURRENT';
+    } else if (endpointState) {
+      entry.endpoints = new Map();
+      entry.endpointCapability = endpointState.capability;
+      entry.endpointSynchronization = 'UNAVAILABLE';
+    } else {
+      entry.endpoints = new Map();
+      entry.endpointCapability = 'UNKNOWN';
+      entry.endpointSynchronization = 'AWAITING_SNAPSHOT';
+    }
     if (snapshot.streamGeneration === undefined) delete entry.streamGeneration;
     else entry.streamGeneration = snapshot.streamGeneration;
     entry.lastSnapshotAt = snapshot.observedAt;
@@ -596,11 +748,12 @@ export class TelephonyStateEngine {
         continue;
       }
 
-      const ids = affectedChannelIds(event);
       const relevant =
-        ids.length === 0
-          ? false
-          : ids.some((channelId) => eventIsAfterSnapshotChannel(event, snapshot, channelId));
+        event.type === 'ENDPOINT_STATUS_CHANGED'
+          ? eventIsAfterEndpointSnapshot(event, snapshot)
+          : affectedChannelIds(event).some((channelId) =>
+              eventIsAfterSnapshotChannel(event, snapshot, channelId),
+            );
       if (!relevant) continue;
       applyEvent(entry, event, snapshot);
       if (event.observedAt > (replayedLastEventAt ?? '')) replayedLastEventAt = event.observedAt;

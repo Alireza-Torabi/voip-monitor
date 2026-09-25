@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-09-25. Phase 1 public repository foundation is complete. Task 12 is merged into `main` as PR #13. Phase 2 Task 13 telephony state engine foundation is implemented on `feature/telephony-state-engine`. It combines authoritative channel snapshots with ordered normalized live events into deterministic in-memory channel/call state with revisions and freshness; it remains internal with no browser/API exposure.
+Status: 2026-09-25. Phase 1 public repository foundation is complete. Task 13 is merged into `main` as PR #14. Phase 2 Task 14 endpoint/registration state foundation is implemented on `feature/endpoint-registration-state`. It adds capability-aware chan_sip endpoint snapshots, normalized registration/reachability events, and deterministic in-memory endpoint state alongside channel/call state; it remains internal with no browser/API exposure.
 
 ## Phase 0 — environment discovery
 
@@ -51,15 +51,15 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 11: ActionID-correlated AMI event-list actions, `CoreShowChannels` provider snapshots, minimal provider-neutral channel snapshots, initial snapshot publication, and periodic reconciliation snapshots. Partial/cancelled/inconsistent lists fail closed; snapshot degradation does not cause a reconnect storm.
 - [x] Task 12: controlled read-only real-PBX compatibility verification of the Asterisk 13.x baseline and Task 8–11 AMI assumptions. Local-only credential handling, bounded verifier, bilingual runbook, safe error classification, login/discovery, `CoreShowChannels`, passive normalized live events, reconciliation, and clean disconnect were validated against an approved real Asterisk 13.x system without PBX changes.
 - [x] Task 13: internal telephony state engine foundation. Provider frames now carry per-process connection generations and per-frame sequence numbers; channel snapshot items retain their source sequence. The engine subscribes before runtime start, buffers/replays events around snapshot collection boundaries, repairs drift from reconciliation snapshots, tracks `CURRENT`/`AWAITING_SNAPSHOT`/`STALE`, groups current channels into deterministic calls, and resets state when a PBX profile runtime is replaced or removed. No REST/WebSocket state endpoint exists yet.
-- [ ] Proposed next task: Task 14 endpoint/registration state foundation with authoritative provider snapshots plus normalized endpoint events, synthetic/mock first and provider-capability aware before any additional real-PBX verification.
+- [x] Task 14: endpoint/registration state foundation. The Asterisk provider now collects an independent `SIPpeers`/PeerEntry snapshot for chan_sip endpoints, normalizes registration and reachability without forwarding addresses/raw AMI fields, records endpoint capability as `SUPPORTED`, `PERMISSION_DENIED`, or `UNSUPPORTED`, and keeps channel snapshots usable when endpoint listing is unavailable by capability. The state engine reconciles endpoint snapshots using their own sequence boundary, replays only newer PeerStatus events, preserves known dimensions when an event reports `UNKNOWN`, and refuses to manufacture endpoint state when no authoritative endpoint snapshot is available. Synthetic/mock only; no real PBX access.
+- [ ] Proposed next task: Task 15 trunk state foundation with provider-neutral trunk contracts plus capability-aware authoritative snapshots/events, synthetic/mock first and without real-PBX access.
 
 ### Current execution handoff
 
-- Current branch: `feature/telephony-state-engine`, tracking `origin/feature/telephony-state-engine`, from clean synchronized `main` after Task 12 merged as PR #13.
-- Task 13 implementation commit: `37f7ac7` (`feat(state): add telephony state engine foundation`) and handoff commit: `918373a` (`docs(plan): record task 13 handoff`). The branch is pushed; no Task 13 PR has been created yet.
-- Final local gates pass: lint, format, typecheck, backend tests 64/64, frontend tests 10/10, build, foundation check, and license check. GitHub Actions for `918373a` passed.
-- No real PBX was contacted during Task 13; all state-engine and ordering work is synthetic/loopback only.
-- Exact next task after Task 13 merge: Task 14 endpoint/registration state foundation with authoritative provider snapshots plus normalized endpoint events, synthetic/mock first.
+- Current branch: `feature/endpoint-registration-state`, created from synchronized `main` after Task 13 merged as PR #14.
+- Task 14 implementation is complete locally. Final local gates pass: lint, format check, typecheck, backend tests 67/67, frontend tests 10/10, build, foundation check, and license check. Public/secret review found no deployment-specific identifiers or tracked private runtime paths; the only credential-like added value is an explicitly synthetic test secret.
+- No real PBX was contacted during Task 14; all endpoint snapshot/event and state-engine validation is synthetic/mock only.
+- Exact next task after Task 14 merge: Task 15 trunk state foundation with provider-neutral trunk contracts plus capability-aware authoritative snapshots/events, synthetic/mock first.
 
 ### Failure and bug log
 
@@ -88,6 +88,10 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - **Task 13 validation failures — resolved:** the first targeted build exposed exact-optional-property TypeScript errors in the new reducer; after those fixes, two existing transport tests failed because ordered event metadata changed the expected shape. Types/formatting and test expectations were corrected and targeted suites passed. The first complete lint gate later found two intentionally discarded destructured variables and two test uses of an undeclared `structuredClone` global under the repository ESLint environment; the reducer now constructs public objects explicitly and the fake test source uses explicit shallow copies.
 - **Task 13 bounded-buffer behavior:** event buffering is capped at 10,000 entries per PBX. If overflow loses a boundary needed for safe reconciliation, the engine fails closed and waits for a snapshot whose collection starts after the discarded boundary.
 - **Task 13 known limitations:** state is in-memory only; call state is a deterministic grouping of current channels by `linkedId` (falling back to channel ID), not a semantic call-phase model. Caller identity, dial result history, endpoint/trunk/queue/agent state, persistence, historical revisions, REST reads, and WebSocket delivery remain future work.
+- **Task 14 validation false start — resolved:** a backend-only typecheck initially read the previously built shared declarations and reported missing Task 14 shared types. Rebuilding the `shared` workspace first removed those stale-artifact errors; the repository root typecheck already performs this dependency build in the correct order.
+- **Task 14 endpoint partial-update bug — resolved before commit:** a first reducer draft would replace known registration or reachability with `UNKNOWN` when a PeerStatus event only described the other dimension. Live endpoint updates now preserve the existing value for dimensions the event does not authoritatively describe.
+- **Task 14 open defects:** none currently known from the synthetic suite.
+- **Task 14 known limitations:** authoritative endpoint discovery currently targets Asterisk 13 chan_sip through `SIPpeers`/PeerEntry. PJSIP endpoint/contact actions and event families are not implemented or claimed. Dynamic chan_sip registration in the snapshot is inferred from the peer's dynamic flag plus presence/absence of a bound IP address; static peers remain `UNKNOWN` for registration. Endpoint state is in-memory only and has no REST/WebSocket exposure or history.
 
 ### Persistent continuation protocol
 
@@ -106,7 +110,7 @@ Tasks 7–13 implemented substantial Asterisk-provider and telephony-state found
 
 - [ ] Phase 3: account management and onboarding refinement.
 - [x] Phase 4 foundation gate: Asterisk provider integration — network policy, AMI transport, login/discovery, runtime lifecycle, connection verification, normalized event subscription, channel snapshots/reconciliation, and one controlled real Asterisk 13.x compatibility gate are complete.
-- [~] Phase 5: telephony state engine — deterministic channel/call state foundation is implemented; endpoint/registration state is next.
+- [~] Phase 5: telephony state engine — deterministic channel/call and chan_sip endpoint/registration state foundations are implemented; trunk state is next.
 - [ ] Phase 6: system metrics.
 - [ ] Phase 7: security monitoring.
 - [ ] Phase 8: authenticated API and realtime.

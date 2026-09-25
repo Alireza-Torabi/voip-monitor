@@ -228,6 +228,41 @@ test('Asterisk provider logs in, discovers version, reconciles, and wipes passwo
         },
       };
     })
+    .onEventList('SIPpeers', (_action, spec) => {
+      assert.deepEqual(spec, {
+        itemEvent: 'PeerEntry',
+        completeEvent: 'PeerlistComplete',
+      });
+      return {
+        response: { response: 'Success', fields: { EventList: 'start' } },
+        events: [
+          {
+            event: 'PeerEntry',
+            fields: {
+              Channeltype: 'SIP',
+              ObjectName: '100',
+              Dynamic: 'yes',
+              IPaddress: '192.0.2.100',
+              Status: 'OK (12 ms)',
+            },
+          },
+          {
+            event: 'PeerEntry',
+            fields: {
+              Channeltype: 'SIP',
+              ObjectName: '200',
+              Dynamic: 'yes',
+              IPaddress: '-none-',
+              Status: 'UNKNOWN',
+            },
+          },
+        ],
+        completion: {
+          event: 'PeerlistComplete',
+          fields: { EventList: 'Complete', ListItems: '2' },
+        },
+      };
+    })
     .on('Logoff', () => ({ response: 'Goodbye', fields: {} }));
 
   const provider = new AsteriskProvider({
@@ -273,12 +308,73 @@ test('Asterisk provider logs in, discovers version, reconciles, and wipes passwo
       bridgeId: 'bridge-1',
     },
   ]);
-  assert.equal((await provider.getCapabilities()).telephony.channels, 'SUPPORTED');
+  assert.deepEqual(snapshot.endpointState, {
+    capability: 'SUPPORTED',
+    startedAt: snapshot.endpointState.startedAt,
+    observedAt: snapshot.endpointState.observedAt,
+    endpoints: [
+      {
+        endpointId: 'SIP/100',
+        registrationState: 'REGISTERED',
+        reachability: 'REACHABLE',
+      },
+      {
+        endpointId: 'SIP/200',
+        registrationState: 'UNREGISTERED',
+        reachability: 'UNKNOWN',
+      },
+    ],
+  });
+  const capabilities = await provider.getCapabilities();
+  assert.equal(capabilities.telephony.channels, 'SUPPORTED');
+  assert.equal(capabilities.telephony.endpoints, 'SUPPORTED');
   assert.equal((await provider.getHealth()).sources.AMI.freshness, 'CURRENT');
   await provider.disconnect();
   const disconnected = await provider.getHealth();
   assert.equal(disconnected.connection.state, 'DISCONNECTED');
   assert.equal(disconnected.sources.AMI.freshness, 'UNAVAILABLE');
+});
+
+test('Asterisk provider keeps channel snapshots usable when SIP peer listing is denied', async () => {
+  const transport = new MockAmiTransport()
+    .on('Login', () => ({ response: 'Success', fields: {} }))
+    .onEventList('CoreShowChannels', () => ({
+      response: { response: 'Success', fields: { EventList: 'start' } },
+      events: [],
+      completion: {
+        event: 'CoreShowChannelsComplete',
+        fields: { EventList: 'Complete', ListItems: '0' },
+      },
+    }))
+    .onEventList('SIPpeers', () => ({
+      response: { response: 'Error', message: 'Permission denied', fields: {} },
+      events: [],
+      completion: { event: 'PeerlistComplete', fields: { EventList: 'Complete', ListItems: '0' } },
+    }))
+    .on('Logoff', () => ({ response: 'Goodbye', fields: {} }));
+  const provider = new AsteriskProvider({
+    instanceId: 'synthetic-pbx',
+    displayName: 'Synthetic PBX',
+    host: '192.0.2.21',
+    port: 5038,
+    amiUsername: 'synthetic-admin',
+    readAmiPassword: () => Buffer.from('synthetic-secret'),
+    resolver: {
+      async resolve() {
+        return [];
+      },
+    },
+    transport,
+  });
+
+  await provider.connect();
+  const state = await provider.getCurrentState();
+  assert.deepEqual(state.channels, []);
+  assert.equal(state.endpointState.capability, 'PERMISSION_DENIED');
+  assert.deepEqual(state.endpointState.endpoints, []);
+  assert.equal((await provider.getCapabilities()).telephony.endpoints, 'PERMISSION_DENIED');
+  assert.equal((await provider.getHealth()).connection.state, 'CONNECTED');
+  await provider.disconnect();
 });
 
 test('Asterisk provider rejects an inconsistent channel-list count as degraded state', async () => {
