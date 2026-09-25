@@ -52,9 +52,10 @@ These later checks do not change the historical Phase 1 validation record. Docke
 
 ### Current execution handoff
 
-- Current branch: `feature/ami-event-subscription`.
+- Current branch: `feature/ami-event-subscription`, tracking `origin/feature/ami-event-subscription`.
 - Task 9 is merged into `main` by PR #10.
-- Task 10 implementation is complete locally and awaiting final validation/commit/push in this task closure.
+- Task 10 implementation commit: `3f91c90` (`feat(provider): add normalized AMI event subscriptions`). The branch is pushed; no Task 10 PR has been created yet.
+- Final local gates pass: lint, format, typecheck, backend tests 51/51, frontend tests 10/10, build, foundation check, and license check.
 - Exact next task after Task 10 merge: Task 11, AMI event-list action correlation plus initial channel snapshot/reconciliation foundation, synthetic/mock first.
 - Real PBX access still requires separate explicit approval.
 
