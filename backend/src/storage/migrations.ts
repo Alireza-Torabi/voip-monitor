@@ -108,4 +108,27 @@ export const migrations = [
       ) STRICT;
     `,
   },
+  {
+    version: 7,
+    name: 'system_metrics_persistence',
+    sql: `
+      CREATE TABLE system_metric_current (
+        pbx_instance_id TEXT PRIMARY KEY REFERENCES pbx_instance(id) ON DELETE CASCADE,
+        source TEXT NOT NULL CHECK (source = 'SSH'),
+        observed_at TEXT NOT NULL,
+        sample_json TEXT NOT NULL CHECK (json_valid(sample_json)),
+        updated_at TEXT NOT NULL
+      ) STRICT;
+      CREATE TABLE system_metric_history (
+        id INTEGER PRIMARY KEY,
+        pbx_instance_id TEXT NOT NULL REFERENCES pbx_instance(id) ON DELETE CASCADE,
+        source TEXT NOT NULL CHECK (source = 'SSH'),
+        observed_at TEXT NOT NULL,
+        sample_json TEXT NOT NULL CHECK (json_valid(sample_json)),
+        UNIQUE (pbx_instance_id, source, observed_at)
+      ) STRICT;
+      CREATE INDEX system_metric_history_instance_observed
+        ON system_metric_history(pbx_instance_id, observed_at);
+    `,
+  },
 ] as const;
