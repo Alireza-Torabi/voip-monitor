@@ -52,6 +52,54 @@ export function normalizeTrunkRegistrationState(
   }
 }
 
+export function normalizeQueueMemberAvailability(
+  status: string,
+):
+  | 'UNKNOWN'
+  | 'AVAILABLE'
+  | 'IN_USE'
+  | 'BUSY'
+  | 'INVALID'
+  | 'UNAVAILABLE'
+  | 'RINGING'
+  | 'RINGING_IN_USE'
+  | 'ON_HOLD' {
+  switch (status.trim()) {
+    case '1':
+      return 'AVAILABLE';
+    case '2':
+      return 'IN_USE';
+    case '3':
+      return 'BUSY';
+    case '4':
+      return 'INVALID';
+    case '5':
+      return 'UNAVAILABLE';
+    case '6':
+      return 'RINGING';
+    case '7':
+      return 'RINGING_IN_USE';
+    case '8':
+      return 'ON_HOLD';
+    default:
+      return 'UNKNOWN';
+  }
+}
+
+function amiBoolean(value: string | undefined): boolean | undefined {
+  if (value === undefined) return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === '1' || normalized === 'yes' || normalized === 'true') return true;
+  if (normalized === '0' || normalized === 'no' || normalized === 'false') return false;
+  return undefined;
+}
+
+function nonNegativeInteger(value: string | undefined): number | undefined {
+  if (!value || !/^[0-9]+$/.test(value.trim())) return undefined;
+  const parsed = Number(value.trim());
+  return Number.isSafeInteger(parsed) ? parsed : undefined;
+}
+
 function streamOrder(event: AmiEvent): { streamGeneration?: number; streamSequence?: number } {
   return {
     ...(event.streamGeneration === undefined ? {} : { streamGeneration: event.streamGeneration }),
@@ -229,6 +277,85 @@ export function normalizeAmiEvent(
       trunkId: `${channelType}/${username}@${domain}`,
       kind: 'OUTBOUND_REGISTRATION',
       registrationState: normalizeTrunkRegistrationState(status),
+    };
+  }
+
+  if (
+    name === 'queuememberstatus' ||
+    name === 'queuememberadded' ||
+    name === 'queuememberpause' ||
+    name === 'queuememberpenalty' ||
+    name === 'queuememberringinuse'
+  ) {
+    const queueId = required(fields, 'Queue');
+    const memberId = required(fields, 'Interface');
+    const status = required(fields, 'Status');
+    const paused = amiBoolean(optional(fields, 'Paused'));
+    const inCall = amiBoolean(optional(fields, 'InCall'));
+    if (!queueId || !memberId || !status || paused === undefined || inCall === undefined) {
+      return undefined;
+    }
+    const memberName = optional(fields, 'MemberName') ?? optional(fields, 'Name');
+    return {
+      type: 'QUEUE_MEMBER_CHANGED',
+      instanceId,
+      source: 'AMI',
+      observedAt,
+      ...streamOrder(event),
+      queueId,
+      memberId,
+      ...(memberName ? { memberName } : {}),
+      availability: normalizeQueueMemberAvailability(status),
+      paused,
+      inCall,
+    };
+  }
+
+  if (name === 'queuememberremoved') {
+    const queueId = required(fields, 'Queue');
+    const memberId = required(fields, 'Interface');
+    if (!queueId || !memberId) return undefined;
+    return {
+      type: 'QUEUE_MEMBER_REMOVED',
+      instanceId,
+      source: 'AMI',
+      observedAt,
+      ...streamOrder(event),
+      queueId,
+      memberId,
+    };
+  }
+
+  if (name === 'queuecallerjoin') {
+    const queueId = required(fields, 'Queue');
+    const callerId = required(fields, 'Uniqueid');
+    if (!queueId || !callerId) return undefined;
+    const position = nonNegativeInteger(optional(fields, 'Position'));
+    return {
+      type: 'QUEUE_CALLER_JOINED',
+      instanceId,
+      source: 'AMI',
+      observedAt,
+      ...streamOrder(event),
+      queueId,
+      callerId,
+      ...(position === undefined ? {} : { position }),
+    };
+  }
+
+  if (name === 'queuecallerleave' || name === 'queuecallerabandon') {
+    const queueId = required(fields, 'Queue');
+    const callerId = required(fields, 'Uniqueid');
+    if (!queueId || !callerId) return undefined;
+    return {
+      type: 'QUEUE_CALLER_LEFT',
+      instanceId,
+      source: 'AMI',
+      observedAt,
+      ...streamOrder(event),
+      queueId,
+      callerId,
+      disposition: name === 'queuecallerabandon' ? 'ABANDONED' : 'LEFT',
     };
   }
 

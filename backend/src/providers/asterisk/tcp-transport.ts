@@ -164,7 +164,12 @@ export class TcpAmiTransport implements AmiTransport {
   }
 
   requestEventList(action: AmiAction, spec: AmiEventListSpec): Promise<AmiEventListResult> {
-    if (!SAFE_NAME.test(spec.itemEvent) || !SAFE_NAME.test(spec.completeEvent)) {
+    const itemEvents = 'itemEvent' in spec ? [spec.itemEvent] : [...spec.itemEvents];
+    if (
+      itemEvents.length === 0 ||
+      itemEvents.some((name) => !SAFE_NAME.test(name)) ||
+      !SAFE_NAME.test(spec.completeEvent)
+    ) {
       return Promise.reject(new AmiTransportError('INVALID_ACTION'));
     }
     const run = this.queue.then(() => this.performEventListRequest(action, spec));
@@ -344,7 +349,11 @@ export class TcpAmiTransport implements AmiTransport {
 
     if (pending?.kind === 'event-list' && actionId === pending.actionId) {
       const normalized = event.toLowerCase();
-      if (normalized === pending.spec.itemEvent.toLowerCase()) {
+      const itemEvents =
+        'itemEvent' in pending.spec
+          ? [pending.spec.itemEvent.toLowerCase()]
+          : pending.spec.itemEvents.map((name) => name.toLowerCase());
+      if (itemEvents.includes(normalized)) {
         pending.events.push({
           event,
           fields: Object.freeze({ ...fields }),

@@ -28,10 +28,17 @@ export interface AmiEvent {
 
 export type AmiEventListener = (event: AmiEvent) => void;
 
-export interface AmiEventListSpec {
-  itemEvent: string;
-  completeEvent: string;
-}
+export type AmiEventListSpec =
+  | {
+      itemEvent: string;
+      itemEvents?: never;
+      completeEvent: string;
+    }
+  | {
+      itemEvent?: never;
+      itemEvents: readonly string[];
+      completeEvent: string;
+    };
 
 export interface AmiEventListResult {
   response: AmiResponse;

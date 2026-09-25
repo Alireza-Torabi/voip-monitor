@@ -167,6 +167,78 @@ test('AMI normalizer maps core channel, dial, bridge, and peer events without ra
       },
     ],
     [
+      'QueueMemberStatus',
+      {
+        Queue: 'support',
+        MemberName: 'Synthetic Agent',
+        Interface: 'SIP/100',
+        Status: '2',
+        Paused: '1',
+        InCall: '1',
+        PausedReason: 'private-reason',
+      },
+      {
+        type: 'QUEUE_MEMBER_CHANGED',
+        instanceId: 'pbx-1',
+        source: 'AMI',
+        observedAt,
+        queueId: 'support',
+        memberId: 'SIP/100',
+        memberName: 'Synthetic Agent',
+        availability: 'IN_USE',
+        paused: true,
+        inCall: true,
+      },
+    ],
+    [
+      'QueueMemberRemoved',
+      { Queue: 'support', Interface: 'SIP/100', MemberName: 'Synthetic Agent' },
+      {
+        type: 'QUEUE_MEMBER_REMOVED',
+        instanceId: 'pbx-1',
+        source: 'AMI',
+        observedAt,
+        queueId: 'support',
+        memberId: 'SIP/100',
+      },
+    ],
+    [
+      'QueueCallerJoin',
+      {
+        Queue: 'support',
+        Uniqueid: 'caller-1',
+        Position: '2',
+        CallerIDNum: 'synthetic-private-caller',
+      },
+      {
+        type: 'QUEUE_CALLER_JOINED',
+        instanceId: 'pbx-1',
+        source: 'AMI',
+        observedAt,
+        queueId: 'support',
+        callerId: 'caller-1',
+        position: 2,
+      },
+    ],
+    [
+      'QueueCallerAbandon',
+      {
+        Queue: 'support',
+        Uniqueid: 'caller-1',
+        Position: '2',
+        CallerIDName: 'synthetic-private-name',
+      },
+      {
+        type: 'QUEUE_CALLER_LEFT',
+        instanceId: 'pbx-1',
+        source: 'AMI',
+        observedAt,
+        queueId: 'support',
+        callerId: 'caller-1',
+        disposition: 'ABANDONED',
+      },
+    ],
+    [
       'PeerStatus',
       { Peer: 'SIP/100', PeerStatus: 'Registered', Address: '192.0.2.40' },
       {
@@ -187,6 +259,9 @@ test('AMI normalizer maps core channel, dial, bridge, and peer events without ra
     assert.ok(!JSON.stringify(normalized).includes('synthetic-caller'));
     assert.ok(!JSON.stringify(normalized).includes('192.0.2.40'));
     assert.ok(!JSON.stringify(normalized).includes('synthetic-private-detail'));
+    assert.ok(!JSON.stringify(normalized).includes('synthetic-private-caller'));
+    assert.ok(!JSON.stringify(normalized).includes('synthetic-private-name'));
+    assert.ok(!JSON.stringify(normalized).includes('private-reason'));
   }
 });
 

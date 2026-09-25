@@ -128,6 +128,38 @@ test('TCP AMI transport correlates an event-list action while forwarding interle
   );
 });
 
+test('TCP AMI transport correlates a mixed-item event-list action', async () => {
+  await syntheticAmi(
+    async (action, socket) => {
+      assert.equal(action.Action, 'QueueStatus');
+      socket.write(
+        `Response: Success\r\nActionID: ${action.ActionID}\r\nEventList: start\r\n\r\n` +
+          `Event: QueueParams\r\nActionID: ${action.ActionID}\r\nQueue: support\r\nStrategy: ringall\r\n\r\n` +
+          `Event: QueueMember\r\nActionID: ${action.ActionID}\r\nQueue: support\r\nLocation: SIP/100\r\nStatus: 1\r\nPaused: 0\r\nInCall: 0\r\n\r\n` +
+          `Event: QueueEntry\r\nActionID: ${action.ActionID}\r\nQueue: support\r\nUniqueid: caller-1\r\nPosition: 1\r\nWait: 5\r\n\r\n` +
+          `Event: QueueStatusComplete\r\nActionID: ${action.ActionID}\r\nEventList: Complete\r\nListItems: 3\r\n\r\n`,
+      );
+    },
+    async (port) => {
+      const transport = new TcpAmiTransport(1000);
+      await transport.connect({ host: 'synthetic.test', address: '127.0.0.1', port });
+      const result = await transport.requestEventList(
+        { action: 'QueueStatus' },
+        {
+          itemEvents: ['QueueParams', 'QueueMember', 'QueueEntry'],
+          completeEvent: 'QueueStatusComplete',
+        },
+      );
+      assert.deepEqual(
+        result.events.map((event) => event.event),
+        ['QueueParams', 'QueueMember', 'QueueEntry'],
+      );
+      assert.equal(result.completion.fields.ListItems, '3');
+      await transport.disconnect();
+    },
+  );
+});
+
 test('TCP AMI transport rejects a cancelled event-list instead of returning a partial snapshot', async () => {
   await syntheticAmi(
     async (action, socket) => {
@@ -287,6 +319,53 @@ test('Asterisk provider logs in, discovers version, reconciles, and wipes passwo
         },
       };
     })
+    .onEventList('QueueStatus', (_action, spec) => {
+      assert.deepEqual(spec, {
+        itemEvents: ['QueueParams', 'QueueMember', 'QueueEntry'],
+        completeEvent: 'QueueStatusComplete',
+      });
+      return {
+        response: { response: 'Success', fields: { EventList: 'start' } },
+        events: [
+          {
+            event: 'QueueParams',
+            fields: {
+              Queue: 'support',
+              Strategy: 'ringall',
+              Calls: '1',
+              SecretMetadata: 'must-not-propagate',
+            },
+          },
+          {
+            event: 'QueueMember',
+            fields: {
+              Queue: 'support',
+              Name: 'Synthetic Agent',
+              Location: 'SIP/100',
+              Status: '1',
+              Paused: '0',
+              InCall: '0',
+              StateInterface: 'hint:100@example',
+            },
+          },
+          {
+            event: 'QueueEntry',
+            fields: {
+              Queue: 'support',
+              Uniqueid: 'caller-1',
+              Position: '1',
+              Wait: '12',
+              CallerIDNum: 'synthetic-private-caller',
+              Channel: 'SIP/private-channel',
+            },
+          },
+        ],
+        completion: {
+          event: 'QueueStatusComplete',
+          fields: { EventList: 'Complete', ListItems: '3' },
+        },
+      };
+    })
     .on('Logoff', () => ({ response: 'Goodbye', fields: {} }));
 
   const provider = new AsteriskProvider({
@@ -362,10 +441,38 @@ test('Asterisk provider logs in, discovers version, reconciles, and wipes passwo
     ],
   });
   assert.ok(!JSON.stringify(snapshot.trunkState).includes('192.0.2.200'));
+  assert.deepEqual(snapshot.queueState, {
+    capability: 'SUPPORTED',
+    startedAt: snapshot.queueState.startedAt,
+    observedAt: snapshot.queueState.observedAt,
+    queues: [{ queueId: 'support', strategy: 'ringall' }],
+    members: [
+      {
+        queueId: 'support',
+        memberId: 'SIP/100',
+        memberName: 'Synthetic Agent',
+        availability: 'AVAILABLE',
+        paused: false,
+        inCall: false,
+      },
+    ],
+    callers: [
+      {
+        queueId: 'support',
+        callerId: 'caller-1',
+        position: 1,
+        waitSeconds: 12,
+      },
+    ],
+  });
+  assert.ok(!JSON.stringify(snapshot.queueState).includes('synthetic-private-caller'));
+  assert.ok(!JSON.stringify(snapshot.queueState).includes('SIP/private-channel'));
+  assert.ok(!JSON.stringify(snapshot.queueState).includes('must-not-propagate'));
   const capabilities = await provider.getCapabilities();
   assert.equal(capabilities.telephony.channels, 'SUPPORTED');
   assert.equal(capabilities.telephony.endpoints, 'SUPPORTED');
   assert.equal(capabilities.telephony.trunks, 'SUPPORTED');
+  assert.equal(capabilities.telephony.queues, 'SUPPORTED');
   assert.equal((await provider.getHealth()).sources.AMI.freshness, 'CURRENT');
   await provider.disconnect();
   const disconnected = await provider.getHealth();
@@ -397,6 +504,14 @@ test('Asterisk provider keeps channel snapshots usable when SIP peer listing is 
         fields: { EventList: 'Complete', ListItems: '0' },
       },
     }))
+    .onEventList('QueueStatus', () => ({
+      response: { response: 'Error', message: 'Permission denied', fields: {} },
+      events: [],
+      completion: {
+        event: 'QueueStatusComplete',
+        fields: { EventList: 'Complete', ListItems: '0' },
+      },
+    }))
     .on('Logoff', () => ({ response: 'Goodbye', fields: {} }));
   const provider = new AsteriskProvider({
     instanceId: 'synthetic-pbx',
@@ -420,6 +535,8 @@ test('Asterisk provider keeps channel snapshots usable when SIP peer listing is 
   assert.deepEqual(state.endpointState.endpoints, []);
   assert.equal(state.trunkState.capability, 'PERMISSION_DENIED');
   assert.deepEqual(state.trunkState.trunks, []);
+  assert.equal(state.queueState.capability, 'PERMISSION_DENIED');
+  assert.deepEqual(state.queueState.queues, []);
   assert.equal((await provider.getCapabilities()).telephony.endpoints, 'PERMISSION_DENIED');
   assert.equal((await provider.getHealth()).connection.state, 'CONNECTED');
   await provider.disconnect();
@@ -449,6 +566,14 @@ test('Asterisk provider keeps channel and endpoint snapshots usable when SIP reg
         fields: { EventList: 'Complete', ListItems: '0' },
       },
     }))
+    .onEventList('QueueStatus', () => ({
+      response: { response: 'Success', fields: { EventList: 'start' } },
+      events: [],
+      completion: {
+        event: 'QueueStatusComplete',
+        fields: { EventList: 'Complete', ListItems: '0' },
+      },
+    }))
     .on('Logoff', () => ({ response: 'Goodbye', fields: {} }));
   const provider = new AsteriskProvider({
     instanceId: 'synthetic-pbx',
@@ -473,6 +598,68 @@ test('Asterisk provider keeps channel and endpoint snapshots usable when SIP reg
   const capabilities = await provider.getCapabilities();
   assert.equal(capabilities.telephony.endpoints, 'SUPPORTED');
   assert.equal(capabilities.telephony.trunks, 'PERMISSION_DENIED');
+  assert.equal(capabilities.telephony.queues, 'SUPPORTED');
+  assert.equal((await provider.getHealth()).connection.state, 'CONNECTED');
+  await provider.disconnect();
+});
+
+test('Asterisk provider keeps channel, endpoint, and trunk snapshots usable when QueueStatus is denied', async () => {
+  const transport = new MockAmiTransport()
+    .on('Login', () => ({ response: 'Success', fields: {} }))
+    .onEventList('CoreShowChannels', () => ({
+      response: { response: 'Success', fields: { EventList: 'start' } },
+      events: [],
+      completion: {
+        event: 'CoreShowChannelsComplete',
+        fields: { EventList: 'Complete', ListItems: '0' },
+      },
+    }))
+    .onEventList('SIPpeers', () => ({
+      response: { response: 'Success', fields: { EventList: 'start' } },
+      events: [],
+      completion: { event: 'PeerlistComplete', fields: { EventList: 'Complete', ListItems: '0' } },
+    }))
+    .onEventList('SIPshowregistry', () => ({
+      response: { response: 'Success', fields: { EventList: 'start' } },
+      events: [],
+      completion: {
+        event: 'RegistrationsComplete',
+        fields: { EventList: 'Complete', ListItems: '0' },
+      },
+    }))
+    .onEventList('QueueStatus', () => ({
+      response: { response: 'Error', message: 'Permission denied', fields: {} },
+      events: [],
+      completion: {
+        event: 'QueueStatusComplete',
+        fields: { EventList: 'Complete', ListItems: '0' },
+      },
+    }))
+    .on('Logoff', () => ({ response: 'Goodbye', fields: {} }));
+  const provider = new AsteriskProvider({
+    instanceId: 'synthetic-pbx',
+    displayName: 'Synthetic PBX',
+    host: '192.0.2.21',
+    port: 5038,
+    amiUsername: 'synthetic-admin',
+    readAmiPassword: () => Buffer.from('synthetic-secret'),
+    resolver: {
+      async resolve() {
+        return [];
+      },
+    },
+    transport,
+  });
+
+  await provider.connect();
+  const state = await provider.getCurrentState();
+  assert.equal(state.endpointState.capability, 'SUPPORTED');
+  assert.equal(state.trunkState.capability, 'SUPPORTED');
+  assert.equal(state.queueState.capability, 'PERMISSION_DENIED');
+  assert.deepEqual(state.queueState.queues, []);
+  assert.deepEqual(state.queueState.members, []);
+  assert.deepEqual(state.queueState.callers, []);
+  assert.equal((await provider.getCapabilities()).telephony.queues, 'PERMISSION_DENIED');
   assert.equal((await provider.getHealth()).connection.state, 'CONNECTED');
   await provider.disconnect();
 });
