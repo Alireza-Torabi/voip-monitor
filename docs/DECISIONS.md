@@ -178,3 +178,19 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 109. **Conservative SSH username syntax:** SSH usernames are limited to `[A-Za-z0-9._-]+` with a 128-character maximum. This is intentionally narrower than the AMI username syntax to remove ambiguity before a concrete transport is introduced.
 110. **Atomic configuration/credential lifecycle:** SSH metadata and encrypted secret writes occur inside one SQLite transaction. A regression test injects a secret-write failure after metadata insertion and confirms the whole change rolls back.
 111. **Phase boundary:** Task 20 adds no SSH dependency/client, resolver invocation, socket, command execution, host verification attempt, source-health runtime, scheduler, API/UI, or real-host compatibility claim. Task 21 may add a concrete client only behind the existing resolver/network/trust/secret boundaries and synthetic loopback validation first.
+
+## 2026-09-25 — Phase 6 Task 21 concrete restricted SSH transport decisions
+
+112. **Concrete client boundary:** Use the maintained `ssh2` package as the protocol implementation rather than invoking the system `ssh` binary. The application transport receives only the already-resolved PBX-scoped configuration, encrypted credential material, typed restricted command, and execution limits; it does not expose arbitrary shell input.
+
+113. **One-time resolution and SSRF enforcement:** The concrete transport receives an injected resolver and calls it exactly once per command. The default validator checks every returned address with the shared network policy before any socket is opened, and the connection target is one of those already-validated addresses. Tests may inject a loopback-only validator solely for the synthetic SSH server; production construction retains the shared validator.
+
+114. **Pinned host-key callback:** The transport always supplies an SSH host-key verification callback and validates the presented public-key blob with the existing canonical SHA-256 pin using timing-safe comparison. `hostHash` is intentionally not used because `ssh2` changes the callback argument to a hexadecimal digest when that option is enabled; the raw key callback keeps the trust contract aligned with the existing verifier.
+
+115. **Restricted command execution:** The transport serializes only `RestrictedSshCommand` values produced by the existing command resolver using shell-safe single-argument quoting. No interactive shell, PTY, environment injection, port forwarding, agent forwarding, or arbitrary command string is exposed.
+
+116. **Streaming limits and cleanup:** Combined stdout/stderr bytes are counted as chunks arrive and the channel/connection is closed immediately after a limit breach. A wall-clock timer covers command execution, and final cleanup closes the channel/client and zeroes retrieved credential/passphrase buffers. The unavoidable password string required by the `ssh2` API is a known JavaScript-memory limitation.
+
+117. **Synthetic-only validation:** Task 21 uses an in-process `ssh2` server bound to loopback. Coverage includes successful pinned-key execution, mismatched pin rejection, one-time resolver plus default unsafe-target rejection, streaming output overflow, and wall-clock timeout. No DNS lookup, production host, or PBX was contacted. Private-key authentication is implemented but deferred from this task's separate synthetic authentication fixture.
+
+118. **Dependency/license review:** Add `ssh2@1.17.0` as the concrete SSH client and `@types/ssh2@1.15.6` as a development-only type dependency. The resolved transitive set was reviewed for the repository's allowed license identifiers; `ssh2`, `buildcheck`, and `cpu-features` are recorded as MIT, while `tweetnacl` is recorded as Unlicense and explicitly added to the reviewed SPDX set. The license checker remains fail-closed for every other unreviewed identifier.
