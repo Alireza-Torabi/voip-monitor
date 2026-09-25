@@ -91,4 +91,21 @@ export const migrations = [
       ALTER TABLE asterisk_config ADD COLUMN last_verified_at TEXT;
     `,
   },
+  {
+    version: 6,
+    name: 'restricted_ssh_configuration',
+    sql: `
+      CREATE TABLE ssh_config (
+        pbx_instance_id TEXT PRIMARY KEY REFERENCES pbx_instance(id) ON DELETE CASCADE,
+        ssh_host TEXT NOT NULL CHECK (length(ssh_host) BETWEEN 1 AND 253),
+        ssh_port INTEGER NOT NULL CHECK (ssh_port BETWEEN 1 AND 65535),
+        ssh_username TEXT NOT NULL CHECK (length(ssh_username) BETWEEN 1 AND 128),
+        auth_method TEXT NOT NULL CHECK (auth_method IN ('PASSWORD', 'PRIVATE_KEY')),
+        host_key_policy TEXT NOT NULL CHECK (host_key_policy = 'PINNED_SHA256'),
+        host_key_fingerprint TEXT NOT NULL CHECK (length(host_key_fingerprint) = 50),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      ) STRICT;
+    `,
+  },
 ] as const;
