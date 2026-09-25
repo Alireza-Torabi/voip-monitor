@@ -157,6 +157,10 @@ class FakeProvider {
     return () => this.eventListeners.delete(listener);
   }
 
+  subscribeSecurityEvents() {
+    return () => undefined;
+  }
+
   emitEvent(event) {
     for (const listener of this.eventListeners) listener(event);
   }

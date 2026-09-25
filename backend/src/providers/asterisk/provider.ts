@@ -10,6 +10,7 @@ import type {
   ProviderEndpointStateSnapshot,
   ProviderErrorCode,
   ProviderQueueStateSnapshot,
+  SecurityEventListener,
   ProviderStateSnapshot,
   ProviderTrunkStateSnapshot,
 } from '@voip-monitor/shared';
@@ -17,6 +18,7 @@ import { AsteriskConnection, type AddressResolver } from './connection.js';
 import {
   normalizeAmiEvent,
   normalizeEndpointStatus,
+  normalizeAmiSecurityEvent,
   normalizeQueueMemberAvailability,
   normalizeTrunkRegistrationState,
 } from './events.js';
@@ -132,6 +134,7 @@ export class AsteriskProvider implements PbxProvider {
   private connectionState: PbxConnectionState = 'DISCONNECTED';
   private lastChangedAt: string;
   private readonly eventListeners = new Set<ProviderEventListener>();
+  private readonly securityEventListeners = new Set<SecurityEventListener>();
   private amiHealth: DataSourceHealth = {
     source: 'AMI',
     freshness: 'NEVER_COLLECTED',
@@ -143,6 +146,17 @@ export class AsteriskProvider implements PbxProvider {
     this.lastChangedAt = this.now();
     options.transport.subscribeEvents((event) => {
       const observedAt = this.now();
+      const security = normalizeAmiSecurityEvent(this.instanceId, event, observedAt);
+      if (security) {
+        this.capabilities.security.authenticationEvents = 'SUPPORTED';
+        for (const listener of this.securityEventListeners) {
+          try {
+            listener(structuredClone(security));
+          } catch {
+            // Security consumers are isolated from provider connection processing.
+          }
+        }
+      }
       const normalized = normalizeAmiEvent(this.instanceId, event, observedAt);
       if (!normalized) return;
       if (
@@ -195,7 +209,8 @@ export class AsteriskProvider implements PbxProvider {
           fields: {
             Username: this.options.amiUsername,
             Secret: passwordText,
-            Events: this.eventListeners.size > 0 ? 'on' : 'off',
+            Events:
+              this.eventListeners.size > 0 || this.securityEventListeners.size > 0 ? 'on' : 'off',
           },
         });
         if (login.response.toLowerCase() !== 'success') {
@@ -570,6 +585,13 @@ export class AsteriskProvider implements PbxProvider {
     if (!/^[0-9]+$/.test(listItems) || Number(listItems) !== actual) {
       throw new AsteriskProviderError('UNKNOWN');
     }
+  }
+
+  subscribeSecurityEvents(listener: SecurityEventListener): () => void {
+    this.securityEventListeners.add(listener);
+    return () => {
+      this.securityEventListeners.delete(listener);
+    };
   }
 
   subscribeEvents(listener: ProviderEventListener): () => void {
