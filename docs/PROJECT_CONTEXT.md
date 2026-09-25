@@ -1,10 +1,10 @@
 # Project context
 
-Status: Phase 2 Task 12 controlled real-PBX compatibility verification is in progress on `feature/real-pbx-compatibility-verification`, 2026-09-25. Task 11 is merged into `main` by PR #12. The verification tooling and bilingual runbook are prepared; the real AMI gate has not run yet. License: Apache-2.0. This is a public, reusable VoIP monitoring application hosted separately from the PBX. The first provider targets Asterisk and FreePBX-based Asterisk, with Asterisk 13.x as a required compatibility baseline to verify. No real PBX has been contacted yet.
+Status: Phase 2 Task 12 controlled real-PBX compatibility verification is in progress on `feature/real-pbx-compatibility-verification`, 2026-09-25. Task 11 is merged into `main` by PR #12. The first approved real AMI probe passed network reachability and login, then stopped safely because `CoreSettings` was denied by AMI permissions. No PBX setting was changed. License: Apache-2.0. This is a public, reusable VoIP monitoring application hosted separately from the PBX. The first provider targets Asterisk and FreePBX-based Asterisk, with Asterisk 13.x as a required compatibility baseline still to verify.
 
 ## Repository state
 
-The public foundation repository is established on `main`, tracking `origin/main`. Task 11 is merged. The current feature branch prepares a bounded real-PBX compatibility probe that reuses the production provider/network boundary, stores target and credential inputs only under ignored `.local/`, emits only safe PASS/FAIL console output, and keeps detailed results local. PBX networking in the application remains disabled unless the operator explicitly sets `APP_PBX_NETWORK_MODE=plain_tcp`; CI remains synthetic and no real PBX has been accessed yet. The configured `origin` points to the user-supplied GitHub repository via SSH.
+The public foundation repository is established on `main`, tracking `origin/main`. Task 11 is merged. The current feature branch contains a bounded real-PBX compatibility probe that reuses the production provider/network boundary, stores target and credential inputs only under ignored `.local/`, emits only safe PASS/FAIL console output, and keeps detailed results local. The first controlled real probe authenticated successfully but was blocked at discovery by AMI permissions. Application PBX networking remains disabled unless the operator explicitly sets `APP_PBX_NETWORK_MODE=plain_tcp`; CI remains synthetic. The configured `origin` points to the user-supplied GitHub repository via SSH.
 
 ## Product constraints
 

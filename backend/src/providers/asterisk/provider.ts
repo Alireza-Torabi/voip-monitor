@@ -57,9 +57,25 @@ function providerCode(error: unknown): ProviderErrorCode {
 }
 
 function requireSuccess(response: AmiResponse): void {
-  if (response.response.toLowerCase() !== 'success') {
-    throw new AsteriskProviderError('UNKNOWN');
+  if (response.response.toLowerCase() === 'success') return;
+  const message = response.message?.toLowerCase() ?? '';
+  if (
+    message.includes('permission') ||
+    message.includes('privilege') ||
+    message.includes('not authorized') ||
+    message.includes('not authorised')
+  ) {
+    throw new AsteriskProviderError('PERMISSION_DENIED');
   }
+  if (
+    message.includes('invalid action') ||
+    message.includes('unknown action') ||
+    message.includes('no such action') ||
+    message.includes('not implemented')
+  ) {
+    throw new AsteriskProviderError('UNSUPPORTED');
+  }
+  throw new AsteriskProviderError('UNKNOWN');
 }
 
 export class AsteriskProviderError extends Error {

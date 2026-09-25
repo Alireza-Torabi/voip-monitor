@@ -329,6 +329,36 @@ test('Asterisk provider maps a blocked network target to safe connection failure
   assert.equal(transport.connections.length, 0);
 });
 
+test('Asterisk provider maps denied discovery action to safe permission failure', async () => {
+  const transport = new MockAmiTransport()
+    .on('Login', () => ({ response: 'Success', fields: {} }))
+    .on('CoreSettings', () => ({
+      response: 'Error',
+      message: 'Permission denied',
+      fields: {},
+    }))
+    .on('Logoff', () => ({ response: 'Goodbye', fields: {} }));
+  const provider = new AsteriskProvider({
+    instanceId: 'synthetic-pbx',
+    displayName: 'Synthetic PBX',
+    host: '192.0.2.21',
+    port: 5038,
+    amiUsername: 'synthetic-admin',
+    readAmiPassword: () => Buffer.from('synthetic-secret'),
+    resolver: {
+      async resolve() {
+        return [];
+      },
+    },
+    transport,
+  });
+
+  await provider.connect();
+  await assert.rejects(provider.discover(), (error) => error.code === 'PERMISSION_DENIED');
+  assert.equal((await provider.getHealth()).sources.AMI.error.code, 'PERMISSION_DENIED');
+  await provider.disconnect();
+});
+
 test('Asterisk provider maps rejected login to safe authentication failure health', async () => {
   const transport = new MockAmiTransport().on('Login', () => ({
     response: 'Error',

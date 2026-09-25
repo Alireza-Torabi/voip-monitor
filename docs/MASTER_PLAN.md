@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-09-25. Phase 1 public repository foundation is complete. Task 11 is merged into `main` as PR #12. Phase 2 Task 12 controlled real-PBX compatibility verification is in progress on `feature/real-pbx-compatibility-verification`. The public/local-only verification tooling and runbook are prepared; no real PBX has been contacted yet and no telephony state engine exists yet.
+Status: 2026-09-25. Phase 1 public repository foundation is complete. Task 11 is merged into `main` as PR #12. Phase 2 Task 12 controlled real-PBX compatibility verification is in progress on `feature/real-pbx-compatibility-verification`. The first approved real-PBX probe reached AMI successfully: login passed, but `CoreSettings` discovery was denied by AMI permissions, so the gate is paused before snapshots/events. No PBX setting was changed and no telephony state engine exists yet.
 
 ## Phase 0 — environment discovery
 
@@ -77,7 +77,9 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - **Task 12 validation failure — resolved:** the first complete lint run rejected the standalone verifier because Node globals (`process`, `Buffer`, and `setTimeout`) were not explicitly imported under the repository ESLint environment. The verifier now imports them from Node built-ins.
 - **Task 12 validation failure — resolved:** the next complete gate run stopped at `format:check` because the new provider regression test required Prettier formatting. The test was formatted and the complete suite was rerun successfully.
 - **Task 12 preflight status:** the setup helper, local file modes/ignore rules, verifier path confinement, blocked-target behavior, and syntax checks pass using synthetic inputs. No real PBX has been contacted.
-- **Task 12 remaining verification:** real AMI login, `CoreSettings`, `CoreShowChannels` event-list behavior, normalized live events, reconciliation, and the required Asterisk 13.x compatibility claim remain TO_VERIFY until operator-supplied local inputs are present.
+- **Task 12 first real-PBX probe — blocked by permission:** AMI network reachability and authentication passed, then `CoreSettings` returned a permission denial. The probe disconnected cleanly and made no PBX change. Discovery, snapshots, live events, and reconciliation were not attempted after the denied action. The next operator action is to review the dedicated AMI account permissions; do not broaden them blindly.
+- **Task 12 diagnostic gap — resolved:** the first real probe originally surfaced the denied discovery as `UNKNOWN` because non-success AMI responses were not safely classified. The provider now maps permission-like responses to `PERMISSION_DENIED` and unsupported-action responses to `UNSUPPORTED`; a synthetic regression test covers denied discovery.
+- **Task 12 remaining verification:** after the AMI permission gate is corrected, rerun real `CoreSettings`, `CoreShowChannels` event-list behavior, normalized live events, reconciliation, and the required Asterisk 13.x compatibility claim.
 
 ### Persistent continuation protocol
 
