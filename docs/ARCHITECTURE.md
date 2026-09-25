@@ -1,6 +1,6 @@
 # Proposed architecture
 
-Status: Phase 2 Task 7 adds the Asterisk network-boundary and mock AMI transport foundation. There is still no concrete DNS/socket/AMI implementation and no real PBX has been contacted.
+Status: Phase 2 Task 8 adds a concrete plain-TCP AMI wire transport and an Asterisk provider login/discovery/reconcile foundation. The application runtime still does not instantiate providers, open PBX sockets, or contact a real PBX.
 
 ```text
 PBX (Asterisk / FreePBX)
@@ -40,9 +40,11 @@ An empty database creates a protected local bootstrap token; presenting it permi
 
 ## Asterisk provider
 
-The current shared `PbxProvider` contract defines `connect`, `disconnect`, `discover`, `getCapabilities`, `getHealth`, and `reconcile`. Snapshot and event subscription contracts wait for the state engine design. Task 7 adds an internal `AmiTransport` seam, a deterministic mock transport, and `AsteriskConnection` orchestration that accepts an injected resolver and transport. Hostnames are resolved once, all returned addresses are checked by the PBX network policy, and the transport receives an already-approved concrete address. Private infrastructure ranges remain allowed; loopback, link-local, multicast, unspecified, broadcast, and known metadata-service targets are blocked. No production resolver or socket transport exists yet.
+The shared `PbxProvider` contract defines `connect`, `disconnect`, `discover`, `getCapabilities`, `getHealth`, and `reconcile`. Snapshot and event subscription contracts still wait for the state-engine design. Task 7 established the `AmiTransport` seam and network boundary. Task 8 adds `TcpAmiTransport`, `NodeAddressResolver`, and `AsteriskProvider`. A hostname is resolved once, every result is checked, and TCP connects to the selected numeric address so the transport cannot trigger a second DNS lookup.
 
-The eventual `AsteriskProvider` will own AMI framing/authentication, compatibility, event normalization, reconnect with bounded exponential backoff and jitter, and exactly one connection lifecycle per instance. Prefer dedicated actions/events supported by Asterisk 13. Verify each action, field, privilege, and response format before coding. Reconcile on connect and about every 30–60 seconds; never per browser.
+The TCP transport validates the manager banner, frames actions with CRLF headers, injects an internal ActionID, allows one outstanding action at a time, bounds response time and buffered input, and ignores unsolicited events until event subscriptions are implemented. `AsteriskProvider.connect()` sends `Login` with events disabled, `discover()` reads `CoreSettings` for the Asterisk version, and `reconcile()` sends `Ping`. Capability fields remain `UNKNOWN` rather than inferring support before later permission/action discovery. Provider health reports safe bounded error codes only.
+
+No runtime provider manager exists yet, so backend startup does not create a resolver, TCP transport, or PBX connection. A later runtime layer must own exactly one provider lifecycle per enabled PBX, reconnect with bounded exponential backoff and jitter, enable events only when the state engine is ready, and reconcile periodically rather than per browser. Plain AMI TCP is not treated as sufficient protection on an untrusted network; TLS or a protected private/tunneled deployment path must be selected before production connectivity.
 
 ## Realtime and failure handling
 
