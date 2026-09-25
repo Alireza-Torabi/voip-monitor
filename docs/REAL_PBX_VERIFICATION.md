@@ -23,7 +23,7 @@ This verification is intentionally read-only from a call-control perspective. It
 - The account must run the read-only actions used by the verifier and receive the required call events.
 - The repository has been built with the supported Node.js toolchain.
 
-For Asterisk 13, source registration shows `CoreSettings` and `CoreShowChannels` under the `system`/`reporting` manager action classes, while channel-list and normal call lifecycle events are in the `call` event class. Asterisk action authorization is checked against the manager user's write-permission mask even for read-only query actions. Therefore a narrowly scoped validation account may require `write = system,reporting` and `read = call`. Confirm the exact policy on the target PBX; do not grant broader permissions merely for convenience.
+For Asterisk 13, source registration shows `CoreSettings` and `CoreShowChannels` with `system|reporting` action authority, while channel-list and normal call lifecycle events are in the `call` event class. Asterisk authorizes an action when the manager user's write-permission mask overlaps the action authority. Therefore the narrower validation permission for these two actions is `write = reporting`; live channel/call events require `read = call`. Keep any PBX-specific ACL restrictions in place and do not grant `system`, `command`, `originate`, `config`, or `all` merely for convenience.
 
 References:
 

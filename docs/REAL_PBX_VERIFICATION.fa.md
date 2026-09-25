@@ -27,7 +27,7 @@
 </div>
 <div dir="rtl" align="right">
 
-در Asterisk 13، Source رسمی نشان می‌دهد Actionهای `CoreSettings` و `CoreShowChannels` در کلاس‌های `system` و `reporting` ثبت شده‌اند و Eventهای کانال و Call در کلاس `call` قرار دارند. از آنجا که AMI برای مجوز Actionها از Write Permission Mask استفاده می‌کند، یک Account محدود برای این Verification ممکن است به `write = system,reporting` و `read = call` نیاز داشته باشد. این مقدارها باید با Policy همان PBX بررسی شوند و نباید صرفاً برای راحتی Permission بیشتری داده شود.
+در Asterisk 13، Source رسمی نشان می‌دهد Actionهای `CoreSettings` و `CoreShowChannels` با Authority برابر `system|reporting` ثبت شده‌اند و Eventهای Channel/Call در کلاس `call` قرار دارند. Asterisk اجرای Action را وقتی مجاز می‌کند که Write Permission کاربر با Authority آن Action هم‌پوشانی داشته باشد. بنابراین برای همین دو Action، Permission محدودتر `write = reporting` کافی است و برای Eventهای زندهٔ Channel/Call به `read = call` نیاز داریم. ACL فعلی PBX باید حفظ شود و صرفاً برای راحتی نباید `system`، `command`، `originate`، `config` یا `all` اضافه شود.
 
 مراجع:
 
