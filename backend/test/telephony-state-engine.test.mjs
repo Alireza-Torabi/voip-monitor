@@ -710,3 +710,240 @@ test('buffer overflow waits for independent trunk snapshot boundary before claim
 
   engine.stop();
 });
+
+test('queue snapshot establishes queue, member, and caller state and replays only newer events', () => {
+  const source = new FakeStateSource();
+  const engine = new TelephonyStateEngine(source);
+  engine.start();
+
+  source.event(
+    baseEvent('QUEUE_MEMBER_CHANGED', {
+      queueId: 'support',
+      memberId: 'SIP/100',
+      memberName: 'Old Agent',
+      availability: 'BUSY',
+      paused: true,
+      inCall: true,
+      streamSequence: 3,
+    }),
+  );
+  source.event(
+    baseEvent('QUEUE_CALLER_JOINED', {
+      queueId: 'support',
+      callerId: 'caller-2',
+      position: 2,
+      streamSequence: 9,
+      observedAt: '2026-09-25T12:00:00.900Z',
+    }),
+  );
+
+  source.snapshot(
+    snapshot({
+      streamStartedSequence: 0,
+      queueState: {
+        capability: 'SUPPORTED',
+        startedAt: '2026-09-25T12:00:00.200Z',
+        observedAt: '2026-09-25T12:00:01.000Z',
+        streamGeneration: 1,
+        streamStartedSequence: 2,
+        queues: [{ queueId: 'support', strategy: 'ringall', streamSequence: 4 }],
+        members: [
+          {
+            queueId: 'support',
+            memberId: 'SIP/100',
+            memberName: 'Synthetic Agent',
+            availability: 'AVAILABLE',
+            paused: false,
+            inCall: false,
+            streamSequence: 5,
+          },
+        ],
+        callers: [
+          {
+            queueId: 'support',
+            callerId: 'caller-1',
+            position: 1,
+            waitSeconds: 12,
+            streamSequence: 6,
+          },
+        ],
+      },
+    }),
+  );
+
+  let current = engine.current('pbx-1');
+  assert.equal(current.queueCapability, 'SUPPORTED');
+  assert.equal(current.queueSynchronization, 'CURRENT');
+  assert.deepEqual(
+    current.queues.map(({ queueId, strategy, waitingCount }) => ({
+      queueId,
+      strategy,
+      waitingCount,
+    })),
+    [{ queueId: 'support', strategy: 'ringall', waitingCount: 2 }],
+  );
+  assert.deepEqual(
+    current.queueMembers.map(({ queueId, memberId, memberName, availability, paused, inCall }) => ({
+      queueId,
+      memberId,
+      memberName,
+      availability,
+      paused,
+      inCall,
+    })),
+    [
+      {
+        queueId: 'support',
+        memberId: 'SIP/100',
+        memberName: 'Synthetic Agent',
+        availability: 'AVAILABLE',
+        paused: false,
+        inCall: false,
+      },
+    ],
+  );
+  assert.deepEqual(
+    current.queueCallers.map(({ queueId, callerId, position }) => ({
+      queueId,
+      callerId,
+      position,
+    })),
+    [
+      { queueId: 'support', callerId: 'caller-1', position: 1 },
+      { queueId: 'support', callerId: 'caller-2', position: 2 },
+    ],
+  );
+
+  source.event(
+    baseEvent('QUEUE_MEMBER_CHANGED', {
+      queueId: 'support',
+      memberId: 'SIP/100',
+      memberName: 'Synthetic Agent',
+      availability: 'IN_USE',
+      paused: false,
+      inCall: true,
+      streamSequence: 10,
+      observedAt: '2026-09-25T12:00:02.000Z',
+    }),
+  );
+  source.event(
+    baseEvent('QUEUE_CALLER_LEFT', {
+      queueId: 'support',
+      callerId: 'caller-1',
+      disposition: 'LEFT',
+      streamSequence: 11,
+      observedAt: '2026-09-25T12:00:02.100Z',
+    }),
+  );
+
+  current = engine.current('pbx-1');
+  assert.equal(current.queueMembers[0].availability, 'IN_USE');
+  assert.equal(current.queueMembers[0].inCall, true);
+  assert.equal(current.queues[0].waitingCount, 1);
+  assert.deepEqual(
+    current.queueCallers.map((caller) => caller.callerId),
+    ['caller-2'],
+  );
+
+  source.event(
+    baseEvent('QUEUE_MEMBER_REMOVED', {
+      queueId: 'support',
+      memberId: 'SIP/100',
+      streamSequence: 12,
+      observedAt: '2026-09-25T12:00:02.200Z',
+    }),
+  );
+  current = engine.current('pbx-1');
+  assert.deepEqual(current.queueMembers, []);
+
+  engine.stop();
+});
+
+test('unavailable queue capability never manufactures queue state from live events', () => {
+  const source = new FakeStateSource();
+  const engine = new TelephonyStateEngine(source);
+  engine.start();
+
+  source.snapshot(
+    snapshot({
+      queueState: {
+        capability: 'PERMISSION_DENIED',
+        observedAt: '2026-09-25T12:00:01.000Z',
+        queues: [],
+        members: [],
+        callers: [],
+      },
+    }),
+  );
+  source.event(
+    baseEvent('QUEUE_CALLER_JOINED', {
+      queueId: 'support',
+      callerId: 'caller-1',
+      position: 1,
+      streamSequence: 3,
+      observedAt: '2026-09-25T12:00:02.000Z',
+    }),
+  );
+
+  const current = engine.current('pbx-1');
+  assert.equal(current.queueCapability, 'PERMISSION_DENIED');
+  assert.equal(current.queueSynchronization, 'UNAVAILABLE');
+  assert.deepEqual(current.queues, []);
+  assert.deepEqual(current.queueCallers, []);
+
+  engine.stop();
+});
+
+test('buffer overflow waits for independent queue snapshot boundary before claiming current state', () => {
+  const source = new FakeStateSource();
+  const engine = new TelephonyStateEngine(source, { maxBufferedEvents: 2 });
+  engine.start();
+
+  for (let sequence = 1; sequence <= 3; sequence += 1) {
+    source.event(
+      baseEvent('QUEUE_CALLER_JOINED', {
+        queueId: 'support',
+        callerId: `caller-${sequence}`,
+        position: sequence,
+        streamSequence: sequence,
+        observedAt: `2026-09-25T12:00:00.00${sequence}Z`,
+      }),
+    );
+  }
+
+  source.snapshot(
+    snapshot({
+      streamStartedSequence: 3,
+      queueState: {
+        capability: 'SUPPORTED',
+        startedAt: '2026-09-25T12:00:00.001Z',
+        observedAt: '2026-09-25T12:00:01.000Z',
+        streamGeneration: 1,
+        streamStartedSequence: 0,
+        queues: [{ queueId: 'support', streamSequence: 1 }],
+        members: [],
+        callers: [],
+      },
+    }),
+  );
+  assert.equal(engine.current('pbx-1'), undefined);
+
+  source.snapshot(
+    snapshot({
+      streamStartedSequence: 3,
+      queueState: {
+        capability: 'SUPPORTED',
+        startedAt: '2026-09-25T12:00:02.000Z',
+        observedAt: '2026-09-25T12:00:03.000Z',
+        streamGeneration: 1,
+        streamStartedSequence: 3,
+        queues: [{ queueId: 'support', streamSequence: 4 }],
+        members: [],
+        callers: [],
+      },
+    }),
+  );
+  assert.equal(engine.current('pbx-1').queueSynchronization, 'CURRENT');
+
+  engine.stop();
+});

@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-09-25. Phase 1 public repository foundation is complete. Task 14 is merged into `main` as PR #15. Phase 2 Task 15 trunk state foundation is implemented on `feature/trunk-state-foundation`. It adds provider-neutral outbound-registration trunk state, capability-aware chan_sip registry snapshots, normalized Registry events, and deterministic in-memory trunk state alongside channel/call/endpoint state; it remains internal with no browser/API exposure.
+Status: 2026-09-25. Phase 1 public repository foundation is complete. Task 15 is merged into `main` as PR #16. Phase 2 Task 16 queue state foundation is implemented on `feature/queue-state-foundation`. It adds provider-neutral queue/member/caller state, mixed-item `QueueStatus` snapshots, normalized queue live events, and deterministic in-memory queue state alongside channel/call/endpoint/trunk state; it remains internal with no browser/API exposure.
 
 ## Phase 0 — environment discovery
 
@@ -53,14 +53,15 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 13: internal telephony state engine foundation. Provider frames now carry per-process connection generations and per-frame sequence numbers; channel snapshot items retain their source sequence. The engine subscribes before runtime start, buffers/replays events around snapshot collection boundaries, repairs drift from reconciliation snapshots, tracks `CURRENT`/`AWAITING_SNAPSHOT`/`STALE`, groups current channels into deterministic calls, and resets state when a PBX profile runtime is replaced or removed. No REST/WebSocket state endpoint exists yet.
 - [x] Task 14: endpoint/registration state foundation. The Asterisk provider now collects an independent `SIPpeers`/PeerEntry snapshot for chan_sip endpoints, normalizes registration and reachability without forwarding addresses/raw AMI fields, records endpoint capability as `SUPPORTED`, `PERMISSION_DENIED`, or `UNSUPPORTED`, and keeps channel snapshots usable when endpoint listing is unavailable by capability. The state engine reconciles endpoint snapshots using their own sequence boundary, replays only newer PeerStatus events, preserves known dimensions when an event reports `UNKNOWN`, and refuses to manufacture endpoint state when no authoritative endpoint snapshot is available. Synthetic/mock only; no real PBX access.
 - [x] Task 15: trunk state foundation. Provider-neutral trunk contracts distinguish outbound-registration trunks explicitly. The Asterisk provider uses an independent `SIPshowregistry` / `RegistryEntry` / `RegistrationsComplete` snapshot boundary, normalizes live `Registry` events, reports trunk capability independently, and keeps channel/endpoint state usable when registry listing is denied or unsupported. The state engine reconciles trunk snapshots with their own ordering boundary, replays only newer registry events, and fails closed if journal overflow makes any supported independent snapshot boundary unsafe. Synthetic/mock only; no real PBX access.
-- [ ] Proposed next task: Task 16 queue state foundation with provider-neutral queue/member/caller contracts plus capability-aware authoritative snapshots and normalized queue events, synthetic/mock first and without real-PBX access.
+- [x] Task 16: queue state foundation. The AMI event-list transport now supports an explicit allowlist of multiple correlated item-event names so `QueueStatus` can safely collect `QueueParams`, `QueueMember`, and `QueueEntry` under one ActionID and completion boundary. Provider-neutral contracts expose queue identity/strategy, queue-member availability/pause/in-call state, and current queued caller identity/position/wait without forwarding CallerID, channel names, pause reasons, state-interface details, or arbitrary raw AMI fields. Live normalization covers queue-member status/add/pause/penalty/ringinuse/removal and caller join/leave/abandon events. The state engine gives queue snapshots an independent ordering/freshness boundary, derives waiting counts from current caller state, and includes queue boundaries in fail-closed journal-overflow recovery. Synthetic/mock only; no real PBX access.
+- [ ] Proposed next task: Task 17 agent interaction state foundation with provider-neutral agent-call lifecycle contracts plus normalized `AgentCalled`, `AgentRingNoAnswer`, `AgentConnect`, and `AgentComplete` events, synthetic/mock first and without real-PBX access.
 
 ### Current execution handoff
 
-- Current branch: `feature/trunk-state-foundation`, created from synchronized `main` after Task 14 merged as PR #15.
-- Task 15 implementation is complete locally. Final local gates pass: lint, format check, typecheck, backend tests 71/71, frontend tests 10/10, build, foundation check, and license check. Public/secret review found no deployment-specific identifiers or tracked private runtime paths; credential-like additions are synthetic test values only.
-- No real PBX was contacted during Task 15; all trunk snapshot/event and state-engine validation is synthetic/mock only.
-- Exact next task after Task 15 merge: Task 16 queue state foundation with provider-neutral queue/member/caller contracts plus capability-aware authoritative snapshots and normalized queue events, synthetic/mock first.
+- Current branch: `feature/queue-state-foundation`, created from synchronized `main` after Task 15 merged as PR #16.
+- Task 16 implementation is complete locally. Final local gates pass: lint, format check, typecheck, backend tests 76/76, frontend tests 10/10, build, foundation check, and license check. Public/secret review found no deployment-specific identifiers, real PBX credential paths/values, or tracked private runtime paths; tracked source contains no NUL bytes, and credential-like additions are synthetic test values only.
+- No real PBX was contacted during Task 16; all mixed-item QueueStatus, queue event, and state-engine validation is synthetic/mock only.
+- Exact next task after Task 16 merge: Task 17 agent interaction state foundation with provider-neutral agent-call lifecycle contracts plus normalized `AgentCalled`, `AgentRingNoAnswer`, `AgentConnect`, and `AgentComplete` events, synthetic/mock first.
 
 ### Failure and bug log
 
@@ -97,6 +98,11 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - **Task 15 independent-boundary safety gap — resolved:** the previous journal-overflow recovery check only proved the channel snapshot started after a discarded event boundary. With independent endpoint/trunk collection windows, that could falsely claim current auxiliary state. Recovery now requires every supported independent snapshot boundary in the combined provider snapshot to be safe before clearing the dropped-journal condition.
 - **Task 15 open defects:** none currently known from the synthetic suite.
 - **Task 15 known limitations:** the first trunk source represents only chan_sip outbound registrations visible through `SIPshowregistry`; it does not identify static/IP-auth trunks that do not register, and it does not claim PJSIP trunk support. Trunk identity is the provider-derived channel-type/username/domain registration key and remains internal. Live `Registry` events depend on the AMI SYSTEM event class; a future controlled real-PBX compatibility gate must verify event visibility without broadening permissions blindly. Trunk state is in-memory only and has no REST/WebSocket exposure or history.
+- **Task 16 patch false start — resolved:** the first scripted edit added queue contracts that referenced `QueueMemberAvailability` but failed before inserting the type definition because a text anchor did not match the formatted source. Shared build/typecheck exposed the partial edit immediately. Fix: inspect the actual formatted file, insert the missing type surgically, then continue from the observed repository state rather than rerunning the broad patch.
+- **Task 16 mixed-item transport test failure — resolved:** the first synthetic `QueueStatus` transport fixture timed out because the generated test string contained literal LF framing instead of AMI-required CRLF framing. The transport correlation logic was not the cause. Fix: rewrite the fixture with explicit `\r\n` framing; the targeted suite then passed 31/31.
+- **Task 16 source-file encoding bug — resolved before commit:** a scripted composite-key separator inserted two literal NUL bytes into `state-engine.ts`, causing Git to classify the TypeScript source as binary. Fix: replace the embedded NUL bytes with escaped `\u0000` source text and rerun formatting/typecheck; Git now treats the file as normal text with identical runtime key semantics.
+- **Task 16 open defects:** none currently known from the synthetic suite.
+- **Task 16 known limitations:** queue compatibility has not yet been verified against the approved production Asterisk baseline. The snapshot foundation targets the Asterisk `QueueStatus` event-list shape (`QueueParams`, `QueueMember`, `QueueEntry`, `QueueStatusComplete`), and live queue events rely on the AMI AGENT event class. Caller PII is intentionally excluded; current-state leave/abandon events remove callers but do not retain historical disposition. Agent call-attempt/connect/complete lifecycle is intentionally deferred to Task 17. Queue state is in-memory only and has no REST/WebSocket exposure or history.
 
 ### Persistent continuation protocol
 
@@ -115,7 +121,7 @@ Tasks 7–13 implemented substantial Asterisk-provider and telephony-state found
 
 - [ ] Phase 3: account management and onboarding refinement.
 - [x] Phase 4 foundation gate: Asterisk provider integration — network policy, AMI transport, login/discovery, runtime lifecycle, connection verification, normalized event subscription, channel snapshots/reconciliation, and one controlled real Asterisk 13.x compatibility gate are complete.
-- [~] Phase 5: telephony state engine — deterministic channel/call, chan_sip endpoint/registration, and outbound-registration trunk state foundations are implemented; queue state is next.
+- [~] Phase 5: telephony state engine — deterministic channel/call, chan_sip endpoint/registration, outbound-registration trunk, and queue/member/caller state foundations are implemented; agent interaction state is next.
 - [ ] Phase 6: system metrics.
 - [ ] Phase 7: security monitoring.
 - [ ] Phase 8: authenticated API and realtime.
@@ -124,4 +130,4 @@ Tasks 7–13 implemented substantial Asterisk-provider and telephony-state found
 - [ ] Phase 11: hardening, backup, tested restore, and a production deployment runbook.
 - [ ] Phase 12: release validation, including an organization-neutral fresh-deployment procedure that can onboard a new service without carrying private values from another deployment.
 
-Phase 1 is closed. Phase 2 Task 15 is implemented on its feature branch. Stop after final Task 15 validation/push and await merge approval before Task 16.
+Phase 1 is closed. Phase 2 Task 16 is implemented on its feature branch. Stop after final Task 16 validation/push and await merge approval before Task 17.

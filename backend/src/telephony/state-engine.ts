@@ -7,9 +7,13 @@ import type {
   ProviderEndpointSnapshot,
   ProviderEvent,
   ProviderEventListener,
+  ProviderQueueCallerSnapshot,
+  ProviderQueueMemberSnapshot,
+  ProviderQueueSnapshot,
   ProviderStateSnapshot,
   ProviderStateSnapshotListener,
   ProviderTrunkSnapshot,
+  QueueMemberAvailability,
   TrunkKind,
   TrunkRegistrationState,
 } from '@voip-monitor/shared';
@@ -39,6 +43,31 @@ export interface TelephonyTrunkState {
   updatedAt: string;
 }
 
+export interface TelephonyQueueState {
+  queueId: string;
+  strategy?: string;
+  waitingCount: number;
+  updatedAt: string;
+}
+
+export interface TelephonyQueueMemberState {
+  queueId: string;
+  memberId: string;
+  memberName?: string;
+  availability: QueueMemberAvailability;
+  paused: boolean;
+  inCall: boolean;
+  updatedAt: string;
+}
+
+export interface TelephonyQueueCallerState {
+  queueId: string;
+  callerId: string;
+  position?: number;
+  waitSeconds?: number;
+  updatedAt: string;
+}
+
 export interface TelephonyCallState {
   callId: string;
   linkedId?: string;
@@ -61,6 +90,11 @@ export interface TelephonyInstanceState {
   trunkCapability: CapabilityState;
   trunkSynchronization: TelephonySynchronization | 'UNAVAILABLE';
   trunks: TelephonyTrunkState[];
+  queueCapability: CapabilityState;
+  queueSynchronization: TelephonySynchronization | 'UNAVAILABLE';
+  queues: TelephonyQueueState[];
+  queueMembers: TelephonyQueueMemberState[];
+  queueCallers: TelephonyQueueCallerState[];
 }
 
 export type TelephonyStateListener = (state: TelephonyInstanceState) => void;
@@ -96,6 +130,18 @@ interface MutableTrunk extends TelephonyTrunkState {
   order: ChannelOrder;
 }
 
+interface MutableQueue extends Omit<TelephonyQueueState, 'waitingCount'> {
+  order: ChannelOrder;
+}
+
+interface MutableQueueMember extends TelephonyQueueMemberState {
+  order: ChannelOrder;
+}
+
+interface MutableQueueCaller extends TelephonyQueueCallerState {
+  order: ChannelOrder;
+}
+
 interface JournalEvent {
   arrival: number;
   event: ProviderEvent;
@@ -114,10 +160,23 @@ interface EngineEntry {
   trunks: Map<string, MutableTrunk>;
   trunkCapability: CapabilityState;
   trunkSynchronization: TelephonySynchronization | 'UNAVAILABLE';
+  queues: Map<string, MutableQueue>;
+  queueMembers: Map<string, MutableQueueMember>;
+  queueCallers: Map<string, MutableQueueCaller>;
+  queueCapability: CapabilityState;
+  queueSynchronization: TelephonySynchronization | 'UNAVAILABLE';
   journal: JournalEvent[];
   droppedUntil?: ChannelOrder;
   lastSnapshotAt?: string;
   lastEventAt?: string;
+}
+
+function queueMemberKey(queueId: string, memberId: string): string {
+  return `${queueId}\u0000${memberId}`;
+}
+
+function queueCallerKey(queueId: string, callerId: string): string {
+  return `${queueId}\u0000${callerId}`;
 }
 
 function cloneEvent(event: ProviderEvent): ProviderEvent {
@@ -168,6 +227,10 @@ function affectedChannelIds(event: ProviderEvent): string[] {
       ];
     case 'ENDPOINT_STATUS_CHANGED':
     case 'TRUNK_REGISTRATION_CHANGED':
+    case 'QUEUE_MEMBER_CHANGED':
+    case 'QUEUE_MEMBER_REMOVED':
+    case 'QUEUE_CALLER_JOINED':
+    case 'QUEUE_CALLER_LEFT':
       return [];
   }
 }
@@ -231,6 +294,40 @@ function publicState(entry: EngineEntry): TelephonyInstanceState | undefined {
       registrationState: trunk.registrationState,
       updatedAt: trunk.updatedAt,
     }));
+  const queueMembers = [...entry.queueMembers.values()]
+    .sort(
+      (left, right) =>
+        left.queueId.localeCompare(right.queueId) || left.memberId.localeCompare(right.memberId),
+    )
+    .map((member) => ({
+      queueId: member.queueId,
+      memberId: member.memberId,
+      ...(member.memberName ? { memberName: member.memberName } : {}),
+      availability: member.availability,
+      paused: member.paused,
+      inCall: member.inCall,
+      updatedAt: member.updatedAt,
+    }));
+  const queueCallers = [...entry.queueCallers.values()]
+    .sort(
+      (left, right) =>
+        left.queueId.localeCompare(right.queueId) || left.callerId.localeCompare(right.callerId),
+    )
+    .map((caller) => ({
+      queueId: caller.queueId,
+      callerId: caller.callerId,
+      ...(caller.position === undefined ? {} : { position: caller.position }),
+      ...(caller.waitSeconds === undefined ? {} : { waitSeconds: caller.waitSeconds }),
+      updatedAt: caller.updatedAt,
+    }));
+  const queues = [...entry.queues.values()]
+    .sort((left, right) => left.queueId.localeCompare(right.queueId))
+    .map((queue) => ({
+      queueId: queue.queueId,
+      ...(queue.strategy ? { strategy: queue.strategy } : {}),
+      waitingCount: queueCallers.filter((caller) => caller.queueId === queue.queueId).length,
+      updatedAt: queue.updatedAt,
+    }));
   return {
     instanceId: entry.instanceId,
     revision: entry.revision,
@@ -245,6 +342,11 @@ function publicState(entry: EngineEntry): TelephonyInstanceState | undefined {
     trunkCapability: entry.trunkCapability,
     trunkSynchronization: entry.trunkSynchronization,
     trunks,
+    queueCapability: entry.queueCapability,
+    queueSynchronization: entry.queueSynchronization,
+    queues,
+    queueMembers,
+    queueCallers,
   };
 }
 function snapshotChannelOrder(
@@ -374,6 +476,55 @@ function eventIsAfterTrunkSnapshot(event: ProviderEvent, snapshot: ProviderState
   return event.observedAt >= (state.startedAt ?? state.observedAt);
 }
 
+function queueSnapshotOrder(
+  snapshot: ProviderStateSnapshot,
+  item: ProviderQueueSnapshot | ProviderQueueMemberSnapshot | ProviderQueueCallerSnapshot,
+): ChannelOrder {
+  const state = snapshot.queueState;
+  if (!state) return { observedAt: snapshot.observedAt };
+  return {
+    ...(state.streamGeneration === undefined ? {} : { streamGeneration: state.streamGeneration }),
+    ...(item.streamSequence === undefined ? {} : { streamSequence: item.streamSequence }),
+    observedAt: state.observedAt,
+  };
+}
+
+function eventIsAfterQueueSnapshot(event: ProviderEvent, snapshot: ProviderStateSnapshot): boolean {
+  const state = snapshot.queueState;
+  if (!state || state.capability !== 'SUPPORTED') return false;
+  if (
+    event.streamGeneration !== undefined &&
+    state.streamGeneration !== undefined &&
+    event.streamGeneration !== state.streamGeneration
+  ) {
+    return event.streamGeneration > state.streamGeneration;
+  }
+
+  let boundarySequence = state.streamStartedSequence;
+  if (event.type === 'QUEUE_MEMBER_CHANGED' || event.type === 'QUEUE_MEMBER_REMOVED') {
+    boundarySequence =
+      state.members.find(
+        (item) => item.queueId === event.queueId && item.memberId === event.memberId,
+      )?.streamSequence ?? state.streamStartedSequence;
+  } else if (event.type === 'QUEUE_CALLER_JOINED' || event.type === 'QUEUE_CALLER_LEFT') {
+    boundarySequence =
+      state.callers.find(
+        (item) => item.queueId === event.queueId && item.callerId === event.callerId,
+      )?.streamSequence ?? state.streamStartedSequence;
+  }
+
+  if (
+    event.streamSequence !== undefined &&
+    boundarySequence !== undefined &&
+    (event.streamGeneration === undefined ||
+      state.streamGeneration === undefined ||
+      event.streamGeneration === state.streamGeneration)
+  ) {
+    return event.streamSequence > boundarySequence;
+  }
+  return event.observedAt >= (state.startedAt ?? state.observedAt);
+}
+
 function boundaryCanRecoverDroppedJournal(
   streamGeneration: number | undefined,
   streamStartedSequence: number | undefined,
@@ -416,7 +567,7 @@ function snapshotCanRecoverDroppedJournal(
   ) {
     return false;
   }
-  for (const state of [snapshot.endpointState, snapshot.trunkState]) {
+  for (const state of [snapshot.endpointState, snapshot.trunkState, snapshot.queueState]) {
     if (
       state?.capability === 'SUPPORTED' &&
       !boundaryCanRecoverDroppedJournal(
@@ -524,6 +675,106 @@ function mergeTrunk(
     existing.registrationState !== next.registrationState;
   entry.trunks.set(event.trunkId, next);
   return changed;
+}
+
+function ensureQueue(entry: EngineEntry, queueId: string, event: ProviderEvent): void {
+  if (entry.queues.has(queueId)) return;
+  entry.queues.set(queueId, {
+    queueId,
+    updatedAt: event.observedAt,
+    order: orderFromEvent(event),
+  });
+}
+
+function mergeQueueMember(
+  entry: EngineEntry,
+  event: Extract<ProviderEvent, { type: 'QUEUE_MEMBER_CHANGED' }>,
+  replaySnapshot?: ProviderStateSnapshot,
+): boolean {
+  if (replaySnapshot && !eventIsAfterQueueSnapshot(event, replaySnapshot)) return false;
+  const key = queueMemberKey(event.queueId, event.memberId);
+  const existing = entry.queueMembers.get(key);
+  const order = orderFromEvent(event);
+  if (!replaySnapshot && existing && compareOrder(order, existing.order) < 0) return false;
+  ensureQueue(entry, event.queueId, event);
+  const next: MutableQueueMember = {
+    queueId: event.queueId,
+    memberId: event.memberId,
+    ...(event.memberName
+      ? { memberName: event.memberName }
+      : existing?.memberName
+        ? { memberName: existing.memberName }
+        : {}),
+    availability: event.availability,
+    paused: event.paused,
+    inCall: event.inCall,
+    updatedAt: event.observedAt,
+    order,
+  };
+  const changed =
+    !existing ||
+    existing.memberName !== next.memberName ||
+    existing.availability !== next.availability ||
+    existing.paused !== next.paused ||
+    existing.inCall !== next.inCall;
+  entry.queueMembers.set(key, next);
+  return changed;
+}
+
+function removeQueueMember(
+  entry: EngineEntry,
+  event: Extract<ProviderEvent, { type: 'QUEUE_MEMBER_REMOVED' }>,
+  replaySnapshot?: ProviderStateSnapshot,
+): boolean {
+  if (replaySnapshot && !eventIsAfterQueueSnapshot(event, replaySnapshot)) return false;
+  const key = queueMemberKey(event.queueId, event.memberId);
+  const existing = entry.queueMembers.get(key);
+  if (!existing) return false;
+  if (!replaySnapshot && compareOrder(orderFromEvent(event), existing.order) < 0) return false;
+  entry.queueMembers.delete(key);
+  return true;
+}
+
+function mergeQueueCaller(
+  entry: EngineEntry,
+  event: Extract<ProviderEvent, { type: 'QUEUE_CALLER_JOINED' }>,
+  replaySnapshot?: ProviderStateSnapshot,
+): boolean {
+  if (replaySnapshot && !eventIsAfterQueueSnapshot(event, replaySnapshot)) return false;
+  const key = queueCallerKey(event.queueId, event.callerId);
+  const existing = entry.queueCallers.get(key);
+  const order = orderFromEvent(event);
+  if (!replaySnapshot && existing && compareOrder(order, existing.order) < 0) return false;
+  ensureQueue(entry, event.queueId, event);
+  const next: MutableQueueCaller = {
+    queueId: event.queueId,
+    callerId: event.callerId,
+    ...(event.position === undefined
+      ? existing?.position === undefined
+        ? {}
+        : { position: existing.position }
+      : { position: event.position }),
+    ...(existing?.waitSeconds === undefined ? {} : { waitSeconds: existing.waitSeconds }),
+    updatedAt: event.observedAt,
+    order,
+  };
+  const changed = !existing || existing.position !== next.position;
+  entry.queueCallers.set(key, next);
+  return changed;
+}
+
+function removeQueueCaller(
+  entry: EngineEntry,
+  event: Extract<ProviderEvent, { type: 'QUEUE_CALLER_LEFT' }>,
+  replaySnapshot?: ProviderStateSnapshot,
+): boolean {
+  if (replaySnapshot && !eventIsAfterQueueSnapshot(event, replaySnapshot)) return false;
+  const key = queueCallerKey(event.queueId, event.callerId);
+  const existing = entry.queueCallers.get(key);
+  if (!existing) return false;
+  if (!replaySnapshot && compareOrder(orderFromEvent(event), existing.order) < 0) return false;
+  entry.queueCallers.delete(key);
+  return true;
 }
 
 function applyEvent(
@@ -642,6 +893,18 @@ function applyEvent(
 
     case 'TRUNK_REGISTRATION_CHANGED':
       return mergeTrunk(entry, event, replaySnapshot);
+
+    case 'QUEUE_MEMBER_CHANGED':
+      return mergeQueueMember(entry, event, replaySnapshot);
+
+    case 'QUEUE_MEMBER_REMOVED':
+      return removeQueueMember(entry, event, replaySnapshot);
+
+    case 'QUEUE_CALLER_JOINED':
+      return mergeQueueCaller(entry, event, replaySnapshot);
+
+    case 'QUEUE_CALLER_LEFT':
+      return removeQueueCaller(entry, event, replaySnapshot);
   }
 }
 
@@ -722,6 +985,11 @@ export class TelephonyStateEngine {
       trunks: new Map(),
       trunkCapability: 'UNKNOWN',
       trunkSynchronization: 'AWAITING_SNAPSHOT',
+      queues: new Map(),
+      queueMembers: new Map(),
+      queueCallers: new Map(),
+      queueCapability: 'UNKNOWN',
+      queueSynchronization: 'AWAITING_SNAPSHOT',
       journal: [],
     };
     this.entries.set(instanceId, created);
@@ -753,16 +1021,26 @@ export class TelephonyStateEngine {
             ? 'AWAITING_SNAPSHOT'
             : entry.trunkSynchronization
           : 'STALE';
+    const queueNext =
+      entry.queueSynchronization === 'UNAVAILABLE'
+        ? 'UNAVAILABLE'
+        : state === 'CONNECTED'
+          ? entry.queueSynchronization === 'STALE'
+            ? 'AWAITING_SNAPSHOT'
+            : entry.queueSynchronization
+          : 'STALE';
     if (
       next === entry.synchronization &&
       endpointNext === entry.endpointSynchronization &&
-      trunkNext === entry.trunkSynchronization
+      trunkNext === entry.trunkSynchronization &&
+      queueNext === entry.queueSynchronization
     ) {
       return;
     }
     entry.synchronization = next;
     entry.endpointSynchronization = endpointNext;
     entry.trunkSynchronization = trunkNext;
+    entry.queueSynchronization = queueNext;
     entry.revision += 1;
     this.emit(entry);
   }
@@ -788,7 +1066,9 @@ export class TelephonyStateEngine {
           (entry.endpointSynchronization !== 'UNAVAILABLE' &&
             entry.endpointSynchronization !== 'AWAITING_SNAPSHOT') ||
           (entry.trunkSynchronization !== 'UNAVAILABLE' &&
-            entry.trunkSynchronization !== 'AWAITING_SNAPSHOT'))
+            entry.trunkSynchronization !== 'AWAITING_SNAPSHOT') ||
+          (entry.queueSynchronization !== 'UNAVAILABLE' &&
+            entry.queueSynchronization !== 'AWAITING_SNAPSHOT'))
       ) {
         entry.synchronization = 'AWAITING_SNAPSHOT';
         if (entry.endpointSynchronization !== 'UNAVAILABLE') {
@@ -796,6 +1076,9 @@ export class TelephonyStateEngine {
         }
         if (entry.trunkSynchronization !== 'UNAVAILABLE') {
           entry.trunkSynchronization = 'AWAITING_SNAPSHOT';
+        }
+        if (entry.queueSynchronization !== 'UNAVAILABLE') {
+          entry.queueSynchronization = 'AWAITING_SNAPSHOT';
         }
         entry.revision += 1;
         this.emit(entry);
@@ -809,6 +1092,15 @@ export class TelephonyStateEngine {
       return;
     }
     if (event.type === 'TRUNK_REGISTRATION_CHANGED' && entry.trunkSynchronization !== 'CURRENT') {
+      return;
+    }
+    if (
+      (event.type === 'QUEUE_MEMBER_CHANGED' ||
+        event.type === 'QUEUE_MEMBER_REMOVED' ||
+        event.type === 'QUEUE_CALLER_JOINED' ||
+        event.type === 'QUEUE_CALLER_LEFT') &&
+      entry.queueSynchronization !== 'CURRENT'
+    ) {
       return;
     }
     if (
@@ -909,6 +1201,73 @@ export class TelephonyStateEngine {
       entry.trunkCapability = 'UNKNOWN';
       entry.trunkSynchronization = 'AWAITING_SNAPSHOT';
     }
+    const queueState = snapshot.queueState;
+    if (queueState?.capability === 'SUPPORTED') {
+      const queues = new Map<string, MutableQueue>();
+      const queueMembers = new Map<string, MutableQueueMember>();
+      const queueCallers = new Map<string, MutableQueueCaller>();
+      for (const queue of queueState.queues) {
+        queues.set(queue.queueId, {
+          queueId: queue.queueId,
+          ...(queue.strategy ? { strategy: queue.strategy } : {}),
+          updatedAt: queueState.observedAt,
+          order: queueSnapshotOrder(snapshot, queue),
+        });
+      }
+      for (const member of queueState.members) {
+        if (!queues.has(member.queueId)) {
+          queues.set(member.queueId, {
+            queueId: member.queueId,
+            updatedAt: queueState.observedAt,
+            order: queueSnapshotOrder(snapshot, member),
+          });
+        }
+        queueMembers.set(queueMemberKey(member.queueId, member.memberId), {
+          queueId: member.queueId,
+          memberId: member.memberId,
+          ...(member.memberName ? { memberName: member.memberName } : {}),
+          availability: member.availability,
+          paused: member.paused,
+          inCall: member.inCall,
+          updatedAt: queueState.observedAt,
+          order: queueSnapshotOrder(snapshot, member),
+        });
+      }
+      for (const caller of queueState.callers) {
+        if (!queues.has(caller.queueId)) {
+          queues.set(caller.queueId, {
+            queueId: caller.queueId,
+            updatedAt: queueState.observedAt,
+            order: queueSnapshotOrder(snapshot, caller),
+          });
+        }
+        queueCallers.set(queueCallerKey(caller.queueId, caller.callerId), {
+          queueId: caller.queueId,
+          callerId: caller.callerId,
+          ...(caller.position === undefined ? {} : { position: caller.position }),
+          ...(caller.waitSeconds === undefined ? {} : { waitSeconds: caller.waitSeconds }),
+          updatedAt: queueState.observedAt,
+          order: queueSnapshotOrder(snapshot, caller),
+        });
+      }
+      entry.queues = queues;
+      entry.queueMembers = queueMembers;
+      entry.queueCallers = queueCallers;
+      entry.queueCapability = 'SUPPORTED';
+      entry.queueSynchronization = 'CURRENT';
+    } else if (queueState) {
+      entry.queues = new Map();
+      entry.queueMembers = new Map();
+      entry.queueCallers = new Map();
+      entry.queueCapability = queueState.capability;
+      entry.queueSynchronization = 'UNAVAILABLE';
+    } else {
+      entry.queues = new Map();
+      entry.queueMembers = new Map();
+      entry.queueCallers = new Map();
+      entry.queueCapability = 'UNKNOWN';
+      entry.queueSynchronization = 'AWAITING_SNAPSHOT';
+    }
     if (snapshot.streamGeneration === undefined) delete entry.streamGeneration;
     else entry.streamGeneration = snapshot.streamGeneration;
     entry.lastSnapshotAt = snapshot.observedAt;
@@ -939,9 +1298,14 @@ export class TelephonyStateEngine {
           ? eventIsAfterEndpointSnapshot(event, snapshot)
           : event.type === 'TRUNK_REGISTRATION_CHANGED'
             ? eventIsAfterTrunkSnapshot(event, snapshot)
-            : affectedChannelIds(event).some((channelId) =>
-                eventIsAfterSnapshotChannel(event, snapshot, channelId),
-              );
+            : event.type === 'QUEUE_MEMBER_CHANGED' ||
+                event.type === 'QUEUE_MEMBER_REMOVED' ||
+                event.type === 'QUEUE_CALLER_JOINED' ||
+                event.type === 'QUEUE_CALLER_LEFT'
+              ? eventIsAfterQueueSnapshot(event, snapshot)
+              : affectedChannelIds(event).some((channelId) =>
+                  eventIsAfterSnapshotChannel(event, snapshot, channelId),
+                );
       if (!relevant) continue;
       applyEvent(entry, event, snapshot);
       if (event.observedAt > (replayedLastEventAt ?? '')) replayedLastEventAt = event.observedAt;

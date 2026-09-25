@@ -9,6 +9,7 @@ import type {
   ProviderDiscoveryResult,
   ProviderEndpointStateSnapshot,
   ProviderErrorCode,
+  ProviderQueueStateSnapshot,
   ProviderStateSnapshot,
   ProviderTrunkStateSnapshot,
 } from '@voip-monitor/shared';
@@ -16,6 +17,7 @@ import { AsteriskConnection, type AddressResolver } from './connection.js';
 import {
   normalizeAmiEvent,
   normalizeEndpointStatus,
+  normalizeQueueMemberAvailability,
   normalizeTrunkRegistrationState,
 } from './events.js';
 import { NetworkBoundaryError } from './network-policy.js';
@@ -82,6 +84,20 @@ function requireSuccess(response: AmiResponse): void {
     throw new AsteriskProviderError('UNSUPPORTED');
   }
   throw new AsteriskProviderError('UNKNOWN');
+}
+
+function amiBooleanField(value: string | undefined): boolean | undefined {
+  if (value === undefined) return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === '1' || normalized === 'yes' || normalized === 'true') return true;
+  if (normalized === '0' || normalized === 'no' || normalized === 'false') return false;
+  return undefined;
+}
+
+function amiNonNegativeInteger(value: string | undefined): number | undefined {
+  if (!value || !/^[0-9]+$/.test(value.trim())) return undefined;
+  const parsed = Number(value.trim());
+  return Number.isSafeInteger(parsed) ? parsed : undefined;
 }
 
 export class AsteriskProviderError extends Error {
@@ -293,6 +309,7 @@ export class AsteriskProvider implements PbxProvider {
       this.capabilities.telephony.channels = 'SUPPORTED';
       const endpointState = await this.getEndpointState();
       const trunkState = await this.getTrunkState();
+      const queueState = await this.getQueueState();
       const observedAt = this.now();
       this.setConnectionState('CONNECTED');
       this.amiHealth = {
@@ -316,6 +333,7 @@ export class AsteriskProvider implements PbxProvider {
         channels,
         endpointState,
         trunkState,
+        queueState,
       };
     } catch (error) {
       this.markOperationFailure(attempt, error);
@@ -430,6 +448,109 @@ export class AsteriskProvider implements PbxProvider {
         startedAt,
         observedAt: this.now(),
         trunks: [],
+      };
+    }
+  }
+
+  private async getQueueState(): Promise<ProviderQueueStateSnapshot> {
+    const startedAt = this.now();
+    try {
+      const result = await this.options.transport.requestEventList(
+        { action: 'QueueStatus' },
+        {
+          itemEvents: ['QueueParams', 'QueueMember', 'QueueEntry'],
+          completeEvent: 'QueueStatusComplete',
+        },
+      );
+      requireSuccess(result.response);
+
+      const queues: ProviderQueueStateSnapshot['queues'] = [];
+      const members: ProviderQueueStateSnapshot['members'] = [];
+      const callers: ProviderQueueStateSnapshot['callers'] = [];
+
+      for (const event of result.events) {
+        const name = event.event.toLowerCase();
+        if (name === 'queueparams') {
+          const queueId = amiField(event.fields, 'Queue')?.trim();
+          if (!queueId) throw new AsteriskProviderError('UNKNOWN');
+          const strategy = amiField(event.fields, 'Strategy')?.trim();
+          queues.push({
+            queueId,
+            ...(strategy ? { strategy } : {}),
+            ...(event.streamSequence === undefined ? {} : { streamSequence: event.streamSequence }),
+          });
+          continue;
+        }
+
+        if (name === 'queuemember') {
+          const queueId = amiField(event.fields, 'Queue')?.trim();
+          const memberId = amiField(event.fields, 'Location')?.trim();
+          const status = amiField(event.fields, 'Status')?.trim();
+          const paused = amiBooleanField(amiField(event.fields, 'Paused'));
+          const inCall = amiBooleanField(amiField(event.fields, 'InCall'));
+          if (!queueId || !memberId || !status || paused === undefined || inCall === undefined) {
+            throw new AsteriskProviderError('UNKNOWN');
+          }
+          const memberName = amiField(event.fields, 'Name')?.trim();
+          members.push({
+            queueId,
+            memberId,
+            ...(memberName ? { memberName } : {}),
+            availability: normalizeQueueMemberAvailability(status),
+            paused,
+            inCall,
+            ...(event.streamSequence === undefined ? {} : { streamSequence: event.streamSequence }),
+          });
+          continue;
+        }
+
+        if (name === 'queueentry') {
+          const queueId = amiField(event.fields, 'Queue')?.trim();
+          const callerId = amiField(event.fields, 'Uniqueid')?.trim();
+          if (!queueId || !callerId) throw new AsteriskProviderError('UNKNOWN');
+          const position = amiNonNegativeInteger(amiField(event.fields, 'Position'));
+          const waitSeconds = amiNonNegativeInteger(amiField(event.fields, 'Wait'));
+          callers.push({
+            queueId,
+            callerId,
+            ...(position === undefined ? {} : { position }),
+            ...(waitSeconds === undefined ? {} : { waitSeconds }),
+            ...(event.streamSequence === undefined ? {} : { streamSequence: event.streamSequence }),
+          });
+          continue;
+        }
+
+        throw new AsteriskProviderError('UNKNOWN');
+      }
+
+      this.requireListCount(result.completion.fields, result.events.length);
+      this.capabilities.telephony.queues = 'SUPPORTED';
+      return {
+        capability: 'SUPPORTED',
+        startedAt,
+        observedAt: this.now(),
+        ...(result.streamGeneration === undefined
+          ? {}
+          : { streamGeneration: result.streamGeneration }),
+        ...(result.streamStartedSequence === undefined
+          ? {}
+          : { streamStartedSequence: result.streamStartedSequence }),
+        queues,
+        members,
+        callers,
+      };
+    } catch (error) {
+      const code = providerCode(error);
+      if (code !== 'PERMISSION_DENIED' && code !== 'UNSUPPORTED') throw error;
+      const capability = code === 'PERMISSION_DENIED' ? 'PERMISSION_DENIED' : 'UNSUPPORTED';
+      this.capabilities.telephony.queues = capability;
+      return {
+        capability,
+        startedAt,
+        observedAt: this.now(),
+        queues: [],
+        members: [],
+        callers: [],
       };
     }
   }

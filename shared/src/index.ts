@@ -11,6 +11,16 @@ export type EndpointReachability = 'REACHABLE' | 'UNREACHABLE' | 'UNKNOWN';
 export type TrunkKind = 'OUTBOUND_REGISTRATION';
 export type TrunkRegistrationState =
   'REGISTERED' | 'UNREGISTERED' | 'REGISTERING' | 'REJECTED' | 'FAILED' | 'UNKNOWN';
+export type QueueMemberAvailability =
+  | 'UNKNOWN'
+  | 'AVAILABLE'
+  | 'IN_USE'
+  | 'BUSY'
+  | 'INVALID'
+  | 'UNAVAILABLE'
+  | 'RINGING'
+  | 'RINGING_IN_USE'
+  | 'ON_HOLD';
 
 export interface PbxCapabilities {
   telephony: {
@@ -147,6 +157,32 @@ export type ProviderEvent =
       trunkId: string;
       kind: TrunkKind;
       registrationState: TrunkRegistrationState;
+    })
+  | (ProviderEventBase & {
+      type: 'QUEUE_MEMBER_CHANGED';
+      queueId: string;
+      memberId: string;
+      memberName?: string;
+      availability: QueueMemberAvailability;
+      paused: boolean;
+      inCall: boolean;
+    })
+  | (ProviderEventBase & {
+      type: 'QUEUE_MEMBER_REMOVED';
+      queueId: string;
+      memberId: string;
+    })
+  | (ProviderEventBase & {
+      type: 'QUEUE_CALLER_JOINED';
+      queueId: string;
+      callerId: string;
+      position?: number;
+    })
+  | (ProviderEventBase & {
+      type: 'QUEUE_CALLER_LEFT';
+      queueId: string;
+      callerId: string;
+      disposition: 'LEFT' | 'ABANDONED';
     });
 
 export type ProviderEventListener = (event: ProviderEvent) => void;
@@ -195,6 +231,41 @@ export interface ProviderTrunkStateSnapshot {
   trunks: ProviderTrunkSnapshot[];
 }
 
+export interface ProviderQueueSnapshot {
+  queueId: string;
+  strategy?: string;
+  streamSequence?: number;
+}
+
+export interface ProviderQueueMemberSnapshot {
+  queueId: string;
+  memberId: string;
+  memberName?: string;
+  availability: QueueMemberAvailability;
+  paused: boolean;
+  inCall: boolean;
+  streamSequence?: number;
+}
+
+export interface ProviderQueueCallerSnapshot {
+  queueId: string;
+  callerId: string;
+  position?: number;
+  waitSeconds?: number;
+  streamSequence?: number;
+}
+
+export interface ProviderQueueStateSnapshot {
+  capability: CapabilityState;
+  startedAt?: string;
+  observedAt: string;
+  streamGeneration?: number;
+  streamStartedSequence?: number;
+  queues: ProviderQueueSnapshot[];
+  members: ProviderQueueMemberSnapshot[];
+  callers: ProviderQueueCallerSnapshot[];
+}
+
 export interface ProviderStateSnapshot {
   instanceId: PbxInstanceId;
   source: 'AMI';
@@ -206,6 +277,7 @@ export interface ProviderStateSnapshot {
   channels: ProviderChannelSnapshot[];
   endpointState?: ProviderEndpointStateSnapshot;
   trunkState?: ProviderTrunkStateSnapshot;
+  queueState?: ProviderQueueStateSnapshot;
 }
 
 export type ProviderStateSnapshotListener = (snapshot: ProviderStateSnapshot) => void;
