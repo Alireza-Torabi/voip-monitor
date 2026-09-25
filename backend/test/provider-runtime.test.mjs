@@ -3,6 +3,7 @@ import { once } from 'node:events';
 import { readFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { TextDecoder } from 'node:util';
 import { test } from 'node:test';
 import { AuthService } from '../dist/auth/index.js';
 import { loadAppConfig } from '../dist/config.js';
@@ -352,6 +353,139 @@ test('manual verification uses one-shot provider, persists discovery, and connec
     assert.equal(storage.pbxInstances.get(profile.id).version, undefined);
   }));
 
+test('system metrics API requires auth and exposes current/history', async () =>
+  fixture(async ({ config, storage, secrets, auth }) => {
+    const token = (
+      await readFile(join(config.secretDirectory, 'bootstrap-admin.token'), 'utf8')
+    ).trim();
+    await auth.createFirst('admin', 'synthetic admin passphrase', token);
+    const onboarding = new PbxOnboardingService(storage, secrets);
+    const profile = onboarding.create(profileInput(false));
+    const current = {
+      instanceId: profile.id,
+      source: 'SSH',
+      observedAt: '2026-09-26T00:00:00.000Z',
+      capabilities: {
+        cpu: 'SUPPORTED',
+        memory: 'NOT_CONFIGURED',
+        filesystems: 'NOT_CONFIGURED',
+        uptime: 'NOT_CONFIGURED',
+        services: 'NOT_CONFIGURED',
+      },
+      cpu: { utilizationPercent: 42 },
+    };
+    storage.systemMetrics.save(current, '2026-09-25T00:00:00.000Z');
+    const systemMetrics = {
+      status: () => ({
+        instanceId: profile.id,
+        health: { source: 'SSH', freshness: 'CURRENT' },
+        consecutiveFailures: 0,
+      }),
+      subscribeSamples: () => () => {},
+      subscribeHealth: () => () => {},
+    };
+    const apiAuth = {
+      requiresSecureOrigin: false,
+      principal: function () {
+        return { id: 'admin', username: 'admin' };
+      },
+    };
+    const app = await serve(storage, secrets, apiAuth, undefined, systemMetrics);
+    try {
+      const cookie = 'vm_session=synthetic';
+      const response = await send(
+        app.base,
+        'GET',
+        '/api/pbx-instances/' + profile.id + '/system-metrics',
+        undefined,
+        cookie,
+      );
+      assert.equal(response.status, 200);
+      assert.equal((await response.json()).current.observedAt, current.observedAt);
+      const history = await fetch(
+        app.base +
+          '/api/pbx-instances/' +
+          profile.id +
+          '/system-metrics/history?from=2026-09-25T23:00:00Z&to=2026-09-26T01:00:00Z&limit=10',
+        { headers: { Cookie: cookie } },
+      );
+      assert.equal(history.status, 200);
+      assert.equal((await history.json()).items.length, 1);
+      assert.equal(
+        (
+          await fetch(
+            app.base +
+              '/api/pbx-instances/' +
+              profile.id +
+              '/system-metrics/history?from=bad&to=2026-09-26T01:00:00Z&limit=10',
+            { headers: { Cookie: cookie } },
+          )
+        ).status,
+        400,
+      );
+    } finally {
+      await app.close();
+    }
+  }));
+
+test('system metrics stream is authenticated and PBX-scoped', async () =>
+  fixture(async ({ config, storage, secrets, auth }) => {
+    const token = (
+      await readFile(join(config.secretDirectory, 'bootstrap-admin.token'), 'utf8')
+    ).trim();
+    await auth.createFirst('admin', 'synthetic admin passphrase', token);
+    const onboarding = new PbxOnboardingService(storage, secrets);
+    const profile = onboarding.create(profileInput(false));
+    let sampleListener;
+    const systemMetrics = {
+      status: () => ({
+        instanceId: profile.id,
+        health: { source: 'SSH', freshness: 'NEVER_COLLECTED' },
+        consecutiveFailures: 0,
+      }),
+      subscribeSamples: (listener) => {
+        sampleListener = listener;
+        return () => {};
+      },
+      subscribeHealth: () => () => {},
+    };
+    const apiAuth = {
+      requiresSecureOrigin: false,
+      principal: function () {
+        return { id: 'admin', username: 'admin' };
+      },
+    };
+    const app = await serve(storage, secrets, apiAuth, undefined, systemMetrics);
+    try {
+      const cookie = 'vm_session=synthetic';
+      const response = await fetch(
+        app.base + '/api/pbx-instances/' + profile.id + '/system-metrics/stream',
+        { headers: { Cookie: cookie, origin: app.base } },
+      );
+      assert.equal(response.status, 200);
+      assert.match(response.headers.get('content-type') ?? '', /text\/event-stream/);
+      const reader = response.body.getReader();
+      assert.match(new TextDecoder().decode((await reader.read()).value), /event: system-metrics/);
+      sampleListener({
+        instanceId: profile.id,
+        source: 'SSH',
+        observedAt: '2026-09-26T00:01:00.000Z',
+        capabilities: {
+          cpu: 'SUPPORTED',
+          memory: 'NOT_CONFIGURED',
+          filesystems: 'NOT_CONFIGURED',
+          uptime: 'NOT_CONFIGURED',
+          services: 'NOT_CONFIGURED',
+        },
+        cpu: { utilizationPercent: 50 },
+      });
+      assert.match(new TextDecoder().decode((await reader.read()).value), /00:01:00/);
+      await reader.cancel();
+    } finally {
+      await app.close();
+    }
+  }));
+
 test('disabled network mode rejects verification without constructing a provider', async () =>
   fixture(async ({ storage, secrets, setRuntime }) => {
     const onboarding = new PbxOnboardingService(storage, secrets);
@@ -368,8 +502,8 @@ test('disabled network mode rejects verification without constructing a provider
     assert.equal(runtime.status(profile.id).networkEnabled, false);
   }));
 
-async function serve(storage, secrets, auth, runtime) {
-  const server = createApp(storage, secrets, auth, runtime);
+async function serve(storage, secrets, auth, runtime, systemMetrics) {
+  const server = createApp(storage, secrets, auth, runtime, systemMetrics);
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
   const address = server.address();
@@ -433,6 +567,7 @@ test('authenticated connection-test API is same-origin, secret-safe, and does no
         ['password']: 'synthetic admin passphrase',
       });
       assert.equal(login.status, 200);
+      assert.ok(login.headers.get('set-cookie'));
       const cookie = login.headers.get('set-cookie').split(';')[0];
 
       assert.equal(

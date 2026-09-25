@@ -70,7 +70,7 @@ if (config) {
         telephonyState.start();
         runtime.start();
         systemMetricsRuntime.start();
-        const server = createApp(storage, secrets, auth, runtime);
+        const server = createApp(storage, secrets, auth, runtime, systemMetricsRuntime);
         server.on('error', () => {
           log('error', 'server_error');
           void runtime.stop().finally(() => {

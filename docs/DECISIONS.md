@@ -211,3 +211,12 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 127. **Duplicate-safe history:** Historical samples are uniquely identified by PBX instance, source, and observation timestamp. Re-delivery of the same sample is a no-op rather than a second historical point.
 128. **Retention is transactional and bounded:** Each persisted sample carries a retention cutoff; history pruning runs in the same SQLite transaction as current/history persistence. Runtime retention defaults to seven days and is capped at 90 days. Current state is never deleted by historical retention.
 129. **Persistence isolation:** Storage failures do not mark down the read-only SSH collector or stop its lifecycle. A separate bounded persistence-health signal is deferred to the API/operations layer so collector health cannot be confused with database health.
+
+
+## 2026-09-26 — Phase 6 Task 24 system-metrics API/realtime decisions
+
+130. **Authenticated metrics boundary:** Current and history system metrics are exposed only after the existing authenticated principal check. Unauthenticated requests receive the same generic authorization response used by the rest of the API.
+131. **PBX-scoped HTTP contract:** Current state is available per PBX, while history requires explicit normalized UTC `from`/`to` bounds and a maximum 500-row limit. The server does not expose database records, SSH configuration, or raw transport details.
+132. **Realtime transport:** Use a PBX-scoped Server-Sent Events stream for the current system-metrics publication boundary at this stage. The stream sends an initial state and then normalized sample/source-health events; it does not open PBX connections or perform collection itself.
+133. **Realtime safety bounds:** Same-origin protection applies to stream establishment, concurrent metric streams are capped at 64 per process, heartbeats keep idle connections detectable, and disconnects remove listeners and stream accounting.
+134. **Authentication test seam:** API tests may inject a minimal authenticated principal so endpoint behavior can be tested independently of cryptographic session issuance. Existing authentication tests remain responsible for session creation, validation, expiry, and cookie behavior.

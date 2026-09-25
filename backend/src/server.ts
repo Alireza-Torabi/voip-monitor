@@ -5,6 +5,11 @@ import { log } from './logger.js';
 import type { AppStorage } from './storage/index.js';
 import type { SecretStore } from './security/secret-store.js';
 import { ProviderRuntimeError, type ProviderRuntimeManager } from './providers/runtime/index.js';
+import type {
+  SystemMetricsHealthListener,
+  SystemMetricsRuntime,
+  SystemMetricsSampleListener,
+} from './collectors/system/runtime.js';
 
 function send(response: ServerResponse, status: number, data: object, cookie?: string): void {
   response.writeHead(status, {
@@ -14,6 +19,16 @@ function send(response: ServerResponse, status: number, data: object, cookie?: s
   });
   response.end(JSON.stringify(data));
 }
+function iso(value: string | null): string | undefined {
+  if (!value) return undefined;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+}
+
+function writeSse(response: ServerResponse, event: string, data: object): void {
+  response.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+}
+
 function sessionToken(request: IncomingMessage): string | undefined {
   const cookies = request.headers.cookie?.split(';').map((part) => part.trim()) ?? [];
   const values = cookies.filter((part) => part.startsWith('vm_session='));
@@ -75,8 +90,10 @@ export function createApp(
   secrets?: SecretStore,
   auth?: AuthService,
   runtime?: ProviderRuntimeManager,
+  systemMetrics?: SystemMetricsRuntime,
 ): Server {
   const limiter = new AttemptLimiter();
+  const metricsStreams = new Set<ServerResponse>();
   const onboarding =
     storage && secrets
       ? new PbxOnboardingService(
@@ -142,6 +159,72 @@ export function createApp(
           ? send(response, 200, result.principal, auth.cookie(result.token))
           : send(response, 401, { error: 'invalid_credentials' });
       }
+      const metricsAction = path.match(
+        /^\/api\/pbx-instances\/([^/]+)\/system-metrics(\/history|\/stream)?$/,
+      );
+      if (metricsAction) {
+        if (!auth || !storage || !systemMetrics || !auth.principal(sessionToken(request)))
+          return send(response, 401, { error: 'unauthorized' });
+        const id = metricsAction[1]!;
+        const action = metricsAction[2] ?? '';
+        if (!onboarding?.get(id)) return send(response, 404, { error: 'not_found' });
+        if (request.method !== 'GET') return send(response, 404, { error: 'not_found' });
+        const url = new URL(request.url ?? '/', 'http://localhost');
+        if (action === '') {
+          return send(response, 200, {
+            current: storage.systemMetrics.getCurrent(id) ?? null,
+            source: systemMetrics.status(id),
+          });
+        }
+        if (action === '/history') {
+          const from = iso(url.searchParams.get('from'));
+          const to = iso(url.searchParams.get('to'));
+          if (!from || !to || from > to) return send(response, 400, { error: 'invalid_range' });
+          const rawLimit = url.searchParams.get('limit') ?? '100';
+          const limit = Number(rawLimit);
+          if (!Number.isSafeInteger(limit) || limit < 1 || limit > 500)
+            return send(response, 400, { error: 'invalid_limit' });
+          return send(response, 200, {
+            items: storage.systemMetrics.listHistory(id, from, to, limit),
+          });
+        }
+        if (!sameOrigin(request, auth.requiresSecureOrigin))
+          return send(response, 403, { error: 'forbidden' });
+        if (metricsStreams.size >= 64) return send(response, 429, { error: 'too_many_requests' });
+        if (response.headersSent) return;
+        response.writeHead(200, {
+          'content-type': 'text/event-stream; charset=utf-8',
+          'cache-control': 'no-cache, no-store',
+          connection: 'keep-alive',
+        });
+        writeSse(response, 'system-metrics', {
+          current: storage.systemMetrics.getCurrent(id) ?? null,
+          source: systemMetrics.status(id),
+        });
+        const onSample: SystemMetricsSampleListener = (sample) => {
+          if (sample.instanceId === id && !response.destroyed)
+            writeSse(response, 'system-metrics', { current: sample });
+        };
+        const onHealth: SystemMetricsHealthListener = (status) => {
+          if (status.instanceId === id && !response.destroyed)
+            writeSse(response, 'system-metrics-health', { source: status });
+        };
+        metricsStreams.add(response);
+        const unsubscribeSample = systemMetrics.subscribeSamples(onSample);
+        const unsubscribeHealth = systemMetrics.subscribeHealth(onHealth);
+        const heartbeat = setInterval(() => {
+          if (response.destroyed) clearInterval(heartbeat);
+          else response.write(': heartbeat\n\n');
+        }, 15_000);
+        request.on('close', () => {
+          clearInterval(heartbeat);
+          metricsStreams.delete(response);
+          unsubscribeSample();
+          unsubscribeHealth();
+        });
+        return;
+      }
+
       const providerAction = path.match(
         /^\/api\/pbx-instances\/([^/]+)\/(provider-status|test-connection)$/,
       );
