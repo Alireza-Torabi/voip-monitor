@@ -1,4 +1,8 @@
-import type { ProviderEvent } from '@voip-monitor/shared';
+import type {
+  ProviderEvent,
+  SecurityAuthenticationFailureReason,
+  SecurityEvent,
+} from '@voip-monitor/shared';
 import { amiField, type AmiEvent } from './transport.js';
 
 function required(fields: Readonly<Record<string, string>>, name: string): string | undefined {
@@ -173,6 +177,32 @@ function channelBase(
     ...(channelName ? { channelName } : {}),
     ...(linkedId ? { linkedId } : {}),
   };
+}
+
+export function normalizeAmiSecurityEvent(
+  instanceId: string,
+  event: AmiEvent,
+  observedAt: string,
+): SecurityEvent | undefined {
+  if (event.event.toLowerCase() !== 'securityevent') return undefined;
+  const name = optional(event.fields, 'EventName')?.toLowerCase();
+  if (!name) return undefined;
+  const base = {
+    instanceId,
+    source: 'AMI' as const,
+    observedAt,
+    ...streamOrder(event),
+  };
+  if (name === 'successfulauth') return { type: 'AUTHENTICATION_SUCCESS', ...base };
+  const reasons: Record<string, SecurityAuthenticationFailureReason> = {
+    invalidaccountid: 'INVALID_ACCOUNT',
+    invalidpassword: 'INVALID_PASSWORD',
+    challengeresponsefailed: 'CHALLENGE_RESPONSE_FAILED',
+    failedacl: 'ACL_FAILURE',
+    unexpectedaddress: 'UNEXPECTED_ADDRESS',
+  };
+  const reason = reasons[name];
+  return reason ? { type: 'AUTHENTICATION_FAILURE', reason, ...base } : undefined;
 }
 
 /**

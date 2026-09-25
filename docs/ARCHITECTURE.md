@@ -16,7 +16,7 @@ Asterisk provider -> normalized events -> per-instance state engine
                                   React browser clients
 ```
 
-The monitor is an observer. A failed monitor cannot stop calls. Optional restricted SSH collection is the planned source for system metrics and security logs using separate credentials. Shared contracts distinguish capability state (`SUPPORTED`, `UNSUPPORTED`, `NOT_CONFIGURED`, `PERMISSION_DENIED`, `UNKNOWN`) from source freshness (`NEVER_COLLECTED`, `CURRENT`, `STALE`, `UNAVAILABLE`, `ERROR`). Tasks 18–19 now define the system sample, collector validation, fixed read-only command allowlist, execution bounds, and Linux/systemd parser boundary; concrete SSH networking and source-health runtime are not implemented yet.
+The monitor is an observer. A failed monitor cannot stop calls. Optional restricted SSH collection is the planned source for system metrics and future security logs using separate credentials. The first security source is the existing read-only Asterisk AMI event stream, normalized into a bounded authentication-event contract before delivery to security consumers. Shared contracts distinguish capability state (`SUPPORTED`, `UNSUPPORTED`, `NOT_CONFIGURED`, `PERMISSION_DENIED`, `UNKNOWN`) from source freshness (`NEVER_COLLECTED`, `CURRENT`, `STALE`, `UNAVAILABLE`, `ERROR`). Tasks 18–25 define system metrics and the first security-event boundary; security persistence, API/realtime exposure, and broader log sources remain future work.
 
 ## Repository layout
 

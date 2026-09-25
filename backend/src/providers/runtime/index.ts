@@ -7,6 +7,8 @@ import type {
   ProviderEventListener,
   ProviderStateSnapshot,
   ProviderStateSnapshotListener,
+  SecurityEvent,
+  SecurityEventListener,
 } from '@voip-monitor/shared';
 import type { SecretStore } from '../../security/secret-store.js';
 import type { AppStorage, PbxProfileRecord } from '../../storage/index.js';
@@ -35,6 +37,8 @@ export type ProviderRuntimeConnectionListener = (
   state: PbxConnectionState,
 ) => void;
 export type ProviderRuntimeResetListener = (instanceId: string) => void;
+
+export type ProviderRuntimeSecurityEventListener = (event: SecurityEvent) => void;
 
 export class AsteriskProviderFactory implements ProviderFactory {
   constructor(private readonly secrets: SecretStore) {}
@@ -76,16 +80,19 @@ class ProviderEntry {
   private retryAttempt = 0;
   private snapshot: EntrySnapshot = { state: 'DISCONNECTED' };
   private readonly unsubscribeProviderEvents: () => void;
+  private readonly unsubscribeSecurityEvents: () => void;
 
   constructor(
     readonly instanceId: string,
     private readonly provider: PbxProvider,
     private readonly options: Required<ProviderRuntimeOptions>,
     onEvent: ProviderEventListener,
+    onSecurityEvent: SecurityEventListener,
     private readonly onSnapshot: ProviderStateSnapshotListener,
     private readonly onConnectionState: ProviderRuntimeConnectionListener,
   ) {
     this.unsubscribeProviderEvents = provider.subscribeEvents(onEvent);
+    this.unsubscribeSecurityEvents = provider.subscribeSecurityEvents(onSecurityEvent);
   }
 
   start(): void {
@@ -141,6 +148,7 @@ class ProviderEntry {
         this.setConnectionState('DISCONNECTED');
       }
       this.unsubscribeProviderEvents();
+      this.unsubscribeSecurityEvents();
     });
   }
 
@@ -265,6 +273,7 @@ export class ProviderRuntimeManager {
   private readonly eventListeners = new Set<ProviderEventListener>();
   private readonly snapshotListeners = new Set<ProviderStateSnapshotListener>();
   private readonly connectionListeners = new Set<ProviderRuntimeConnectionListener>();
+  private readonly securityEventListeners = new Set<ProviderRuntimeSecurityEventListener>();
   private readonly resetListeners = new Set<ProviderRuntimeResetListener>();
   private started = false;
   private readonly options: Required<ProviderRuntimeOptions>;
@@ -321,6 +330,13 @@ export class ProviderRuntimeManager {
     this.eventListeners.add(listener);
     return () => {
       this.eventListeners.delete(listener);
+    };
+  }
+
+  subscribeSecurityEvents(listener: ProviderRuntimeSecurityEventListener): () => void {
+    this.securityEventListeners.add(listener);
+    return () => {
+      this.securityEventListeners.delete(listener);
     };
   }
 
@@ -410,6 +426,7 @@ export class ProviderRuntimeManager {
       this.factory.create(profile),
       this.options,
       (event) => this.emitEvent(event),
+      (event) => this.emitSecurityEvent(event),
       (snapshot) => this.emitSnapshot(snapshot),
       (instanceId, state) => this.emitConnectionState(instanceId, state),
     );
@@ -423,6 +440,16 @@ export class ProviderRuntimeManager {
         listener(structuredClone(event));
       } catch {
         // Runtime event consumers are isolated from PBX connection lifecycles.
+      }
+    }
+  }
+
+  private emitSecurityEvent(event: SecurityEvent): void {
+    for (const listener of this.securityEventListeners) {
+      try {
+        listener(structuredClone(event));
+      } catch {
+        // Security consumers are isolated from provider connection lifecycles.
       }
     }
   }

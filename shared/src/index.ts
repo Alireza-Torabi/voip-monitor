@@ -87,6 +87,31 @@ export interface PbxCapabilities {
 }
 
 export type DataSourceType = 'PROVIDER' | 'AMI' | 'SSH' | 'SECURITY_LOG';
+
+export type SecurityAuthenticationFailureReason =
+  | 'INVALID_ACCOUNT'
+  | 'INVALID_PASSWORD'
+  | 'CHALLENGE_RESPONSE_FAILED'
+  | 'ACL_FAILURE'
+  | 'UNEXPECTED_ADDRESS'
+  | 'UNKNOWN';
+
+export interface SecurityEventBase {
+  instanceId: PbxInstanceId;
+  source: 'AMI';
+  observedAt: string;
+  streamGeneration?: number;
+  streamSequence?: number;
+}
+
+export type SecurityEvent =
+  | (SecurityEventBase & { type: 'AUTHENTICATION_SUCCESS' })
+  | (SecurityEventBase & {
+      type: 'AUTHENTICATION_FAILURE';
+      reason: SecurityAuthenticationFailureReason;
+    });
+
+export type SecurityEventListener = (event: SecurityEvent) => void;
 export type ProviderErrorCode =
   | 'CONNECTION_FAILED'
   | 'TIMEOUT'
@@ -378,5 +403,6 @@ export interface PbxProvider {
   getCurrentState(): Promise<ProviderStateSnapshot>;
   /** Runtime owners register before connect so the provider can enable its event stream. */
   subscribeEvents(listener: ProviderEventListener): () => void;
+  subscribeSecurityEvents(listener: SecurityEventListener): () => void;
   reconcile(): Promise<ProviderStateSnapshot>;
 }
