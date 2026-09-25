@@ -4,6 +4,7 @@ import { OnboardingInputError, PbxOnboardingService } from './onboarding/index.j
 import { log } from './logger.js';
 import type { AppStorage } from './storage/index.js';
 import type { SecretStore } from './security/secret-store.js';
+import { ProviderRuntimeError, type ProviderRuntimeManager } from './providers/runtime/index.js';
 
 function send(response: ServerResponse, status: number, data: object, cookie?: string): void {
   response.writeHead(status, {
@@ -69,9 +70,21 @@ class AttemptLimiter {
   }
 }
 
-export function createApp(storage?: AppStorage, secrets?: SecretStore, auth?: AuthService): Server {
+export function createApp(
+  storage?: AppStorage,
+  secrets?: SecretStore,
+  auth?: AuthService,
+  runtime?: ProviderRuntimeManager,
+): Server {
   const limiter = new AttemptLimiter();
-  const onboarding = storage && secrets ? new PbxOnboardingService(storage, secrets) : undefined;
+  const onboarding =
+    storage && secrets
+      ? new PbxOnboardingService(
+          storage,
+          secrets,
+          (id) => runtime?.connectionState(id) ?? 'UNVERIFIED',
+        )
+      : undefined;
   return createServer((request, response) => {
     const handle = async (): Promise<void> => {
       const path = new URL(request.url ?? '/', 'http://localhost').pathname;
@@ -129,6 +142,43 @@ export function createApp(storage?: AppStorage, secrets?: SecretStore, auth?: Au
           ? send(response, 200, result.principal, auth.cookie(result.token))
           : send(response, 401, { error: 'invalid_credentials' });
       }
+      const providerAction = path.match(
+        /^\/api\/pbx-instances\/([^/]+)\/(provider-status|test-connection)$/,
+      );
+      if (providerAction) {
+        if (!auth || !onboarding || !auth.principal(sessionToken(request)))
+          return send(response, 401, { error: 'unauthorized' });
+        const id = providerAction[1]!;
+        const action = providerAction[2]!;
+        if (!onboarding.get(id)) return send(response, 404, { error: 'not_found' });
+        if (!runtime) return send(response, 409, { error: 'pbx_network_disabled' });
+        if (request.method === 'GET' && action === 'provider-status') {
+          return send(response, 200, {
+            connectionStatus: runtime.connectionState(id),
+            ...runtime.status(id),
+          });
+        }
+        if (request.method !== 'POST' || action !== 'test-connection')
+          return send(response, 404, { error: 'not_found' });
+        if (!sameOrigin(request, auth.requiresSecureOrigin))
+          return send(response, 403, { error: 'forbidden' });
+        if (!limiter.allow(`pbx-test:${id}`, 5) || !limiter.allow('pbx-test:global', 30)) {
+          return send(response, 429, { error: 'too_many_requests' });
+        }
+        try {
+          const result = await runtime.verify(id);
+          return send(response, 200, { status: 'verified', ...result });
+        } catch (error) {
+          if (!(error instanceof ProviderRuntimeError)) throw error;
+          if (error.code === 'NOT_FOUND') return send(response, 404, { error: 'not_found' });
+          if (error.code === 'NETWORK_DISABLED')
+            return send(response, 409, { error: 'pbx_network_disabled' });
+          if (error.code === 'CREDENTIAL_MISSING')
+            return send(response, 409, { error: 'ami_credential_missing' });
+          if (error.code === 'BUSY') return send(response, 409, { error: 'provider_busy' });
+          return send(response, 502, { error: 'connection_failed' });
+        }
+      }
       if (path === '/api/pbx-instances' || path.startsWith('/api/pbx-instances/')) {
         if (!auth || !onboarding || !auth.principal(sessionToken(request)))
           return send(response, 401, { error: 'unauthorized' });
@@ -146,10 +196,12 @@ export function createApp(storage?: AppStorage, secrets?: SecretStore, auth?: Au
           return send(response, 404, { error: 'not_found' });
         if (!sameOrigin(request, auth.requiresSecureOrigin))
           return send(response, 403, { error: 'forbidden' });
-        if (request.method === 'DELETE' && id !== undefined)
+        if (request.method === 'DELETE' && id !== undefined) {
+          await runtime?.remove(id);
           return onboarding.delete(id)
             ? send(response, 200, { status: 'deleted' })
             : send(response, 404, { error: 'not_found' });
+        }
         if (
           (request.method === 'POST' && id !== undefined) ||
           (request.method === 'PATCH' && id === undefined)
@@ -158,11 +210,15 @@ export function createApp(storage?: AppStorage, secrets?: SecretStore, auth?: Au
         const input = await body(request);
         if (!input) return send(response, 400, { error: 'invalid_request' });
         try {
-          if (request.method === 'POST') return send(response, 201, onboarding.create(input));
+          if (request.method === 'POST') {
+            const created = onboarding.create(input);
+            await runtime?.syncProfile(created.id);
+            return send(response, 201, onboarding.get(created.id) ?? created);
+          }
           const updated = onboarding.update(id!, input);
-          return updated
-            ? send(response, 200, updated)
-            : send(response, 404, { error: 'not_found' });
+          if (!updated) return send(response, 404, { error: 'not_found' });
+          await runtime?.syncProfile(updated.id);
+          return send(response, 200, onboarding.get(updated.id) ?? updated);
         } catch (error) {
           if (error instanceof OnboardingInputError)
             return send(response, 400, { error: 'invalid_request' });

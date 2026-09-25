@@ -38,6 +38,7 @@ beforeEach(() => {
   document.body.append(container);
   root = createRoot(container);
 });
+
 afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
@@ -150,5 +151,60 @@ describe('secret form lifecycle', () => {
     expect(onRefresh).toHaveBeenCalledOnce();
     expect(container.textContent).not.toContain('synthetic-ami-secret');
     expect(container.querySelector('input[name="ami-password"]')).toBeNull();
+  });
+  it('runs an authenticated PBX connection test without exposing the stored password', async () => {
+    const onRefresh = vi.fn(async () => {});
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string) => {
+        if (path === '/api/pbx-instances/synthetic-id/test-connection') {
+          return response({
+            status: 'verified',
+            discovery: {
+              metadata: {
+                id: 'synthetic-id',
+                providerType: 'ASTERISK',
+                displayName: 'Synthetic PBX',
+                product: 'Asterisk',
+                version: '13.synthetic',
+              },
+              observedAt: '2026-09-25T00:00:00.000Z',
+            },
+          });
+        }
+        throw new Error('unexpected API route');
+      }),
+    );
+    await act(async () =>
+      root.render(
+        <PbxWorkspace
+          text={messages.en}
+          profiles={[
+            {
+              id: 'synthetic-id',
+              displayName: 'Synthetic PBX',
+              providerType: 'ASTERISK',
+              enabled: false,
+              amiHost: 'pbx.example.test',
+              amiPort: 5038,
+              amiUsername: 'synthetic-user',
+              hasAmiPassword: true,
+              connectionStatus: 'UNVERIFIED',
+              createdAt: '',
+              updatedAt: '',
+            },
+          ]}
+          onRefresh={onRefresh}
+          onUnauthorized={() => {}}
+        />,
+      ),
+    );
+    const button = [...container.querySelectorAll('button')].find(
+      (item) => item.textContent === 'Test connection',
+    );
+    await act(async () => button?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    expect(container.textContent).toContain('Connection verified: Asterisk 13.synthetic');
+    expect(container.textContent).not.toContain('synthetic-ami-secret');
+    expect(onRefresh).toHaveBeenCalledOnce();
   });
 });

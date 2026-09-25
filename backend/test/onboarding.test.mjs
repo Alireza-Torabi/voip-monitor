@@ -289,7 +289,7 @@ test('failed credential write rolls back metadata and setup; delete cascades sec
     assert.equal(storage.secretRecords.has(created.id, 'ami-password'), false);
   }));
 
-test('migration 4 upgrades schema 3 without modifying published migrations', async () => {
+test('migration chain upgrades schema 3 without modifying published migrations', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'voip-monitor-upgrade-'));
   const config = loadAppConfig({ DATA_PATH: directory, APP_ENV: 'test' });
   try {
@@ -314,7 +314,7 @@ test('migration 4 upgrades schema 3 without modifying published migrations', asy
     try {
       assert.deepEqual(
         upgraded.migrationHistory().map((row) => row.version),
-        [1, 2, 3, 4],
+        [1, 2, 3, 4, 5],
       );
       assert.equal(upgraded.setup.get().state, 'SETUP_REQUIRED');
     } finally {

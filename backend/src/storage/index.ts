@@ -43,6 +43,7 @@ export interface PbxProfileRecord {
   amiHost: string;
   amiPort: number;
   amiUsername: string;
+  lastVerifiedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -53,6 +54,9 @@ export interface PbxProfileRepository {
   list(): PbxProfileRecord[];
   delete(id: string): boolean;
   count(): number;
+  markVerified(id: string, verifiedAt: string): void;
+  clearVerification(id: string): void;
+  verifiedCount(): number;
 }
 
 export interface AppStorage {
@@ -73,6 +77,7 @@ export interface SetupRepository {
 }
 export interface PbxInstanceRepository {
   save(metadata: PbxInstanceMetadata): void;
+  clearDiscovery(id: string): void;
   get(id: string): PbxInstanceMetadata | undefined;
   list(): PbxInstanceMetadata[];
 }
@@ -270,6 +275,13 @@ export class SqliteStorage implements AppStorage {
             now,
           );
       },
+      clearDiscovery: (id) => {
+        this.db
+          .prepare(
+            'UPDATE pbx_instance SET product = NULL, version = NULL, timezone = NULL, updated_at = ? WHERE id = ?',
+          )
+          .run(new Date().toISOString(), id);
+      },
       get: (id) => {
         const row = this.db.prepare('SELECT * FROM pbx_instance WHERE id = ?').get(id);
         return row ? mapPbx(row) : undefined;
@@ -317,7 +329,7 @@ export class SqliteStorage implements AppStorage {
         const row = this.db
           .prepare(
             `SELECT p.id, p.display_name, p.provider_type, p.enabled,
-          p.created_at, p.updated_at, a.ami_host, a.ami_port, a.ami_username
+          p.created_at, p.updated_at, a.ami_host, a.ami_port, a.ami_username, a.last_verified_at
           FROM pbx_instance p JOIN asterisk_config a ON a.pbx_instance_id = p.id
           WHERE p.id = ?`,
           )
@@ -328,7 +340,7 @@ export class SqliteStorage implements AppStorage {
         this.db
           .prepare(
             `SELECT p.id, p.display_name, p.provider_type, p.enabled,
-          p.created_at, p.updated_at, a.ami_host, a.ami_port, a.ami_username
+          p.created_at, p.updated_at, a.ami_host, a.ami_port, a.ami_username, a.last_verified_at
           FROM pbx_instance p JOIN asterisk_config a ON a.pbx_instance_id = p.id
           ORDER BY p.created_at, p.id`,
           )
@@ -337,6 +349,22 @@ export class SqliteStorage implements AppStorage {
       delete: (id) => this.db.prepare('DELETE FROM pbx_instance WHERE id = ?').run(id).changes > 0,
       count: () =>
         this.db.prepare('SELECT COUNT(*) AS total FROM asterisk_config').get()!.total as number,
+      markVerified: (id, verifiedAt) => {
+        this.db
+          .prepare('UPDATE asterisk_config SET last_verified_at = ? WHERE pbx_instance_id = ?')
+          .run(verifiedAt, id);
+      },
+      clearVerification: (id) => {
+        this.db
+          .prepare('UPDATE asterisk_config SET last_verified_at = NULL WHERE pbx_instance_id = ?')
+          .run(id);
+      },
+      verifiedCount: () =>
+        this.db
+          .prepare(
+            'SELECT COUNT(*) AS total FROM asterisk_config WHERE last_verified_at IS NOT NULL',
+          )
+          .get()!.total as number,
     };
     this.secretRecords = {
       firstIdentity: () => {
@@ -519,6 +547,9 @@ function mapPbxProfile(row: Record<string, unknown>): PbxProfileRecord {
     amiHost: row.ami_host as string,
     amiPort: row.ami_port as number,
     amiUsername: row.ami_username as string,
+    ...(row.last_verified_at === null || row.last_verified_at === undefined
+      ? {}
+      : { lastVerifiedAt: row.last_verified_at as string }),
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };

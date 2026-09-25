@@ -11,6 +11,7 @@ const environmentSchema = z.object({
     .refine((value) => Number(value) >= 1 && Number(value) <= 65535)
     .default('3000'),
   APP_LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+  APP_PBX_NETWORK_MODE: z.enum(['disabled', 'plain_tcp']).default('disabled'),
   DATA_PATH: absolutePath.default('/data'),
   APP_SECRET_DIR: absolutePath.optional(),
   APP_DATABASE_PATH: absolutePath.optional(),
@@ -20,6 +21,7 @@ export interface AppConfig {
   environment: 'development' | 'test' | 'production';
   http: { host: string; port: number };
   logLevel: 'debug' | 'info' | 'warn' | 'error';
+  pbxNetworkMode: 'disabled' | 'plain_tcp';
   dataDirectory: string;
   secretDirectory: string;
   databasePath: string;
@@ -48,6 +50,7 @@ export function loadAppConfig(environment: NodeJS.ProcessEnv): AppConfig {
     environment: values.APP_ENV,
     http: { host: values.APP_HOST, port: Number(values.APP_PORT) },
     logLevel: values.APP_LOG_LEVEL,
+    pbxNetworkMode: values.APP_PBX_NETWORK_MODE,
     dataDirectory: values.DATA_PATH,
     secretDirectory: values.APP_SECRET_DIR ?? join(values.DATA_PATH, 'secrets'),
     databasePath: values.APP_DATABASE_PATH ?? join(values.DATA_PATH, 'monitor.sqlite3'),

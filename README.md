@@ -1,10 +1,10 @@
 # VoIP Monitoring Platform
 
-An Apache-2.0 public project for a separate-server VoIP/PBX monitor. Initial planned support is Asterisk and FreePBX-based Asterisk, with Asterisk 13.x compatibility to verify. No PBX integration exists yet.
+An Apache-2.0 public project for a separate-server VoIP/PBX monitor. Initial planned support is Asterisk and FreePBX-based Asterisk, with Asterisk 13.x compatibility to verify. Asterisk provider transport and runtime foundations now exist, but PBX networking is disabled by default and production monitoring is not complete.
 
 [فارسی](README.fa.md) · [Development setup](docs/INSTALL.md) · [Architecture](docs/ARCHITECTURE.md) · [Project plan](docs/MASTER_PLAN.md)
 
-The current Phase 2 foundation has SQLite, protected secret storage, first-administrator setup, local login, and server-side sessions. The bilingual browser flow can create an administrator, log in, and manage Asterisk / FreePBX profiles with encrypted write-only AMI passwords. Profiles are configured but unverified; no PBX network connection or monitoring exists. It is not a production deployment. See [configuration](docs/CONFIGURATION.md) and [operations](docs/OPERATIONS.md) for the bootstrap flow.
+The current Phase 2 foundation has SQLite, protected secret storage, first-administrator setup, local login, server-side sessions, Asterisk provider runtime lifecycle, and an authenticated connection-test/discovery flow. The bilingual browser can manage Asterisk / FreePBX profiles with encrypted write-only AMI passwords and show safe provider status. PBX network access remains disabled by default and telephony event monitoring is not implemented. It is not a production deployment. See [configuration](docs/CONFIGURATION.md) and [operations](docs/OPERATIONS.md) for the bootstrap flow.
 
 Development uses Node.js 24.21.0 and npm:
 
