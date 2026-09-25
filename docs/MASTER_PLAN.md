@@ -54,11 +54,12 @@ These later checks do not change the historical Phase 1 validation record. Docke
 
 ### Current execution handoff
 
-- Current branch: `feature/real-pbx-compatibility-verification` from clean synchronized `main` after Task 11 merged as PR #12.
-- Task 12 preflight tooling is implemented locally but not yet committed or pushed: `scripts/setup-real-pbx-verification.sh`, `scripts/verify-real-pbx-compatibility.mjs`, bilingual verification runbooks, CI syntax checks, and repository-foundation coverage.
+- Current branch: `feature/real-pbx-compatibility-verification`, tracking `origin/feature/real-pbx-compatibility-verification`, from clean synchronized `main` after Task 11 merged as PR #12.
+- Task 12 preflight commit: `e88e07e` (`test(provider): add real PBX compatibility verifier`). The branch is pushed; no Task 12 PR should be created until the real compatibility gate has run.
+- Preflight local gates pass: lint, format, typecheck, backend tests 57/57, frontend tests 10/10, build, foundation check, license check, Bash syntax, and verifier Node syntax. GitHub Actions for `e88e07e` also passed.
 - The helper writes target metadata and AMI password only under ignored `.local/real-pbx-verification/`, mode 0700/0600, with terminal echo disabled for the password. The verifier never prints target/username/password/raw AMI data and stores the detailed result only under `.local/`.
 - Synthetic preflight confirmed the network boundary blocks loopback without opening a transport connection. During that test, provider error mapping was improved so a blocked network target reports bounded `CONNECTION_FAILED` instead of `UNKNOWN`.
-- Exact next action: the operator runs the interactive local setup helper on this monitoring host. Only after those local inputs exist should the bounded real-PBX verifier be executed. Do not send the AMI password through chat or commit it anywhere.
+- Exact next action: the operator runs `./scripts/setup-real-pbx-verification.sh` directly on this monitoring host and supplies the real PBX target and AMI credential locally. Only after those files exist should the bounded real-PBX verifier be executed. Do not send the AMI password through chat or commit it anywhere.
 - After Task 12 passes, begin the telephony state engine foundation.
 
 ### Failure and bug log
