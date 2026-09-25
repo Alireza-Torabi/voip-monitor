@@ -6,6 +6,8 @@ export type PbxConnectionState =
 export type DataFreshnessState = 'NEVER_COLLECTED' | 'CURRENT' | 'STALE' | 'UNAVAILABLE' | 'ERROR';
 export type CapabilityState =
   'SUPPORTED' | 'UNSUPPORTED' | 'NOT_CONFIGURED' | 'PERMISSION_DENIED' | 'UNKNOWN';
+export type EndpointRegistrationState = 'REGISTERED' | 'UNREGISTERED' | 'UNKNOWN';
+export type EndpointReachability = 'REACHABLE' | 'UNREACHABLE' | 'UNKNOWN';
 
 export interface PbxCapabilities {
   telephony: {
@@ -134,7 +136,8 @@ export type ProviderEvent =
   | (ProviderEventBase & {
       type: 'ENDPOINT_STATUS_CHANGED';
       endpointId: string;
-      status: string;
+      registrationState: EndpointRegistrationState;
+      reachability: EndpointReachability;
     });
 
 export type ProviderEventListener = (event: ProviderEvent) => void;
@@ -149,6 +152,23 @@ export interface ProviderChannelSnapshot {
   streamSequence?: number;
 }
 
+export interface ProviderEndpointSnapshot {
+  endpointId: string;
+  registrationState: EndpointRegistrationState;
+  reachability: EndpointReachability;
+  /** Sequence of the source snapshot item within the provider connection. */
+  streamSequence?: number;
+}
+
+export interface ProviderEndpointStateSnapshot {
+  capability: CapabilityState;
+  startedAt?: string;
+  observedAt: string;
+  streamGeneration?: number;
+  streamStartedSequence?: number;
+  endpoints: ProviderEndpointSnapshot[];
+}
+
 export interface ProviderStateSnapshot {
   instanceId: PbxInstanceId;
   source: 'AMI';
@@ -158,6 +178,7 @@ export interface ProviderStateSnapshot {
   streamGeneration?: number;
   streamStartedSequence?: number;
   channels: ProviderChannelSnapshot[];
+  endpointState?: ProviderEndpointStateSnapshot;
 }
 
 export type ProviderStateSnapshotListener = (snapshot: ProviderStateSnapshot) => void;

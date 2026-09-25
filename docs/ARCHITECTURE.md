@@ -1,6 +1,6 @@
 # Proposed architecture
 
-Status: Phase 2 Task 13 implements the first internal telephony state engine. It consumes ordered normalized AMI events plus authoritative channel snapshots to maintain deterministic in-memory channel/call state with revision and synchronization freshness. PBX networking remains disabled by default outside explicit validation/runtime opt-in.
+Status: Phase 2 Task 14 extends the internal telephony state engine with capability-aware chan_sip endpoint/registration state. It consumes independent ordered channel and endpoint snapshots plus normalized AMI events to maintain deterministic in-memory channel/call/endpoint state with revision and synchronization freshness. PBX networking remains disabled by default outside explicit validation/runtime opt-in.
 
 ```text
 PBX (Asterisk / FreePBX)
@@ -48,7 +48,7 @@ The TCP transport validates the manager banner, frames actions with CRLF headers
 
 ## Realtime and failure handling
 
-`TelephonyStateEngine` now subscribes before provider runtime start and consumes authoritative channel snapshots, normalized live events, runtime connection-state changes, and profile-reset signals. Before the first snapshot it buffers events without claiming current state. Snapshot items use per-frame ordering to decide which interleaved events must be replayed; later reconciliation snapshots replace drift and replay only events newer than the relevant snapshot item boundary. New connection generations wait for a fresh snapshot, connection loss marks state `STALE`, and profile replacement/removal clears the old in-memory state. The engine emits ordered internal revisions and deterministic current calls by grouping channels on `linkedId` (falling back to channel ID). No telephony state is exposed by REST/WebSocket yet; authenticated realtime remains a later phase.
+`TelephonyStateEngine` now subscribes before provider runtime start and consumes authoritative channel snapshots, capability-aware chan_sip endpoint snapshots, normalized live events, runtime connection-state changes, and profile-reset signals. Before the first snapshot it buffers events without claiming current state. Snapshot items use per-frame ordering to decide which interleaved events must be replayed; later reconciliation snapshots replace drift and replay only events newer than the relevant snapshot item boundary. New connection generations wait for a fresh snapshot, connection loss marks state `STALE`, and profile replacement/removal clears the old in-memory state. The engine emits ordered internal revisions and deterministic current calls by grouping channels on `linkedId` (falling back to channel ID). Endpoint snapshots use their own AMI collection boundary; PeerStatus updates replay only when newer than that endpoint boundary, and endpoint state remains unavailable rather than guessed when the endpoint capability is denied/unsupported. No telephony state is exposed by REST/WebSocket yet; authenticated realtime remains a later phase.
 
 ## Git and CI
 

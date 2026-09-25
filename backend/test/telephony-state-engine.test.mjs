@@ -431,3 +431,118 @@ test('state listeners are isolated and stop unsubscribes from the runtime source
   );
   assert.equal(engine.current('pbx-1'), undefined);
 });
+
+test('endpoint snapshot establishes registration state and replays only newer endpoint events', () => {
+  const source = new FakeStateSource();
+  const engine = new TelephonyStateEngine(source);
+  engine.start();
+
+  source.event(
+    baseEvent('ENDPOINT_STATUS_CHANGED', {
+      endpointId: 'SIP/100',
+      registrationState: 'REGISTERED',
+      reachability: 'UNKNOWN',
+      streamSequence: 3,
+    }),
+  );
+  source.event(
+    baseEvent('ENDPOINT_STATUS_CHANGED', {
+      endpointId: 'SIP/200',
+      registrationState: 'REGISTERED',
+      reachability: 'REACHABLE',
+      streamSequence: 7,
+      observedAt: '2026-09-25T12:00:00.700Z',
+    }),
+  );
+
+  source.snapshot(
+    snapshot({
+      streamStartedSequence: 0,
+      endpointState: {
+        capability: 'SUPPORTED',
+        startedAt: '2026-09-25T12:00:00.100Z',
+        observedAt: '2026-09-25T12:00:01.000Z',
+        streamGeneration: 1,
+        streamStartedSequence: 2,
+        endpoints: [
+          {
+            endpointId: 'SIP/100',
+            registrationState: 'UNREGISTERED',
+            reachability: 'UNREACHABLE',
+            streamSequence: 4,
+          },
+        ],
+      },
+    }),
+  );
+
+  let current = engine.current('pbx-1');
+  assert.equal(current.endpointCapability, 'SUPPORTED');
+  assert.equal(current.endpointSynchronization, 'CURRENT');
+  assert.deepEqual(
+    current.endpoints.map(({ endpointId, registrationState, reachability }) => ({
+      endpointId,
+      registrationState,
+      reachability,
+    })),
+    [
+      {
+        endpointId: 'SIP/100',
+        registrationState: 'UNREGISTERED',
+        reachability: 'UNREACHABLE',
+      },
+      {
+        endpointId: 'SIP/200',
+        registrationState: 'REGISTERED',
+        reachability: 'REACHABLE',
+      },
+    ],
+  );
+
+  source.event(
+    baseEvent('ENDPOINT_STATUS_CHANGED', {
+      endpointId: 'SIP/100',
+      registrationState: 'REGISTERED',
+      reachability: 'REACHABLE',
+      streamSequence: 8,
+      observedAt: '2026-09-25T12:00:02.000Z',
+    }),
+  );
+  current = engine.current('pbx-1');
+  assert.equal(current.endpoints[0].registrationState, 'REGISTERED');
+  assert.equal(current.endpoints[0].reachability, 'REACHABLE');
+
+  engine.stop();
+});
+
+test('unavailable endpoint capability never manufactures endpoint state from live events', () => {
+  const source = new FakeStateSource();
+  const engine = new TelephonyStateEngine(source);
+  engine.start();
+
+  source.snapshot(
+    snapshot({
+      endpointState: {
+        capability: 'PERMISSION_DENIED',
+        observedAt: '2026-09-25T12:00:01.000Z',
+        endpoints: [],
+      },
+    }),
+  );
+  source.event(
+    baseEvent('ENDPOINT_STATUS_CHANGED', {
+      endpointId: 'SIP/100',
+      registrationState: 'REGISTERED',
+      reachability: 'REACHABLE',
+      streamSequence: 3,
+      observedAt: '2026-09-25T12:00:02.000Z',
+    }),
+  );
+
+  const current = engine.current('pbx-1');
+  assert.equal(current.endpointCapability, 'PERMISSION_DENIED');
+  assert.equal(current.endpointSynchronization, 'UNAVAILABLE');
+  assert.deepEqual(current.endpoints, []);
+
+  engine.stop();
+});

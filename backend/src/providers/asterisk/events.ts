@@ -11,6 +11,26 @@ function optional(fields: Readonly<Record<string, string>>, name: string): strin
   return value ? value : undefined;
 }
 
+export function normalizeEndpointStatus(status: string): {
+  registrationState: 'REGISTERED' | 'UNREGISTERED' | 'UNKNOWN';
+  reachability: 'REACHABLE' | 'UNREACHABLE' | 'UNKNOWN';
+} {
+  const normalized = status.trim().toLowerCase();
+  if (normalized === 'registered') {
+    return { registrationState: 'REGISTERED', reachability: 'UNKNOWN' };
+  }
+  if (normalized === 'unregistered') {
+    return { registrationState: 'UNREGISTERED', reachability: 'UNKNOWN' };
+  }
+  if (normalized === 'reachable' || normalized.startsWith('ok')) {
+    return { registrationState: 'UNKNOWN', reachability: 'REACHABLE' };
+  }
+  if (normalized === 'unreachable' || normalized === 'lagged') {
+    return { registrationState: 'UNKNOWN', reachability: 'UNREACHABLE' };
+  }
+  return { registrationState: 'UNKNOWN', reachability: 'UNKNOWN' };
+}
+
 function streamOrder(event: AmiEvent): { streamGeneration?: number; streamSequence?: number } {
   return {
     ...(event.streamGeneration === undefined ? {} : { streamGeneration: event.streamGeneration }),
@@ -169,7 +189,7 @@ export function normalizeAmiEvent(
       observedAt,
       ...streamOrder(event),
       endpointId,
-      status,
+      ...normalizeEndpointStatus(status),
     };
   }
 

@@ -7,11 +7,12 @@ import type {
   PbxProvider,
   ProviderEventListener,
   ProviderDiscoveryResult,
+  ProviderEndpointStateSnapshot,
   ProviderErrorCode,
   ProviderStateSnapshot,
 } from '@voip-monitor/shared';
 import { AsteriskConnection, type AddressResolver } from './connection.js';
-import { normalizeAmiEvent } from './events.js';
+import { normalizeAmiEvent, normalizeEndpointStatus } from './events.js';
 import { NetworkBoundaryError } from './network-policy.js';
 import { AmiTransportError, amiField, type AmiResponse, type AmiTransport } from './transport.js';
 
@@ -282,16 +283,11 @@ export class AsteriskProvider implements PbxProvider {
           ...(bridgeId ? { bridgeId } : {}),
         };
       });
+      this.requireListCount(result.completion.fields, channels.length);
 
-      const listItems = amiField(result.completion.fields, 'ListItems')?.trim();
-      if (listItems !== undefined) {
-        if (!/^[0-9]+$/.test(listItems) || Number(listItems) !== channels.length) {
-          throw new AsteriskProviderError('UNKNOWN');
-        }
-      }
-
-      const observedAt = this.now();
       this.capabilities.telephony.channels = 'SUPPORTED';
+      const endpointState = await this.getEndpointState();
+      const observedAt = this.now();
       this.setConnectionState('CONNECTED');
       this.amiHealth = {
         source: 'AMI',
@@ -312,10 +308,82 @@ export class AsteriskProvider implements PbxProvider {
           ? {}
           : { streamStartedSequence: result.streamStartedSequence }),
         channels,
+        endpointState,
       };
     } catch (error) {
       this.markOperationFailure(attempt, error);
       throw new AsteriskProviderError(providerCode(error));
+    }
+  }
+
+  private async getEndpointState(): Promise<ProviderEndpointStateSnapshot> {
+    const startedAt = this.now();
+    try {
+      const result = await this.options.transport.requestEventList(
+        { action: 'SIPpeers' },
+        { itemEvent: 'PeerEntry', completeEvent: 'PeerlistComplete' },
+      );
+      requireSuccess(result.response);
+      const endpoints = result.events.map((event) => {
+        const objectName = amiField(event.fields, 'ObjectName')?.trim();
+        if (!objectName) throw new AsteriskProviderError('UNKNOWN');
+        const channelType = amiField(event.fields, 'Channeltype')?.trim();
+        const endpointId = channelType ? `${channelType}/${objectName}` : objectName;
+        const dynamic = amiField(event.fields, 'Dynamic')?.trim().toLowerCase();
+        const address = amiField(event.fields, 'IPaddress')?.trim().toLowerCase();
+        const status = amiField(event.fields, 'Status')?.trim() ?? '';
+        const normalized = normalizeEndpointStatus(status);
+        let registrationState = normalized.registrationState;
+        if (registrationState === 'UNKNOWN' && (dynamic === 'yes' || dynamic === 'true')) {
+          registrationState =
+            address &&
+            address !== '-none-' &&
+            address !== '(none)' &&
+            address !== '(unavailable)' &&
+            address !== '0.0.0.0'
+              ? 'REGISTERED'
+              : 'UNREGISTERED';
+        }
+        return {
+          endpointId,
+          registrationState,
+          reachability: normalized.reachability,
+          ...(event.streamSequence === undefined ? {} : { streamSequence: event.streamSequence }),
+        };
+      });
+      this.requireListCount(result.completion.fields, endpoints.length);
+      this.capabilities.telephony.endpoints = 'SUPPORTED';
+      return {
+        capability: 'SUPPORTED',
+        startedAt,
+        observedAt: this.now(),
+        ...(result.streamGeneration === undefined
+          ? {}
+          : { streamGeneration: result.streamGeneration }),
+        ...(result.streamStartedSequence === undefined
+          ? {}
+          : { streamStartedSequence: result.streamStartedSequence }),
+        endpoints,
+      };
+    } catch (error) {
+      const code = providerCode(error);
+      if (code !== 'PERMISSION_DENIED' && code !== 'UNSUPPORTED') throw error;
+      const capability = code === 'PERMISSION_DENIED' ? 'PERMISSION_DENIED' : 'UNSUPPORTED';
+      this.capabilities.telephony.endpoints = capability;
+      return {
+        capability,
+        startedAt,
+        observedAt: this.now(),
+        endpoints: [],
+      };
+    }
+  }
+
+  private requireListCount(fields: Readonly<Record<string, string>>, actual: number): void {
+    const listItems = amiField(fields, 'ListItems')?.trim();
+    if (listItems === undefined) return;
+    if (!/^[0-9]+$/.test(listItems) || Number(listItems) !== actual) {
+      throw new AsteriskProviderError('UNKNOWN');
     }
   }
 
