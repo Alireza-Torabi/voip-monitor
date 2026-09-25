@@ -24,6 +24,53 @@ export type QueueMemberAvailability =
 export type AgentInteractionPhase = 'RINGING' | 'CONNECTED';
 export type AgentCompletionReason = 'CALLER' | 'AGENT' | 'TRANSFER' | 'UNKNOWN';
 
+export type SystemServiceState = 'ACTIVE' | 'INACTIVE' | 'FAILED' | 'UNKNOWN';
+
+export interface SystemCpuSample {
+  utilizationPercent: number;
+}
+
+export interface SystemMemorySample {
+  totalBytes: number;
+  availableBytes: number;
+}
+
+export interface SystemFilesystemSample {
+  filesystemId: string;
+  mountPoint: string;
+  totalBytes: number;
+  availableBytes: number;
+}
+
+export interface SystemUptimeSample {
+  uptimeSeconds: number;
+}
+
+export interface SystemServiceHealthSample {
+  serviceId: string;
+  state: SystemServiceState;
+}
+
+export interface SystemMetricCapabilities {
+  cpu: CapabilityState;
+  memory: CapabilityState;
+  filesystems: CapabilityState;
+  uptime: CapabilityState;
+  services: CapabilityState;
+}
+
+export interface SystemMetricsSample {
+  instanceId: PbxInstanceId;
+  source: 'SSH';
+  observedAt: string;
+  capabilities: SystemMetricCapabilities;
+  cpu?: SystemCpuSample;
+  memory?: SystemMemorySample;
+  filesystems?: SystemFilesystemSample[];
+  uptime?: SystemUptimeSample;
+  services?: SystemServiceHealthSample[];
+}
+
 export interface PbxCapabilities {
   telephony: {
     channels: CapabilityState;
@@ -33,13 +80,7 @@ export interface PbxCapabilities {
     queues: CapabilityState;
     agents: CapabilityState;
   };
-  system: {
-    cpu: CapabilityState;
-    memory: CapabilityState;
-    filesystems: CapabilityState;
-    uptime: CapabilityState;
-    services: CapabilityState;
-  };
+  system: SystemMetricCapabilities;
   security: {
     authenticationEvents: CapabilityState;
   };
