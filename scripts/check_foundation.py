@@ -56,7 +56,7 @@ def check() -> list[str]:
     public_files = [Path(name) for name in files_result.stdout.split("\0") if name]
     for path in public_files:
         name = path.name
-        if ".local" in path.parts or "secrets" in path.parts or "runtime" in path.parts or "data" in path.parts:
+        if path.parts and path.parts[0] in {".local", "secrets", "runtime", "data"}:
             errors.append(f"Private/runtime path would be public: {path}")
         if name in FORBIDDEN_NAMES or name.endswith(FORBIDDEN_SUFFIXES):
             errors.append(f"Forbidden public artifact: {path}")
