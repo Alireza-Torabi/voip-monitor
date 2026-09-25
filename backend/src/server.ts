@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { AuthService } from './auth/index.js';
+import { OnboardingInputError, PbxOnboardingService } from './onboarding/index.js';
 import { log } from './logger.js';
 import type { AppStorage } from './storage/index.js';
 import type { SecretStore } from './security/secret-store.js';
@@ -68,12 +69,9 @@ class AttemptLimiter {
   }
 }
 
-export function createApp(
-  storage?: AppStorage,
-  secrets?: Pick<SecretStore, 'healthCheck'>,
-  auth?: AuthService,
-): Server {
+export function createApp(storage?: AppStorage, secrets?: SecretStore, auth?: AuthService): Server {
   const limiter = new AttemptLimiter();
+  const onboarding = storage && secrets ? new PbxOnboardingService(storage, secrets) : undefined;
   return createServer((request, response) => {
     const handle = async (): Promise<void> => {
       const path = new URL(request.url ?? '/', 'http://localhost').pathname;
@@ -130,6 +128,46 @@ export function createApp(
         return result
           ? send(response, 200, result.principal, auth.cookie(result.token))
           : send(response, 401, { error: 'invalid_credentials' });
+      }
+      if (path === '/api/pbx-instances' || path.startsWith('/api/pbx-instances/')) {
+        if (!auth || !onboarding || !auth.principal(sessionToken(request)))
+          return send(response, 401, { error: 'unauthorized' });
+        const id = path.startsWith('/api/pbx-instances/')
+          ? path.slice('/api/pbx-instances/'.length)
+          : undefined;
+        if (request.method === 'GET') {
+          if (id === undefined) return send(response, 200, { items: onboarding.list() });
+          const profile = onboarding.get(id);
+          return profile
+            ? send(response, 200, profile)
+            : send(response, 404, { error: 'not_found' });
+        }
+        if (!['POST', 'PATCH', 'DELETE'].includes(request.method ?? ''))
+          return send(response, 404, { error: 'not_found' });
+        if (!sameOrigin(request, auth.requiresSecureOrigin))
+          return send(response, 403, { error: 'forbidden' });
+        if (request.method === 'DELETE' && id !== undefined)
+          return onboarding.delete(id)
+            ? send(response, 200, { status: 'deleted' })
+            : send(response, 404, { error: 'not_found' });
+        if (
+          (request.method === 'POST' && id !== undefined) ||
+          (request.method === 'PATCH' && id === undefined)
+        )
+          return send(response, 404, { error: 'not_found' });
+        const input = await body(request);
+        if (!input) return send(response, 400, { error: 'invalid_request' });
+        try {
+          if (request.method === 'POST') return send(response, 201, onboarding.create(input));
+          const updated = onboarding.update(id!, input);
+          return updated
+            ? send(response, 200, updated)
+            : send(response, 404, { error: 'not_found' });
+        } catch (error) {
+          if (error instanceof OnboardingInputError)
+            return send(response, 400, { error: 'invalid_request' });
+          throw error;
+        }
       }
       send(response, 404, { error: 'not_found' });
     };

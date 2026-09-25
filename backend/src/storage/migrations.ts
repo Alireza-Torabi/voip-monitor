@@ -63,4 +63,25 @@ export const migrations = [
       CREATE INDEX auth_session_expiry ON auth_session(expires_at);
     `,
   },
+  {
+    version: 4,
+    name: 'pbx_onboarding_profiles',
+    sql: `
+      ALTER TABLE pbx_instance ADD COLUMN enabled INTEGER NOT NULL DEFAULT 0 CHECK (enabled IN (0, 1));
+      CREATE TABLE asterisk_config (
+        pbx_instance_id TEXT PRIMARY KEY REFERENCES pbx_instance(id) ON DELETE CASCADE,
+        ami_host TEXT NOT NULL CHECK (length(ami_host) BETWEEN 1 AND 253),
+        ami_port INTEGER NOT NULL CHECK (ami_port BETWEEN 1 AND 65535),
+        ami_username TEXT NOT NULL CHECK (length(ami_username) BETWEEN 1 AND 128)
+      ) STRICT;
+      CREATE TABLE application_state_next (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        setup_state TEXT NOT NULL CHECK (setup_state IN ('SETUP_REQUIRED', 'SETUP_IN_PROGRESS', 'PBX_CONFIGURED_UNVERIFIED', 'COMPLETE')),
+        updated_at TEXT NOT NULL
+      ) STRICT;
+      INSERT INTO application_state_next SELECT id, setup_state, updated_at FROM application_state;
+      DROP TABLE application_state;
+      ALTER TABLE application_state_next RENAME TO application_state;
+    `,
+  },
 ] as const;

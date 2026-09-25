@@ -15,6 +15,8 @@ REVIEWED = {
     "ISC",
     "MPL-2.0",
     "BlueOak-1.0.0",
+    "MIT-0",
+    "CC0-1.0",
 }
 
 

@@ -313,7 +313,7 @@ test('migration 3 upgrades a prior version-2 database transactionally', async ()
     try {
       assert.deepEqual(
         upgraded.migrationHistory().map((row) => row.version),
-        [1, 2, 3],
+        [1, 2, 3, 4],
       );
       assert.equal(upgraded.auth.hasAdministrator(), false);
       assert.equal(upgraded.setup.get().state, 'SETUP_REQUIRED');

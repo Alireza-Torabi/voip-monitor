@@ -1,7 +1,8 @@
 /** Stable identifiers are assigned by the future persistence layer. */
 export type PbxInstanceId = string;
 export type PbxProviderType = 'ASTERISK';
-export type PbxConnectionState = 'DISCONNECTED' | 'CONNECTING' | 'CONNECTED' | 'DEGRADED' | 'ERROR';
+export type PbxConnectionState =
+  'UNVERIFIED' | 'DISCONNECTED' | 'CONNECTING' | 'CONNECTED' | 'DEGRADED' | 'ERROR';
 export type DataFreshnessState = 'NEVER_COLLECTED' | 'CURRENT' | 'STALE' | 'UNAVAILABLE' | 'ERROR';
 export type CapabilityState =
   'SUPPORTED' | 'UNSUPPORTED' | 'NOT_CONFIGURED' | 'PERMISSION_DENIED' | 'UNKNOWN';
