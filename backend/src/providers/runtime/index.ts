@@ -5,6 +5,8 @@ import type {
   ProviderDiscoveryResult,
   ProviderEvent,
   ProviderEventListener,
+  ProviderStateSnapshot,
+  ProviderStateSnapshotListener,
 } from '@voip-monitor/shared';
 import type { SecretStore } from '../../security/secret-store.js';
 import type { AppStorage, PbxProfileRecord } from '../../storage/index.js';
@@ -56,7 +58,10 @@ interface EntrySnapshot {
   state: PbxConnectionState;
   health?: PbxHealth;
   discovery?: ProviderDiscoveryResult;
+  currentState?: ProviderStateSnapshot;
 }
+
+type PublicEntrySnapshot = Omit<EntrySnapshot, 'currentState'>;
 
 class ProviderEntry {
   private stopped = false;
@@ -71,6 +76,7 @@ class ProviderEntry {
     private readonly provider: PbxProvider,
     private readonly options: Required<ProviderRuntimeOptions>,
     onEvent: ProviderEventListener,
+    private readonly onSnapshot: ProviderStateSnapshotListener,
   ) {
     this.unsubscribeProviderEvents = provider.subscribeEvents(onEvent);
   }
@@ -79,7 +85,7 @@ class ProviderEntry {
     this.schedule(0, 'connect');
   }
 
-  status(): EntrySnapshot {
+  status(): PublicEntrySnapshot {
     return {
       state: this.snapshot.state,
       ...(this.snapshot.health ? { health: structuredClone(this.snapshot.health) } : {}),
@@ -87,12 +93,16 @@ class ProviderEntry {
     };
   }
 
+  currentState(): ProviderStateSnapshot | undefined {
+    return this.snapshot.currentState ? structuredClone(this.snapshot.currentState) : undefined;
+  }
+
   async verify(): Promise<ProviderDiscoveryResult> {
     return this.enqueue(async () => {
       this.clearTimer();
       if (this.stopped) throw new ProviderRuntimeError('PROVIDER_FAILED');
       try {
-        if (this.snapshot.state !== 'CONNECTED') {
+        if (this.snapshot.state !== 'CONNECTED' && this.snapshot.state !== 'DEGRADED') {
           await this.connectProvider();
         }
         const discovery = await this.provider.discover();
@@ -145,6 +155,13 @@ class ProviderEntry {
     try {
       await this.connectProvider();
       this.retryAttempt = 0;
+      try {
+        const snapshot = await this.provider.getCurrentState();
+        this.publishSnapshot(snapshot);
+      } catch {
+        // A connected provider may remain useful while snapshot permission/support is degraded.
+        await this.refreshHealth().catch(() => undefined);
+      }
       this.schedule(this.options.reconcileMs, 'reconcile');
     } catch {
       await this.failAndScheduleReconnect();
@@ -153,11 +170,21 @@ class ProviderEntry {
 
   private async reconcileCycle(): Promise<void> {
     try {
-      await this.provider.reconcile();
+      const snapshot = await this.provider.reconcile();
+      this.publishSnapshot(snapshot);
       await this.refreshHealth();
       this.retryAttempt = 0;
       this.schedule(this.options.reconcileMs, 'reconcile');
     } catch {
+      try {
+        await this.refreshHealth();
+        if (this.snapshot.state === 'DEGRADED') {
+          this.schedule(this.options.reconcileMs, 'reconcile');
+          return;
+        }
+      } catch {
+        // A missing health snapshot falls through to the reconnect path.
+      }
       await this.failAndScheduleReconnect();
     }
   }
@@ -165,6 +192,11 @@ class ProviderEntry {
   private async connectProvider(): Promise<void> {
     await this.provider.connect();
     await this.refreshHealth();
+  }
+
+  private publishSnapshot(snapshot: ProviderStateSnapshot): void {
+    this.snapshot.currentState = structuredClone(snapshot);
+    this.onSnapshot(structuredClone(snapshot));
   }
 
   private async failAndScheduleReconnect(): Promise<void> {
@@ -218,6 +250,7 @@ export class ProviderRuntimeManager {
   private readonly entries = new Map<string, ProviderEntry>();
   private readonly testing = new Set<string>();
   private readonly eventListeners = new Set<ProviderEventListener>();
+  private readonly snapshotListeners = new Set<ProviderStateSnapshotListener>();
   private started = false;
   private readonly options: Required<ProviderRuntimeOptions>;
 
@@ -273,13 +306,28 @@ export class ProviderRuntimeManager {
     };
   }
 
+  subscribeSnapshots(listener: ProviderStateSnapshotListener): () => void {
+    this.snapshotListeners.add(listener);
+    return () => {
+      this.snapshotListeners.delete(listener);
+    };
+  }
+
+  currentState(id: string): ProviderStateSnapshot | undefined {
+    return this.entries.get(id)?.currentState();
+  }
+
   connectionState(id: string): PbxConnectionState {
     const active = this.entries.get(id)?.status().state;
     if (active) return active;
     return this.storage.pbxProfiles.get(id)?.lastVerifiedAt ? 'DISCONNECTED' : 'UNVERIFIED';
   }
 
-  status(id: string): { managed: boolean; networkEnabled: boolean; snapshot?: EntrySnapshot } {
+  status(id: string): {
+    managed: boolean;
+    networkEnabled: boolean;
+    snapshot?: PublicEntrySnapshot;
+  } {
     const entry = this.entries.get(id);
     return {
       managed: entry !== undefined,
@@ -330,6 +378,7 @@ export class ProviderRuntimeManager {
       this.factory.create(profile),
       this.options,
       (event) => this.emitEvent(event),
+      (snapshot) => this.emitSnapshot(snapshot),
     );
     this.entries.set(profile.id, entry);
     entry.start();
@@ -341,6 +390,16 @@ export class ProviderRuntimeManager {
         listener(structuredClone(event));
       } catch {
         // Runtime event consumers are isolated from PBX connection lifecycles.
+      }
+    }
+  }
+
+  private emitSnapshot(snapshot: ProviderStateSnapshot): void {
+    for (const listener of this.snapshotListeners) {
+      try {
+        listener(structuredClone(snapshot));
+      } catch {
+        // Snapshot consumers are isolated from PBX connection lifecycles.
       }
     }
   }

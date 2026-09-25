@@ -8,6 +8,7 @@ import type {
   ProviderEventListener,
   ProviderDiscoveryResult,
   ProviderErrorCode,
+  ProviderStateSnapshot,
 } from '@voip-monitor/shared';
 import { AsteriskConnection, type AddressResolver } from './connection.js';
 import { normalizeAmiEvent } from './events.js';
@@ -206,6 +207,7 @@ export class AsteriskProvider implements PbxProvider {
       requireSuccess(response);
       const version = amiField(response.fields, 'AsteriskVersion');
       const observedAt = this.now();
+      this.setConnectionState('CONNECTED');
       this.amiHealth = {
         source: 'AMI',
         freshness: 'CURRENT',
@@ -234,6 +236,63 @@ export class AsteriskProvider implements PbxProvider {
     return cloneCapabilities(this.capabilities);
   }
 
+  async getCurrentState(): Promise<ProviderStateSnapshot> {
+    this.requireConnected();
+    const attempt = this.now();
+    try {
+      const result = await this.options.transport.requestEventList(
+        { action: 'CoreShowChannels' },
+        { itemEvent: 'CoreShowChannel', completeEvent: 'CoreShowChannelsComplete' },
+      );
+      requireSuccess(result.response);
+
+      const channels = result.events.map((event) => {
+        const channelId = amiField(event.fields, 'Uniqueid')?.trim();
+        if (!channelId) throw new AsteriskProviderError('UNKNOWN');
+        const channelName = amiField(event.fields, 'Channel')?.trim();
+        const linkedId = amiField(event.fields, 'Linkedid')?.trim();
+        const state =
+          amiField(event.fields, 'ChannelStateDesc')?.trim() ||
+          amiField(event.fields, 'ChannelState')?.trim();
+        const bridgeId = amiField(event.fields, 'BridgeId')?.trim();
+        return {
+          channelId,
+          ...(channelName ? { channelName } : {}),
+          ...(linkedId ? { linkedId } : {}),
+          ...(state ? { state } : {}),
+          ...(bridgeId ? { bridgeId } : {}),
+        };
+      });
+
+      const listItems = amiField(result.completion.fields, 'ListItems')?.trim();
+      if (listItems !== undefined) {
+        if (!/^[0-9]+$/.test(listItems) || Number(listItems) !== channels.length) {
+          throw new AsteriskProviderError('UNKNOWN');
+        }
+      }
+
+      const observedAt = this.now();
+      this.capabilities.telephony.channels = 'SUPPORTED';
+      this.setConnectionState('CONNECTED');
+      this.amiHealth = {
+        source: 'AMI',
+        freshness: 'CURRENT',
+        lastAttempt: attempt,
+        lastSuccess: observedAt,
+        lastUpdate: observedAt,
+      };
+      return {
+        instanceId: this.instanceId,
+        source: 'AMI',
+        observedAt,
+        channels,
+      };
+    } catch (error) {
+      this.markOperationFailure(attempt, error);
+      throw new AsteriskProviderError(providerCode(error));
+    }
+  }
+
   subscribeEvents(listener: ProviderEventListener): () => void {
     this.eventListeners.add(listener);
     return () => {
@@ -258,29 +317,15 @@ export class AsteriskProvider implements PbxProvider {
     };
   }
 
-  async reconcile(): Promise<void> {
-    this.requireConnected();
-    const attempt = this.now();
-    try {
-      const response = await this.options.transport.request({ action: 'Ping' });
-      requireSuccess(response);
-      const success = this.now();
-      this.setConnectionState('CONNECTED');
-      this.amiHealth = {
-        source: 'AMI',
-        freshness: 'CURRENT',
-        lastAttempt: attempt,
-        lastSuccess: success,
-        lastUpdate: success,
-      };
-    } catch (error) {
-      this.markOperationFailure(attempt, error);
-      throw new AsteriskProviderError(providerCode(error));
-    }
+  async reconcile(): Promise<ProviderStateSnapshot> {
+    return this.getCurrentState();
   }
 
   private requireConnected(): void {
-    if (!this.options.transport.connected || this.connectionState !== 'CONNECTED') {
+    if (
+      !this.options.transport.connected ||
+      (this.connectionState !== 'CONNECTED' && this.connectionState !== 'DEGRADED')
+    ) {
       throw new AsteriskProviderError('CONNECTION_FAILED');
     }
   }

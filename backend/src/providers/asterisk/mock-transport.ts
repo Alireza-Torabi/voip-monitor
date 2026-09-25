@@ -1,12 +1,18 @@
 import type {
   AmiAction,
   AmiConnectionTarget,
+  AmiEventListResult,
+  AmiEventListSpec,
   AmiEventListener,
   AmiResponse,
   AmiTransport,
 } from './transport.js';
 
 export type MockAmiHandler = (action: AmiAction) => AmiResponse | Promise<AmiResponse>;
+export type MockAmiEventListHandler = (
+  action: AmiAction,
+  spec: AmiEventListSpec,
+) => AmiEventListResult | Promise<AmiEventListResult>;
 
 function snapshotAction(action: AmiAction): AmiAction {
   if (!action.fields) return { action: action.action };
@@ -25,10 +31,16 @@ export class MockAmiTransport implements AmiTransport {
   readonly connections: AmiConnectionTarget[] = [];
   readonly actions: AmiAction[] = [];
   private readonly handlers = new Map<string, MockAmiHandler>();
+  private readonly eventListHandlers = new Map<string, MockAmiEventListHandler>();
   private readonly eventListeners = new Set<AmiEventListener>();
 
   on(action: string, handler: MockAmiHandler): this {
     this.handlers.set(action.toLowerCase(), handler);
+    return this;
+  }
+
+  onEventList(action: string, handler: MockAmiEventListHandler): this {
+    this.eventListHandlers.set(action.toLowerCase(), handler);
     return this;
   }
 
@@ -49,6 +61,14 @@ export class MockAmiTransport implements AmiTransport {
       return { response: 'Error', message: 'Mock action not configured', fields: {} };
     }
     return handler(action);
+  }
+
+  async requestEventList(action: AmiAction, spec: AmiEventListSpec): Promise<AmiEventListResult> {
+    if (!this.connected) throw new Error('AMI transport is not connected');
+    this.actions.push(snapshotAction(action));
+    const handler = this.eventListHandlers.get(action.action.toLowerCase());
+    if (!handler) throw new Error('Mock event-list action not configured');
+    return handler(action, spec);
   }
 
   subscribeEvents(listener: AmiEventListener): () => void {
