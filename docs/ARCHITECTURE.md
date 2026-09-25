@@ -1,6 +1,6 @@
 # Proposed architecture
 
-Status: Phase 2 Task 9 adds the provider runtime lifecycle plus authenticated provider status and AMI connection-test/discovery APIs. PBX networking is disabled by default; no real PBX has been contacted.
+Status: Phase 2 Task 12 completed a controlled real-PBX compatibility gate against the required Asterisk 13.x baseline. After correcting the dedicated AMI permission, login, discovery, channel snapshots, normalized live events, reconciliation, and clean disconnect passed without changing PBX configuration. PBX networking remains disabled by default outside explicit validation/runtime opt-in.
 
 ```text
 PBX (Asterisk / FreePBX)

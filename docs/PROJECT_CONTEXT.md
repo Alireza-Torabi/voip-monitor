@@ -1,10 +1,10 @@
 # Project context
 
-Status: Phase 2 Task 11 AMI event-list correlation and channel snapshot/reconciliation foundation implemented on a feature branch, 2026-09-25. Task 10 is merged into `main` by PR #11. The next gate is controlled read-only compatibility verification against an explicitly approved real Asterisk deployment before the telephony state engine. License: Apache-2.0. This is a public, reusable VoIP monitoring application hosted separately from the PBX. The first provider targets Asterisk and FreePBX-based Asterisk, with Asterisk 13.x as a required compatibility baseline to verify. No real PBX has been contacted yet.
+Status: Phase 2 Task 12 controlled real-PBX compatibility verification is complete on `feature/real-pbx-compatibility-verification`, 2026-09-25. Task 11 is merged into `main` by PR #12. After correcting the dedicated AMI permission, the approved real gate passed login, discovery, channel snapshots, passive normalized call events, reconciliation, and clean disconnect on an Asterisk 13.x baseline without changing PBX configuration. License: Apache-2.0. This is a public, reusable VoIP monitoring application hosted separately from the PBX. The first provider targets Asterisk and FreePBX-based Asterisk.
 
 ## Repository state
 
-The public foundation repository is established on `main`, tracking `origin/main`. Task 10 is merged. The current feature branch adds ActionID-correlated AMI event-list collection, provider-neutral channel snapshots, initial snapshot publication, and periodic reconciliation snapshots while preserving one provider connection per enabled PBX. PBX networking remains disabled unless the operator explicitly sets `APP_PBX_NETWORK_MODE=plain_tcp`; tests use mocks or loopback synthetic servers and no real PBX has been accessed. The configured `origin` points to the user-supplied GitHub repository via SSH.
+The public foundation repository is established on `main`, tracking `origin/main`. Task 11 is merged. The current feature branch contains the bounded real-PBX compatibility probe and its completed compatibility gate. Target/credential inputs and detailed results remain only under ignored `.local/`; tracked documentation carries no deployment-specific address, account, credential, channel identity, or call detail. Application PBX networking remains disabled unless the operator explicitly sets `APP_PBX_NETWORK_MODE=plain_tcp`; CI remains synthetic. The configured `origin` points to the user-supplied GitHub repository via SSH.
 
 ## Product constraints
 

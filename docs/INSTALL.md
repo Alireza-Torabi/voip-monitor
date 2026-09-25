@@ -14,6 +14,8 @@ Node.js 24 LTS is the planned development runtime. A supported Docker Engine and
 
 The public repository must stay reusable across organizations. A fresh deployment starts from the tracked source and generic instructions only; it must not copy another deployment's database, master key, credentials, hostnames, topology, or private `.local/` notes. Organization-specific values are entered during that deployment and remain in its runtime/secret storage outside Git. The production release must turn this planned sequence into a tested installation, verification, upgrade, backup/restore, rollback, and uninstall runbook.
 
+For the current controlled compatibility gate, use [Real PBX Compatibility Verification](REAL_PBX_VERIFICATION.md). It keeps the target configuration, credential, and detailed result under ignored local storage and does not originate or modify calls.
+
 ## Planned operator sequence
 
 1. Clone the public repository.
