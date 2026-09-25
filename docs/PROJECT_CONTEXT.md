@@ -1,10 +1,10 @@
 # Project context
 
-Status: Phase 2 Task 6 authenticated PBX onboarding foundation implemented on a feature branch, 2026-09-25. License: Apache-2.0. This is a proposed public, reusable VoIP monitoring application hosted separately from the PBX. The first provider targets Asterisk and FreePBX-based Asterisk, with Asterisk 13.x as a required compatibility baseline to verify. No real PBX has been contacted.
+Status: Phase 2 Task 7 Asterisk network-boundary and mock transport foundation implemented on a feature branch, 2026-09-25. License: Apache-2.0. This is a proposed public, reusable VoIP monitoring application hosted separately from the PBX. The first provider targets Asterisk and FreePBX-based Asterisk, with Asterisk 13.x as a required compatibility baseline to verify. No real PBX has been contacted.
 
 ## Repository state
 
-The public foundation repository is established on `main`, tracking `origin/main`. The merged application skeleton provides a minimal backend health server and bilingual frontend shell. The current feature branch adds authenticated PBX profile CRUD, encrypted AMI password handling, a configured-unverified setup state, and bilingual browser setup/login/onboarding forms. Addresses are stored without network access. No monitoring transport or deployment service exists. The configured `origin` points to the user-supplied GitHub repository via SSH.
+The public foundation repository is established on `main`, tracking `origin/main`. The merged application skeleton provides a minimal backend health server and bilingual frontend shell. The current feature branch adds a pure PBX network policy, injected address-resolution boundary, an AMI transport interface, and deterministic mock transport tests. Onboarding remains configured-unverified. There is no concrete DNS resolver, socket transport, AMI authentication, or real PBX access, and no deployment service exists. The configured `origin` points to the user-supplied GitHub repository via SSH.
 
 ## Product constraints
 

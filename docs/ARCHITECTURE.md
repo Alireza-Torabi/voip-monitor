@@ -1,6 +1,6 @@
 # Proposed architecture
 
-Status: Phase 2 Task 6 adds authenticated PBX profile onboarding without PBX network access. The monitoring architecture below remains a design; no PBX integration is implemented.
+Status: Phase 2 Task 7 adds the Asterisk network-boundary and mock AMI transport foundation. There is still no concrete DNS/socket/AMI implementation and no real PBX has been contacted.
 
 ```text
 PBX (Asterisk / FreePBX)
@@ -40,7 +40,9 @@ An empty database creates a protected local bootstrap token; presenting it permi
 
 ## Asterisk provider
 
-The current shared `PbxProvider` contract defines `connect`, `disconnect`, `discover`, `getCapabilities`, `getHealth`, and `reconcile`. Snapshot and event subscription contracts wait for the state engine design. `AsteriskProvider` owns AMI framing/authentication, compatibility, event normalization, reconnect with bounded exponential backoff and jitter, and exactly one connection lifecycle per instance. Prefer dedicated actions/events supported by Asterisk 13. Verify each action, field, privilege, and response format before coding. Reconcile on connect and about every 30–60 seconds; never per browser.
+The current shared `PbxProvider` contract defines `connect`, `disconnect`, `discover`, `getCapabilities`, `getHealth`, and `reconcile`. Snapshot and event subscription contracts wait for the state engine design. Task 7 adds an internal `AmiTransport` seam, a deterministic mock transport, and `AsteriskConnection` orchestration that accepts an injected resolver and transport. Hostnames are resolved once, all returned addresses are checked by the PBX network policy, and the transport receives an already-approved concrete address. Private infrastructure ranges remain allowed; loopback, link-local, multicast, unspecified, broadcast, and known metadata-service targets are blocked. No production resolver or socket transport exists yet.
+
+The eventual `AsteriskProvider` will own AMI framing/authentication, compatibility, event normalization, reconnect with bounded exponential backoff and jitter, and exactly one connection lifecycle per instance. Prefer dedicated actions/events supported by Asterisk 13. Verify each action, field, privilege, and response format before coding. Reconcile on connect and about every 30–60 seconds; never per browser.
 
 ## Realtime and failure handling
 
