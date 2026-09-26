@@ -2,7 +2,7 @@
 
 # عملیات
 
-**وضعیت:** Backend اکنون علاوه بر راه‌اندازی احرازشدهٔ PBX و State Engine تلفنی، System Metrics محدود از SSH با Current/History و API/SSE، رویدادهای امنیتی AMI با Current/History و API/SSE، ارزیابی Fail-Closed هشدار، Persistence هشدار و API/SSE احرازشدهٔ Security Alert را دارد. State تلفنی هنوز Browser-facing نیست. Browser اکنون Current Security Alertها، تاریخچه محدود ۲۴ ساعته، Realtime Update مبتنی بر Persistence و مدیریت Ruleهای محدود را نمایش می‌دهد. Task 35 Persistence مربوط به Notification Channel/Queue و Task 36 APIهای احرازشده Channel به‌همراه Encrypted Webhook Target Storage را اضافه کرده‌اند؛ External Notification Delivery هنوز وجود ندارد. استقرار Production و Backup/Restore آزموده‌شده نیز هنوز کامل نشده‌اند.
+**وضعیت:** Backend اکنون علاوه بر راه‌اندازی احرازشدهٔ PBX و State Engine تلفنی، System Metrics محدود از SSH با Current/History و API/SSE، رویدادهای امنیتی AMI با Current/History و API/SSE، ارزیابی Fail-Closed هشدار، Persistence هشدار و API/SSE احرازشدهٔ Security Alert را دارد. State تلفنی هنوز Browser-facing نیست. Browser اکنون Current Security Alertها، تاریخچه محدود ۲۴ ساعته، Realtime Update مبتنی بر Persistence و مدیریت Ruleهای محدود را نمایش می‌دهد. Task 35 Persistence مربوط به Notification Channel/Queue و Task 36 APIهای احرازشده Channel به‌همراه Encrypted Webhook Target Storage را اضافه کرده‌اند؛ External Notification Delivery هنوز وجود ندارد. اکنون یک Live Same-Origin HTTPS Deployment برای Monitoring Host کنترل‌شده وجود دارد، اما Trusted TLS، OS-level Reboot Persistence، Firewall Validation و Backup/Restore آزموده‌شده هنوز کامل نشده‌اند.
 
 بررسی‌های کنونی را از ریشهٔ مخزن اجرا کنید:
 
@@ -56,3 +56,21 @@ git check-ignore .local/DEPLOYMENT_CONTEXT.md
 پیش از اینکه یک PBX واقعی را Supported در نظر بگیریم، [Runbook تأیید سازگاری PBX واقعی](REAL_PBX_VERIFICATION.fa.md) را اجرا کنید. Verifier اختصاصی، Connection Input و نتیجهٔ Detailدار را فقط در `.local/` نگه می‌دارد و هیچ Call-Control Action ارسال نمی‌کند.
 
 </div>
+
+## Deploy عمومی HTTPS
+
+قبل از Start کردن Deployment، Workspace را Build کنید:
+
+```sh
+npm run build
+```
+
+یک Private Environment File خارج از Git شامل `DATA_PATH`، `VOIP_MONITOR_TLS_CERT`، `VOIP_MONITOR_TLS_KEY` و Bind/Port Valueهای غیرپیش‌فرض بسازید. تا زمانی که PBX Access جداگانه تأیید نشده، `APP_PBX_NETWORK_MODE=disabled` باقی بماند. Repository Launcher از Commandهای زیر پشتیبانی می‌کند:
+
+```sh
+./scripts/run-production.sh start
+./scripts/run-production.sh status
+./scripts/run-production.sh stop
+```
+
+HTTPS Gateway، `frontend/dist` را Serve می‌کند و Application Routeهای Same-Origin را به Loopback Backend Proxy می‌کند. فایل `deployment/systemd/voip-monitor.service` تعریف عمومی OS Service است؛ فقط پس از ساخت Service Account، Private Environment/Data Directoryها، TLS Fileها و Ownership/Permission مناسب آن را نصب کنید. Address، Certificate، Key یا Credential اختصاصی Deployment را Commit نکنید.

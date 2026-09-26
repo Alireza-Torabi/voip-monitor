@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-09-26. Task 35 is merged into main through PR #37. Task 36 authenticated notification-channel APIs plus encrypted webhook-target secret management are implemented locally on feature/notification-channel-api-secrets; no delivery worker or real external-provider contact exists.
+Status: 2026-09-26. Task 36 is merged into main through PR #38. Task 37 live same-origin HTTPS backend/frontend deployment is implemented locally on feature/server-ui-deployment and is currently running on the authorized monitoring host with PBX networking disabled; OS-level reboot persistence and trusted TLS are not yet complete.
 
 ## Phase 0 — environment discovery
 
@@ -74,18 +74,19 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 34: consume the existing PBX-scoped alert SSE/history APIs in the authenticated bilingual security UI, with a bounded 24-hour/100-row recent history and deduplicated realtime current/history updates; no external notification delivery.
 - [x] Task 35: define bounded external-notification channel metadata, pending/cancelled delivery-queue persistence, deterministic per-channel alert deduplication, immutable channel PBX/transport identity, and PBX/channel cascade semantics; no runtime enqueue wiring, delivery worker, provider client, or real external contact.
 - [x] Task 36: expose authenticated PBX-scoped notification-channel list/get/put/delete APIs and encrypted HTTPS webhook-target secret management with same-origin mutation protection and no target/internal-secret disclosure; no delivery worker or external contact.
+- [x] Task 37: deploy the built bilingual frontend and backend as a same-origin HTTPS stack on the monitoring host using private local runtime configuration, loopback-only backend exposure, a managed local launcher, and a generic tracked systemd unit; live UI/health/readiness passed with PBX networking disabled.
 
 ### Current execution handoff
 
-- Current branch: feature/notification-channel-api-secrets, created from synchronized main after Task 35 merged as PR #37.
-- Task 36 is complete locally. Authenticated PBX-scoped notification-channel APIs expose list/get plus PUT/DELETE.
-- Webhook targets are HTTPS-only, bounded to 2048 characters, reject embedded credentials/fragments, and are encrypted immediately through SecretStore.
-- API responses expose safe operational metadata plus hasTarget only; target URL, internal secret name, ciphertext, and decrypted material remain private.
-- New channels require a target; later updates may omit it and preserve the existing encrypted target.
-- PUT/DELETE use existing same-origin protection and cross-PBX scope fails closed.
-- Deleting a channel removes its encrypted target secret as well as channel/queue state.
-- Task 36 performs no DNS resolution, URL probe, webhook request, delivery worker action, or external network contact.
-- Exact next task after Task 36 merge: Task 37 — deploy the existing backend and bilingual frontend UI on voip-mon as a managed same-origin service, with private local deployment configuration and no new real-PBX access unless separately approved.
+- Current branch: feature/server-ui-deployment, created from synchronized main after Task 36 merged as PR #38.
+- Task 37 is complete locally and the UI is live on the authorized monitoring host through the HTTPS gateway.
+- The backend listens on loopback only; the HTTPS gateway is the browser-facing same-origin boundary and serves the built frontend while proxying setup/auth/API/health/readiness routes.
+- Private runtime configuration, SQLite data, TLS key/certificate, PID, and logs remain under ignored local storage and are not committed.
+- The active deployment forces PBX network mode disabled, so bringing up the UI does not connect to any PBX.
+- The local launcher supports start/stop/status/run. A shutdown bug was fixed by starting the stack in its own process group so stop terminates both backend and gateway; start/health/stop/listener-clear/restart/status then passed.
+- The current host uses a self-signed local TLS certificate, so browsers require a one-time trust exception until trusted TLS is installed.
+- A generic systemd unit is tracked for reusable deployments, but this session cannot install it because the current account cannot write the system unit directory and the user systemd manager is not persistent. The live stack therefore does not yet auto-start after host reboot.
+- Exact next task after Task 37 merge: **Task 38 — complete OS-level service persistence with administrator installation of the tracked systemd unit, replace or trust TLS appropriately, validate firewall exposure, reboot the host, and prove automatic service/UI recovery without enabling new PBX access.**
 
 ### Failure and bug log
 
@@ -326,7 +327,31 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - Initial API-test insertion anchor mismatch — resolved: the first test patch targeted a non-existent onboarding test title; the actual anchor was inspected and the targeted suite then passed.
 - Known limitation: Task 36 models only the webhook target URL; provider-specific auth headers, bearer tokens, signing secrets, certificates, and custom payload templates are not modeled.
 - Known limitation: HTTPS syntax validation is not a future network-safety claim; any delivery worker must still enforce DNS/SSRF policy, redirect policy, timeouts, and bounded responses.
-- Exact next task: Task 37 deploys the existing backend/frontend UI on voip-mon as a managed same-origin service; deployment values remain private/local and do not authorize new real-PBX access.
+- Exact next task: Task 37 deploys the existing backend/frontend UI on the monitoring host as a managed same-origin service; deployment values remain private/local and do not authorize new real-PBX access.
+
+## 2026-09-26 — Task 37 completion record
+
+- **Result:** added a production HTTPS gateway, local deployment launcher, generic systemd service definition, private runtime configuration, and a live same-origin backend/frontend deployment on the monitoring host.
+- **Network boundary:** backend binds only to loopback. The HTTPS gateway serves the built frontend and proxies setup/auth/API/health/readiness while preserving browser Host/Origin for the existing same-origin security model.
+- **TLS:** the live host currently uses a private self-signed certificate generated under ignored local storage. Secure production cookies therefore work over HTTPS, but browser trust is not yet organization-managed.
+- **Private state:** deployment env, SQLite data, secret-store files, TLS private key, PID, and runtime log stay under ignored local storage. No host-specific address or secret is committed.
+- **PBX safety:** active deployment explicitly uses PBX network mode disabled. No PBX connection was opened by Task 37.
+- **Management:** the repository launcher supports start/stop/status/run. A generic hardened systemd unit is tracked for installations with administrator access.
+- **Live verification:** HTTPS index returned 200 and the React root, health returned ok, readiness returned ready, setup status reported fresh-admin setup required, backend was loopback-only, and browser-facing HTTPS listener was active.
+- **Lifecycle verification:** after the process-group fix, start -> health -> stop -> no remaining listeners -> restart -> status -> health passed.
+
+### Task 37 failures / bugs / gaps
+
+- **Combined remote capability command blocked — no change:** a read-only command combining sudo/system checks was rejected by the remote execution policy. The checks were split into non-privileged read-only commands.
+- **Deployment script wrapper interpolation failures — resolved before file creation:** the first generated script payloads contained shell/JavaScript interpolation tokens that the remote wrapper parsed. Fix: use neutral placeholders and substitute literal characters inside the tool call.
+- **Launcher stop bug — resolved:** the first stop implementation terminated only the parent shell while backend and HTTPS gateway children remained listening. Root cause was missing process-group ownership. Fix: start the stack with setsid and terminate the complete negative-PGID group; lifecycle re-validation passed.
+- **Gateway lint failure — resolved:** the first full gate run rejected Node globals in `production-gateway.mjs` because this repository does not treat `process`, `console`, `URL`, or `setTimeout` as implicit globals. Fix: import the corresponding Node built-ins explicitly and rerun the complete gate suite.
+- **Full-gate shell wrapper failure — resolved:** the first full-gate rerun entered a nested fail-fast shell without exporting `NODE_BIN`, so `set -u` stopped immediately before tests. Fix: export `NODE_BIN` before entering the nested shell and rerun the complete suite from parity/lint onward.
+- **Same-origin POST probe blocked by remote safety layer — no application state change:** an intentionally invalid setup POST used only to verify forwarded Origin was blocked by the remote tool safety layer before execution. Existing automated same-origin API tests plus successful HTTPS GET proxy verification remain the validation basis.
+- **Known limitation:** the live certificate is self-signed and not trusted by browsers/organization PKI.
+- **Known limitation:** the generic systemd unit is tracked but not installed on this host because system-level installation requires administrator privileges unavailable to this session; current launcher does not guarantee automatic recovery after a host reboot.
+- **Known limitation:** host firewall policy for the browser-facing HTTPS port could not be authoritatively changed/validated without administrator access.
+- **Exact next task:** Task 38 installs the tracked OS service with administrator privileges, establishes trusted TLS/firewall policy, reboots, and verifies automatic UI recovery while keeping PBX networking disabled unless separately approved.
 
 ### Persistent continuation protocol
 
@@ -354,7 +379,7 @@ Tasks 7–13 implemented substantial Asterisk-provider and telephony-state found
 - [ ] Phase 11: hardening, backup, tested restore, and a production deployment runbook.
 - [ ] Phase 12: release validation, including an organization-neutral fresh-deployment procedure that can onboard a new service without carrying private values from another deployment.
 
-Phase 1 is closed. Phase 7's defined security-monitoring slice remains complete through Task 34. Task 35 adds notification storage/contracts and Task 36 adds authenticated channel configuration plus encrypted webhook-target management without activating delivery. Exact next task after Task 36 merge is **Task 37 — deploy the existing backend and bilingual frontend UI on voip-mon as a managed same-origin service, keeping private deployment values local and making no new real-PBX contact without explicit approval.**
+Phase 1 is closed. Phase 7's defined security-monitoring slice remains complete through Task 34. Tasks 35-36 add notification storage/configuration without delivery, and Task 37 now provides a live same-origin HTTPS backend/frontend deployment on the monitoring host with PBX networking disabled. Exact next task after Task 37 merge is **Task 38 — install OS-level service persistence, establish trusted TLS and firewall policy, reboot, and prove automatic UI recovery without enabling new PBX access.**
 
 ## 2026-09-26 — Task 28 completion record
 

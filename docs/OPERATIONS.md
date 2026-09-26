@@ -1,6 +1,6 @@
 # Operations
 
-**Status:** The backend includes authenticated PBX onboarding, encrypted AMI/SSH secrets, AMI runtime and telephony-state foundations, restricted SSH system-metrics collection with persisted current/history plus authenticated HTTP/SSE delivery, normalized AMI authentication-security events with persisted current/history plus authenticated HTTP/SSE delivery, bounded fail-closed security-alert evaluation, alert current/history persistence, and authenticated PBX-scoped alert HTTP/SSE exposure. Telephony state is not yet browser-facing. The browser now exposes current Security Alerts, a bounded recent 24-hour history, persistence-backed realtime updates, and bounded rule management. Task 35 provides notification channel/queue persistence and Task 36 adds authenticated channel APIs plus encrypted webhook-target storage; external notification delivery still does not exist. Production deployment and tested backup/restore also remain incomplete.
+**Status:** The backend includes authenticated PBX onboarding, encrypted AMI/SSH secrets, AMI runtime and telephony-state foundations, restricted SSH system-metrics collection with persisted current/history plus authenticated HTTP/SSE delivery, normalized AMI authentication-security events with persisted current/history plus authenticated HTTP/SSE delivery, bounded fail-closed security-alert evaluation, alert current/history persistence, and authenticated PBX-scoped alert HTTP/SSE exposure. Telephony state is not yet browser-facing. The browser now exposes current Security Alerts, a bounded recent 24-hour history, persistence-backed realtime updates, and bounded rule management. Task 35 provides notification channel/queue persistence and Task 36 adds authenticated channel APIs plus encrypted webhook-target storage; external notification delivery still does not exist. A live same-origin HTTPS deployment now exists for the controlled monitoring host, but trusted TLS, OS-level reboot persistence, firewall validation, and tested backup/restore remain incomplete.
 
 ## Current checks
 
@@ -40,3 +40,21 @@ After login, use the bilingual browser form to add an Asterisk / FreePBX profile
 The same-origin backend routes are `GET/POST /api/pbx-instances` and `GET/PATCH/DELETE /api/pbx-instances/:id`; all require an administrator session, and writes require the Task 5 Origin check. Start the local backend with `APP_ENV=development` on port 3000 before `npm run dev -w frontend`; Vite proxies `/setup`, `/auth`, and `/api` to that backend while preserving browser Origin and Host. Production needs a controlled HTTPS reverse proxy. The first saved profile is `PBX_CONFIGURED_UNVERIFIED`. PBX networking remains disabled unless `APP_PBX_NETWORK_MODE=plain_tcp` is set explicitly. In that opt-in mode, enabled profiles get one persistent provider lifecycle with reconnect/backoff, normalized live AMI events, an initial `CoreShowChannels` snapshot when available, and periodic channel reconciliation. Snapshot-only failures leave the provider degraded and retry without reconnecting. Use the browser **Test connection** control or same-origin `POST /api/pbx-instances/:id/test-connection`; success records safe discovery metadata and a last-verification timestamp. `GET /api/pbx-instances/:id/provider-status` exposes safe runtime health. A failed PBX or failed test never makes `/ready` fail. Plain TCP AMI is suitable only for a trusted/protected network path.
 
 Before treating a real PBX as supported, follow [Real PBX Compatibility Verification](REAL_PBX_VERIFICATION.md). The dedicated verifier keeps real connection inputs and detailed results under `.local/` and sends no call-control action.
+
+## Generic HTTPS deployment
+
+Build the workspace before starting the deployment:
+
+```sh
+npm run build
+```
+
+Create a private environment file outside Git containing `DATA_PATH`, `VOIP_MONITOR_TLS_CERT`, `VOIP_MONITOR_TLS_KEY`, and any non-default bind/port values. Keep `APP_PBX_NETWORK_MODE=disabled` until PBX access is separately approved. The repository launcher supports:
+
+```sh
+./scripts/run-production.sh start
+./scripts/run-production.sh status
+./scripts/run-production.sh stop
+```
+
+The HTTPS gateway serves `frontend/dist` and proxies same-origin application routes to a loopback backend. `deployment/systemd/voip-monitor.service` is the generic OS-service definition; install it only after creating the service account, private environment/data directories, TLS files, and matching ownership/permissions. Do not commit deployment-specific addresses, certificates, keys, or credentials.

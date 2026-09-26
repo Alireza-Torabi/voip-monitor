@@ -1,6 +1,6 @@
 # Master Plan
 
-وضعیت: 2026-09-26. Task 35 از طریق PR #37 داخل main Merge شده است. APIهای احرازشده Notification Channel به‌همراه Encrypted Webhook Target Secret Management در Task 36 به‌صورت Local روی feature/notification-channel-api-secrets پیاده‌سازی شده‌اند؛ هیچ Delivery Worker یا تماس واقعی با External Provider وجود ندارد.
+وضعیت: 2026-09-26. Task 36 از طریق PR #38 داخل main Merge شده است. Deploy زنده Same-Origin HTTPS برای Backend/Frontend در Task 37 روی feature/server-ui-deployment به‌صورت Local پیاده‌سازی شده و اکنون روی Monitoring Host مجاز با PBX Networking غیرفعال در حال اجراست؛ OS-level Reboot Persistence و Trusted TLS هنوز کامل نیستند.
 
 ## Phase 0 - کشف محیط
 
@@ -74,18 +74,19 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - [x] Task 34: APIهای هشدار SSE/history با محدوده PBX موجود در رابط کاربری امنیتی دوزبانه تأیید شده، با تاریخچه اخیر محدود 24 ساعته/100 ردیفی و به‌روزرسانی‌های بیدرنگ فعلی/تاریخچه حذف شده را مصرف کنید. بدون External Notification Delivery
 - [x] Task 35: Metadata محدود External Notification Channel، Persistence مربوط به Delivery Queue با Stateهای Pending/Cancelled، Deduplication قطعی Alert برای هر Channel، هویت immutable برای PBX/Transport Channel و Cascade Semantics مربوط به PBX/Channel تعریف شد؛ بدون Runtime Enqueue Wiring، Delivery Worker، Provider Client یا تماس واقعی خارجی.
 - [x] Task 36: APIهای احرازشده و PBX-scoped برای list/get/put/delete در Notification Channel و Encrypted HTTPS Webhook Target Secret Management با Same-Origin Protection اضافه شدند؛ بدون افشای Target/Internal Secret، Delivery Worker یا تماس خارجی.
+- [x] Task 37: Built Bilingual Frontend و Backend به‌صورت Same-Origin HTTPS Stack روی Monitoring Host با Private Local Runtime Configuration، Loopback-only Backend Exposure، Managed Local Launcher و Generic Tracked Systemd Unit Deploy شدند؛ Live UI/Health/Readiness با PBX Networking غیرفعال PASS شد.
 
 ### وضعیت فعلی ادامه کار
 
-- Branch فعلی feature/notification-channel-api-secrets است که پس از Merge شدن Task 35 با PR #37 از main همگام‌شده ساخته شده است.
-- Task 36 به‌صورت Local کامل است. APIهای احرازشده و PBX-scoped در Notification Channel، list/get و PUT/DELETE را ارائه می‌کنند.
-- Webhook Target فقط HTTPS است، حداکثر 2048 کاراکتر دارد، Embedded Credential/Fragment را رد می‌کند و فوراً از طریق SecretStore رمزگذاری می‌شود.
-- API Response فقط Operational Metadata امن به‌علاوه hasTarget را نمایش می‌دهد؛ Target URL، Internal Secret Name، Ciphertext و Decrypted Material خصوصی می‌مانند.
-- Channel جدید به Target نیاز دارد؛ Updateهای بعدی می‌توانند Target را حذف کنند و Encrypted Target موجود را حفظ کنند.
-- PUT/DELETE از Same-Origin Protection موجود استفاده می‌کنند و Cross-PBX Scope به‌صورت Fail-closed عمل می‌کند.
-- حذف Channel، Encrypted Target Secret و همچنین Channel/Queue State آن را حذف می‌کند.
-- Task 36 هیچ DNS Resolution، URL Probe، Webhook Request، Delivery Worker Action یا External Network Contact انجام نمی‌دهد.
-- Task دقیق بعدی پس از Merge شدن Task 36: Task 37 — Deploy کردن Backend موجود و Bilingual Frontend UI روی voip-mon به‌عنوان Managed Same-Origin Service، با Private Local Deployment Configuration و بدون Real-PBX Access جدید مگر با تأیید جداگانه.
+- Branch فعلی feature/server-ui-deployment است که پس از Merge شدن Task 36 با PR #38 از main همگام‌شده ساخته شده است.
+- Task 37 به‌صورت Local کامل است و UI از طریق HTTPS Gateway روی Monitoring Host مجاز Live است.
+- Backend فقط روی Loopback گوش می‌دهد؛ HTTPS Gateway مرز Same-Origin سمت Browser است و Built Frontend را Serve و Setup/Auth/API/Health/Readiness را Proxy می‌کند.
+- Private Runtime Configuration، SQLite Data، TLS Key/Certificate، PID و Log فقط در Local Storage نادیده‌گرفته‌شده باقی می‌مانند و Commit نمی‌شوند.
+- Deployment فعال PBX Network Mode را Disabled نگه می‌دارد؛ بالا آمدن UI به هیچ PBX وصل نمی‌شود.
+- Local Launcher از start/stop/status/run پشتیبانی می‌کند. Bug مربوط به Shutdown با Process Group مستقل رفع شد و start/health/stop/listener-clear/restart/status PASS شد.
+- Certificate فعلی Self-signed و Local است؛ تا نصب Trusted TLS، Browser نیاز به Trust Exception دارد.
+- Generic Systemd Unit برای Deployهای قابل‌استفاده مجدد Track شده، اما این Session امکان نصب آن را ندارد چون Account فعلی در System Unit Directory حق Write ندارد و User Systemd نیز Persistent نیست. بنابراین Stack زنده هنوز پس از Host Reboot Auto-start تضمین‌شده ندارد.
+- Task دقیق بعدی پس از Merge شدن Task 37: **Task 38 — نصب OS-level Service Persistence با دسترسی Administrator، جایگزینی/اعتماد مناسب TLS، Validation مربوط به Firewall Exposure، Reboot Host و اثبات Automatic Service/UI Recovery بدون فعال کردن PBX Access جدید.**
 
 ### ثبت خرابی و اشکال
 
@@ -326,7 +327,31 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - Initial API-test Insertion Anchor Mismatch — رفع شد: اولین Test Patch یک عنوان Test ناموجود را هدف گرفته بود؛ Anchor واقعی بررسی شد و سپس Targeted Suite پاس شد.
 - محدودیت شناخته‌شده: Task 36 فقط Webhook Target URL را مدل می‌کند؛ Provider-specific Auth Header، Bearer Token، Signing Secret، Certificate و Custom Payload Template مدل نشده‌اند.
 - محدودیت شناخته‌شده: HTTPS Syntax Validation ادعای Network Safety آینده نیست؛ Delivery Worker باید DNS/SSRF Policy، Redirect Policy، Timeout و Bounded Response را enforce کند.
-- Task دقیق بعدی: Task 37، Backend/Frontend UI موجود را روی voip-mon به‌عنوان Managed Same-Origin Service Deploy می‌کند؛ Deployment Valueها Private/Local می‌مانند و Real-PBX Access جدیدی مجاز نمی‌کنند.
+- Task دقیق بعدی: Task 37، Backend/Frontend UI موجود را روی Monitoring Host به‌عنوان Managed Same-Origin Service Deploy می‌کند؛ Deployment Valueها Private/Local می‌مانند و Real-PBX Access جدیدی مجاز نمی‌کنند.
+
+## 2026-09-26 — رکورد تکمیل Task 37
+
+- **نتیجه:** Production HTTPS Gateway، Local Deployment Launcher، Generic Systemd Service Definition، Private Runtime Configuration و Live Same-Origin Backend/Frontend Deployment روی Monitoring Host اضافه شدند.
+- **Network Boundary:** Backend فقط روی Loopback Bind است. HTTPS Gateway Built Frontend را Serve و Setup/Auth/API/Health/Readiness را Proxy می‌کند و Browser Host/Origin را برای Same-Origin Security Model موجود حفظ می‌کند.
+- **TLS:** Live Host فعلاً از Private Self-signed Certificate زیر Ignored Local Storage استفاده می‌کند. Secure Production Cookie روی HTTPS درست است، اما Browser Trust هنوز Organization-managed نیست.
+- **Private State:** Deployment Env، SQLite Data، Secret-store Files، TLS Private Key، PID و Runtime Log فقط در Ignored Local Storage می‌مانند. هیچ Host-specific Address یا Secret Commit نمی‌شود.
+- **PBX Safety:** Deployment فعال صریحاً PBX Network Mode را Disabled نگه می‌دارد. Task 37 هیچ PBX Connection باز نکرد.
+- **Management:** Repository Launcher از start/stop/status/run پشتیبانی می‌کند. Generic Hardened Systemd Unit برای Installationهای دارای Administrator Access Track شده است.
+- **Live Verification:** HTTPS Index با 200 و React Root، Health با ok، Readiness با ready، Setup Status با Fresh-admin Setup Required، Backend به‌صورت Loopback-only و Browser-facing HTTPS Listener فعال تأیید شدند.
+- **Lifecycle Verification:** بعد از Process-group Fix، مسیر start -> health -> stop -> no remaining listeners -> restart -> status -> health PASS شد.
+
+### Failure / Bug / Gapهای Task 37
+
+- **Combined Remote Capability Command Blocked — بدون تغییر:** یک Command فقط-خواندنی شامل sudo/system checks توسط Remote Execution Policy رد شد. بررسی‌ها به Commandهای Read-only و Non-privileged تقسیم شدند.
+- **Deployment Script Wrapper Interpolation Failures — قبل از File Creation رفع شد:** Payloadهای اولیه Script شامل Shell/JavaScript Interpolation Token بودند که Remote Wrapper Parse می‌کرد. اصلاح: Neutral Placeholder استفاده شد و Literal Character داخل Tool Call جایگزین شد.
+- **Launcher Stop Bug — رفع شد:** Stop اولیه فقط Parent Shell را متوقف کرد و Backend/HTTPS Gateway Childها Listener باقی ماندند. Root Cause نداشتن Process-group Ownership بود. اصلاح: Stack با setsid اجرا و کل Negative-PGID Group terminate شد؛ Lifecycle Re-validation PASS شد.
+- **Gateway Lint Failure — رفع شد:** اولین Full Gate Run، Node Globalهای `production-gateway.mjs` را رد کرد چون این Repository، `process`، `console`، `URL` و `setTimeout` را Implicit Global فرض نمی‌کند. اصلاح: Node Built-inهای متناظر Explicit Import شدند و کل Gate Suite دوباره اجرا شد.
+- **Full-gate Shell Wrapper Failure — رفع شد:** اولین Full-gate Rerun وارد Nested Fail-fast Shell شد بدون اینکه `NODE_BIN` Export شده باشد؛ بنابراین `set -u` قبل از Testها بلافاصله متوقف شد. اصلاح: `NODE_BIN` پیش از ورود به Nested Shell Export شد و کل Suite از Parity/Lint به بعد دوباره اجرا شد.
+- **Same-origin POST Probe توسط Remote Safety Layer Block شد — بدون تغییر Application State:** POST عمداً نامعتبر برای بررسی Forwarded Origin پیش از اجرا توسط Safety Layer ابزار متوقف شد. Automated Same-Origin API Testهای موجود به‌علاوه HTTPS GET Proxy Verification مبنای Validation باقی ماندند.
+- **محدودیت شناخته‌شده:** Live Certificate Self-signed است و توسط Browser/Organization PKI Trusted نیست.
+- **محدودیت شناخته‌شده:** Generic Systemd Unit Track شده اما روی این Host نصب نشده چون Installation سطح System نیازمند Administrator Privilege خارج از دسترس این Session است؛ Launcher فعلی Automatic Recovery پس از Host Reboot را تضمین نمی‌کند.
+- **محدودیت شناخته‌شده:** Host Firewall Policy برای Browser-facing HTTPS Port بدون Administrator Access به‌صورت Authoritative قابل تغییر/Validation نبود.
+- **Task دقیق بعدی:** Task 38، Tracked OS Service را با Administrator Privilege نصب می‌کند، Trusted TLS/Firewall Policy را برقرار می‌کند، Reboot انجام می‌دهد و Automatic UI Recovery را در حالی Validate می‌کند که PBX Networking بدون تأیید جداگانه Disabled باقی می‌ماند.
 
 ### پروتکل ادامه مداوم
 
@@ -354,7 +379,7 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - [ ] Phase 11: سخت شدن، تهیه نسخه پشتیبان، بازیابی آزمایش شده، و یک دفترچه راه اندازی تولید.
 - [ ] Phase 12: اعتبار سنجی انتشار، از جمله رویه استقرار تازه خنثی برای سازمان که می تواند بدون حمل مقادیر خصوصی از استقرار دیگر، روی یک سرویس جدید نصب شود.
 
-Phase 1 بسته است. بخش تعریف‌شده Security Monitoring در Phase 7 همچنان تا Task 34 کامل است. Task 35 Storage/Contract مربوط به Notification را اضافه می‌کند و Task 36 Authenticated Channel Configuration و Encrypted Webhook Target Management را بدون فعال کردن Delivery اضافه کرده است. Task دقیق بعدی پس از Merge شدن Task 36، **Task 37 — Deploy کردن Backend موجود و Bilingual Frontend UI روی voip-mon به‌عنوان Managed Same-Origin Service، با Private Deployment Valueهای Local و بدون تماس جدید با PBX واقعی مگر با تأیید صریح.**
+Phase 1 بسته است. بخش تعریف‌شده Security Monitoring در Phase 7 همچنان تا Task 34 کامل است. Taskهای 35-36 Storage/Configuration مربوط به Notification را بدون Delivery اضافه کرده‌اند و Task 37 اکنون Live Same-Origin HTTPS Backend/Frontend Deployment را روی Monitoring Host با PBX Networking غیرفعال فراهم کرده است. Task دقیق بعدی پس از Merge شدن Task 37، **Task 38 — نصب OS-level Service Persistence، برقراری Trusted TLS و Firewall Policy، Reboot و اثبات Automatic UI Recovery بدون فعال کردن PBX Access جدید.**
 
 ## 26-09-2026 - رکورد تکمیل Task 28
 
