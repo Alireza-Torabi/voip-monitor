@@ -10,6 +10,8 @@ import type {
   SystemMetricsRuntime,
   SystemMetricsSampleListener,
 } from './collectors/system/runtime.js';
+import type { SecurityEvent } from '@voip-monitor/shared';
+import type { ProviderRuntimeSecurityEventListener } from './providers/runtime/index.js';
 
 function send(response: ServerResponse, status: number, data: object, cookie?: string): void {
   response.writeHead(status, {
@@ -94,6 +96,7 @@ export function createApp(
 ): Server {
   const limiter = new AttemptLimiter();
   const metricsStreams = new Set<ServerResponse>();
+  const securityStreams = new Set<ServerResponse>();
   const onboarding =
     storage && secrets
       ? new PbxOnboardingService(
@@ -221,6 +224,63 @@ export function createApp(
           metricsStreams.delete(response);
           unsubscribeSample();
           unsubscribeHealth();
+        });
+        return;
+      }
+
+      const securityAction = path.match(
+        /^\/api\/pbx-instances\/([^/]+)\/security-events(\/history|\/stream)?$/,
+      );
+      if (securityAction) {
+        if (!auth || !storage || !runtime || !auth.principal(sessionToken(request)))
+          return send(response, 401, { error: 'unauthorized' });
+        const id = securityAction[1]!;
+        const action = securityAction[2] ?? '';
+        if (!onboarding?.get(id)) return send(response, 404, { error: 'not_found' });
+        if (request.method !== 'GET') return send(response, 404, { error: 'not_found' });
+        const url = new URL(request.url ?? '/', 'http://localhost');
+        if (action === '') {
+          return send(response, 200, {
+            current: storage.securityEvents.getCurrent(id) ?? null,
+          });
+        }
+        if (action === '/history') {
+          const from = iso(url.searchParams.get('from'));
+          const to = iso(url.searchParams.get('to'));
+          if (!from || !to || from > to) return send(response, 400, { error: 'invalid_range' });
+          const rawLimit = url.searchParams.get('limit') ?? '100';
+          const limit = Number(rawLimit);
+          if (!Number.isSafeInteger(limit) || limit < 1 || limit > 500)
+            return send(response, 400, { error: 'invalid_limit' });
+          return send(response, 200, {
+            items: storage.securityEvents.listHistory(id, from, to, limit),
+          });
+        }
+        if (!sameOrigin(request, auth.requiresSecureOrigin))
+          return send(response, 403, { error: 'forbidden' });
+        if (securityStreams.size >= 64) return send(response, 429, { error: 'too_many_requests' });
+        response.writeHead(200, {
+          'content-type': 'text/event-stream; charset=utf-8',
+          'cache-control': 'no-cache, no-store',
+          connection: 'keep-alive',
+        });
+        writeSse(response, 'security-event', {
+          current: storage.securityEvents.getCurrent(id) ?? null,
+        });
+        const onEvent: ProviderRuntimeSecurityEventListener = (event: SecurityEvent) => {
+          if (event.instanceId === id && !response.destroyed)
+            writeSse(response, 'security-event', { event });
+        };
+        securityStreams.add(response);
+        const unsubscribe = runtime.subscribeSecurityEvents(onEvent);
+        const heartbeat = setInterval(() => {
+          if (response.destroyed) clearInterval(heartbeat);
+          else response.write(': heartbeat\\n\\n');
+        }, 15_000);
+        request.on('close', () => {
+          clearInterval(heartbeat);
+          securityStreams.delete(response);
+          unsubscribe();
         });
         return;
       }
