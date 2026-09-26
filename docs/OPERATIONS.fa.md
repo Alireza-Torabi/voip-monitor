@@ -2,7 +2,7 @@
 
 # عملیات
 
-**وضعیت:** Backend اکنون علاوه بر راه‌اندازی احرازشدهٔ PBX و State Engine تلفنی، System Metrics محدود از SSH با Current/History و API/SSE، رویدادهای امنیتی AMI با Current/History و API/SSE، ارزیابی Fail-Closed هشدار، Persistence هشدار و API/SSE احرازشدهٔ Security Alert را دارد. State تلفنی هنوز Browser-facing نیست. Browser اکنون Current Security Alertها، تاریخچه محدود ۲۴ ساعته، Realtime Update مبتنی بر Persistence و مدیریت Ruleهای محدود را نمایش می‌دهد. Task 35 فقط Persistence مربوط به Notification Channel/Queue را اضافه کرده است؛ External Notification Delivery هنوز وجود ندارد. استقرار Production و Backup/Restore آزموده‌شده نیز هنوز کامل نشده‌اند.
+**وضعیت:** Backend اکنون علاوه بر راه‌اندازی احرازشدهٔ PBX و State Engine تلفنی، System Metrics محدود از SSH با Current/History و API/SSE، رویدادهای امنیتی AMI با Current/History و API/SSE، ارزیابی Fail-Closed هشدار، Persistence هشدار و API/SSE احرازشدهٔ Security Alert را دارد. State تلفنی هنوز Browser-facing نیست. Browser اکنون Current Security Alertها، تاریخچه محدود ۲۴ ساعته، Realtime Update مبتنی بر Persistence و مدیریت Ruleهای محدود را نمایش می‌دهد. Task 35 Persistence مربوط به Notification Channel/Queue و Task 36 APIهای احرازشده Channel به‌همراه Encrypted Webhook Target Storage را اضافه کرده‌اند؛ External Notification Delivery هنوز وجود ندارد. استقرار Production و Backup/Restore آزموده‌شده نیز هنوز کامل نشده‌اند.
 
 بررسی‌های کنونی را از ریشهٔ مخزن اجرا کنید:
 

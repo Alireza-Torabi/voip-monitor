@@ -1,6 +1,6 @@
 # Project context
 
-Status: Phase 7's defined security-monitoring slice is merged through Task 34/PR #36. Task 35 is implemented locally on feature/notification-delivery-foundation as of 2026-09-26. Migration 11 adds PBX-scoped notification-channel metadata plus duplicate-safe pending/cancelled delivery-queue persistence. No runtime subscribes to alerts for delivery, no provider client/worker exists, and no real external endpoint is contacted. Authenticated notification configuration/secret management, runtime enqueue, delivery execution, retry semantics, broader security sources/rules, telephony browser state, and broader production dashboard work remain future work. License: Apache-2.0.
+Status: Task 35 is merged through PR #37. Task 36 is implemented locally on feature/notification-channel-api-secrets as of 2026-09-26: authenticated PBX-scoped notification-channel APIs plus encrypted HTTPS webhook-target secret management exist. API responses expose only safe metadata/hasTarget. No DNS lookup, webhook request, delivery worker, or real external-provider contact exists. Exact next task is Task 37 to deploy the existing backend and bilingual frontend UI on voip-mon as a managed same-origin service using private local deployment configuration. License: Apache-2.0.
 
 ## Repository state
 

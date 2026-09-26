@@ -9,6 +9,10 @@ import type {
   SecurityAlertRuleId,
 } from './storage/index.js';
 import type { SecretStore } from './security/secret-store.js';
+import {
+  NotificationConfigurationError,
+  NotificationConfigurationService,
+} from './notifications/configuration.js';
 import { ProviderRuntimeError, type ProviderRuntimeManager } from './providers/runtime/index.js';
 import type {
   SystemMetricsHealthListener,
@@ -160,6 +164,8 @@ export function createApp(
           (id) => runtime?.connectionState(id) ?? 'UNVERIFIED',
         )
       : undefined;
+  const notificationConfiguration =
+    storage && secrets ? new NotificationConfigurationService(storage, secrets) : undefined;
   return createServer((request, response) => {
     const handle = async (): Promise<void> => {
       const path = new URL(request.url ?? '/', 'http://localhost').pathname;
@@ -281,6 +287,44 @@ export function createApp(
           unsubscribeHealth();
         });
         return;
+      }
+
+      const notificationChannelAction = path.match(
+        /^\/api\/pbx-instances\/([^/]+)\/notification-channels(?:\/([^/]+))?$/,
+      );
+      if (notificationChannelAction) {
+        if (!auth || !notificationConfiguration || !auth.principal(sessionToken(request)))
+          return send(response, 401, { error: 'unauthorized' });
+        const id = notificationChannelAction[1]!;
+        const channelId = notificationChannelAction[2];
+        if (!onboarding?.get(id)) return send(response, 404, { error: 'not_found' });
+        try {
+          if (request.method === 'GET') {
+            if (channelId === undefined)
+              return send(response, 200, { items: notificationConfiguration.list(id) });
+            const channel = notificationConfiguration.get(id, channelId);
+            return channel
+              ? send(response, 200, channel)
+              : send(response, 404, { error: 'not_found' });
+          }
+          if (!['PUT', 'DELETE'].includes(request.method ?? '') || channelId === undefined)
+            return send(response, 404, { error: 'not_found' });
+          if (!sameOrigin(request, auth.requiresSecureOrigin))
+            return send(response, 403, { error: 'forbidden' });
+          if (request.method === 'DELETE') {
+            return notificationConfiguration.delete(id, channelId)
+              ? send(response, 200, { status: 'deleted' })
+              : send(response, 404, { error: 'not_found' });
+          }
+          const input = await body(request);
+          if (!input) return send(response, 400, { error: 'invalid_request' });
+          return send(response, 200, notificationConfiguration.configure(id, channelId, input));
+        } catch (error) {
+          if (!(error instanceof NotificationConfigurationError)) throw error;
+          if (error.code === 'PBX_NOT_FOUND' || error.code === 'CHANNEL_NOT_FOUND')
+            return send(response, 404, { error: 'not_found' });
+          return send(response, 400, { error: 'invalid_request' });
+        }
       }
 
       const securityAlertRuleAction = path.match(
