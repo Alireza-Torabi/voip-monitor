@@ -93,6 +93,23 @@ export interface SecurityEventRepository {
   pruneBefore(cutoff: string): number;
 }
 
+export type SecurityAlertRuleId = 'AUTHENTICATION_FAILURE_ANY' | 'AUTHENTICATION_FAILURE_THRESHOLD';
+export interface SecurityAlertRecord {
+  instanceId: string;
+  ruleId: SecurityAlertRuleId;
+  observedAt: string;
+  matchedEventCount: number;
+  streamGeneration?: number;
+  streamSequence?: number;
+}
+export interface SecurityAlertRepository {
+  save(alert: SecurityAlertRecord, retentionCutoff: string): void;
+  getCurrent(instanceId: string, ruleId: SecurityAlertRuleId): SecurityAlertRecord | undefined;
+  listCurrent(instanceId: string): SecurityAlertRecord[];
+  listHistory(instanceId: string, from: string, to: string, limit: number): SecurityAlertRecord[];
+  pruneBefore(cutoff: string): number;
+}
+
 export interface AppStorage {
   transaction<T>(action: () => T): T;
   readonly setup: SetupRepository;
@@ -102,6 +119,7 @@ export interface AppStorage {
   readonly sshConfigs: SshConfigRepository;
   readonly systemMetrics: SystemMetricsRepository;
   readonly securityEvents: SecurityEventRepository;
+  readonly securityAlerts: SecurityAlertRepository;
   readonly secretRecords: EncryptedSecretRepository;
   hasEncryptedSecrets(): boolean;
   migrationHistory(): MigrationRecord[];
@@ -214,6 +232,7 @@ export class SqliteStorage implements AppStorage {
   readonly sshConfigs: SshConfigRepository;
   readonly systemMetrics: SystemMetricsRepository;
   readonly securityEvents: SecurityEventRepository;
+  readonly securityAlerts: SecurityAlertRepository;
   readonly secretRecords: EncryptedSecretRepository;
   private closed = false;
 
@@ -588,6 +607,102 @@ export class SqliteStorage implements AppStorage {
             .changes,
         ),
     };
+    this.securityAlerts = {
+      save: (alert, retentionCutoff) => {
+        const validated = parseSecurityAlertRecord(JSON.stringify(alert));
+        const alertJson = JSON.stringify(validated);
+        const alertKey = securityAlertKey(validated);
+        const now = new Date().toISOString();
+        inTransaction(this.db, () => {
+          this.db
+            .prepare(
+              `INSERT INTO security_alert_history
+              (alert_key, pbx_instance_id, rule_id, observed_at, stream_generation, stream_sequence, alert_json)
+              VALUES (?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(alert_key) DO NOTHING`,
+            )
+            .run(
+              alertKey,
+              validated.instanceId,
+              validated.ruleId,
+              validated.observedAt,
+              validated.streamGeneration ?? null,
+              validated.streamSequence ?? null,
+              alertJson,
+            );
+          const current = this.db
+            .prepare(
+              `SELECT observed_at, stream_generation, stream_sequence
+               FROM security_alert_current WHERE pbx_instance_id = ? AND rule_id = ?`,
+            )
+            .get(validated.instanceId, validated.ruleId) as
+            | {
+                observed_at: string;
+                stream_generation: number | null;
+                stream_sequence: number | null;
+              }
+            | undefined;
+          if (!current || isSecurityAlertNewer(validated, current)) {
+            this.db
+              .prepare(
+                `INSERT INTO security_alert_current
+                (pbx_instance_id, rule_id, observed_at, stream_generation, stream_sequence, alert_json, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(pbx_instance_id, rule_id) DO UPDATE SET
+                  observed_at=excluded.observed_at,
+                  stream_generation=excluded.stream_generation,
+                  stream_sequence=excluded.stream_sequence,
+                  alert_json=excluded.alert_json,
+                  updated_at=excluded.updated_at`,
+              )
+              .run(
+                validated.instanceId,
+                validated.ruleId,
+                validated.observedAt,
+                validated.streamGeneration ?? null,
+                validated.streamSequence ?? null,
+                alertJson,
+                now,
+              );
+          }
+          this.db
+            .prepare('DELETE FROM security_alert_history WHERE observed_at < ?')
+            .run(retentionCutoff);
+        });
+      },
+      getCurrent: (instanceId, ruleId) => {
+        const row = this.db
+          .prepare(
+            'SELECT alert_json FROM security_alert_current WHERE pbx_instance_id = ? AND rule_id = ?',
+          )
+          .get(instanceId, ruleId) as { alert_json: string } | undefined;
+        return row ? parseSecurityAlertRecord(row.alert_json) : undefined;
+      },
+      listCurrent: (instanceId) =>
+        (
+          this.db
+            .prepare(
+              'SELECT alert_json FROM security_alert_current WHERE pbx_instance_id = ? ORDER BY rule_id',
+            )
+            .all(instanceId) as { alert_json: string }[]
+        ).map((row) => parseSecurityAlertRecord(row.alert_json)),
+      listHistory: (instanceId, from, to, limit) => {
+        if (!Number.isSafeInteger(limit) || limit <= 0) throw new StorageError();
+        const rows = this.db
+          .prepare(
+            `SELECT alert_json FROM security_alert_history
+             WHERE pbx_instance_id = ? AND observed_at >= ? AND observed_at <= ?
+             ORDER BY observed_at DESC, id DESC LIMIT ?`,
+          )
+          .all(instanceId, from, to, limit) as { alert_json: string }[];
+        return rows.map((row) => parseSecurityAlertRecord(row.alert_json));
+      },
+      pruneBefore: (cutoff) =>
+        Number(
+          this.db.prepare('DELETE FROM security_alert_history WHERE observed_at < ?').run(cutoff)
+            .changes,
+        ),
+    };
     this.secretRecords = {
       firstIdentity: () => {
         const row = this.db
@@ -717,6 +832,69 @@ export class SqliteStorage implements AppStorage {
     if (this.closed) return;
     this.closed = true;
     this.db.close();
+  }
+}
+
+function securityAlertKey(alert: SecurityAlertRecord): string {
+  return createHash('sha256')
+    .update(
+      JSON.stringify({
+        instanceId: alert.instanceId,
+        ruleId: alert.ruleId,
+        observedAt: alert.observedAt,
+        matchedEventCount: alert.matchedEventCount,
+        streamGeneration: alert.streamGeneration ?? null,
+        streamSequence: alert.streamSequence ?? null,
+      }),
+    )
+    .digest('hex');
+}
+
+function isSecurityAlertNewer(
+  alert: SecurityAlertRecord,
+  current: {
+    observed_at: string;
+    stream_generation: number | null;
+    stream_sequence: number | null;
+  },
+): boolean {
+  if (alert.streamGeneration !== undefined && current.stream_generation !== null) {
+    if (alert.streamGeneration !== current.stream_generation) {
+      return alert.streamGeneration > current.stream_generation;
+    }
+    if (alert.streamSequence !== undefined && current.stream_sequence !== null) {
+      if (alert.streamSequence !== current.stream_sequence) {
+        return alert.streamSequence > current.stream_sequence;
+      }
+    }
+  }
+  return alert.observedAt > current.observed_at;
+}
+
+function parseSecurityAlertRecord(value: string): SecurityAlertRecord {
+  try {
+    const alert = JSON.parse(value) as Partial<SecurityAlertRecord>;
+    if (
+      typeof alert.instanceId !== 'string' ||
+      (alert.ruleId !== 'AUTHENTICATION_FAILURE_ANY' &&
+        alert.ruleId !== 'AUTHENTICATION_FAILURE_THRESHOLD') ||
+      typeof alert.observedAt !== 'string' ||
+      !alert.observedAt.endsWith('Z') ||
+      !Number.isFinite(Date.parse(alert.observedAt)) ||
+      typeof alert.matchedEventCount !== 'number' ||
+      !Number.isSafeInteger(alert.matchedEventCount) ||
+      alert.matchedEventCount < 1 ||
+      alert.matchedEventCount > 500 ||
+      (alert.streamGeneration !== undefined &&
+        (!Number.isSafeInteger(alert.streamGeneration) || alert.streamGeneration < 0)) ||
+      (alert.streamSequence !== undefined &&
+        (!Number.isSafeInteger(alert.streamSequence) || alert.streamSequence < 0))
+    ) {
+      throw new Error();
+    }
+    return alert as SecurityAlertRecord;
+  } catch {
+    throw new StorageError();
   }
 }
 
