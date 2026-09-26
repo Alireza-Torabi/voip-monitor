@@ -3,6 +3,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App, FirstAdminForm, LoginForm, PbxWorkspace } from '../src/App.js';
+import { SecurityWorkspace } from '../src/SecurityWorkspace.js';
 import { messages } from '../src/i18n.js';
 
 type TestResponse = { ok: boolean; status: number; json: () => Promise<object> };
@@ -206,5 +207,114 @@ describe('secret form lifecycle', () => {
     expect(container.textContent).toContain('Connection verified: Asterisk 13.synthetic');
     expect(container.textContent).not.toContain('synthetic-ami-secret');
     expect(onRefresh).toHaveBeenCalledOnce();
+  });
+});
+
+describe('security monitoring workspace', () => {
+  const profile = {
+    id: 'synthetic-id',
+    displayName: 'Synthetic PBX',
+    providerType: 'ASTERISK',
+    enabled: true,
+    amiHost: 'pbx.example.test',
+    amiPort: 5038,
+    amiUsername: 'synthetic-user',
+    hasAmiPassword: true,
+    connectionStatus: 'CONNECTED',
+    createdAt: '',
+    updatedAt: '',
+  } as const;
+
+  it('loads current alerts and persisted rules', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string) => {
+        if (path === '/api/pbx-instances/synthetic-id/security-alerts') {
+          return response({
+            current: [
+              {
+                instanceId: 'synthetic-id',
+                ruleId: 'AUTHENTICATION_FAILURE_THRESHOLD',
+                observedAt: '2026-09-26T07:00:00.000Z',
+                matchedEventCount: 3,
+              },
+            ],
+          });
+        }
+        if (path === '/api/pbx-instances/synthetic-id/security-alert-rules') {
+          return response({
+            items: [
+              {
+                instanceId: 'synthetic-id',
+                id: 'AUTHENTICATION_FAILURE_THRESHOLD',
+                enabled: true,
+                threshold: 3,
+                windowSeconds: 60,
+                reason: 'INVALID_PASSWORD',
+              },
+            ],
+          });
+        }
+        throw new Error('unexpected API route');
+      }),
+    );
+    await act(async () =>
+      root.render(
+        <SecurityWorkspace text={messages.en} profiles={[profile]} onUnauthorized={() => {}} />,
+      ),
+    );
+    expect(container.textContent).toContain('Matched events: 3');
+    expect(input('rule-threshold').value).toBe('3');
+    expect(input('rule-window-seconds').value).toBe('60');
+    expect(input('rule-threshold-enabled').checked).toBe(true);
+  });
+
+  it('saves the bounded threshold rule through the authenticated API client', async () => {
+    const fetchMock = vi.fn(async (path: string, init?: RequestInit) => {
+      if (path === '/api/pbx-instances/synthetic-id/security-alerts')
+        return response({ current: [] });
+      if (path === '/api/pbx-instances/synthetic-id/security-alert-rules') {
+        return response({ items: [] });
+      }
+      if (
+        path ===
+          '/api/pbx-instances/synthetic-id/security-alert-rules/AUTHENTICATION_FAILURE_THRESHOLD' &&
+        init?.method === 'PUT'
+      ) {
+        return response({
+          instanceId: 'synthetic-id',
+          id: 'AUTHENTICATION_FAILURE_THRESHOLD',
+          enabled: true,
+          threshold: 5,
+          windowSeconds: 120,
+        });
+      }
+      throw new Error('unexpected API route');
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await act(async () =>
+      root.render(
+        <SecurityWorkspace text={messages.en} profiles={[profile]} onUnauthorized={() => {}} />,
+      ),
+    );
+    await enter('rule-threshold', '5');
+    await enter('rule-window-seconds', '120');
+    await act(async () => {
+      input('rule-threshold-enabled').click();
+    });
+    const thresholdForm = input('rule-threshold').closest('form');
+    await act(async () => {
+      thresholdForm?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+    expect(
+      fetchMock.mock.calls.some(
+        ([path, init]) =>
+          path ===
+            '/api/pbx-instances/synthetic-id/security-alert-rules/AUTHENTICATION_FAILURE_THRESHOLD' &&
+          init?.method === 'PUT' &&
+          String(init?.body).includes('"threshold":5') &&
+          String(init?.body).includes('"windowSeconds":120'),
+      ),
+    ).toBe(true);
   });
 });

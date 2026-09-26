@@ -289,3 +289,13 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 182. **Rule validation parity:** API validation preserves the Task 28/31 rule allowlist, threshold 1–100, window 1–3600 seconds, failure-reason allowlist, and rejection of unexpected fields.
 183. **Read contract:** list returns only configured rules for one PBX; single-rule GET returns not-found when the allowlisted rule has no configuration. Unknown rule IDs are not exposed as configurable resources.
 184. **Task 32 phase boundary:** no external notification delivery, broader security source/rule family, or browser UI is added. Next task is Task 33 for the first authenticated security-monitoring UI over the existing bounded alert/rule APIs.
+
+## 2026-09-26 — Phase 7 Task 33 security-monitoring UI decisions
+
+185. **Dedicated security workspace:** security monitoring is a separate authenticated frontend component mounted only when at least one onboarded PBX profile exists.
+186. **PBX selection boundary:** the security UI selects only from already-onboarded PBX profiles. It provides no free-form PBX ID/host input and therefore cannot redirect security API scope independently.
+187. **Bounded alert presentation:** Task 33 displays only current persisted SecurityAlertRecord fields needed by an operator: rule label, observation time, and matched-event count. Raw provider/security identity fields remain absent.
+188. **Fixed rule controls:** the UI exposes only the two existing allowlisted rule IDs. Client-side threshold/window controls mirror backend bounds but backend validation remains authoritative.
+189. **No notification controls:** no webhook/email/SMS/chat target, notification credential, or delivery toggle is introduced in Task 33.
+190. **Task 33 phase boundary:** the first UI uses snapshot/current reads plus explicit refresh. Existing alert SSE and history endpoints are deliberately left for Task 34, which will add bounded realtime updates and recent history without external notification delivery.
+191. **Bilingual source-of-truth invariant reaffirmed:** after observing post-merge Persian-plan drift, MASTER_PLAN.fa.md is regenerated from the finalized English master plan and structural parity is checked before commit.
