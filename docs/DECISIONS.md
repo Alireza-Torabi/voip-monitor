@@ -346,3 +346,13 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 
 224. **Read-only SSE origin policy:** authenticated SSE endpoints for system metrics, security events, and security alerts are read-only GET streams and no longer require an Origin header. Authentication, PBX ownership checks, stream limits, and same-origin protection for all state-changing requests remain mandatory.
 225. **Post-deployment PBX activation remains private and bounded:** after explicit operator approval, the local deployment may enable only its already-configured read-only monitoring connection. Deployment-specific targets/credentials remain ignored local state and are not documented in public repository content.
+
+## 2026-09-26 — Task 38 persistence/recovery decisions
+
+226. **OS-level service ownership:** production runs under a dedicated `voip-monitor` service account through an enabled systemd unit; backend remains loopback-only and HTTPS gateway remains browser-facing.
+227. **Production Node boundary:** systemd must not depend on ignored `.local` toolchains. `VOIP_MONITOR_NODE_BIN` selects a root-owned production runtime path.
+228. **Self-signed exception remains explicit:** production installer rejects self-signed TLS by default; temporary acceptance requires explicit `--allow-self-signed` and does not convert it into trusted PKI.
+229. **Reboot recovery is a release gate:** Task 38 is considered successful only after a real host reboot proves automatic systemd recovery plus UI, health, readiness, and listener restoration without manual start.
+230. **Firewall truth over appearance:** operator-reported UFW is inactive. Reachability is validated, but restrictive host-firewall hardening is not claimed.
+231. **PBX scope unchanged:** OS persistence/reboot work does not expand the already-approved read-only PBX monitoring scope.
+232. **Task 39 boundary:** next build the first bilingual operator dashboard from existing safe PBX/provider, system-metric, and security-alert APIs only; no new PBX actions or collection scope.

@@ -58,3 +58,9 @@ Create a private environment file outside Git containing `DATA_PATH`, `VOIP_MONI
 ```
 
 The HTTPS gateway serves `frontend/dist` and proxies same-origin application routes to a loopback backend. `deployment/systemd/voip-monitor.service` is the generic OS-service definition; install it only after creating the service account, private environment/data directories, TLS files, and matching ownership/permissions. Do not commit deployment-specific addresses, certificates, keys, or credentials.
+
+### Systemd installation and temporary self-signed TLS
+
+For an OS-managed deployment, stop the local launcher before migrating data and run the root-only installer with a Node.js 24 source tree, current data directory, TLS certificate/key, HTTPS port, and explicit PBX network mode. Self-signed TLS is rejected by default; use `--allow-self-signed` only for a controlled temporary deployment when the operator explicitly accepts browser trust warnings. After installation, verify `systemctl is-enabled`, `systemctl is-active`, HTTPS health/readiness, then reboot the host and repeat those checks without manually starting the service.
+
+If UFW is inactive, the application may be reachable without host-level source filtering. Do not describe that state as firewall-hardened; use an upstream firewall or a separately approved host-firewall policy if source-CIDR restriction is required.

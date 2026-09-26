@@ -3,7 +3,7 @@
 # ============================================================
 # Name: run-production.sh
 # Description: Start, stop, or inspect the local VoIP Monitor production deployment.
-# Version: 1.0.0
+# Version: 1.1.0
 # Updated: 2026-09-26
 # Requirements: bash, Node.js 24 toolchain, built workspace, TLS certificate/key
 # Usage: ./scripts/run-production.sh {start|stop|status|run}
@@ -19,6 +19,11 @@ LOG_FILE="$RUNTIME_DIR/production.log"
 ENV_FILE="${VOIP_MONITOR_ENV_FILE:-$RUNTIME_DIR/production.env}"
 
 node_bin() {
+  if [[ -n "${VOIP_MONITOR_NODE_BIN:-}" ]]; then
+    [[ -x "$VOIP_MONITOR_NODE_BIN" ]] || return 1
+    printf '%s\n' "$VOIP_MONITOR_NODE_BIN"
+    return 0
+  fi
   find "$ROOT_DIR/.local/toolchain" -type f -name node -perm -u+x 2>/dev/null | head -n 1
 }
 
@@ -42,7 +47,7 @@ run_stack() {
   local node
   node="$(node_bin)"
   if [[ -z "$node" ]]; then
-    echo "Node.js 24 toolchain was not found under .local/toolchain." >&2
+    echo "Node.js executable was not found. Set VOIP_MONITOR_NODE_BIN or install the local toolchain." >&2
     exit 1
   fi
   export PATH="$(dirname "$node"):$PATH"
