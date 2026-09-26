@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-09-26. Task 28 is merged into main through PR #30. Task 29 bounded security-alert persistence/current-state is implemented locally on feature/security-alert-persistence-boundary with migration 9, duplicate-safe history, per-rule monotonic current state, bounded retention, and no external delivery.
+Status: 2026-09-26. Task 29 is merged into main through PR #31. Task 30 authenticated security-alert current/history API and persistence-backed realtime SSE delivery is implemented locally on feature/security-alert-api-realtime; no external notification delivery is included.
 
 ## Phase 0 — environment discovery
 
@@ -67,13 +67,15 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 27: expose authenticated PBX-scoped security-event current/history APIs and bounded realtime SSE delivery without exposing raw AMI/provider fields; stream establishment is same-origin protected, PBX scoped, heartbeat bounded, and concurrent streams capped.
 - [x] Task 28: define bounded security-alert/rule evaluation over normalized persisted security events with fail-closed validation and no external delivery.
 - [x] Task 29: define bounded PBX-scoped security-alert persistence with per-rule current state, deterministic deduplication, source-order-aware monotonic updates, transactional retention pruning, and PBX deletion cascade; no external delivery or runtime rule wiring.
+- [x] Task 30: expose authenticated PBX-scoped security-alert current/history HTTP APIs and same-origin bounded SSE delivery backed only by successfully persisted, deduplicated alerts; no external notification delivery.
 
 ### Current execution handoff
 
-- Current branch: `feature/security-alert-persistence-boundary`, created from synchronized `main` after Task 28 and its documentation reconciliation merged through PR #30.
-- Task 29 is complete locally. Migration 9 adds `security_alert_current` keyed by PBX + rule and duplicate-safe `security_alert_history`; the repository validates bounded alert records, preserves one monotonic current alert per rule, prunes history transactionally, and cascades records with PBX deletion.
-- Task 29 validation is synthetic/local only. No real PBX, production security log, SSH security-log source, webhook, notification provider, or external delivery target was contacted.
-- Exact next task after Task 29 merge: **Task 30 — expose authenticated PBX-scoped security-alert current/history APIs and bounded realtime alert delivery, without external notification delivery.**
+- Current branch: `feature/security-alert-api-realtime`, created from synchronized `main` after Task 29 merged as PR #31.
+- Task 30 is complete locally. Authenticated PBX-scoped `/security-alerts`, `/history`, and `/stream` boundaries expose only bounded persisted alert records. Current returns the per-rule current set; history requires explicit UTC range and maximum 500 rows.
+- Realtime alert SSE is persistence-backed: subscribers receive only new alerts after a successful storage transaction and duplicate history inserts do not republish. Stream establishment is same-origin protected, PBX scoped, heartbeat bounded, concurrent streams capped at 64, and listener failures are isolated from persistence.
+- Task 30 validation is synthetic/local only. No real PBX, production security log, webhook, notification provider, or external delivery target was contacted.
+- Exact next task after Task 30 merge: **Task 31 — define persistent bounded security-alert rule configuration and runtime evaluation/persistence wiring, without external notification delivery.**
 
 ### Failure and bug log
 
@@ -169,6 +171,24 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - **Known limitation:** no runtime component currently invokes the evaluator and persists matched alerts automatically because persistent rule configuration/execution ownership is not yet defined. Task 29 deliberately provides only the bounded persistence/current-state boundary.
 - **Known limitation:** no alert HTTP/SSE surface or external delivery exists. Exact next task after merge is Task 30 for authenticated current/history API plus bounded realtime alert delivery only.
 
+## 2026-09-26 — Task 30 completion record
+
+- **Result:** Added authenticated PBX-scoped security-alert current/history HTTP APIs and bounded SSE delivery.
+- **Current contract:** `GET /api/pbx-instances/:id/security-alerts` returns the persisted current alert set, with one current record per rule.
+- **History contract:** `GET /api/pbx-instances/:id/security-alerts/history` requires normalized UTC `from`/`to`, enforces `from <= to`, and caps `limit` at 500.
+- **Realtime contract:** `GET /api/pbx-instances/:id/security-alerts/stream` is authenticated, same-origin protected, PBX scoped, capped at 64 concurrent streams, sends an initial persisted current snapshot, and then publishes only newly persisted nonduplicate alerts.
+- **Persistence/realtime isolation:** alert listeners are notified only after the SQLite transaction succeeds; listener exceptions are isolated and cannot roll back or break persistence.
+- **External side effects:** none. No webhook, email, SMS, chat provider, PBX write, or other external notification is performed.
+- **Real systems:** no real PBX, production log, SSH security log, or external delivery target was contacted.
+
+### Task 30 failures / bugs / gaps
+
+- **Generated SSE heartbeat syntax defect — resolved before validation:** the first local patch converted escaped newline characters into literal newlines inside a TypeScript string. Root cause was the local Python patch generator's escape handling. The string was repaired before typecheck and targeted API/SSE tests then passed.
+- **Duplicate realtime delivery risk — resolved before full gates:** the first draft published after every successful `save()`, including history-conflict no-op saves. Root cause was publishing without checking whether the deduplicated history insert actually changed storage. Fix: publish only when the history insert reports a new row after the transaction commits; regression coverage also verifies listener failures remain isolated.
+- **Documentation diff-check failure — resolved:** the first full gate run reached `git diff --check` after tests/build/foundation/license passed but failed on two trailing spaces in `docs/MASTER_PLAN.fa.md`. Root cause was Markdown line-break spacing in the generated Persian header. The trailing spaces were removed and the complete gate suite was rerun from the start.
+- **Known limitation:** Task 30 exposes persisted alerts but does not create them automatically. Persistent rule configuration and evaluator runtime ownership are still absent, so production alert generation remains intentionally unwired.
+- **Known limitation:** no external notification delivery or dashboard alert presentation exists. Exact next task after merge is Task 31 for bounded rule configuration and runtime evaluation/persistence wiring only.
+
 ### Persistent continuation protocol
 
 For every future task/session:
@@ -195,7 +215,7 @@ Tasks 7–13 implemented substantial Asterisk-provider and telephony-state found
 - [ ] Phase 11: hardening, backup, tested restore, and a production deployment runbook.
 - [ ] Phase 12: release validation, including an organization-neutral fresh-deployment procedure that can onboard a new service without carrying private values from another deployment.
 
-Phase 1 is closed. Phase 7 currently includes normalized AMI authentication-security events, bounded event persistence/API/SSE, bounded alert evaluation, and Task 29 alert persistence/current-state semantics. Exact next task after Task 29 merge is **Task 30 — authenticated PBX-scoped alert current/history APIs and bounded realtime alert delivery, without external notification delivery.**
+Phase 1 is closed. Phase 7 currently includes normalized AMI authentication-security events, bounded event persistence/API/SSE, bounded alert evaluation, alert persistence/current-state, and Task 30 authenticated alert API/SSE. Exact next task after Task 30 merge is **Task 31 — persistent bounded alert-rule configuration and runtime evaluation/persistence wiring, without external notification delivery.**
 
 ## 2026-09-26 — Task 28 completion record
 

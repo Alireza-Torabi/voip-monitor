@@ -1,6 +1,6 @@
 # Operations
 
-**Status:** The backend includes authenticated PBX onboarding, encrypted AMI/SSH secrets, AMI runtime and telephony-state foundations, restricted SSH system-metrics collection with persisted current/history plus authenticated HTTP/SSE delivery, normalized AMI authentication-security events with persisted current/history plus authenticated HTTP/SSE delivery, and bounded fail-closed security-alert rule evaluation. Telephony state and alert state are not yet browser-facing; alert persistence/delivery, production deployment, and tested backup/restore remain incomplete.
+**Status:** The backend includes authenticated PBX onboarding, encrypted AMI/SSH secrets, AMI runtime and telephony-state foundations, restricted SSH system-metrics collection with persisted current/history plus authenticated HTTP/SSE delivery, normalized AMI authentication-security events with persisted current/history plus authenticated HTTP/SSE delivery, bounded fail-closed security-alert evaluation, alert current/history persistence, and authenticated PBX-scoped alert HTTP/SSE exposure. Telephony state is not yet browser-facing; automatic alert-rule runtime execution, external notification delivery, production deployment, and tested backup/restore remain incomplete.
 
 ## Current checks
 
