@@ -432,6 +432,131 @@ test('system metrics API requires auth and exposes current/history', async () =>
     }
   }));
 
+test('security alert rule API is authenticated, same-origin, PBX-scoped, and bounded', async () =>
+  fixture(async ({ config, storage, secrets, auth }) => {
+    const token = (
+      await readFile(join(config.secretDirectory, 'bootstrap-admin.token'), 'utf8')
+    ).trim();
+    await auth.createFirst('admin', 'synthetic admin passphrase', token);
+    const onboarding = new PbxOnboardingService(storage, secrets);
+    const profile = onboarding.create(profileInput(false));
+    const other = onboarding.create(profileInput(false));
+    const apiAuth = {
+      requiresSecureOrigin: false,
+      principal: function (token) {
+        return token === 'synthetic' ? { id: 'admin', username: 'admin' } : undefined;
+      },
+    };
+    const app = await serve(storage, secrets, apiAuth);
+    try {
+      const cookie = 'vm_session=synthetic';
+      const base = app.base + '/api/pbx-instances/' + profile.id + '/security-alert-rules';
+      assert.equal((await fetch(base)).status, 401);
+      assert.deepEqual(
+        (await (await fetch(base, { headers: { Cookie: cookie } })).json()).items,
+        [],
+      );
+      assert.equal(
+        (
+          await fetch(base + '/AUTHENTICATION_FAILURE_ANY', {
+            method: 'PUT',
+            headers: {
+              Cookie: cookie,
+              Origin: 'https://evil.example',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ enabled: true }),
+          })
+        ).status,
+        403,
+      );
+      const putAny = await fetch(base + '/AUTHENTICATION_FAILURE_ANY', {
+        method: 'PUT',
+        headers: { Cookie: cookie, Origin: app.base, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: true }),
+      });
+      assert.equal(putAny.status, 200);
+      assert.deepEqual(await putAny.json(), {
+        instanceId: profile.id,
+        id: 'AUTHENTICATION_FAILURE_ANY',
+        enabled: true,
+      });
+      const threshold = await fetch(base + '/AUTHENTICATION_FAILURE_THRESHOLD', {
+        method: 'PUT',
+        headers: { Cookie: cookie, Origin: app.base, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enabled: true,
+          threshold: 3,
+          windowSeconds: 60,
+          reason: 'INVALID_PASSWORD',
+        }),
+      });
+      assert.equal(threshold.status, 200);
+      assert.equal((await threshold.json()).threshold, 3);
+      const list = (await (await fetch(base, { headers: { Cookie: cookie } })).json()).items;
+      assert.equal(list.length, 2);
+      assert.equal(
+        (
+          await fetch(base + '/AUTHENTICATION_FAILURE_THRESHOLD', {
+            method: 'PUT',
+            headers: { Cookie: cookie, Origin: app.base, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: true, threshold: 0, windowSeconds: 60 }),
+          })
+        ).status,
+        400,
+      );
+      assert.equal(
+        (
+          await fetch(base + '/AUTHENTICATION_FAILURE_ANY', {
+            method: 'PUT',
+            headers: { Cookie: cookie, Origin: app.base, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: true, instanceId: other.id }),
+          })
+        ).status,
+        400,
+      );
+      assert.equal(
+        (
+          await fetch(
+            app.base +
+              '/api/pbx-instances/' +
+              other.id +
+              '/security-alert-rules/AUTHENTICATION_FAILURE_ANY',
+            {
+              headers: { Cookie: cookie },
+            },
+          )
+        ).status,
+        404,
+      );
+      assert.equal(
+        (
+          await fetch(base + '/UNKNOWN_RULE', {
+            method: 'PUT',
+            headers: { Cookie: cookie, Origin: app.base, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: true }),
+          })
+        ).status,
+        404,
+      );
+      assert.equal(
+        (
+          await fetch(base + '/AUTHENTICATION_FAILURE_ANY', {
+            method: 'DELETE',
+            headers: { Cookie: cookie, Origin: app.base },
+          })
+        ).status,
+        200,
+      );
+      assert.equal(
+        (await fetch(base + '/AUTHENTICATION_FAILURE_ANY', { headers: { Cookie: cookie } })).status,
+        404,
+      );
+    } finally {
+      await app.close();
+    }
+  }));
+
 test('security alerts API requires auth and exposes current/history', async () =>
   fixture(async ({ config, storage, secrets, auth }) => {
     const token = (

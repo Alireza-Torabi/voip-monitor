@@ -2,7 +2,12 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { AuthService } from './auth/index.js';
 import { OnboardingInputError, PbxOnboardingService } from './onboarding/index.js';
 import { log } from './logger.js';
-import type { AppStorage, SecurityAlertRecord } from './storage/index.js';
+import type {
+  AppStorage,
+  SecurityAlertRecord,
+  SecurityAlertRuleConfig,
+  SecurityAlertRuleId,
+} from './storage/index.js';
 import type { SecretStore } from './security/secret-store.js';
 import { ProviderRuntimeError, type ProviderRuntimeManager } from './providers/runtime/index.js';
 import type {
@@ -85,6 +90,55 @@ class AttemptLimiter {
     this.attempts.set(key, value);
     return value.count <= limit;
   }
+}
+
+function parseSecurityAlertRuleApiInput(
+  instanceId: string,
+  ruleId: SecurityAlertRuleId,
+  input: Record<string, unknown> | undefined,
+): SecurityAlertRuleConfig | undefined {
+  if (!input || input.id !== undefined || input.instanceId !== undefined) return undefined;
+  if (ruleId === 'AUTHENTICATION_FAILURE_ANY') {
+    if (Object.keys(input).length !== 1 || (input.enabled !== true && input.enabled !== false))
+      return undefined;
+    return { instanceId, id: ruleId, enabled: input.enabled };
+  }
+  if (
+    !Object.keys(input).every((key) =>
+      ['enabled', 'threshold', 'windowSeconds', 'reason'].includes(key),
+    ) ||
+    (input.enabled !== true && input.enabled !== false) ||
+    !Number.isSafeInteger(input.threshold) ||
+    (input.threshold as number) < 1 ||
+    (input.threshold as number) > 100 ||
+    !Number.isSafeInteger(input.windowSeconds) ||
+    (input.windowSeconds as number) < 1 ||
+    (input.windowSeconds as number) > 3600
+  )
+    return undefined;
+  const reasons = new Set([
+    'INVALID_ACCOUNT',
+    'INVALID_PASSWORD',
+    'CHALLENGE_RESPONSE_FAILED',
+    'ACL_FAILURE',
+    'UNEXPECTED_ADDRESS',
+    'UNKNOWN',
+  ]);
+  if (
+    input.reason !== undefined &&
+    (typeof input.reason !== 'string' || !reasons.has(input.reason))
+  )
+    return undefined;
+  return {
+    instanceId,
+    id: ruleId,
+    enabled: input.enabled,
+    threshold: input.threshold as number,
+    windowSeconds: input.windowSeconds as number,
+    ...(input.reason === undefined
+      ? {}
+      : { reason: input.reason as SecurityAlertRuleConfig & string }),
+  } as SecurityAlertRuleConfig;
 }
 
 export function createApp(
@@ -227,6 +281,45 @@ export function createApp(
           unsubscribeHealth();
         });
         return;
+      }
+
+      const securityAlertRuleAction = path.match(
+        /^\/api\/pbx-instances\/([^/]+)\/security-alert-rules(?:\/([^/]+))?$/,
+      );
+      if (securityAlertRuleAction) {
+        if (!auth || !storage || !auth.principal(sessionToken(request)))
+          return send(response, 401, { error: 'unauthorized' });
+        const id = securityAlertRuleAction[1]!;
+        const rawRuleId = securityAlertRuleAction[2];
+        if (!onboarding?.get(id)) return send(response, 404, { error: 'not_found' });
+        const ruleId =
+          rawRuleId === undefined
+            ? undefined
+            : rawRuleId === 'AUTHENTICATION_FAILURE_ANY' ||
+                rawRuleId === 'AUTHENTICATION_FAILURE_THRESHOLD'
+              ? (rawRuleId as SecurityAlertRuleId)
+              : null;
+        if (ruleId === null) return send(response, 404, { error: 'not_found' });
+        if (request.method === 'GET') {
+          if (ruleId === undefined)
+            return send(response, 200, { items: storage.securityAlertRules.list(id) });
+          const rule = storage.securityAlertRules.get(id, ruleId);
+          return rule ? send(response, 200, rule) : send(response, 404, { error: 'not_found' });
+        }
+        if (!['PUT', 'DELETE'].includes(request.method ?? '') || ruleId === undefined)
+          return send(response, 404, { error: 'not_found' });
+        if (!sameOrigin(request, auth.requiresSecureOrigin))
+          return send(response, 403, { error: 'forbidden' });
+        if (request.method === 'DELETE') {
+          return storage.securityAlertRules.delete(id, ruleId)
+            ? send(response, 200, { status: 'deleted' })
+            : send(response, 404, { error: 'not_found' });
+        }
+        const input = await body(request);
+        const config = parseSecurityAlertRuleApiInput(id, ruleId, input);
+        if (!config) return send(response, 400, { error: 'invalid_request' });
+        storage.securityAlertRules.put(config);
+        return send(response, 200, storage.securityAlertRules.get(id, ruleId) ?? config);
       }
 
       const securityAlertAction = path.match(

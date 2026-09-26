@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-09-26. Task 30 is merged into main through PR #32. Task 31 persistent bounded security-alert rule configuration and runtime evaluation/persistence wiring is implemented locally on feature/security-alert-rule-runtime; no external notification delivery is included.
+Status: 2026-09-26. Task 31 is merged into main through PR #33. Task 32 authenticated PBX-scoped security-alert rule configuration API is implemented locally on feature/security-alert-rule-api; no external notification delivery is included.
 
 ## Phase 0 — environment discovery
 
@@ -69,15 +69,16 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 29: define bounded PBX-scoped security-alert persistence with per-rule current state, deterministic deduplication, source-order-aware monotonic updates, transactional retention pruning, and PBX deletion cascade; no external delivery or runtime rule wiring.
 - [x] Task 30: expose authenticated PBX-scoped security-alert current/history HTTP APIs and same-origin bounded SSE delivery backed only by successfully persisted, deduplicated alerts; no external notification delivery.
 - [x] Task 31: persist bounded PBX-scoped security-alert rule configuration and wire one application-owned runtime that persists normalized security events, evaluates enabled rules, and persists matches; no external notification delivery.
+- [x] Task 32: expose authenticated PBX-scoped security-alert rule configuration list/get/put/delete APIs with same-origin mutation protection and bounded fail-closed validation; no external notification delivery.
 
 ### Current execution handoff
 
-- Current branch: `feature/security-alert-rule-runtime`, created from synchronized `main` after Task 30 merged as PR #32.
-- Task 31 is complete locally. Migration 10 adds PBX-cascading persistent rule configuration keyed by PBX + rule. Only the two bounded Task 28 rule shapes are accepted; threshold/window/reason validation remains fail-closed.
-- `SecurityAlertRuntime` now owns the security-event persistence/evaluation path: after a normalized event is successfully persisted, it loads that PBX's configured rules, skips disabled rules, evaluates enabled rules through the existing bounded evaluator, and persists only matches through the Task 29 alert repository.
-- Runtime failures remain isolated: event persistence failure stops evaluation for that event; rule-load/evaluation failures produce no alert; alert persistence failure cannot affect the provider lifecycle. No default rules are silently created or enabled.
-- Task 31 validation is synthetic/local only. No real PBX, production security log, webhook, notification provider, or external delivery target was contacted.
-- Exact next task after Task 31 merge: **Task 32 — expose authenticated PBX-scoped security-alert rule configuration APIs with bounded validation, without external notification delivery.**
+- Current branch: `feature/security-alert-rule-api`, created from synchronized `main` after Task 31 merged as PR #33.
+- Task 32 is complete locally. Authenticated PBX-scoped `security-alert-rules` APIs expose list/get plus explicit PUT/DELETE for the two allowlisted Task 28 rule IDs.
+- Rule identity and PBX scope come only from the URL. Request bodies cannot override `instanceId` or `id`. Mutations require the existing same-origin protection; unknown rule IDs are not routed as configurable rules.
+- API validation preserves the Task 28/31 bounds: threshold 1–100, window 1–3600 seconds, the existing authentication-failure reason allowlist, and no unexpected fields. No implicit/default rule is created.
+- Task 32 validation is synthetic/local only. No real PBX, production security log, webhook, notification provider, or external delivery target was contacted.
+- Exact next task after Task 32 merge: **Task 33 — add the first authenticated security-monitoring UI for viewing alerts and managing the two bounded alert rules, without external notification delivery.**
 - Documentation rule: `docs/MASTER_PLAN.fa.md` must be a complete Persian translation of this file with the same structure and content, never a summarized variant.
 
 ### Failure and bug log
@@ -214,6 +215,25 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - **Known limitation:** runtime evaluates only normalized AMI authentication security events and the two existing Task 28 rules. Broader security sources/rules, external notification delivery, and dashboard presentation remain future work.
 - **Exact next task:** Task 32 exposes authenticated PBX-scoped rule configuration APIs with bounded validation only; external notification delivery remains out of scope.
 
+## 2026-09-26 — Task 32 completion record
+
+- **Result:** Added authenticated PBX-scoped alert-rule configuration HTTP APIs backed by the Task 31 repository.
+- **Read surface:** `GET /api/pbx-instances/:id/security-alert-rules` lists configured rules and `GET .../:ruleId` returns one configured allowlisted rule.
+- **Mutation surface:** `PUT .../:ruleId` replaces one bounded rule configuration and `DELETE .../:ruleId` removes it. Mutations require the existing authenticated principal plus same-origin protection.
+- **Scope ownership:** PBX instance ID and rule ID are path-owned. Request bodies containing `instanceId` or `id` are rejected, preventing cross-PBX/rule override.
+- **Validation:** only the two existing rule IDs are routable. `AUTHENTICATION_FAILURE_ANY` accepts only `enabled`; threshold rules require enabled, threshold 1–100, window 1–3600 seconds, and optionally one existing failure reason. Unexpected fields fail closed.
+- **Defaults and side effects:** no rule is implicitly created or enabled. No webhook, email, SMS, chat provider, PBX write, or other external notification is performed.
+- **Targeted validation:** provider-runtime/API suite passed 14/14 after adding auth, same-origin, PBX-scope, invalid-bound, unknown-rule, path-ownership, and delete coverage.
+- **Real systems:** no real PBX, production log, SSH security log, or external delivery target was contacted.
+
+### Task 32 failures / bugs / gaps
+
+- **Implementation/typecheck:** no implementation typecheck defect was found in the initial Task 32 server patch.
+- **Targeted API validation:** passed 14/14 on the first targeted run after test insertion.
+- **Known limitation:** Task 32 exposes configuration APIs but no browser UI yet; operators must use the authenticated API to manage rules.
+- **Known limitation:** only the two existing AMI authentication-failure rules are configurable. Broader rule/source families and external notification delivery remain future work.
+- **Exact next task:** Task 33 adds the first authenticated security-monitoring UI for viewing alerts and managing the two bounded rules; external notification delivery remains out of scope.
+
 ### Persistent continuation protocol
 
 For every future task/session:
@@ -240,7 +260,7 @@ Tasks 7–13 implemented substantial Asterisk-provider and telephony-state found
 - [ ] Phase 11: hardening, backup, tested restore, and a production deployment runbook.
 - [ ] Phase 12: release validation, including an organization-neutral fresh-deployment procedure that can onboard a new service without carrying private values from another deployment.
 
-Phase 1 is closed. Phase 7 currently includes normalized AMI authentication-security events, bounded event persistence/API/SSE, bounded alert evaluation, alert persistence/current-state/API/SSE, and Task 31 persistent rule configuration plus runtime evaluation/persistence wiring. Exact next task after Task 31 merge is **Task 32 — authenticated PBX-scoped alert-rule configuration APIs with bounded validation, without external notification delivery.**
+Phase 1 is closed. Phase 7 currently includes normalized AMI authentication-security events, bounded event persistence/API/SSE, bounded alert evaluation, alert persistence/current-state/API/SSE, persistent rule configuration/runtime wiring, and Task 32 authenticated bounded rule-configuration APIs. Exact next task after Task 32 merge is **Task 33 — the first authenticated security-monitoring UI for viewing alerts and managing the two bounded alert rules, without external notification delivery.**
 
 ## 2026-09-26 — Task 28 completion record
 
