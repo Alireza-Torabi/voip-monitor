@@ -11,6 +11,7 @@ import {
 } from './collectors/system/runtime.js';
 import { AsteriskProviderFactory, ProviderRuntimeManager } from './providers/runtime/index.js';
 import { TelephonyStateEngine } from './telephony/state-engine.js';
+import { SecurityAlertRuntime } from './security/runtime.js';
 
 let config;
 try {
@@ -70,20 +71,19 @@ if (config) {
         const securityRetentionDays = 7;
         const securityRetentionCutoff = (): string =>
           new Date(Date.now() - securityRetentionDays * 24 * 60 * 60 * 1000).toISOString();
-        const unsubscribeSecurityPersistence = runtime.subscribeSecurityEvents((event) => {
-          try {
-            storage.securityEvents.save(event, securityRetentionCutoff());
-          } catch {
-            // Persistence failures never affect the read-only provider lifecycle.
-          }
-        });
+        const securityAlertRuntime = new SecurityAlertRuntime(
+          storage,
+          runtime,
+          securityRetentionCutoff,
+        );
+        securityAlertRuntime.start();
         telephonyState.start();
         runtime.start();
         systemMetricsRuntime.start();
         const server = createApp(storage, secrets, auth, runtime, systemMetricsRuntime);
         server.on('error', () => {
           log('error', 'server_error');
-          unsubscribeSecurityPersistence();
+          securityAlertRuntime.stop();
           void runtime.stop().finally(() => {
             systemMetricsRuntime.stop();
             telephonyState.stop();
@@ -101,7 +101,7 @@ if (config) {
           if (stopping) return;
           stopping = true;
           log('info', 'shutdown_started', { signal });
-          unsubscribeSecurityPersistence();
+          securityAlertRuntime.stop();
           const timer = setTimeout(() => {
             log('error', 'shutdown_timeout');
             server.closeAllConnections();

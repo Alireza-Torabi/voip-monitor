@@ -271,3 +271,13 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 169. **Realtime safety bounds:** stream establishment is same-origin protected, PBX scoped, concurrent alert streams are capped at 64 per process, a 15-second heartbeat is used, and disconnects remove listener registration and stream accounting.
 170. **Failure isolation:** alert listener exceptions are swallowed after persistence succeeds so a browser/realtime consumer can never roll back or break storage.
 171. **Task 30 phase boundary:** persistent rule configuration, evaluator runtime scheduling/ownership, external notification delivery, dashboard UI, broader security sources, and production-system compatibility remain future work. Next task is Task 31 for persistent bounded rule configuration and runtime evaluation/persistence wiring without external notification delivery.
+
+## 2026-09-26 — Phase 7 Task 31 alert-rule runtime decisions
+
+172. **Persistent rule ownership:** rule configuration is keyed by PBX + rule and stored separately from alert state. Only the two existing bounded rule shapes are accepted; PBX deletion cascades configuration.
+173. **No implicit enablement:** Task 31 creates no default rule rows and enables nothing automatically. Runtime alert generation is inert until persisted configuration exists.
+174. **Single runtime path:** one application-owned SecurityAlertRuntime subscribes to normalized security events, persists the event first, then evaluates that PBX's enabled persisted rules and persists matches.
+175. **Fail-closed ordering:** event persistence failure prevents evaluation for that event. Rule-load/evaluation failures produce no alert. Alert persistence failures remain isolated from provider/event collection.
+176. **No duplicate provider subscription side effects:** the previous standalone event-persistence subscription is replaced by SecurityAlertRuntime rather than retained in parallel.
+177. **Task 31 phase boundary:** no authenticated rule-configuration mutation API/UI, external notification delivery, broader rule/source family, or production-system compatibility claim is added. Next task is Task 32 for authenticated PBX-scoped rule-configuration APIs only.
+178. **Bilingual master-plan invariant:** docs/MASTER_PLAN.fa.md must remain a complete Persian translation of docs/MASTER_PLAN.md with the same structure and content; summary-only divergence is not allowed.

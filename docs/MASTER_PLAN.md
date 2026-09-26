@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-09-26. Task 29 is merged into main through PR #31. Task 30 authenticated security-alert current/history API and persistence-backed realtime SSE delivery is implemented locally on feature/security-alert-api-realtime; no external notification delivery is included.
+Status: 2026-09-26. Task 30 is merged into main through PR #32. Task 31 persistent bounded security-alert rule configuration and runtime evaluation/persistence wiring is implemented locally on feature/security-alert-rule-runtime; no external notification delivery is included.
 
 ## Phase 0 — environment discovery
 
@@ -68,14 +68,17 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 28: define bounded security-alert/rule evaluation over normalized persisted security events with fail-closed validation and no external delivery.
 - [x] Task 29: define bounded PBX-scoped security-alert persistence with per-rule current state, deterministic deduplication, source-order-aware monotonic updates, transactional retention pruning, and PBX deletion cascade; no external delivery or runtime rule wiring.
 - [x] Task 30: expose authenticated PBX-scoped security-alert current/history HTTP APIs and same-origin bounded SSE delivery backed only by successfully persisted, deduplicated alerts; no external notification delivery.
+- [x] Task 31: persist bounded PBX-scoped security-alert rule configuration and wire one application-owned runtime that persists normalized security events, evaluates enabled rules, and persists matches; no external notification delivery.
 
 ### Current execution handoff
 
-- Current branch: `feature/security-alert-api-realtime`, created from synchronized `main` after Task 29 merged as PR #31.
-- Task 30 is complete locally. Authenticated PBX-scoped `/security-alerts`, `/history`, and `/stream` boundaries expose only bounded persisted alert records. Current returns the per-rule current set; history requires explicit UTC range and maximum 500 rows.
-- Realtime alert SSE is persistence-backed: subscribers receive only new alerts after a successful storage transaction and duplicate history inserts do not republish. Stream establishment is same-origin protected, PBX scoped, heartbeat bounded, concurrent streams capped at 64, and listener failures are isolated from persistence.
-- Task 30 validation is synthetic/local only. No real PBX, production security log, webhook, notification provider, or external delivery target was contacted.
-- Exact next task after Task 30 merge: **Task 31 — define persistent bounded security-alert rule configuration and runtime evaluation/persistence wiring, without external notification delivery.**
+- Current branch: `feature/security-alert-rule-runtime`, created from synchronized `main` after Task 30 merged as PR #32.
+- Task 31 is complete locally. Migration 10 adds PBX-cascading persistent rule configuration keyed by PBX + rule. Only the two bounded Task 28 rule shapes are accepted; threshold/window/reason validation remains fail-closed.
+- `SecurityAlertRuntime` now owns the security-event persistence/evaluation path: after a normalized event is successfully persisted, it loads that PBX's configured rules, skips disabled rules, evaluates enabled rules through the existing bounded evaluator, and persists only matches through the Task 29 alert repository.
+- Runtime failures remain isolated: event persistence failure stops evaluation for that event; rule-load/evaluation failures produce no alert; alert persistence failure cannot affect the provider lifecycle. No default rules are silently created or enabled.
+- Task 31 validation is synthetic/local only. No real PBX, production security log, webhook, notification provider, or external delivery target was contacted.
+- Exact next task after Task 31 merge: **Task 32 — expose authenticated PBX-scoped security-alert rule configuration APIs with bounded validation, without external notification delivery.**
+- Documentation rule: `docs/MASTER_PLAN.fa.md` must be a complete Persian translation of this file with the same structure and content, never a summarized variant.
 
 ### Failure and bug log
 
@@ -189,6 +192,28 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - **Known limitation:** Task 30 exposes persisted alerts but does not create them automatically. Persistent rule configuration and evaluator runtime ownership are still absent, so production alert generation remains intentionally unwired.
 - **Known limitation:** no external notification delivery or dashboard alert presentation exists. Exact next task after merge is Task 31 for bounded rule configuration and runtime evaluation/persistence wiring only.
 
+## 2026-09-26 — Task 31 completion record
+
+- **Result:** Added migration 10, persistent bounded `SecurityAlertRuleConfigRepository`, and application-owned `SecurityAlertRuntime`.
+- **Rule configuration:** configuration is keyed by PBX + rule, cascades with PBX deletion, and accepts only `AUTHENTICATION_FAILURE_ANY` or bounded `AUTHENTICATION_FAILURE_THRESHOLD` with threshold 1–100, window 1–3600 seconds, and the existing failure-reason allowlist.
+- **Runtime ownership:** one runtime subscription now persists each normalized security event first, then loads only that PBX's persisted rule configuration, skips disabled rules, evaluates enabled rules, and persists matched alerts.
+- **Fail-closed ordering:** if event persistence fails, no rule evaluation occurs for that event. Rule configuration load/evaluation failures create no alert. Alert persistence failures are isolated from provider/event collection.
+- **Defaults:** no alert rule is implicitly created or enabled; runtime behavior remains inert until bounded configuration exists.
+- **External side effects:** none. No webhook, email, SMS, chat provider, PBX write, or other external notification is performed.
+- **Validation:** targeted rule/runtime/storage tests and the complete repository test suite passed with Backend 123/123 and Frontend 10/10 before documentation finalization.
+- **Real systems:** no real PBX, production log, SSH security log, or external delivery target was contacted.
+
+### Task 31 failures / bugs / gaps
+
+- **Initial typecheck failure — resolved:** the first patch declared `securityAlertRules` twice on `SqliteStorage` and assigned `undefined` to an exact-optional unsubscribe property. Root cause was mechanical patch insertion plus `exactOptionalPropertyTypes`. Fix: remove the duplicate declaration and delete the optional property on stop; targeted typecheck then passed.
+- **Migration expectation updates — resolved:** adding migration 10 required the existing fresh/upgrade migration assertions to advance from versions 1–9 to 1–10. No published migration was modified.
+- **Full-gate lint failure — resolved:** the first complete gate run rejected an intentionally discarded `_instanceId` destructuring variable in `SecurityAlertRuntime`. Root cause was repository ESLint's no-unused-vars policy. Fix: construct the evaluator rule object explicitly without the PBX-scoping field; the complete gate suite was rerun from the start.
+- **Staged secret-scan false positive — resolved:** the first custom staged grep matched the historical Task 20 documentation sentence that literally discusses a `password:` property-name false positive. No secret material was present. Fix: retain the repository foundation secret check and scope the supplemental staged material scan to tracked code/config rather than prose documenting scanner behavior.
+- **Final validation-wrapper false failure — resolved:** the rerun completed lint, format, typecheck, tests, build, foundation, license, and diff checks successfully, but the wrapper exited 1 because a plain grep did not match the ANSI-decorated Vitest `10 passed` summary. Direct inspection of the captured test log confirmed Backend 123/123 and Frontend 10/10 with zero failures. This was a harness assertion issue, not an application/test failure.
+- **Known limitation:** rule configuration is persistent but has no authenticated HTTP/UI mutation surface yet; configuration can currently be exercised only through the internal repository boundary/tests.
+- **Known limitation:** runtime evaluates only normalized AMI authentication security events and the two existing Task 28 rules. Broader security sources/rules, external notification delivery, and dashboard presentation remain future work.
+- **Exact next task:** Task 32 exposes authenticated PBX-scoped rule configuration APIs with bounded validation only; external notification delivery remains out of scope.
+
 ### Persistent continuation protocol
 
 For every future task/session:
@@ -196,7 +221,7 @@ For every future task/session:
 1. Read `AGENTS.md`, this `MASTER_PLAN.md`, `PROJECT_CONTEXT.md`, `DECISIONS.md`, and ignored `.local/DEPLOYMENT_CONTEXT.md` when present.
 2. Inspect Git branch/status/log and synchronize `main` before creating the next feature branch.
 3. Preserve the rule that no real PBX is contacted or modified without explicit approval.
-4. Before finishing a task, update this master plan with: task result, branch/commit/PR state, failures or bugs found and their resolution/status, known limitations, and the exact next task. Update `PROJECT_CONTEXT.md` and `DECISIONS.md` when architecture/current state changes.
+4. Before finishing a task, update this master plan with: task result, branch/commit/PR state, failures or bugs found and their resolution/status, known limitations, and the exact next task. Update `PROJECT_CONTEXT.md` and `DECISIONS.md` when architecture/current state changes. Regenerate `MASTER_PLAN.fa.md` as a complete Persian translation with identical structure/content; never maintain it as a summary.
 5. Run the repository gates, public/secret review, commit atomically, push normally, then stop for approval/merge.
 6. Never place Remote Desktop device IDs, real PBX details, credentials, or private deployment facts in tracked public documentation.
 
@@ -215,7 +240,7 @@ Tasks 7–13 implemented substantial Asterisk-provider and telephony-state found
 - [ ] Phase 11: hardening, backup, tested restore, and a production deployment runbook.
 - [ ] Phase 12: release validation, including an organization-neutral fresh-deployment procedure that can onboard a new service without carrying private values from another deployment.
 
-Phase 1 is closed. Phase 7 currently includes normalized AMI authentication-security events, bounded event persistence/API/SSE, bounded alert evaluation, alert persistence/current-state, and Task 30 authenticated alert API/SSE. Exact next task after Task 30 merge is **Task 31 — persistent bounded alert-rule configuration and runtime evaluation/persistence wiring, without external notification delivery.**
+Phase 1 is closed. Phase 7 currently includes normalized AMI authentication-security events, bounded event persistence/API/SSE, bounded alert evaluation, alert persistence/current-state/API/SSE, and Task 31 persistent rule configuration plus runtime evaluation/persistence wiring. Exact next task after Task 31 merge is **Task 32 — authenticated PBX-scoped alert-rule configuration APIs with bounded validation, without external notification delivery.**
 
 ## 2026-09-26 — Task 28 completion record
 

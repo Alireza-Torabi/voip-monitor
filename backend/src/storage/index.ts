@@ -102,6 +102,28 @@ export interface SecurityAlertRecord {
   streamGeneration?: number;
   streamSequence?: number;
 }
+export type SecurityAlertRuleConfig =
+  | { instanceId: string; id: 'AUTHENTICATION_FAILURE_ANY'; enabled: boolean }
+  | {
+      instanceId: string;
+      id: 'AUTHENTICATION_FAILURE_THRESHOLD';
+      enabled: boolean;
+      threshold: number;
+      windowSeconds: number;
+      reason?:
+        | 'INVALID_ACCOUNT'
+        | 'INVALID_PASSWORD'
+        | 'CHALLENGE_RESPONSE_FAILED'
+        | 'ACL_FAILURE'
+        | 'UNEXPECTED_ADDRESS'
+        | 'UNKNOWN';
+    };
+export interface SecurityAlertRuleConfigRepository {
+  put(config: SecurityAlertRuleConfig): void;
+  get(instanceId: string, ruleId: SecurityAlertRuleId): SecurityAlertRuleConfig | undefined;
+  list(instanceId: string): SecurityAlertRuleConfig[];
+  delete(instanceId: string, ruleId: SecurityAlertRuleId): boolean;
+}
 export type SecurityAlertListener = (alert: SecurityAlertRecord) => void;
 export interface SecurityAlertRepository {
   save(alert: SecurityAlertRecord, retentionCutoff: string): void;
@@ -121,6 +143,7 @@ export interface AppStorage {
   readonly sshConfigs: SshConfigRepository;
   readonly systemMetrics: SystemMetricsRepository;
   readonly securityEvents: SecurityEventRepository;
+  readonly securityAlertRules: SecurityAlertRuleConfigRepository;
   readonly securityAlerts: SecurityAlertRepository;
   readonly secretRecords: EncryptedSecretRepository;
   hasEncryptedSecrets(): boolean;
@@ -234,6 +257,7 @@ export class SqliteStorage implements AppStorage {
   readonly sshConfigs: SshConfigRepository;
   readonly systemMetrics: SystemMetricsRepository;
   readonly securityEvents: SecurityEventRepository;
+  readonly securityAlertRules: SecurityAlertRuleConfigRepository;
   readonly securityAlerts: SecurityAlertRepository;
   readonly secretRecords: EncryptedSecretRepository;
   private closed = false;
@@ -610,6 +634,46 @@ export class SqliteStorage implements AppStorage {
             .changes,
         ),
     };
+    this.securityAlertRules = {
+      put: (config) => {
+        const validated = parseSecurityAlertRuleConfig(JSON.stringify(config));
+        this.db
+          .prepare(
+            `INSERT INTO security_alert_rule_config (pbx_instance_id, rule_id, rule_json, updated_at)
+             VALUES (?, ?, ?, ?)
+             ON CONFLICT(pbx_instance_id, rule_id) DO UPDATE SET
+               rule_json=excluded.rule_json, updated_at=excluded.updated_at`,
+          )
+          .run(
+            validated.instanceId,
+            validated.id,
+            JSON.stringify(validated),
+            new Date().toISOString(),
+          );
+      },
+      get: (instanceId, ruleId) => {
+        const row = this.db
+          .prepare(
+            'SELECT rule_json FROM security_alert_rule_config WHERE pbx_instance_id = ? AND rule_id = ?',
+          )
+          .get(instanceId, ruleId) as { rule_json: string } | undefined;
+        return row ? parseSecurityAlertRuleConfig(row.rule_json) : undefined;
+      },
+      list: (instanceId) =>
+        (
+          this.db
+            .prepare(
+              'SELECT rule_json FROM security_alert_rule_config WHERE pbx_instance_id = ? ORDER BY rule_id',
+            )
+            .all(instanceId) as { rule_json: string }[]
+        ).map((row) => parseSecurityAlertRuleConfig(row.rule_json)),
+      delete: (instanceId, ruleId) =>
+        this.db
+          .prepare(
+            'DELETE FROM security_alert_rule_config WHERE pbx_instance_id = ? AND rule_id = ?',
+          )
+          .run(instanceId, ruleId).changes > 0,
+    };
     this.securityAlerts = {
       save: (alert, retentionCutoff) => {
         const validated = parseSecurityAlertRecord(JSON.stringify(alert));
@@ -887,6 +951,61 @@ function isSecurityAlertNewer(
     }
   }
   return alert.observedAt > current.observed_at;
+}
+
+function parseSecurityAlertRuleConfig(value: string): SecurityAlertRuleConfig {
+  try {
+    const rule = JSON.parse(value) as Record<string, unknown>;
+    if (typeof rule.instanceId !== 'string' || (rule.enabled !== true && rule.enabled !== false))
+      throw new StorageError();
+    if (rule.id === 'AUTHENTICATION_FAILURE_ANY') {
+      if (!Object.keys(rule).every((key) => ['instanceId', 'id', 'enabled'].includes(key)))
+        throw new StorageError();
+      return { instanceId: rule.instanceId, id: rule.id, enabled: rule.enabled };
+    }
+    if (rule.id !== 'AUTHENTICATION_FAILURE_THRESHOLD') throw new StorageError();
+    if (
+      !Object.keys(rule).every((key) =>
+        ['instanceId', 'id', 'enabled', 'threshold', 'windowSeconds', 'reason'].includes(key),
+      )
+    )
+      throw new StorageError();
+    if (
+      !Number.isSafeInteger(rule.threshold) ||
+      (rule.threshold as number) < 1 ||
+      (rule.threshold as number) > 100
+    )
+      throw new StorageError();
+    if (
+      !Number.isSafeInteger(rule.windowSeconds) ||
+      (rule.windowSeconds as number) < 1 ||
+      (rule.windowSeconds as number) > 3600
+    )
+      throw new StorageError();
+    const reasons = new Set([
+      'INVALID_ACCOUNT',
+      'INVALID_PASSWORD',
+      'CHALLENGE_RESPONSE_FAILED',
+      'ACL_FAILURE',
+      'UNEXPECTED_ADDRESS',
+      'UNKNOWN',
+    ]);
+    if (rule.reason !== undefined && (typeof rule.reason !== 'string' || !reasons.has(rule.reason)))
+      throw new StorageError();
+    return {
+      instanceId: rule.instanceId,
+      id: rule.id,
+      enabled: rule.enabled,
+      threshold: rule.threshold as number,
+      windowSeconds: rule.windowSeconds as number,
+      ...(rule.reason === undefined
+        ? {}
+        : { reason: rule.reason as SecurityAlertRuleConfig & string }),
+    } as SecurityAlertRuleConfig;
+  } catch (error) {
+    if (error instanceof StorageError) throw error;
+    throw new StorageError();
+  }
 }
 
 function parseSecurityAlertRecord(value: string): SecurityAlertRecord {
