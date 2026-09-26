@@ -1,7 +1,6 @@
 import type { SecurityAuthenticationFailureReason, SecurityEvent } from '@voip-monitor/shared';
-import type { SecurityEventRepository } from '../storage/index.js';
+import type { SecurityAlertRuleId, SecurityEventRepository } from '../storage/index.js';
 
-export type SecurityAlertRuleId = 'AUTHENTICATION_FAILURE_ANY' | 'AUTHENTICATION_FAILURE_THRESHOLD';
 export type SecurityAlertRule =
   | { id: 'AUTHENTICATION_FAILURE_ANY'; enabled: boolean }
   | {

@@ -52,13 +52,11 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 29. **Atomic onboarding:** `PbxOnboardingService` wraps profile metadata, encrypted secret writes, and setup-state changes in one SQLite `BEGIN IMMEDIATE` transaction. Creation requires a nonempty password; PATCH omission preserves it, a nonempty value replaces it, and `removeAmiPassword: true` explicitly removes it. Empty replacement and conflicting replace/remove requests fail validation. Responses contain only `hasAmiPassword`, never plaintext or envelope internals. Deletion cascades encrypted records and restores `SETUP_IN_PROGRESS` when the final profile is removed. The first profile advances to `PBX_CONFIGURED_UNVERIFIED`, not `COMPLETE`; all profiles report `UNVERIFIED` until future provider verification.
 30. **Browser and network boundary:** A bilingual same-origin browser flow handles first-admin setup, explicit login, and authenticated PBX management. Vite proxies local development API calls to the backend without weakening Origin checks; production still needs a controlled HTTPS reverse proxy. Only language preference uses localStorage. Development-only jsdom tests exercise form submission and clearing; no form/state runtime library was added. No onboarding code resolves names or opens PBX sockets. Before future provider connectivity, define a deliberate SSRF/network policy for administrator-entered private addresses, loopback, link-local and metadata-service ranges, DNS rebinding, and allowed monitoring-network scope. Do not apply a superficial hostname blacklist or assume all private addresses are forbidden.
 
-
 ## 2026-09-25 — Phase 2 Task 7 network-boundary and mock transport decisions
 
 31. **PBX network boundary:** Private RFC1918 IPv4 and IPv6 ULA addresses are intentionally allowed because monitored PBXs commonly live on administrator-managed private networks. Unspecified, loopback, link-local, multicast, IPv4 broadcast, and the known IPv6 AWS metadata endpoint `fd00:ec2::254` are rejected before transport use. Hostnames must be resolved once by an injected resolver; every returned address is checked, and a future real transport must connect to one of those already-approved addresses rather than perform a second name resolution. This makes DNS rebinding a deliberate transport responsibility instead of relying on a hostname blacklist.
 32. **No real transport yet:** Task 7 adds only an `AmiTransport` interface, deterministic `MockAmiTransport`, and `AsteriskConnection` orchestration with injected resolver/transport dependencies. There is deliberately no concrete DNS resolver, `net.Socket`, AMI framing, authentication, or provider discovery implementation, so tests and CI cannot contact a PBX through this foundation.
 33. **Mock-first provider development:** AMI protocol behavior will be developed against synthetic handlers/fixtures before any approved real-PBX test. Browser count must never create additional provider connections; the eventual runtime owns one provider connection lifecycle per enabled PBX instance.
-
 
 ## 2026-09-25 — Phase 2 Task 8 AMI transport and provider decisions
 
@@ -66,7 +64,6 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 35. **Provider login and discovery:** `AsteriskProvider` authenticates with the standard AMI `Login` action using `Events: off`, then uses `CoreSettings` for the Asterisk version and `Ping` for reconciliation. `CoreSettings` exists since Asterisk 1.6, so it covers the required Asterisk 13 baseline. Discovery does not infer unsupported capabilities; all capability fields remain `UNKNOWN` until later action/permission probing is designed. The password is obtained through an injected reader and its Buffer is zeroed after login; JavaScript cannot guarantee erasure of the temporary string used to serialize the AMI action. [Login action](https://docs.asterisk.org/Latest_API/API_Documentation/AMI_Actions/Login/) · [CoreSettings action](https://docs.asterisk.org/Latest_API/API_Documentation/AMI_Actions/CoreSettings/)
 36. **Plain TCP is not deployment security:** The TCP transport implements the current AMI protocol path but does not claim encryption. Task 9 wires it into runtime only behind the explicit, default-disabled `APP_PBX_NETWORK_MODE=plain_tcp` gate. A production deployment must model AMI TLS or use a trusted/private network or protected tunnel appropriate to the deployment; AMI must not be exposed to an untrusted/public network merely because the client transport exists. The Asterisk sample configuration itself warns against exposing AMI on a public IP.
 37. **Mock-first runtime boundary:** Unit tests exercise provider behavior with `MockAmiTransport`; protocol integration tests use an in-process synthetic AMI server bound only to loopback and bypass the production network policy intentionally at the low-level transport seam. No test resolves or connects to a real PBX. Task 9 preserved this mock-first boundary and did not contact a real PBX; future real-PBX tests still require explicit approval.
-
 
 ## 2026-09-25 — Phase 2 Task 9 runtime lifecycle and verification decisions
 
@@ -107,7 +104,6 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 60. **Profile lifecycle isolation:** Runtime profile replacement and removal emit an internal reset signal. The state engine discards prior per-instance state on reset so a newly configured provider never inherits the previous provider instance's channels/calls.
 61. **Bounded buffering:** Each PBX event journal is capped at 10,000 entries. If events are dropped before a safe snapshot boundary is available, the engine does not manufacture state; it waits for a later snapshot whose collection starts after the discarded boundary.
 62. **Internal-only foundation:** Task 13 state stays in memory and is not persisted or exposed by REST/WebSocket. Revisions and internal subscriptions exist for future API/realtime work, but browser count still cannot increase AMI work.
-
 
 ## 2026-09-25 — Phase 2 Task 14 endpoint/registration state decisions
 
@@ -163,9 +159,9 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 97. **Transport remains injected:** `RestrictedSshTransport` is an execution seam only. Task 19 adds no SSH package, socket, DNS lookup, authentication, host-key trust, or production command execution. The future concrete transport must accept only resolved command objects from this boundary.
 98. **Execution limits are part of the contract:** Each command carries a validated timeout and maximum combined stdout/stderr byte count. The wrapper enforces wall-clock timeout plus a post-return byte cap and passes the same limits into the injected transport. A concrete streaming transport must enforce those limits while receiving data, not rely only on the wrapper's post-return check.
 99. **Linux/systemd parser baseline:** CPU comes from two `/proc/stat` samples; memory from `MemTotal` and `MemAvailable`; filesystems from `df -P -B1`; uptime from `/proc/uptime`; services from `systemctl show` `Id`/`ActiveState` records. The `df` header line is ignored rather than matched by English labels so locale-specific headings do not affect numeric-row parsing. Malformed, incomplete, duplicate, or unexpected output fails closed with bounded parser/collector errors.
-100. **CPU guest accounting:** Linux `guest` and `guest_nice` counters are excluded from the CPU total because they are already included in `user` and `nice`. CPU idle time is `idle + iowait`; utilization is calculated from deltas between two samples.
-101. **Capability-specific degradation:** Restricted SSH transport errors classified as `PERMISSION_DENIED` or `UNSUPPORTED` degrade only the affected metric dimension and omit its value. Timeout, output-limit, connection, command, parser, or other failures fail the collection safely rather than manufacturing a zero.
-102. **Phase boundary:** Task 19 does not define SSH metadata, encrypted SSH credentials, host-key verification, network target policy, a concrete SSH client, scheduling/source health, persistence, API, alerting, or UI. Task 20 starts with configuration/trust and secret-storage boundaries before any real SSH connection is permitted.
+100.  **CPU guest accounting:** Linux `guest` and `guest_nice` counters are excluded from the CPU total because they are already included in `user` and `nice`. CPU idle time is `idle + iowait`; utilization is calculated from deltas between two samples.
+101.  **Capability-specific degradation:** Restricted SSH transport errors classified as `PERMISSION_DENIED` or `UNSUPPORTED` degrade only the affected metric dimension and omit its value. Timeout, output-limit, connection, command, parser, or other failures fail the collection safely rather than manufacturing a zero.
+102.  **Phase boundary:** Task 19 does not define SSH metadata, encrypted SSH credentials, host-key verification, network target policy, a concrete SSH client, scheduling/source health, persistence, API, alerting, or UI. Task 20 starts with configuration/trust and secret-storage boundaries before any real SSH connection is permitted.
 
 ## 2026-09-25 — Phase 6 Task 20 restricted SSH configuration/trust decisions
 
@@ -212,7 +208,6 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 128. **Retention is transactional and bounded:** Each persisted sample carries a retention cutoff; history pruning runs in the same SQLite transaction as current/history persistence. Runtime retention defaults to seven days and is capped at 90 days. Current state is never deleted by historical retention.
 129. **Persistence isolation:** Storage failures do not mark down the read-only SSH collector or stop its lifecycle. A separate bounded persistence-health signal is deferred to the API/operations layer so collector health cannot be confused with database health.
 
-
 ## 2026-09-26 — Phase 6 Task 24 system-metrics API/realtime decisions
 
 130. **Authenticated metrics boundary:** Current and history system metrics are exposed only after the existing authenticated principal check. Unauthenticated requests receive the same generic authorization response used by the rest of the API.
@@ -220,7 +215,6 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 132. **Realtime transport:** Use a PBX-scoped Server-Sent Events stream for the current system-metrics publication boundary at this stage. The stream sends an initial state and then normalized sample/source-health events; it does not open PBX connections or perform collection itself.
 133. **Realtime safety bounds:** Same-origin protection applies to stream establishment, concurrent metric streams are capped at 64 per process, heartbeats keep idle connections detectable, and disconnects remove listeners and stream accounting.
 134. **Authentication test seam:** API tests may inject a minimal authenticated principal so endpoint behavior can be tested independently of cryptographic session issuance. Existing authentication tests remain responsible for session creation, validation, expiry, and cookie behavior.
-
 
 ## 2026-09-26 — Phase 7 Task 25 security-monitoring source boundary decisions
 
@@ -258,3 +252,12 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 157. **Fail-closed evaluation:** unknown/malformed rules, invalid events, and storage/evaluation errors never produce a match; they return explicit failure states.
 158. **No side effects:** the evaluator does not send messages, call webhooks, modify PBX state, open network connections, or invoke external actions.
 159. **Task 28 phase boundary:** rule configuration persistence, alert/current-state persistence, deduplication, delivery, UI, broader security sources, and production compatibility remain future work. Next task is Task 29 for bounded alert persistence/current-state semantics.
+
+## 2026-09-26 — Phase 7 Task 29 security-alert persistence decisions
+
+160. **Alert record boundary:** persisted alerts contain only PBX instance ID, one allowlisted Task 28 rule ID, observation time, bounded matched-event count, and optional provider stream generation/sequence. Raw AMI fields, account/address identity, request details, and rule configuration are not persisted in alert records.
+161. **Per-rule current ownership:** current alert state is keyed by PBX instance plus rule ID. Independent rule types cannot overwrite each other's latest state.
+162. **Deterministic deduplication:** historical alerts use a SHA-256 identity over the complete bounded alert record. Re-persisting the same alert is a no-op in history.
+163. **Monotonic current ordering:** when both stored and incoming alerts carry provider stream ordering, generation and then sequence determine freshness; otherwise normalized observation time is the fallback.
+164. **Transactional retention and cascade:** history insert, current advancement, and retention pruning occur inside one SQLite transaction. History pruning never removes current state, and PBX deletion cascades current/history alert rows.
+165. **Task 29 phase boundary:** no persistent rule configuration, evaluator scheduling/runtime ownership, alert HTTP/SSE exposure, webhook/notification delivery, dashboard UI, or production-system compatibility claim is added. Next task is Task 30 for authenticated PBX-scoped alert current/history APIs and bounded realtime alert delivery without external notification delivery.

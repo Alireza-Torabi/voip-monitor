@@ -158,4 +158,32 @@ export const migrations = [
         ON security_event_history(pbx_instance_id, observed_at);
     `,
   },
+  {
+    version: 9,
+    name: 'security_alert_persistence',
+    sql: `
+      CREATE TABLE security_alert_current (
+        pbx_instance_id TEXT NOT NULL REFERENCES pbx_instance(id) ON DELETE CASCADE,
+        rule_id TEXT NOT NULL CHECK (rule_id IN ('AUTHENTICATION_FAILURE_ANY', 'AUTHENTICATION_FAILURE_THRESHOLD')),
+        observed_at TEXT NOT NULL,
+        stream_generation INTEGER,
+        stream_sequence INTEGER,
+        alert_json TEXT NOT NULL CHECK (json_valid(alert_json)),
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (pbx_instance_id, rule_id)
+      ) STRICT;
+      CREATE TABLE security_alert_history (
+        id INTEGER PRIMARY KEY,
+        alert_key TEXT NOT NULL UNIQUE,
+        pbx_instance_id TEXT NOT NULL REFERENCES pbx_instance(id) ON DELETE CASCADE,
+        rule_id TEXT NOT NULL CHECK (rule_id IN ('AUTHENTICATION_FAILURE_ANY', 'AUTHENTICATION_FAILURE_THRESHOLD')),
+        observed_at TEXT NOT NULL,
+        stream_generation INTEGER,
+        stream_sequence INTEGER,
+        alert_json TEXT NOT NULL CHECK (json_valid(alert_json))
+      ) STRICT;
+      CREATE INDEX security_alert_history_instance_observed
+        ON security_alert_history(pbx_instance_id, observed_at);
+    `,
+  },
 ] as const;

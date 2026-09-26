@@ -38,10 +38,10 @@ test('fresh database migrates once and persists setup and PBX metadata across re
     assert.equal(first.setup.get().state, 'SETUP_REQUIRED');
     assert.deepEqual(first.pbxInstances.list(), []);
     const history = first.migrationHistory();
-    assert.equal(history.length, 8);
+    assert.equal(history.length, 9);
     assert.deepEqual(
       history.map((row) => row.version),
-      [1, 2, 3, 4, 5, 6, 7, 8],
+      [1, 2, 3, 4, 5, 6, 7, 8, 9],
     );
     assert.match(history[0].checksum, /^[a-f0-9]{64}$/);
     first.setup.set('SETUP_IN_PROGRESS');
@@ -205,6 +205,94 @@ test('security event persistence is duplicate-safe, monotonic, and retention-saf
         storage.securityEvents.getCurrent('security-pbx').observedAt,
         '2026-09-26T10:02:00.000Z',
       );
+    } finally {
+      storage.close();
+    }
+  }));
+
+test('security alert persistence is duplicate-safe, per-rule monotonic, retention-safe, and cascades', () =>
+  fixture(async (config) => {
+    const storage = await SqliteStorage.open(config);
+    try {
+      storage.pbxInstances.save({
+        id: 'alert-pbx',
+        providerType: 'ASTERISK',
+        displayName: 'Alerts',
+      });
+      const alert = (ruleId, observedAt, streamGeneration, streamSequence, matchedEventCount) => ({
+        instanceId: 'alert-pbx',
+        ruleId,
+        observedAt,
+        matchedEventCount,
+        ...(streamGeneration === undefined ? {} : { streamGeneration }),
+        ...(streamSequence === undefined ? {} : { streamSequence }),
+      });
+
+      const any = alert('AUTHENTICATION_FAILURE_ANY', '2026-09-26T10:00:00.000Z', 2, 10, 1);
+      storage.securityAlerts.save(any, '2026-09-26T09:00:00.000Z');
+      storage.securityAlerts.save(any, '2026-09-26T09:00:00.000Z');
+      assert.equal(
+        storage.securityAlerts.listHistory(
+          'alert-pbx',
+          '2026-09-26T09:00:00.000Z',
+          '2026-09-26T11:00:00.000Z',
+          10,
+        ).length,
+        1,
+      );
+
+      storage.securityAlerts.save(
+        alert('AUTHENTICATION_FAILURE_ANY', '2026-09-26T10:01:00.000Z', 2, 9, 1),
+        '2026-09-26T09:00:00.000Z',
+      );
+      assert.equal(
+        storage.securityAlerts.getCurrent('alert-pbx', 'AUTHENTICATION_FAILURE_ANY').streamSequence,
+        10,
+      );
+
+      storage.securityAlerts.save(
+        alert('AUTHENTICATION_FAILURE_THRESHOLD', '2026-09-26T10:02:00.000Z', 2, 11, 4),
+        '2026-09-26T09:00:00.000Z',
+      );
+      assert.equal(storage.securityAlerts.listCurrent('alert-pbx').length, 2);
+
+      storage.securityAlerts.save(
+        alert('AUTHENTICATION_FAILURE_ANY', '2026-09-26T10:03:00.000Z', 3, 1, 1),
+        '2026-09-26T10:01:30.000Z',
+      );
+      assert.equal(
+        storage.securityAlerts.getCurrent('alert-pbx', 'AUTHENTICATION_FAILURE_ANY')
+          .streamGeneration,
+        3,
+      );
+      assert.equal(
+        storage.securityAlerts.listHistory(
+          'alert-pbx',
+          '2026-09-26T09:00:00.000Z',
+          '2026-09-26T11:00:00.000Z',
+          10,
+        ).length,
+        2,
+      );
+      assert.equal(storage.securityAlerts.pruneBefore('2026-09-26T10:02:30.000Z'), 1);
+      assert.equal(storage.securityAlerts.listCurrent('alert-pbx').length, 2);
+
+      assert.throws(
+        () =>
+          storage.securityAlerts.save(
+            {
+              instanceId: 'alert-pbx',
+              ruleId: 'AUTHENTICATION_FAILURE_THRESHOLD',
+              observedAt: 'invalid',
+              matchedEventCount: 1,
+            },
+            '2026-09-26T09:00:00.000Z',
+          ),
+        StorageError,
+      );
+
+      storage.pbxProfiles.delete('alert-pbx');
+      assert.deepEqual(storage.securityAlerts.listCurrent('alert-pbx'), []);
     } finally {
       storage.close();
     }
