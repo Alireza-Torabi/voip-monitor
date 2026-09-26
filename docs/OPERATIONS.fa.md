@@ -2,7 +2,7 @@
 
 # عملیات
 
-**وضعیت:** Backend اکنون علاوه بر راه‌اندازی احرازشدهٔ PBX و State Engine تلفنی، System Metrics محدود از SSH با Current/History و API/SSE، رویدادهای امنیتی AMI با Current/History و API/SSE، ارزیابی Fail-Closed هشدار، Persistence هشدار و API/SSE احرازشدهٔ Security Alert را دارد. State تلفنی هنوز Browser-facing نیست. Browser اکنون Current Security Alertها و مدیریت Ruleهای محدود را نمایش می‌دهد، اما نمایش Realtime/History هشدار، External Notification Delivery، استقرار Production و Backup/Restore آزموده‌شده هنوز کامل نشده‌اند.
+**وضعیت:** Backend اکنون علاوه بر راه‌اندازی احرازشدهٔ PBX و State Engine تلفنی، System Metrics محدود از SSH با Current/History و API/SSE، رویدادهای امنیتی AMI با Current/History و API/SSE، ارزیابی Fail-Closed هشدار، Persistence هشدار و API/SSE احرازشدهٔ Security Alert را دارد. State تلفنی هنوز Browser-facing نیست. Browser اکنون Current Security Alertها، تاریخچه محدود ۲۴ ساعته، Realtime Update مبتنی بر Persistence و مدیریت Ruleهای محدود را نمایش می‌دهد. External Notification Delivery، استقرار Production و Backup/Restore آزموده‌شده هنوز کامل نشده‌اند.
 
 بررسی‌های کنونی را از ریشهٔ مخزن اجرا کنید:
 

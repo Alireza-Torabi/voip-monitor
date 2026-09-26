@@ -299,3 +299,13 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 189. **No notification controls:** no webhook/email/SMS/chat target, notification credential, or delivery toggle is introduced in Task 33.
 190. **Task 33 phase boundary:** the first UI uses snapshot/current reads plus explicit refresh. Existing alert SSE and history endpoints are deliberately left for Task 34, which will add bounded realtime updates and recent history without external notification delivery.
 191. **Bilingual source-of-truth invariant reaffirmed:** after observing post-merge Persian-plan drift, MASTER_PLAN.fa.md is regenerated from the finalized English master plan and structural parity is checked before commit.
+
+## 2026-09-26 — Phase 7 Task 34 security-monitoring realtime/history UI decisions
+
+192. **Recent-history window:** the first browser history surface requests only the selected PBX's previous 24 hours with a hard client limit of 100 rows. Server validation/retention remains authoritative.
+193. **One selected-PBX realtime stream:** the UI opens at most one Security Alert EventSource for the currently selected PBX and closes it when the selection/component changes.
+194. **SSE merge semantics:** an initial current snapshot replaces current per-rule display state. A later persisted alert replaces only its rule's current record and is prepended to recent history.
+195. **UI deduplication bound:** identical realtime alerts are ignored in displayed history using the complete bounded alert display identity; history is capped at 100 rows even during a long browser session.
+196. **Fail-closed stream parsing:** malformed SSE JSON or invalid bounded alert shapes do not mutate UI state. Stream errors only mark realtime disconnected; they do not erase already loaded state.
+197. **No external delivery:** Task 34 adds no notification target/configuration, credential, queue, webhook, or provider action. It closes the currently defined Phase 7 monitoring slice only.
+198. **Task 35 boundary:** the next task defines bounded external-notification configuration/queue/deduplication contracts only. Any real provider delivery requires a later explicit scope and approval.

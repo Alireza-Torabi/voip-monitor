@@ -90,6 +90,11 @@ export const api = {
   deletePbx: (id: string) => request<{ status: string }>(`/api/pbx-instances/${id}`, 'DELETE'),
   listSecurityAlerts: (id: string) =>
     request<{ current: SecurityAlertRecord[] }>(`/api/pbx-instances/${id}/security-alerts`),
+  listSecurityAlertHistory: (id: string, from: string, to: string, limit = 100) =>
+    request<{ items: SecurityAlertRecord[] }>(
+      `/api/pbx-instances/${id}/security-alerts/history?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&limit=${limit}`,
+    ),
+  securityAlertStreamUrl: (id: string) => `/api/pbx-instances/${id}/security-alerts/stream`,
   listSecurityAlertRules: (id: string) =>
     request<{ items: SecurityAlertRuleConfig[] }>(`/api/pbx-instances/${id}/security-alert-rules`),
   putSecurityAlertRule: (id: string, ruleId: SecurityAlertRuleId, value: object) =>
