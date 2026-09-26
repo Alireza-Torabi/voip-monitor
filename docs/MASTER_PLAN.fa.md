@@ -1,238 +1,58 @@
-# Master plan
+<div dir="rtl" align="right">
 
-Status: 2026-09-25. Phase 1 public repository foundation is complete. Task 19 is merged into `main` as PR #20. Phase 6 Task 20 restricted SSH configuration/trust foundation is implemented on `feature/restricted-ssh-config-trust`. It adds per-PBX SSH metadata persistence, encrypted password/private-key credential storage using the existing AES-256-GCM secret store, mandatory pinned OpenSSH SHA-256 host-key trust, and reuse of the shared SSRF/network boundary; no SSH client/socket, DNS lookup, real-host access, scheduler, persistence of metrics, or browser/API exposure exists yet.
+# مستر پلن پروژه VoIP Monitor
 
-## Phase 0 — environment discovery
+**وضعیت:** 2026-09-26
+**منبع اصلی حقیقت:** `docs/MASTER_PLAN.md`
+**قاعده:** این فایل باید پس از هر Task همراه نسخه انگلیسی به‌روزرسانی شود. جزئیات فنی بسیار ریز، Failure Log کامل و Decisionهای شماره‌دار در نسخه انگلیسی و `docs/DECISIONS.md` نگهداری می‌شوند.
 
-- [x] Inspect OS, workspace, Git, GitHub CLI, Docker, Compose, Node.js, npm, and files.
-- [x] Record observed state; install no system packages and contact no PBX.
+## هدف پروژه
 
-## Phase 1 — public repository foundation
+ساخت یک سامانه مستقل و Read-Only برای پایش چند PBX که خرابی آن هیچ اثری روی مسیر تماس نداشته باشد. اطلاعات واقعی سازمان، Credentialها، Topology، Log خام و نتایج خصوصی فقط در `.local/` یا Runtime Storage نگهداری می‌شوند و وارد Git عمومی نمی‌شوند.
 
-### Completed
+## وضعیت فازها
 
-- [x] Initialize local `main`; keep private `.local/` and runtime paths ignored.
-- [x] Create public policy files, English/Persian README and documentation pairs, official Apache-2.0 LICENSE, and ownership-neutral NOTICE.
-- [x] Record architecture, decisions, project context, and planned direct dependency license review.
-- [x] Add npm workspace manifests, Node.js 24 LTS target, strict TypeScript base config, and documented lint/format/test/build strategy.
-- [x] Add service-free Compose foundation and runtime data/secret layout.
-- [x] Add CI for existing foundation checks using synthetic/public files only.
-- [x] Run the foundation checker and review public files for obvious secrets.
+### فاز ۰ — شناسایی محیط
+- [x] بررسی محیط توسعه و ابزارها بدون نصب ناخواسته و بدون اتصال به PBX.
 
-### GitHub closure
+### فاز ۱ — شالوده مخزن عمومی
+- [x] Git، اسناد عمومی، License، CI، ساختار Workspace، Secret/Public boundary و Foundation checks.
+- [ ] اعتبارسنجی Docker/Compose پس از ایجاد Build Context و Serviceهای واقعی.
 
-- [x] Review staged diff and create the clean initial commit with the user-supplied repository-only Git identity.
-- [x] Configure `origin` to the user-supplied repository after confirming no conflicting remote.
-- [x] Push the initial foundation commit to GitHub; `main` tracks `origin/main`.
-- [x] Verify remote `main` points to `974f0cb2ec471878d58c71639e904bca48bb8aaf` (`chore: establish public repository foundation`).
+### فاز ۲ — شالوده برنامه
+- [x] Task 1 تا 6: Backend/Frontend پایه، Configuration، SQLite، Secret Store، First Admin/Auth و PBX CRUD.
+- [x] Task 7 تا 12: مرز شبکه Asterisk، AMI TCP، Runtime، Eventها، Snapshot/Reconciliation و Verification کنترل‌شده روی Asterisk 13.x واقعی.
+- [x] Task 13 تا 17: State Engine تلفنی، Endpoint، Trunk، Queue و Agent Interaction.
+- [x] Task 18 تا 24: System Metrics، Restricted SSH، Trust/Pinning، Runtime، Persistence و HTTP/SSE.
+- [x] Task 25 تا 27: Security Event از AMI، Persistence و HTTP/SSE.
+- [x] Task 28: ارزیابی محدود و Fail-Closed قوانین هشدار امنیتی روی Security Eventهای نرمال‌شده؛ بدون Delivery خارجی.
 
-The earlier local commit `e735f1c` was amended before publication to use the requested noreply identity. It is not in `origin/main` ancestry. The published foundation commit is `974f0cb`.
+## وضعیت فعلی Git و Handoff
 
-### Deferred toolchain-dependent gates
+- Branch فعلی: `feature/security-alert-rule-boundary`
+- Task 28 پیاده‌سازی، Commit و Push شده است.
+- `main` هنوز Task 28 را ندارد و روی Merge مربوط به Task 27 قرار دارد.
+- بنابراین تا Merge شدن Task 28 **هیچ Task جدیدی نباید شروع شود**.
+- Task بعدی پس از تأیید Merge: **Task 29 — تعریف Persistence/Current-State محدود برای Security Alert همراه Deduplication و بدون External Delivery.**
+- بازبینی مستندات 2026-09-26 بخشی از بستن Handoff همین Branch است و Task 29 را شروع نمی‌کند.
 
-- [x] Generate one npm lockfile and audit resolved license identifiers (completed in Phase 2 Task 1).
-- [x] Run lint, format, typecheck, tests, and builds for the initial skeleton (completed in Phase 2 Task 1).
-- [ ] Validate Docker Compose and build images when Docker and service build contexts exist.
+## محدودیت‌های مهم فعلی
 
-These later checks do not change the historical Phase 1 validation record. Docker validation remains deferred. Local tool availability is recorded only in ignored `.local/`.
+- Telephony State هنوز API/Realtime مرورگر-facing ندارد.
+- Alert Persistence، Deduplication State و Notification Delivery هنوز پیاده نشده‌اند.
+- Dashboard کامل Production هنوز وجود ندارد.
+- Backup/Restore و Production deployment کامل و آزموده‌شده نیست.
+- PJSIP و برخی مدل‌های Trunk/Sourceهای امنیتی گسترده‌تر هنوز خارج از Scope پیاده‌سازی فعلی‌اند.
+- اتصال واقعی PBX فقط در Gateهای صریحاً تأییدشده مجاز است؛ CI همیشه Synthetic باقی می‌ماند.
 
-## Phase 2 — application foundation
+## قاعده پایان هر Task
 
-- [x] Task 1: approved local Node 24/npm toolchain, minimal backend `GET /health`, bilingual React shell, one lockfile, quality gates, and CI. Local validation passed; the feature branch was merged into `main` as `e737abd`.
-- [x] Task 2: provider-neutral shared contracts, typed capability and source-health models, centralized validated application configuration, and safe configuration errors/log redaction. No PBX or persistence behavior.
-- [x] Task 3: SQLite storage abstraction, transactional migration history, setup and minimal PBX metadata persistence, and application readiness.
-- [x] Task 4: protected master-key lifecycle, AES-256-GCM PBX secret persistence, readiness integration, and recovery documentation.
-- [x] Task 5: protected first-administrator bootstrap, local password authentication, server-side sessions, CSRF and attempt limits, and setup-state transition.
-- [x] Task 6: authenticated PBX profile CRUD, provider-scoped AMI metadata, encrypted write-only credentials, configured-unverified setup state, and bilingual setup/login/onboarding UI. No PBX network access.
-- [x] Task 7: Asterisk provider network-boundary policy, injected address-resolution boundary, and mock AMI transport foundation. No real DNS lookup, socket, AMI login, or PBX access.
-- [x] Task 8: plain TCP AMI wire transport, safe action framing/ActionID/timeout handling, Node DNS resolver boundary, and an Asterisk provider login/discovery/reconcile foundation. Tests use only mocks and a synthetic loopback AMI server; runtime startup still creates no PBX connection.
-- [x] Task 9: provider runtime lifecycle with one managed provider per enabled PBX, bounded reconnect/backoff and reconciliation, explicit network enablement, authenticated provider-status and connection-test/discovery APIs, persisted verification timestamp, and bilingual connection-test UI. Tests remain mock/synthetic only; no real PBX access.
-- [x] Task 10: AMI transport event subscription, provider-neutral normalized event contracts, Asterisk event normalization, and runtime event forwarding. Synthetic coverage includes channel lifecycle/state, dial lifecycle, bridge membership, and chan_sip peer status; raw AMI payloads are not forwarded to consumers.
-- [x] Task 11: ActionID-correlated AMI event-list actions, `CoreShowChannels` provider snapshots, minimal provider-neutral channel snapshots, initial snapshot publication, and periodic reconciliation snapshots. Partial/cancelled/inconsistent lists fail closed; snapshot degradation does not cause a reconnect storm.
-- [x] Task 12: controlled read-only real-PBX compatibility verification of the Asterisk 13.x baseline and Task 8–11 AMI assumptions. Local-only credential handling, bounded verifier, bilingual runbook, safe error classification, login/discovery, `CoreShowChannels`, passive normalized live events, reconciliation, and clean disconnect were validated against an approved real Asterisk 13.x system without PBX changes.
-- [x] Task 13: internal telephony state engine foundation. Provider frames now carry per-process connection generations and per-frame sequence numbers; channel snapshot items retain their source sequence. The engine subscribes before runtime start, buffers/replays events around snapshot collection boundaries, repairs drift from reconciliation snapshots, tracks `CURRENT`/`AWAITING_SNAPSHOT`/`STALE`, groups current channels into deterministic calls, and resets state when a PBX profile runtime is replaced or removed. No REST/WebSocket state endpoint exists yet.
-- [x] Task 14: endpoint/registration state foundation. The Asterisk provider now collects an independent `SIPpeers`/PeerEntry snapshot for chan_sip endpoints, normalizes registration and reachability without forwarding addresses/raw AMI fields, records endpoint capability as `SUPPORTED`, `PERMISSION_DENIED`, or `UNSUPPORTED`, and keeps channel snapshots usable when endpoint listing is unavailable by capability. The state engine reconciles endpoint snapshots using their own sequence boundary, replays only newer PeerStatus events, preserves known dimensions when an event reports `UNKNOWN`, and refuses to manufacture endpoint state when no authoritative endpoint snapshot is available. Synthetic/mock only; no real PBX access.
-- [x] Task 15: trunk state foundation. Provider-neutral trunk contracts distinguish outbound-registration trunks explicitly. The Asterisk provider uses an independent `SIPshowregistry` / `RegistryEntry` / `RegistrationsComplete` snapshot boundary, normalizes live `Registry` events, reports trunk capability independently, and keeps channel/endpoint state usable when registry listing is denied or unsupported. The state engine reconciles trunk snapshots with their own ordering boundary, replays only newer registry events, and fails closed if journal overflow makes any supported independent snapshot boundary unsafe. Synthetic/mock only; no real PBX access.
-- [x] Task 16: queue state foundation. The AMI event-list transport now supports an explicit allowlist of multiple correlated item-event names so `QueueStatus` can safely collect `QueueParams`, `QueueMember`, and `QueueEntry` under one ActionID and completion boundary. Provider-neutral contracts expose queue identity/strategy, queue-member availability/pause/in-call state, and current queued caller identity/position/wait without forwarding CallerID, channel names, pause reasons, state-interface details, or arbitrary raw AMI fields. Live normalization covers queue-member status/add/pause/penalty/ringinuse/removal and caller join/leave/abandon events. The state engine gives queue snapshots an independent ordering/freshness boundary, derives waiting counts from current caller state, and includes queue boundaries in fail-closed journal-overflow recovery. Synthetic/mock only; no real PBX access.
-- [x] Task 17: agent interaction state foundation. Provider-neutral lifecycle events normalize `AgentCalled`, `AgentRingNoAnswer`, `AgentConnect`, and `AgentComplete`; Asterisk 13 `AgentDump` is also normalized as a terminal cleanup event because it can occur after a member answers but before `AgentConnect`. Current interactions are keyed by queue + caller Uniqueid + member interface, support ring-all fan-out, and expose only `RINGING` or `CONNECTED` current phases. Because Asterisk provides no authoritative active-agent-interaction snapshot equivalent to `QueueStatus`, the state is explicitly `LIVE_ONLY`: startup/reconnect does not manufacture unseen interactions, connection loss clears observed interactions, and a fresh provider snapshot establishes the new observation boundary before buffered events from the new generation are replayed. Caller identity fields, channel names, destination-channel identifiers, and raw timing fields are excluded. Synthetic/mock only; no real PBX access.
-- [x] Task 18: system metrics foundation. Shared provider-neutral contracts now model CPU utilization percentage, total/available memory bytes, filesystem identity/mount plus total/available bytes, uptime seconds, and generic service health (`ACTIVE`, `INACTIVE`, `FAILED`, `UNKNOWN`). Every sample is PBX-instance scoped, explicitly sourced from the future restricted SSH collector, timestamped, and carries the existing five system capability dimensions. A new collector abstraction and boundary validator require supported dimensions to contain data and unavailable/unsupported dimensions to remain absent instead of becoming false zeroes; numeric ranges, capacities, timestamps, duplicate filesystem/service IDs, instance/source identity, and malformed optional collections fail closed. Unknown collector exceptions are converted to bounded `COLLECTION_FAILED` errors without forwarding raw command/host details. Synthetic/mock only; no SSH connection, command execution, real-host/PBX access, persistence, API, or scheduling.
-- [x] Task 19: restricted SSH system-metrics transport/parser foundation. The injected `RestrictedSshTransport` accepts only resolved command objects from a fixed metrics allowlist: `/proc/stat`, `/proc/meminfo`, `df -P -B1`, `/proc/uptime`, and bounded `systemctl show` service-state queries with validated service IDs. Callers cannot provide shell text, program names, paths, or arbitrary arguments. Execution carries explicit timeout/output limits; the wrapper enforces a wall-clock timeout and post-return byte cap while passing the same limits to the future concrete transport for streaming enforcement. Parsers normalize Linux procfs CPU/memory/uptime, POSIX-style `df`, and systemd service state into Task 18 contracts. CPU utilization uses two `/proc/stat` samples and excludes `guest`/`guest_nice` from the total because Linux already includes them in `user`/`nice`. Permission-denied/unsupported dimensions degrade independently without false zeroes; malformed output or configuration fails closed. Synthetic/mock only; no SSH library/socket, credential handling, command execution on a real host, or PBX access.
-- [x] Task 20: restricted SSH configuration and trust foundation. Migration 6 adds optional per-PBX SSH metadata (`host`, `port`, conservative username, auth method, trust policy, pinned host-key fingerprint) with PBX deletion cascade. `SshConfigurationService` requires an existing PBX, validates syntax only, supports password or private-key credentials plus optional key passphrase, stores all credential material through the existing encrypted `SecretStore`, removes obsolete auth secrets when methods change, and returns metadata/presence flags only. Trust is explicitly `PINNED_SHA256`: OpenSSH-style `SHA256:<digest>` fingerprints are canonicalized and exact server-key blobs are checked with SHA-256 plus timing-safe comparison; no TOFU/accept-new path exists. The Asterisk network policy was extracted to a generic shared network boundary and re-exported compatibly; SSH target validation reuses that policy after a future single resolution step while performing no DNS lookup/socket itself. Synthetic/mock only; no SSH client, network access, or real-host/PBX probe.
-- [x] Task 21: concrete restricted SSH client transport foundation with injected resolver, one-time SSRF-checked address selection, mandatory pinned-host-key callback, encrypted credential retrieval, streaming timeout/output enforcement, and synthetic loopback SSH validation only; no real-host/PBX access.
-- [x] Task 22: wire the concrete restricted SSH transport into the system-metrics runtime/source lifecycle with per-PBX source health, bounded failure backoff, credential/config gating, and synthetic runtime validation; no real-host/PBX access.
-- [x] Task 23: define the bounded system-metrics current-state/history persistence boundary, monotonic current-state semantics, duplicate-safe samples, transactional retention pruning, and runtime persistence with a bounded default retention window; no real-host/PBX compatibility claim was needed for this task.
-- [x] Task 24: expose authenticated system-metrics current/history HTTP APIs and a PBX-scoped realtime SSE publication boundary, with bounded query/stream limits and no raw SSH/transport details; no real-host/PBX access.
-- [x] Task 25: establish the first bounded security-monitoring source boundary and normalized authentication security-event contract from Asterisk AMI SecurityEvent frames; unknown events and raw identity/network/request fields are discarded, capability becomes supported only after an observed normalized event, and validation remains synthetic/mock only with no production log access.
-- [x] Task 26: define bounded security-event current/history persistence with duplicate-safe identity, monotonic current ordering across provider connection generations, transactional retention pruning, and a seven-day default retention boundary; persistence remains read-only and synthetic/mock validated without production log access.
-- [x] Task 27: expose authenticated PBX-scoped security-event current/history APIs and bounded realtime SSE delivery without exposing raw AMI/provider fields; stream establishment is same-origin protected, PBX scoped, heartbeat bounded, and concurrent streams capped.
+پس از هر Task:
+1. `docs/MASTER_PLAN.md` و این فایل را همگام کن.
+2. وضعیت Task، Failure/Bug، Root Cause، Fix، Known Limitations و Exact Next Task را ثبت کن.
+3. در صورت نیاز `PROJECT_CONTEXT.md`، `DECISIONS.md`، `ARCHITECTURE.md` و Runbookها را اصلاح کن.
+4. `.local/SESSION_HANDOFF.md` را با وضعیت واقعی Git و Prompt ادامه‌کار به‌روز کن.
+5. Lint، Format Check، Typecheck، Tests، Build، Foundation، License و Secret/Public review را اجرا کن.
+6. Commit و Push کن و برای Merge متوقف شو.
 
-### Current execution handoff
-
-- Current branch: `feature/security-event-api-realtime`, created from synchronized `main` after Task 26 merged as PR #27.
-- Task 27 implementation is complete locally. The backend exposes authenticated current/history security-event endpoints plus a PBX-scoped SSE stream. History uses the same explicit UTC range and maximum 500-row boundary as system metrics; the stream sends an initial current snapshot and subsequent normalized security events, with same-origin enforcement, 15-second heartbeat, cleanup, and a 64-stream process cap. No raw AMI/provider payload is exposed.
-- Task 27 used synthetic/mock API and SSE validation only. No production log access, real PBX connection, or SSH security-log access was performed.
-- Exact next task: **Task 28 — define the bounded security-alert/rule evaluation boundary over normalized persisted security events, with fail-closed rules and no notification delivery yet.**
-
-### Failure and bug log
-
-- **Task 9 CI failure — resolved:** the original `.gitignore` rule `runtime/` matched every directory named `runtime`, including `backend/src/providers/runtime/`. The runtime manager source existed locally but was ignored/untracked, so local typecheck passed while a clean GitHub checkout failed at typecheck because the imported module was missing. Fix: root-anchor the runtime-data rule as `/runtime/`, track `backend/src/providers/runtime/index.ts`, and narrow the foundation checker so only top-level private/runtime directories are rejected. Full local gates then passed and both GitHub Actions checks passed.
-- **Task 10 validation failure — resolved:** the first full lint gate failed because the new Node event test referenced `Buffer` without an explicit `node:buffer` import under the repository ESLint environment. The import was added and the complete gate suite was rerun successfully.
-- **Task 10 open defects:** none currently known from the automated suite. Event consumers are isolated from transport/provider/runtime failures by listener boundaries.
-- **Task 10 known limitations:** only the deliberately selected normalized event subset is implemented (`Newchannel`, `Newstate`, `Hangup`, `DialBegin`, `DialEnd`, `BridgeEnter`, `BridgeLeave`, and chan_sip `PeerStatus`). PJSIP contact/endpoint events, queue/agent events, registration/trunk events, duplicate AMI header preservation, state reconstruction, historical persistence, and browser realtime delivery remain future work.
-- **Task 11 design bug — resolved before commit:** the first snapshot draft treated any initial snapshot failure like a broken PBX connection, which would disconnect and reconnect repeatedly even when AMI remained connected but `CoreShowChannels` was unsupported or denied. Runtime now keeps the provider connected in `DEGRADED`, retries snapshot reconciliation on the normal interval, and reconnects only when connection health is no longer usable.
-- **Task 11 data-exposure bug — resolved before commit:** adding `currentState` directly to the runtime entry status would also have exposed channel snapshot data through the existing authenticated `provider-status` endpoint because that endpoint spreads `runtime.status()`. The public runtime status now deliberately omits current channel state; snapshots remain an internal state-engine boundary only.
-- **Task 11 validation failure — resolved:** the first complete quality-gate run stopped at `format:check` because `backend/src/providers/runtime/index.ts` needed Prettier formatting after the status-boundary fix. Prettier was applied and the complete gate suite was rerun from the start.
-- **Task 25 validation failure — resolved:** Extending `PbxProvider` with the security subscription initially broke synthetic runtime test doubles because they did not implement the new method. The fake provider was updated with an inert security subscription seam. The initial typecheck issue from union narrowing was fixed by narrowing the success branch before accessing `reason` and using the explicit bounded failure-reason type.
-- **Task 25 known limitations:** Only Asterisk AMI `SecurityEvent` authentication outcomes are normalized. Security logs over SSH, firewall/WAF events, authorization policy events, security-event persistence/history, alerting, API/realtime delivery, and dashboard presentation remain future tasks. No production compatibility claim was made for the security-event subset.
-- **Task 26 validation failure — resolved:** The first full test run exposed two expected migration-history assertions still ending at version 7 after migration 8 was added. They were updated to assert the complete chain through version 8. The new persistence test initially expected an event older than its supplied retention cutoff to remain in history; the fixture was corrected to place that event inside the retention window so the test specifically verifies monotonic current state rather than bypassing pruning.
-- **Task 26 known limitations:** Security persistence currently covers only the normalized Asterisk AMI authentication-event contract. Retention is a seven-day runtime boundary with no public configuration/API yet; current state is one latest event per PBX. Authenticated security-event API/realtime exposure, alerting, dashboard presentation, and broader security sources remain future work.
-- **Task 11 open defects:** none currently known from the synthetic suite.
-- **Task 11 known limitations:** `CoreShowChannels` behavior and AMI permissions are not yet verified against the required real Asterisk 13.x baseline. Snapshot data intentionally contains only stable channel identity/name, linked ID, state, and bridge ID; caller identity and arbitrary AMI fields are excluded. Live-event/snapshot buffering and idempotent replay belong to the future state engine. The parser still keeps only one value per AMI header name.
-- **Task 12 preflight bug — resolved:** the first blocked-target probe surfaced `UNKNOWN` because `NetworkBoundaryError` was not mapped by the Asterisk provider. It now maps to bounded `CONNECTION_FAILED`; a regression test confirms that loopback is rejected before any transport connection is created.
-- **Task 12 validation failure — resolved:** the first complete lint run rejected the standalone verifier because Node globals (`process`, `Buffer`, and `setTimeout`) were not explicitly imported under the repository ESLint environment. The verifier now imports them from Node built-ins.
-- **Task 12 validation failure — resolved:** the next complete gate run stopped at `format:check` because the new provider regression test required Prettier formatting. The test was formatted and the complete suite was rerun successfully.
-- **Task 12 preflight status:** the setup helper, local file modes/ignore rules, verifier path confinement, blocked-target behavior, and syntax checks pass using synthetic inputs. No real PBX has been contacted.
-- **Task 12 first real-PBX probe — blocked by permission:** AMI network reachability and authentication passed, then `CoreSettings` returned a permission denial. The probe disconnected cleanly and made no PBX change. Discovery, snapshots, live events, and reconciliation were not attempted after the denied action. The next operator action is to review the dedicated AMI account permissions; do not broaden them blindly.
-- **Task 12 diagnostic gap — resolved:** the first real probe originally surfaced the denied discovery as `UNKNOWN` because non-success AMI responses were not safely classified. The provider now maps permission-like responses to `PERMISSION_DENIED` and unsupported-action responses to `UNSUPPORTED`; a synthetic regression test covers denied discovery.
-- **Task 12 least-privilege documentation bug — resolved:** the initial runbook suggested `write = system,reporting`. Asterisk 13 checks action authority by bitmask overlap, and both required read-only actions are registered as `system|reporting`, so `write = reporting` is sufficient and narrower. Live call/channel events still require `read = call`.
-- **Task 12 real-PBX gate — passed:** after the dedicated AMI permission was corrected, the bounded verifier passed real login, `CoreSettings`, initial `CoreShowChannels`, 60-second passive normalized event observation during a normal test call, reconciliation, and clean disconnect. The tested provider remained connected through final reconciliation and no PBX setting was changed.
-- **Task 12 compatibility scope:** the real gate establishes a verified baseline for the approved Asterisk 13.x environment only. It does not claim every Asterisk/FreePBX release, PJSIP event family, queue/agent flow, or deployment topology is compatible. Broader compatibility remains future matrix work.
-- **Task 13 snapshot/event race — resolved by design:** timestamps alone cannot safely decide whether an event interleaved with `CoreShowChannels` happened before or after a particular snapshot item. The TCP transport now assigns a process-unique connection generation and monotonic frame sequence; snapshot items retain their source sequence and the state engine replays only events newer than the applicable snapshot boundary.
-- **Task 13 reconnect/profile-reload race — resolved:** a newer connection generation is buffered until its authoritative snapshot arrives, and runtime profile replacement/removal emits an internal reset so state from a previous provider instance is not carried into the new one.
-- **Task 13 freshness gap — resolved:** runtime connection-state changes now feed the internal state engine. Initialized state becomes `STALE` on non-connected health and `AWAITING_SNAPSHOT` after reconnection until a fresh authoritative snapshot restores `CURRENT`.
-- **Task 13 bridge reducer bug — resolved before commit:** an initial `BRIDGE_LEFT` reducer draft could clear a different, newer bridge assignment. A leave event now clears bridge membership only when it matches the current bridge and otherwise preserves the newer assignment.
-- **Task 13 validation failures — resolved:** the first targeted build exposed exact-optional-property TypeScript errors in the new reducer; after those fixes, two existing transport tests failed because ordered event metadata changed the expected shape. Types/formatting and test expectations were corrected and targeted suites passed. The first complete lint gate later found two intentionally discarded destructured variables and two test uses of an undeclared `structuredClone` global under the repository ESLint environment; the reducer now constructs public objects explicitly and the fake test source uses explicit shallow copies.
-- **Task 13 bounded-buffer behavior:** event buffering is capped at 10,000 entries per PBX. If overflow loses a boundary needed for safe reconciliation, the engine fails closed and waits for a snapshot whose collection starts after the discarded boundary.
-- **Task 13 known limitations:** state is in-memory only; call state is a deterministic grouping of current channels by `linkedId` (falling back to channel ID), not a semantic call-phase model. Caller identity, dial result history, endpoint/trunk/queue/agent state, persistence, historical revisions, REST reads, and WebSocket delivery remain future work.
-- **Task 14 validation false start — resolved:** a backend-only typecheck initially read the previously built shared declarations and reported missing Task 14 shared types. Rebuilding the `shared` workspace first removed those stale-artifact errors; the repository root typecheck already performs this dependency build in the correct order.
-- **Task 14 endpoint partial-update bug — resolved before commit:** a first reducer draft would replace known registration or reachability with `UNKNOWN` when a PeerStatus event only described the other dimension. Live endpoint updates now preserve the existing value for dimensions the event does not authoritatively describe.
-- **Task 14 open defects:** none currently known from the synthetic suite.
-- **Task 14 known limitations:** authoritative endpoint discovery currently targets Asterisk 13 chan_sip through `SIPpeers`/PeerEntry. PJSIP endpoint/contact actions and event families are not implemented or claimed. Dynamic chan_sip registration in the snapshot is inferred from the peer's dynamic flag plus presence/absence of a bound IP address; static peers remain `UNKNOWN` for registration. Endpoint state is in-memory only and has no REST/WebSocket exposure or history.
-- **Task 15 replay-dispatch bug — resolved before commit:** the first trunk reducer passed typecheck and provider tests, but a targeted state-engine test showed a newer `TRUNK_REGISTRATION_CHANGED` event was not replayed after the authoritative trunk snapshot. The trunk boundary function was correct; the main journal replay selector still routed every non-endpoint event through channel relevance, so trunk events had no affected channel IDs and were dropped. Fix: dispatch trunk events explicitly through the independent trunk snapshot boundary before channel relevance. The targeted suite then passed 26/26.
-- **Task 15 independent-boundary safety gap — resolved:** the previous journal-overflow recovery check only proved the channel snapshot started after a discarded event boundary. With independent endpoint/trunk collection windows, that could falsely claim current auxiliary state. Recovery now requires every supported independent snapshot boundary in the combined provider snapshot to be safe before clearing the dropped-journal condition.
-- **Task 15 open defects:** none currently known from the synthetic suite.
-- **Task 15 known limitations:** the first trunk source represents only chan_sip outbound registrations visible through `SIPshowregistry`; it does not identify static/IP-auth trunks that do not register, and it does not claim PJSIP trunk support. Trunk identity is the provider-derived channel-type/username/domain registration key and remains internal. Live `Registry` events depend on the AMI SYSTEM event class; a future controlled real-PBX compatibility gate must verify event visibility without broadening permissions blindly. Trunk state is in-memory only and has no REST/WebSocket exposure or history.
-- **Task 16 patch false start — resolved:** the first scripted edit added queue contracts that referenced `QueueMemberAvailability` but failed before inserting the type definition because a text anchor did not match the formatted source. Shared build/typecheck exposed the partial edit immediately. Fix: inspect the actual formatted file, insert the missing type surgically, then continue from the observed repository state rather than rerunning the broad patch.
-- **Task 16 mixed-item transport test failure — resolved:** the first synthetic `QueueStatus` transport fixture timed out because the generated test string contained literal LF framing instead of AMI-required CRLF framing. The transport correlation logic was not the cause. Fix: rewrite the fixture with explicit `\r\n` framing; the targeted suite then passed 31/31.
-- **Task 16 source-file encoding bug — resolved before commit:** a scripted composite-key separator inserted two literal NUL bytes into `state-engine.ts`, causing Git to classify the TypeScript source as binary. Fix: replace the embedded NUL bytes with escaped `\u0000` source text and rerun formatting/typecheck; Git now treats the file as normal text with identical runtime key semantics.
-- **Task 16 open defects:** none currently known from the synthetic suite.
-- **Task 16 known limitations:** queue compatibility has not yet been verified against the approved production Asterisk baseline. The snapshot foundation targets the Asterisk `QueueStatus` event-list shape (`QueueParams`, `QueueMember`, `QueueEntry`, `QueueStatusComplete`), and live queue events rely on the AMI AGENT event class. Caller PII is intentionally excluded; current-state leave/abandon events remove callers but do not retain historical disposition. Agent call-attempt/connect/complete lifecycle is intentionally deferred to Task 17. Queue state is in-memory only and has no REST/WebSocket exposure or history.
-- **Task 17 staged-contract typecheck failure — resolved:** provider-neutral Agent event variants were added before the state-engine switches were extended, so TypeScript correctly reported non-exhaustive functions. Fix: implement the Agent reducer/event routing and rebuild the shared workspace before continuing; backend typecheck then passed.
-- **Task 17 terminal-event correctness gap — resolved before commit:** Asterisk 13 source shows `AgentDump` can terminate an interaction after a member answers but before `AgentConnect`. Normalizing only the four events named in the roadmap could therefore leave an orphan `RINGING` interaction. Fix: normalize `AgentDump` as `AGENT_DUMPED` and treat it as a terminal cleanup event in the same Task 17 lifecycle reducer.
-- **Task 17 source-file encoding bug — resolved before commit:** the first scripted Agent composite-key edit inserted two literal NUL bytes into `state-engine.ts`, causing Git to classify the source as binary. Fix: replace the embedded bytes with escaped `\u0000` source text and rerun formatting/typecheck; tracked source is text again with identical runtime separator semantics.
-- **Task 17 open defects:** none currently known from the synthetic suite.
-- **Task 17 known limitations:** Asterisk exposes no authoritative snapshot of active agent call attempts/conversations, so Agent state is deliberately `LIVE_ONLY`, not a complete inventory. Interactions already active before monitor startup or reconnect can be absent until a later lifecycle event is observed; the engine prefers under-reporting to manufacturing state. Agent capability remains `UNKNOWN` until a supported Agent lifecycle event is actually observed. `RingTime`, `HoldTime`, `TalkTime`, caller PII, channel names, and destination-channel identifiers are intentionally excluded from current-state contracts; completion reason exists only on the normalized terminal event and is not retained because history is not implemented. Agent login/logoff presence is outside Task 17. Queue/Agent event compatibility is not yet verified against the approved production PBX. State remains in-memory with no REST/WebSocket exposure or history.
-- **Task 18 runtime-boundary review gap — resolved before commit:** the first validator iterated only capability values that happened to exist, so a JavaScript collector could omit a required capability key and evade that specific check when its matching data was also absent. Fix: validate all five capability keys explicitly and reject malformed optional collection shapes; targeted tests then passed 6/6.
-- **Task 18 open defects:** none currently known from the synthetic suite.
-- **Task 18 known limitations:** this task defines the system-metric contracts and safe collector boundary only. There is no SSH implementation, host-key policy, command allowlist execution, credential persistence, collection scheduler, current metric state, historical metric persistence, source-health runtime, REST/WebSocket exposure, alerting, or UI. CPU `utilizationPercent` assumes a future collector supplies a bounded 0–100 measurement over its documented sampling interval; Task 18 does not define how that interval is measured. Filesystem IDs/mount points and service IDs are collector-provided internal identifiers and are not yet exposed externally.
-- **Task 19 strict-type parser failure — resolved:** the first parser draft indexed RegExp capture groups directly under `noUncheckedIndexedAccess`, so backend typecheck rejected potentially undefined captures. Fix: validate required capture strings explicitly before numeric/string parsing; targeted build/typecheck then passed.
-- **Task 19 CPU accounting bug — resolved before commit:** the first `/proc/stat` reducer summed every CPU counter, which would double-count Linux `guest` and `guest_nice` because those values are already included in `user` and `nice`. Fix: total only the first eight CPU counters (`user` through `steal`) while idle remains `idle + iowait`; a regression test uses non-zero guest counters and preserves the expected utilization.
-- **Task 19 command-validation timing gap — resolved before commit:** an invalid configured service ID would originally be rejected only when the service command was reached, after CPU/memory/filesystem/uptime collection had already run. Fix: resolve/validate the service-status allowlist command in the collector constructor so invalid identifiers fail before any transport call.
-- **Task 19 locale portability gap — resolved before commit:** the first `df` parser required the English word `Filesystem` in the header, which could reject valid localized host output even though the numeric rows were portable. Fix: treat the first non-empty line as the header without depending on its labels; a synthetic regression uses a different header label.
-- **Task 19 open defects:** none currently known from the synthetic suite.
-- **Task 19 known limitations:** there is still no concrete SSH client or network connection. The wrapper can enforce wall-clock timeout and returned-output size, but a future concrete transport must also enforce the supplied timeout/output limits while streaming so an uncooperative remote process cannot buffer unbounded data before returning. Parsers currently target Linux procfs, `df -P -B1` output, and systemd `systemctl show`; non-Linux/BSD/BusyBox/non-systemd hosts are not claimed. Service IDs must match returned systemd IDs exactly and are deliberately restricted to a conservative character set. Filesystem identity currently uses mount point. No SSH configuration, credentials, host-key verification, runtime scheduler, source-health state, persistence, API, alerting, or UI exists.
-- **Task 20 patch-path failure — resolved:** the first attempt to write the extracted generic network policy failed because `backend/src/network/` did not yet exist. No partial policy file was created. Fix: create the source directory explicitly, then write the generic policy and Asterisk compatibility re-export.
-- **Task 20 trust/input hardening gap — resolved before commit:** the initial SSH configuration draft allowed any printable username and the DB fingerprint constraint allowed a broad length range even though the service requires one exact OpenSSH SHA-256 format. Fix: restrict usernames to a conservative `[A-Za-z0-9._-]+` set and make the SQLite fingerprint length exactly 50 characters, while retaining full canonical fingerprint validation in the service.
-- **Task 20 transactional-secret risk — verified:** because SSH metadata is written before credential material inside one SQLite transaction, a secret-store failure could have left metadata without a credential if the transaction boundary were ineffective. A regression test injects a credential-write failure and confirms metadata/secret writes roll back atomically.
-- **Task 20 validation failure — resolved:** the first full lint gate rejected the new SSH configuration test because `Buffer` was used without an explicit `node:buffer` import under the repository ESLint environment. Fix: add the explicit Node import and rerun the complete gate suite from the start.
-- **Task 20 migration-test failure — resolved:** the next full backend suite applied Migration 6 correctly, but an older authentication upgrade test still expected schema history `[1,2,3,4,5]`. Fix: update that historical migration assertion to include version 6 and rerun the complete gate suite from the start.
-- **Task 20 foundation secret-scan failure — resolved:** after tests/build passed, the foundation checker conservatively flagged new SSH source/test lines whose object property name was `password:` even though values were synthetic or schema definitions. Fix: keep the checker strict and rename the provider input field to neutral `credential` plus non-triggering exported secret-name keys; no allowlist or scanner weakening was introduced.
-- **Task 20 open defects:** none currently known from the synthetic/local suite.
-- **Task 20 known limitations:** there is still no concrete SSH connection or credential consumption. Private-key material is size-bounded and encrypted at rest but is not yet cryptographically parsed, so malformed key material will be rejected only by the future SSH client layer. Trust pins the SHA-256 fingerprint of one host public-key blob; key rotation requires an explicit configuration update and there is no multi-key grace set or TOFU. SSH config has no public API/UI or verification timestamp yet. Network validation requires a future resolver to supply resolved addresses; Task 20 itself performs no DNS lookup. No collection scheduler, source-health lifecycle, metric persistence, alerting, or UI exists.
-- **Task 21 concrete transport — implemented on the current feature branch:** `Ssh2RestrictedSshTransport` uses the `ssh2` client with an injected one-time resolver, validates the complete resolved address set through the shared SSRF/network boundary, selects one already-validated address, retrieves the PBX-scoped encrypted credential, requires the pinned host-key verification callback, executes only the Task 19 typed command objects with shell-safe quoting, and enforces streaming combined stdout/stderr limits plus wall-clock timeout with connection/channel cleanup. Synthetic tests use only a loopback SSH server and never contact a real PBX.
-- **Task 21 validation failures — resolved:** the first synthetic SSH fixture exposed that `ssh2` passes a hexadecimal digest to the verifier when `hostHash` is set; the transport therefore uses the raw host-key callback path and hashes the presented public-key blob through the existing pinned SHA-256 verifier. The initial streaming fixture also left an unbounded sender loop after the client disconnected; the fixture was bounded to a finite output burst and all five targeted transport tests then passed. The first complete repository test run also exposed that the Task 19 wrapper's timeout timer was `unref()`'d, allowing a pending synthetic transport promise to be cancelled when no other event-loop handles remained; the safety timer is now kept referenced and the full backend suite passes 105/105.
-- **Task 21 known limitations:** the transport is not wired into a runtime scheduler, source-health state, persistence, REST/WebSocket API, or UI. The test seam intentionally overrides address validation to permit loopback; production construction uses the shared validator, which rejects loopback/link-local/multicast/metadata/broadcast/unspecified targets. Password authentication necessarily creates a temporary JavaScript string for the `ssh2` API; the originating credential/passphrase buffers are zeroed in `finally`, but JavaScript cannot guarantee deterministic erasure of every derived copy. Private-key authentication is implemented but has no separate synthetic auth fixture yet. No real host/PBX access was performed.
-- **Task 22 runtime implementation — complete:** `SystemMetricsRuntime` now owns one SSH metric source lifecycle per configured PBX, starts/stops with the application, creates a collector only when SSH configuration has encrypted credentials, publishes PBX-scoped `SSH` source health and bounded samples, and backs off failed collections exponentially within fixed limits. The production factory uses the existing `ssh2` transport and `NodeAddressResolver`; the application-level network mode remains the explicit gate, with `disabled` as the default.
-- **Task 22 validation failure — resolved:** the first runtime test fixture accidentally used TypeScript-only class field/constructor syntax in a `.mjs` test. The fixture was corrected to plain JavaScript and the complete format/lint/typecheck/build plus three runtime tests then passed.
-- **Task 22 known limitations:** system metrics are still in-memory only; there is no persistence/history, REST/WebSocket exposure, UI, configurable service-ID list, or real-host compatibility gate. SSH configuration changes do not yet have a public runtime mutation endpoint; callers must invoke the runtime synchronization seam after configuration changes. Source health maps collector failures to bounded shared error codes and deliberately omits raw transport/host details. No real host/PBX access was performed.
-- **Task 23 persistence design:** migration 7 adds PBX-cascading `system_metric_current` and `system_metric_history` tables. Samples are stored as validated JSON text, history is idempotent on `(PBX, source, observed_at)`, current state only advances for newer observations, and history pruning occurs in the same transaction as sample persistence. Runtime history retention defaults to 7 days and is capped at 90 days; current state is not aged out by history pruning.
-- **Task 23 implementation limitation:** persistence failures are intentionally isolated from the read-only collector so a database write problem cannot mark the SSH source down, but there is not yet a separate bounded persistence-health signal. API/realtime exposure and operator-visible storage failures remain future work.
-- **Task 24 API/realtime design:** authenticated GET endpoints expose PBX-scoped current metrics and bounded time-range history (maximum 500 rows). A PBX-scoped SSE stream sends an initial current/source snapshot followed by metric and source-health updates, uses same-origin protection, and caps concurrent metric streams at 64. Payloads contain normalized system metrics and bounded source health only; SSH host, address, credentials, command output, and raw transport errors remain outside the API boundary. Synthetic tests use a minimal authenticated test principal because the repository's existing authentication integration tests already cover session issuance/validation; no real PBX was contacted.
-
-### Persistent continuation protocol
-
-For every future task/session:
-
-1. Read `AGENTS.md`, this `MASTER_PLAN.md`, `PROJECT_CONTEXT.md`, `DECISIONS.md`, and ignored `.local/DEPLOYMENT_CONTEXT.md` when present.
-2. Inspect Git branch/status/log and synchronize `main` before creating the next feature branch.
-3. Preserve the rule that no real PBX is contacted or modified without explicit approval.
-4. Before finishing a task, update this master plan with: task result, branch/commit/PR state, failures or bugs found and their resolution/status, known limitations, and the exact next task. Update `PROJECT_CONTEXT.md` and `DECISIONS.md` when architecture/current state changes.
-5. Run the repository gates, public/secret review, commit atomically, push normally, then stop for approval/merge.
-6. Never place Remote Desktop device IDs, real PBX details, credentials, or private deployment facts in tracked public documentation.
-
-## Future phases — pending approval
-
-Tasks 7–13 implemented substantial Asterisk-provider and telephony-state foundation work earlier than the original high-level phase buckets. The phase labels below describe the remaining product roadmap rather than implying that completed provider work must be repeated.
-
-- [ ] Phase 3: account management and onboarding refinement.
-- [x] Phase 4 foundation gate: Asterisk provider integration — network policy, AMI transport, login/discovery, runtime lifecycle, connection verification, normalized event subscription, channel snapshots/reconciliation, and one controlled real Asterisk 13.x compatibility gate are complete.
-- [x] Phase 5 foundation: telephony state engine — deterministic channel/call, chan_sip endpoint/registration, outbound-registration trunk, queue/member/caller, and live-only agent interaction state foundations are implemented. Queue/Agent real-PBX compatibility remains unclaimed until a later controlled compatibility gate.
-- [x] Phase 6 foundation: provider-neutral system-metric contracts, fail-closed collector validation, restricted SSH command allowlisting/execution bounds/Linux-systemd parsers, encrypted per-PBX SSH configuration, pinned host-key trust, shared SSRF policy, concrete restricted SSH transport, runtime scheduling, per-PBX source health, bounded current/history persistence, and authenticated current/history plus realtime system-metrics exposure are implemented.
-- [ ] Phase 7: security monitoring.
-- [ ] Phase 8: authenticated API and realtime.
-- [ ] Phase 9: bilingual dashboard.
-- [ ] Phase 10: history and retention.
-- [ ] Phase 11: hardening, backup, tested restore, and a production deployment runbook.
-- [ ] Phase 12: release validation, including an organization-neutral fresh-deployment procedure that can onboard a new service without carrying private values from another deployment.
-
-Phase 1 is closed. Phase 6 Task 24 is implemented on `feature/system-metrics-api-realtime`; repository validation and public/secret review remain the release gates before commit/push. No real PBX or production host was contacted for Task 24. Exact next task after merge: **Task 25 — establish the first bounded security-monitoring source boundary and normalized security-event contract, without production log access unless separately required and approved.**
-
-
-## نسخه فارسی
-
-این فایل به‌عنوان نسخه فارسی برنامه جامع پروژه نگهداری می‌شود. Master Plan انگلیسی مرجع فنی اصلی است. Failها، Bugها، Root Cause، Fix و Known Limitation باید برای هر Task ثبت شوند.
-
-# خلاصه فارسی برنامه پروژه
-
-## وضعیت و روند اجرا
-
-این فایل نسخه فارسی همراه Master Plan اصلی است. جزئیات تاریخی و فنی فایل انگلیسی نیز در همین نسخه نگهداری شده تا برنامه در یک محل قابل ردیابی باشد.
-
-### وضعیت فعلی
-
-- Task 27 با موفقیت Merge شده است.
-- Task 28 در شاخه `feature/security-alert-rule-boundary` اجرا شده است.
-- هدف Task 28 ایجاد مرز محدود ارزیابی Ruleهای امنیتی روی رخدادهای نرمال‌شده و ذخیره‌شده است.
-- Rule ناشناخته یا دارای ورودی نامعتبر باید Fail-Closed شود.
-- در Task 28 هیچ ارسال پیام، Webhook یا تغییر وضعیت PBX انجام نمی‌شود.
-
-### Ruleهای Task 28
-
-- `AUTHENTICATION_FAILURE_ANY`
-- `AUTHENTICATION_FAILURE_THRESHOLD`
-
-Rule آستانه‌ای دارای حد آستانه، بازه زمانی و حداکثر تعداد رکورد History محدود است. فقط Reasonهای تعریف‌شده در قرارداد SecurityEvent پذیرفته می‌شوند.
-
-### وضعیت Validation
-
-- Lint: موفق
-- Format Check: موفق
-- Typecheck: موفق
-- Backend Test: 117 از 117 موفق
-- Frontend Test: 10 از 10 موفق
-- Smoke Test ارزیاب Rule: موفق
-- هیچ PBX واقعی یا Log تولیدی برای Task 28 استفاده نشده است.
-
-## ثبت اجباری Fail و Bug
-
-برای هر Task باید موارد زیر ثبت شود و Failهای اصلاح‌شده نباید حذف شوند:
-
-1. شرح Failure یا Bug
-2. مرحله‌ای که مشکل در آن دیده شد
-3. Root Cause
-4. Fix
-5. روش Validation مجدد
-6. وضعیت فعلی و Impact در صورت باز بودن
-7. Known Limitation
-
-### Fail ثبت‌شده در Task 28
-
-TypeScript در اولین Typecheck اجازه استفاده مستقیم از مقادیر `unknown` به‌عنوان عدد را نداد. Root Cause، نبودن Type Narrowing صریح برای Threshold و Window بود. مقادیر ابتدا به نوع عددی محدود شدند و سپس Range Validation انجام شد. Typecheck و کل Test Suite بعد از اصلاح موفق شدند.
-
-### Gap شناخته‌شده
-
-تلاش برای افزودن فایل تست مستقل Evaluator از طریق Remote editing seam پذیرفته نشد. بنابراین Smoke Test مستقل اجرا شد، اما تست مستقل Commit‌شده برای Evaluator هنوز باید در یک Task مناسب تکمیل شود.
-
-## Next Task
-
-**Task 29 — تعریف Persistence محدود برای Security Alert و Current State، همراه با Deduplication و بدون Delivery خارجی.**
+</div>

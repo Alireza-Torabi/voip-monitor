@@ -6,4 +6,4 @@ At the start of each session, read this file and `docs/PROJECT_CONTEXT.md`, `doc
 
 Label environment claims OBSERVED, ASSUMED, DECIDED, or TO_VERIFY. Keep monitoring read-only and outside the call path. Do not change a real PBX without a concrete change, verification, rollback plan, and explicit approval. Never connect CI to a production PBX.
 
-After meaningful work, update `docs/MASTER_PLAN.md` and any affected decision, architecture, operations, or context documents. Before committing, inspect staged content for secrets and run relevant checks. Never force push or rewrite shared history without explicit approval.
+After meaningful work, update `docs/MASTER_PLAN.md` and its Persian companion `docs/MASTER_PLAN.fa.md`, plus any affected decision, architecture, operations, or context documents. Also refresh ignored `.local/SESSION_HANDOFF.md` so a new chat can resume from observed Git state without guessing. Before committing, inspect staged content for secrets and run relevant checks. Never force push or rewrite shared history without explicit approval.

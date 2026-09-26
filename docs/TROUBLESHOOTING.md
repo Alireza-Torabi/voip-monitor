@@ -1,6 +1,6 @@
 # Troubleshooting
 
-**Status:** The development application has provider runtime and AMI connection testing; production monitoring is not complete.
+**Status:** Core AMI monitoring, internal telephony state, restricted SSH system metrics, security-event persistence/API/SSE, and bounded alert-rule evaluation exist, but production monitoring and alert delivery are not complete.
 
 - If `node` or `npm` is missing, install the pinned Node.js 24 toolchain from a trusted source. Docker remains optional for this local task and Compose has no services yet.
 - If `python3 scripts/check_foundation.py` fails, read the reported file and fix the public-source or documentation issue before committing.
