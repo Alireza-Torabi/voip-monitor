@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-09-26. Task 33 is merged into main through PR #35. Task 34 bounded realtime Security Alert updates and recent alert history are implemented locally on feature/security-monitoring-realtime-history; no external notification delivery is included.
+Status: 2026-09-26. Task 34 is merged into main through PR #36. Task 35 bounded external-notification delivery foundation is implemented locally on feature/notification-delivery-foundation; no external provider is contacted and no delivery worker exists.
 
 ## Phase 0 — environment discovery
 
@@ -72,16 +72,20 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 32: expose authenticated PBX-scoped security-alert rule configuration list/get/put/delete APIs with same-origin mutation protection and bounded fail-closed validation; no external notification delivery.
 - [x] Task 33: add the first authenticated bilingual security-monitoring UI for PBX-scoped current alerts and management of the two bounded alert rules; no external notification delivery.
 - [x] Task 34: consume the existing PBX-scoped alert SSE/history APIs in the authenticated bilingual security UI, with a bounded 24-hour/100-row recent history and deduplicated realtime current/history updates; no external notification delivery.
+- [x] Task 35: define bounded external-notification channel metadata, pending/cancelled delivery-queue persistence, deterministic per-channel alert deduplication, immutable channel PBX/transport identity, and PBX/channel cascade semantics; no runtime enqueue wiring, delivery worker, provider client, or real external contact.
 
 ### Current execution handoff
 
-- Current branch: `feature/security-monitoring-realtime-history`, created from synchronized `main` after Task 33 merged as PR #35.
-- Task 34 is complete locally. The authenticated bilingual `SecurityWorkspace` now loads the selected PBX's current alerts, the most recent 24 hours of alert history with a hard 100-row client request bound, and its existing PBX-scoped alert SSE stream.
-- SSE initial snapshots replace the displayed current per-rule alert set; subsequent persisted alert messages replace current state for that rule and prepend a deduplicated history row, capped at 100 displayed rows.
-- Realtime loss is non-destructive: the last loaded current/history state remains visible and manual refresh remains available. Malformed realtime payloads fail closed and do not alter displayed state.
-- Task 34 uses only existing authenticated same-origin backend alert boundaries. It adds no PBX connection, provider action, rule expansion, notification configuration, or external delivery.
-- Task 34 validation is synthetic/local only. No real PBX, production security log, webhook, notification provider, or external delivery target was contacted.
-- Task 34 closes the currently defined Security Monitoring implementation slice in Phase 7. Exact next task after Task 34 merge: **Task 35 — define a bounded external-notification delivery foundation (configuration/queue/deduplication contracts only), without sending to any real external provider until separately approved.**
+- Current branch: `feature/notification-delivery-foundation`, created from synchronized `main` after Task 34 merged as PR #36.
+- Task 35 is complete locally. Migration 11 adds PBX-scoped `notification_channel_config` plus `notification_delivery_queue`.
+- Channel configuration is metadata only: ID, PBX ownership, fixed `WEBHOOK` transport, display name, enabled flag, and a `secretName` reference. No URL, token, credential, or provider-specific secret is stored in tracked code or plaintext queue data.
+- Existing channel identity is immutable across PBX and transport. Only display name, enabled state, secret reference, and updated timestamp are mutable.
+- Queue records contain only the bounded Security Alert record plus channel/PBX/rule identity and `PENDING` or `CANCELLED` state. There is no `SENT`, retry, attempt counter, worker lease, backoff, or provider response model in Task 35.
+- Delivery deduplication is deterministic per channel plus the complete bounded Security Alert identity. Re-enqueueing the same Alert for the same channel is a no-op and returns the existing queue record.
+- Disabled channels, missing channels, and cross-PBX enqueue attempts fail closed. Channel deletion cascades its queued records; PBX deletion cascades channel and queue state.
+- Task 35 is storage/contracts only. Nothing subscribes to alert publication and nothing sends externally.
+- Validation is synthetic/local only. No real PBX, webhook, notification provider, DNS target, URL, credential, or external endpoint was contacted.
+- Exact next task after Task 35 merge: **Task 36 — expose authenticated PBX-scoped notification-channel configuration APIs and encrypted webhook-target secret management, while keeping delivery worker/runtime and real external-provider contact out of scope.**
 - Documentation rule: `docs/MASTER_PLAN.fa.md` must be a complete Persian translation of this file with the same structure and content, never a summarized variant.
 
 ### Failure and bug log
@@ -280,6 +284,30 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - **Known limitation:** external notification delivery remains entirely absent by design.
 - **Exact next task:** Task 35 defines bounded external-notification configuration/queue/deduplication contracts only, with no real provider delivery until separately approved.
 
+## 2026-09-26 — Task 35 completion record
+
+- **Result:** Added migration 11 and bounded notification channel/queue repositories as a storage-only external-delivery foundation.
+- **Channel contract:** a channel is PBX scoped, has one stable ID, transport is currently allowlisted to `WEBHOOK`, and persisted public metadata is limited to display name, enabled state, and an opaque `secretName` reference.
+- **Immutable scope:** once a channel ID exists, its PBX owner and transport cannot be reassigned. Mutable updates cannot move existing queued work across PBXs or delivery transports.
+- **Queue contract:** queue records persist the complete bounded `SecurityAlertRecord`, deterministic delivery key, channel/PBX identity, and only `PENDING` or `CANCELLED` state.
+- **Deduplication:** delivery key is SHA-256 over channel ID plus the complete bounded alert identity. The same alert/channel pair produces one queue row.
+- **Fail-closed enqueue:** missing/disabled channels and PBX-mismatched alerts are rejected. Pending-list reads are capped at 500.
+- **Cascade behavior:** deleting a channel removes its queued delivery rows; deleting a PBX cascades notification configuration and queue state.
+- **External side effects:** none. There is no alert subscription, auto-enqueue runtime, HTTP client, SMTP client, webhook sender, retry worker, provider adapter, DNS lookup, or network request in Task 35.
+- **Targeted validation:** storage suite passed 10/10 with migration 11, config bounds, cross-PBX immutability, disabled/mismatched enqueue rejection, duplicate-safe enqueue, cancel semantics, and cascade coverage.
+- **Real systems:** no real PBX or external notification system was contacted.
+
+### Task 35 failures / bugs / gaps
+
+- **Initial remote patch wrapper failure — resolved before project-file modification:** the first Task 35 patch embedded SQL/TypeScript backticks inside the remote JavaScript template payload, so the tool wrapper rejected it before execution. Fix: generate the patch with a neutral placeholder and substitute the backtick character only inside the tool call.
+- **Invariant-test patch did not apply — detected:** after adding immutable channel scope, the first test insertion anchor did not match the formatted test file. Because that shell command was not fail-fast, build/tests continued and passed without covering the new invariant. This PASS was rejected as insufficient.
+- **Invariant-test heredoc retry failed — resolved:** the next inline heredoc attempt had quoting/triple-string damage and exited before modifying the test file. Fix: write a local ignored Python patch file, execute it under `set -euo pipefail`, then rebuild and rerun the storage suite; 10/10 passed with cross-PBX reassignment coverage.
+- **Known limitation:** `secretName` is currently an opaque reference only. Task 35 does not verify that a matching encrypted secret exists and does not define the webhook URL/auth secret schema.
+- **Known limitation:** no alert publication subscriber automatically enqueues deliveries. Queue insertion is repository-only.
+- **Known limitation:** no delivery worker, retry/backoff, provider response/status, dead-letter behavior, or real external connectivity exists.
+- **Known limitation:** transport is deliberately limited to the `WEBHOOK` contract placeholder; email/SMS/chat-specific transports are not modeled.
+- **Exact next task:** Task 36 exposes authenticated PBX-scoped channel configuration plus encrypted webhook-target secret management only; external sending remains out of scope.
+
 ### Persistent continuation protocol
 
 For every future task/session:
@@ -306,7 +334,7 @@ Tasks 7–13 implemented substantial Asterisk-provider and telephony-state found
 - [ ] Phase 11: hardening, backup, tested restore, and a production deployment runbook.
 - [ ] Phase 12: release validation, including an organization-neutral fresh-deployment procedure that can onboard a new service without carrying private values from another deployment.
 
-Phase 1 is closed. Phase 7's currently defined security-monitoring slice is complete through Task 34: normalized AMI authentication-security events, bounded event persistence/API/SSE, bounded alert evaluation, alert persistence/current-state/API/SSE, persistent rule configuration/runtime wiring, authenticated bounded rule-configuration APIs, and bilingual current/recent-history/realtime alert UI. Exact next task after Task 34 merge is **Task 35 — a bounded external-notification delivery foundation (configuration/queue/deduplication contracts only), with no real external provider delivery until separately approved.**
+Phase 1 is closed. Phase 7's defined security-monitoring slice remains complete through Task 34. Task 35 adds the first post-monitoring external-notification storage/contracts foundation only: bounded channel metadata, duplicate-safe pending/cancelled queue state, and no delivery runtime. Exact next task after Task 35 merge is **Task 36 — authenticated PBX-scoped notification-channel configuration APIs plus encrypted webhook-target secret management, with no delivery worker or real external-provider contact.**
 
 ## 2026-09-26 — Task 28 completion record
 

@@ -309,3 +309,15 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 196. **Fail-closed stream parsing:** malformed SSE JSON or invalid bounded alert shapes do not mutate UI state. Stream errors only mark realtime disconnected; they do not erase already loaded state.
 197. **No external delivery:** Task 34 adds no notification target/configuration, credential, queue, webhook, or provider action. It closes the currently defined Phase 7 monitoring slice only.
 198. **Task 35 boundary:** the next task defines bounded external-notification configuration/queue/deduplication contracts only. Any real provider delivery requires a later explicit scope and approval.
+
+## 2026-09-26 — Task 35 external-notification foundation decisions
+
+199. **Storage-only delivery foundation:** Task 35 defines persistence/contracts only. No alert subscription, delivery worker, provider adapter, DNS resolution, HTTP/SMTP client, or external connection is introduced.
+200. **Channel metadata boundary:** notification channels are PBX scoped and currently allowlist only `WEBHOOK`. Public metadata contains stable ID, display name, enabled state, and opaque `secretName`; target URL/auth material is not stored in the channel table.
+201. **Immutable channel scope:** an existing channel ID cannot move to another PBX or transport. This prevents queued records from becoming inconsistent with channel ownership.
+202. **Queue payload boundary:** delivery rows store only the bounded `SecurityAlertRecord`, channel/PBX/rule identity, deterministic delivery key, queue time, and `PENDING`/`CANCELLED` status. No raw AMI/provider identity or provider response is stored.
+203. **Deterministic queue deduplication:** delivery identity is SHA-256 over channel ID and the complete bounded alert identity. Re-enqueueing the same alert/channel pair does not create a second row.
+204. **Fail-closed enqueue:** missing or disabled channels and channel/alert PBX mismatches are rejected. Pending queue reads are bounded to at most 500 rows.
+205. **Cascade semantics:** channel deletion cascades its queue rows and PBX deletion cascades both channel and queue state.
+206. **No implicit secret validity claim:** Task 35 stores only an opaque secret reference and does not claim the referenced encrypted secret exists or has a valid webhook target schema.
+207. **Task 36 boundary:** next expose authenticated PBX-scoped notification channel configuration plus encrypted webhook-target secret management. Runtime enqueue/delivery and all real external-provider contact remain out of scope.

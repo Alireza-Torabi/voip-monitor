@@ -38,10 +38,10 @@ test('fresh database migrates once and persists setup and PBX metadata across re
     assert.equal(first.setup.get().state, 'SETUP_REQUIRED');
     assert.deepEqual(first.pbxInstances.list(), []);
     const history = first.migrationHistory();
-    assert.equal(history.length, 10);
+    assert.equal(history.length, 11);
     assert.deepEqual(
       history.map((row) => row.version),
-      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
     );
     assert.match(history[0].checksum, /^[a-f0-9]{64}$/);
     first.setup.set('SETUP_IN_PROGRESS');
@@ -265,6 +265,123 @@ test('security alert rule configuration is bounded, persistent, replaceable, and
       );
       storage.pbxProfiles.delete('rule-pbx');
       assert.deepEqual(storage.securityAlertRules.list('rule-pbx'), []);
+    } finally {
+      storage.close();
+    }
+  }));
+
+test('notification delivery foundation persists bounded channel config and duplicate-safe pending work', () =>
+  fixture(async (config) => {
+    const storage = await SqliteStorage.open(config);
+    try {
+      storage.pbxInstances.save({
+        id: 'notify-pbx',
+        providerType: 'ASTERISK',
+        displayName: 'Notify',
+      });
+      storage.pbxInstances.save({
+        id: 'other-pbx',
+        providerType: 'ASTERISK',
+        displayName: 'Other',
+      });
+      const now = '2026-09-26T12:00:00.000Z';
+      storage.notificationChannels.put({
+        id: 'ops-webhook',
+        instanceId: 'notify-pbx',
+        transport: 'WEBHOOK',
+        displayName: 'Operations webhook',
+        enabled: true,
+        secretName: 'notification-target',
+        createdAt: now,
+        updatedAt: now,
+      });
+      storage.notificationChannels.put({
+        id: 'disabled-webhook',
+        instanceId: 'notify-pbx',
+        transport: 'WEBHOOK',
+        displayName: 'Disabled',
+        enabled: false,
+        secretName: 'notification-target-disabled',
+        createdAt: now,
+        updatedAt: now,
+      });
+      assert.equal(storage.notificationChannels.list('notify-pbx').length, 2);
+      assert.equal(
+        storage.notificationChannels.get('ops-webhook').secretName,
+        'notification-target',
+      );
+      assert.throws(
+        () =>
+          storage.notificationChannels.put({
+            id: 'ops-webhook',
+            instanceId: 'other-pbx',
+            transport: 'WEBHOOK',
+            displayName: 'Cross-PBX reassignment',
+            enabled: true,
+            secretName: 'notification-target',
+            createdAt: now,
+            updatedAt: now,
+          }),
+        StorageError,
+      );
+
+      const alert = {
+        instanceId: 'notify-pbx',
+        ruleId: 'AUTHENTICATION_FAILURE_THRESHOLD',
+        observedAt: '2026-09-26T12:01:00.000Z',
+        matchedEventCount: 4,
+        streamGeneration: 2,
+        streamSequence: 7,
+      };
+      const first = storage.notificationDeliveries.enqueue('ops-webhook', alert);
+      const duplicate = storage.notificationDeliveries.enqueue('ops-webhook', alert);
+      assert.equal(first.deliveryKey, duplicate.deliveryKey);
+      assert.equal(first.status, 'PENDING');
+      assert.equal(storage.notificationDeliveries.listPending('notify-pbx', 10).length, 1);
+      assert.throws(
+        () => storage.notificationDeliveries.enqueue('disabled-webhook', alert),
+        StorageError,
+      );
+      assert.throws(
+        () =>
+          storage.notificationDeliveries.enqueue('ops-webhook', {
+            ...alert,
+            instanceId: 'other-pbx',
+          }),
+        StorageError,
+      );
+      assert.equal(storage.notificationDeliveries.cancel(first.deliveryKey), true);
+      assert.equal(storage.notificationDeliveries.cancel(first.deliveryKey), false);
+      assert.equal(storage.notificationDeliveries.listPending('notify-pbx', 10).length, 0);
+      assert.equal(storage.notificationDeliveries.get(first.deliveryKey).status, 'CANCELLED');
+
+      const secondAlert = {
+        ...alert,
+        observedAt: '2026-09-26T12:02:00.000Z',
+        streamSequence: 8,
+      };
+      const second = storage.notificationDeliveries.enqueue('ops-webhook', secondAlert);
+      assert.equal(storage.notificationDeliveries.get(second.deliveryKey).status, 'PENDING');
+      assert.equal(storage.notificationChannels.delete('ops-webhook'), true);
+      assert.equal(storage.notificationDeliveries.get(second.deliveryKey), undefined);
+
+      assert.throws(
+        () =>
+          storage.notificationChannels.put({
+            id: '',
+            instanceId: 'notify-pbx',
+            transport: 'WEBHOOK',
+            displayName: 'Invalid',
+            enabled: true,
+            secretName: 'notification-target',
+            createdAt: now,
+            updatedAt: now,
+          }),
+        StorageError,
+      );
+
+      storage.pbxProfiles.delete('notify-pbx');
+      assert.deepEqual(storage.notificationChannels.list('notify-pbx'), []);
     } finally {
       storage.close();
     }
