@@ -82,11 +82,11 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - Task 37 به‌صورت Local کامل است و UI از طریق HTTPS Gateway روی Monitoring Host مجاز Live است.
 - Backend فقط روی Loopback گوش می‌دهد؛ HTTPS Gateway مرز Same-Origin سمت Browser است و Built Frontend را Serve و Setup/Auth/API/Health/Readiness را Proxy می‌کند.
 - Private Runtime Configuration، SQLite Data، TLS Key/Certificate، PID و Log فقط در Local Storage نادیده‌گرفته‌شده باقی می‌مانند و Commit نمی‌شوند.
-- Deployment فعال PBX Network Mode را Disabled نگه می‌دارد؛ بالا آمدن UI به هیچ PBX وصل نمی‌شود.
+- Deployment اولیه PBX Network Mode را Disabled نگه می‌داشت. پس از تأیید صریح Operator، Private Local Deployment به Monitoring Mode محدود و Read-only از قبل پیکربندی‌شده تغییر کرد؛ جزئیات اختصاصی PBX فقط Local باقی می‌مانند.
 - Local Launcher از start/stop/status/run پشتیبانی می‌کند. Bug مربوط به Shutdown با Process Group مستقل رفع شد و start/health/stop/listener-clear/restart/status PASS شد.
 - Certificate فعلی Self-signed و Local است؛ تا نصب Trusted TLS، Browser نیاز به Trust Exception دارد.
 - Generic Systemd Unit برای Deployهای قابل‌استفاده مجدد Track شده، اما این Session امکان نصب آن را ندارد چون Account فعلی در System Unit Directory حق Write ندارد و User Systemd نیز Persistent نیست. بنابراین Stack زنده هنوز پس از Host Reboot Auto-start تضمین‌شده ندارد.
-- Task دقیق بعدی پس از Merge شدن Task 37: **Task 38 — نصب OS-level Service Persistence با دسترسی Administrator، جایگزینی/اعتماد مناسب TLS، Validation مربوط به Firewall Exposure، Reboot Host و اثبات Automatic Service/UI Recovery بدون فعال کردن PBX Access جدید.**
+- Task دقیق بعدی پس از Merge شدن Task 37: **Task 38 — نصب OS-level Service Persistence با دسترسی Administrator، جایگزینی/اعتماد مناسب TLS، Validation مربوط به Firewall Exposure، Reboot Host و اثبات Automatic Service/UI Recovery بدون گسترش Scope فعلی Monitoring Read-only تأییدشده PBX.**
 
 ### ثبت خرابی و اشکال
 
@@ -348,6 +348,7 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - **Gateway Lint Failure — رفع شد:** اولین Full Gate Run، Node Globalهای `production-gateway.mjs` را رد کرد چون این Repository، `process`، `console`، `URL` و `setTimeout` را Implicit Global فرض نمی‌کند. اصلاح: Node Built-inهای متناظر Explicit Import شدند و کل Gate Suite دوباره اجرا شد.
 - **Full-gate Shell Wrapper Failure — رفع شد:** اولین Full-gate Rerun وارد Nested Fail-fast Shell شد بدون اینکه `NODE_BIN` Export شده باشد؛ بنابراین `set -u` قبل از Testها بلافاصله متوقف شد. اصلاح: `NODE_BIN` پیش از ورود به Nested Shell Export شد و کل Suite از Parity/Lint به بعد دوباره اجرا شد.
 - **Same-origin POST Probe توسط Remote Safety Layer Block شد — بدون تغییر Application State:** POST عمداً نامعتبر برای بررسی Forwarded Origin پیش از اجرا توسط Safety Layer ابزار متوقف شد. Automated Same-Origin API Testهای موجود به‌علاوه HTTPS GET Proxy Verification مبنای Validation باقی ماندند.
+- **Browser SSE Live-update Disconnect — پس از استفاده زنده رفع شد:** Routeهای Authenticated و Read-only از نوع SSE GET به `Origin` Header اجباری نیاز داشتند، در حالی که Native Same-origin `EventSource` الگوی Synthetic Origin مورد استفاده در Backend Testها را تضمین نمی‌کند. نتیجه این بود که Streamهای Live با 403 قطع می‌شدند، در حالی که Readهای Authenticated عادی کار می‌کردند. اصلاح: CSRF-style Same-origin Enforcement فقط از Read-only SSE GET Routeها حذف شد؛ Authentication، PBX Scoping، Stream Limit و Mutation Same-origin Protection دست‌نخورده باقی ماندند. Provider-runtime Regression Testها با Browser-compatible No-Origin Stream Coverage به‌صورت 14/14 PASS شدند.
 - **محدودیت شناخته‌شده:** Live Certificate Self-signed است و توسط Browser/Organization PKI Trusted نیست.
 - **محدودیت شناخته‌شده:** Generic Systemd Unit Track شده اما روی این Host نصب نشده چون Installation سطح System نیازمند Administrator Privilege خارج از دسترس این Session است؛ Launcher فعلی Automatic Recovery پس از Host Reboot را تضمین نمی‌کند.
 - **محدودیت شناخته‌شده:** Host Firewall Policy برای Browser-facing HTTPS Port بدون Administrator Access به‌صورت Authoritative قابل تغییر/Validation نبود.

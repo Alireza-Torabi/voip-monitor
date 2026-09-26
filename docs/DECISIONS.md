@@ -343,3 +343,6 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 221. **Reusable OS service definition:** a generic hardened systemd unit is tracked, but installing/enabling it is an administrator operation and was not possible in this session.
 222. **TLS trust boundary:** a local self-signed certificate is acceptable only for this initial controlled UI exposure; trusted production TLS is required before calling the deployment fully hardened.
 223. **Task 38 boundary:** next install OS-level persistence, trusted TLS/firewall policy, reboot, and verify automatic UI recovery while PBX networking stays disabled unless separately approved.
+
+224. **Read-only SSE origin policy:** authenticated SSE endpoints for system metrics, security events, and security alerts are read-only GET streams and no longer require an Origin header. Authentication, PBX ownership checks, stream limits, and same-origin protection for all state-changing requests remain mandatory.
+225. **Post-deployment PBX activation remains private and bounded:** after explicit operator approval, the local deployment may enable only its already-configured read-only monitoring connection. Deployment-specific targets/credentials remain ignored local state and are not documented in public repository content.

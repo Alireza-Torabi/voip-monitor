@@ -623,7 +623,7 @@ test('security alerts API requires auth and exposes current/history', async () =
     }
   }));
 
-test('security alert stream is authenticated, PBX-scoped, same-origin, and persistence-backed', async () =>
+test('security alert stream is authenticated, PBX-scoped, browser-compatible, and persistence-backed', async () =>
   fixture(async ({ config, storage, secrets, auth }) => {
     const token = (
       await readFile(join(config.secretDirectory, 'bootstrap-admin.token'), 'utf8')
@@ -641,14 +641,9 @@ test('security alert stream is authenticated, PBX-scoped, same-origin, and persi
     const app = await serve(storage, secrets, apiAuth);
     try {
       const cookie = 'vm_session=synthetic';
-      const forbidden = await fetch(
-        app.base + '/api/pbx-instances/' + profile.id + '/security-alerts/stream',
-        { headers: { Cookie: cookie, origin: 'https://evil.example' } },
-      );
-      assert.equal(forbidden.status, 403);
       const response = await fetch(
         app.base + '/api/pbx-instances/' + profile.id + '/security-alerts/stream',
-        { headers: { Cookie: cookie, origin: app.base } },
+        { headers: { Cookie: cookie } },
       );
       assert.equal(response.status, 200);
       assert.match(response.headers.get('content-type') ?? '', /text\/event-stream/);
@@ -751,7 +746,7 @@ test('security events API requires auth and exposes current/history', async () =
     }
   }));
 
-test('security event stream is authenticated, PBX-scoped, and same-origin', async () =>
+test('security event stream is authenticated, PBX-scoped, and browser-compatible', async () =>
   fixture(async ({ config, storage, secrets, auth }) => {
     const token = (
       await readFile(join(config.secretDirectory, 'bootstrap-admin.token'), 'utf8')
@@ -776,14 +771,9 @@ test('security event stream is authenticated, PBX-scoped, and same-origin', asyn
     const app = await serve(storage, secrets, apiAuth, runtime);
     try {
       const cookie = 'vm_session=synthetic';
-      const forbidden = await fetch(
-        app.base + '/api/pbx-instances/' + profile.id + '/security-events/stream',
-        { headers: { Cookie: cookie, origin: 'https://evil.example' } },
-      );
-      assert.equal(forbidden.status, 403);
       const response = await fetch(
         app.base + '/api/pbx-instances/' + profile.id + '/security-events/stream',
-        { headers: { Cookie: cookie, origin: app.base } },
+        { headers: { Cookie: cookie } },
       );
       assert.equal(response.status, 200);
       assert.match(response.headers.get('content-type') ?? '', /text\/event-stream/);
@@ -837,7 +827,7 @@ test('system metrics stream is authenticated and PBX-scoped', async () =>
       const cookie = 'vm_session=synthetic';
       const response = await fetch(
         app.base + '/api/pbx-instances/' + profile.id + '/system-metrics/stream',
-        { headers: { Cookie: cookie, origin: app.base } },
+        { headers: { Cookie: cookie } },
       );
       assert.equal(response.status, 200);
       assert.match(response.headers.get('content-type') ?? '', /text\/event-stream/);
