@@ -74,3 +74,9 @@ npm run build
 ```
 
 HTTPS Gateway، `frontend/dist` را Serve می‌کند و Application Routeهای Same-Origin را به Loopback Backend Proxy می‌کند. فایل `deployment/systemd/voip-monitor.service` تعریف عمومی OS Service است؛ فقط پس از ساخت Service Account، Private Environment/Data Directoryها، TLS Fileها و Ownership/Permission مناسب آن را نصب کنید. Address، Certificate، Key یا Credential اختصاصی Deployment را Commit نکنید.
+
+### نصب Systemd و Self-Signed TLS موقت
+
+برای OS-managed Deployment، قبل از Migration Data، Local Launcher را Stop کنید و Root-only Installer را با Node.js 24 Source Tree، Current Data Directory، TLS Certificate/Key، HTTPS Port و PBX Network Mode صریح اجرا کنید. Self-Signed TLS به‌صورت Default رد می‌شود؛ فقط وقتی Operator آگاهانه Browser Trust Warning را برای Deployment کنترل‌شده و موقت پذیرفته است از `--allow-self-signed` استفاده کنید. پس از Installation، `systemctl is-enabled`، `systemctl is-active` و HTTPS Health/Readiness را Verify کنید؛ سپس Host را Reboot و همان Checkها را بدون Manual Start تکرار کنید.
+
+اگر UFW غیرفعال باشد، Application ممکن است بدون Host-level Source Filtering Reachable باشد. این وضعیت را Firewall-hardened توصیف نکنید؛ اگر Source-CIDR Restriction لازم است از Upstream Firewall یا Host-firewall Policy جداگانه تأییدشده استفاده کنید.

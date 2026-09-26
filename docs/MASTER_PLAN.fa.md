@@ -1,6 +1,6 @@
 # Master Plan
 
-وضعیت: 2026-09-26. Task 36 از طریق PR #38 داخل main Merge شده است. Deploy زنده Same-Origin HTTPS برای Backend/Frontend در Task 37 روی feature/server-ui-deployment به‌صورت Local پیاده‌سازی شده و اکنون روی Monitoring Host مجاز با PBX Networking غیرفعال در حال اجراست؛ OS-level Reboot Persistence و Trusted TLS هنوز کامل نیستند.
+وضعیت: 2026-09-26. Task 37 از طریق PR #40 داخل main Merge شده است. OS-level Systemd Persistence و Reboot Recovery در Task 38 روی feature/os-persistence-tls-recovery پیاده‌سازی شده‌اند. Service پس از Reboot واقعی به‌صورت خودکار Recover شد؛ Operator موقتاً Self-Signed TLS را صریحاً پذیرفت و UFW Host غیرفعال است، نه Restrictive.
 
 ## Phase 0 - کشف محیط
 
@@ -74,19 +74,19 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - [x] Task 34: APIهای هشدار SSE/history با محدوده PBX موجود در رابط کاربری امنیتی دوزبانه تأیید شده، با تاریخچه اخیر محدود 24 ساعته/100 ردیفی و به‌روزرسانی‌های بیدرنگ فعلی/تاریخچه حذف شده را مصرف کنید. بدون External Notification Delivery
 - [x] Task 35: Metadata محدود External Notification Channel، Persistence مربوط به Delivery Queue با Stateهای Pending/Cancelled، Deduplication قطعی Alert برای هر Channel، هویت immutable برای PBX/Transport Channel و Cascade Semantics مربوط به PBX/Channel تعریف شد؛ بدون Runtime Enqueue Wiring، Delivery Worker، Provider Client یا تماس واقعی خارجی.
 - [x] Task 36: APIهای احرازشده و PBX-scoped برای list/get/put/delete در Notification Channel و Encrypted HTTPS Webhook Target Secret Management با Same-Origin Protection اضافه شدند؛ بدون افشای Target/Internal Secret، Delivery Worker یا تماس خارجی.
-- [x] Task 37: Built Bilingual Frontend و Backend به‌صورت Same-Origin HTTPS Stack روی Monitoring Host با Private Local Runtime Configuration، Loopback-only Backend Exposure، Managed Local Launcher و Generic Tracked Systemd Unit Deploy شدند؛ Live UI/Health/Readiness با PBX Networking غیرفعال PASS شد.
+- [x] Task 37: Built Bilingual Frontend و Backend به‌صورت Same-Origin HTTPS Stack روی Monitoring Host با Private Local Runtime Configuration، Loopback-only Backend Exposure، Managed Local Launcher و Generic Tracked Systemd Unit Deploy شدند؛ Live UI/Health/Readiness PASS شد.
+- [x] Task 38: OS-level Systemd Service نصب و Enable شد، Runtime Node/Data/TLS از Private Toolchain Pathها جدا شد، Live HTTPS/Health/Readiness پس از Reboot واقعی Host Validate شد، Scope فعلی Read-only PBX Monitoring حفظ شد و Explicit Temporary Self-Signed TLS Exception اضافه شد؛ Firewall Host Restrictive نیست چون UFW غیرفعال است.
 
 ### وضعیت فعلی ادامه کار
 
-- Branch فعلی feature/server-ui-deployment است که پس از Merge شدن Task 36 با PR #38 از main همگام‌شده ساخته شده است.
-- Task 37 به‌صورت Local کامل است و UI از طریق HTTPS Gateway روی Monitoring Host مجاز Live است.
-- Backend فقط روی Loopback گوش می‌دهد؛ HTTPS Gateway مرز Same-Origin سمت Browser است و Built Frontend را Serve و Setup/Auth/API/Health/Readiness را Proxy می‌کند.
-- Private Runtime Configuration، SQLite Data، TLS Key/Certificate، PID و Log فقط در Local Storage نادیده‌گرفته‌شده باقی می‌مانند و Commit نمی‌شوند.
-- Deployment اولیه PBX Network Mode را Disabled نگه می‌داشت. پس از تأیید صریح Operator، Private Local Deployment به Monitoring Mode محدود و Read-only از قبل پیکربندی‌شده تغییر کرد؛ جزئیات اختصاصی PBX فقط Local باقی می‌مانند.
-- Local Launcher از start/stop/status/run پشتیبانی می‌کند. Bug مربوط به Shutdown با Process Group مستقل رفع شد و start/health/stop/listener-clear/restart/status PASS شد.
-- Certificate فعلی Self-signed و Local است؛ تا نصب Trusted TLS، Browser نیاز به Trust Exception دارد.
-- Generic Systemd Unit برای Deployهای قابل‌استفاده مجدد Track شده، اما این Session امکان نصب آن را ندارد چون Account فعلی در System Unit Directory حق Write ندارد و User Systemd نیز Persistent نیست. بنابراین Stack زنده هنوز پس از Host Reboot Auto-start تضمین‌شده ندارد.
-- Task دقیق بعدی پس از Merge شدن Task 37: **Task 38 — نصب OS-level Service Persistence با دسترسی Administrator، جایگزینی/اعتماد مناسب TLS، Validation مربوط به Firewall Exposure، Reboot Host و اثبات Automatic Service/UI Recovery بدون گسترش Scope فعلی Monitoring Read-only تأییدشده PBX.**
+- Branch فعلی `feature/os-persistence-tls-recovery` است که پس از Merge شدن Task 37 با PR #40 از `main` همگام‌شده ساخته شده است.
+- Task 38 به‌صورت Local و روی Monitoring Host مجاز کامل است. `voip-monitor.service` با Service Account اختصاصی `voip-monitor` نصب، Enabled و Active است.
+- Production Node Runtime دیگر از `.local` خوانده نمی‌شود؛ Systemd از Public Runtime Path تعیین‌شده با `VOIP_MONITOR_NODE_BIN` استفاده می‌کند. Persistent Application Data در Production Data Directory متعلق به Service قرار دارد.
+- Reboot واقعی Host انجام شد. بدون هیچ Manual Start پس از Boot، Systemd سرویس را خودکار Recover کرد؛ Backend Health/Ready شد، Bilingual UI Root Render شد، Backend فقط Loopback باقی ماند و HTTPS Gateway روی Browser-facing Port بالا آمد.
+- Operator استفاده موقت از Self-Signed Certificate فعلی را صریحاً پذیرفت. Installer همچنان Self-Signed TLS را به‌صورت Default رد می‌کند و فقط با `--allow-self-signed` آن را می‌پذیرد.
+- طبق خروجی Operator، UFW قبل از Reboot غیرفعال بود. دسترسی HTTPS پس از Reboot Reachability را ثابت می‌کند، اما Host Firewall Policy محدودکننده‌ای در حال حاضر Enforce نمی‌شود.
+- Scope تأییدشده PBX همچنان Monitoring محدود و Read-only است؛ Task 38 آن را گسترش نداد و هیچ PBX Configuration Write انجام نشد.
+- Task دقیق بعدی پس از Merge شدن Task 38: **Task 39 — ساخت اولین Bilingual Operator Dashboard واقعی فقط با APIهای Safe موجود: خلاصه PBX/Provider Connection، Live-update State، Current System-metric Summary و Security-alert Summary/Navigation؛ بدون PBX Action جدید یا Data Collection گسترده‌تر.**
 
 ### ثبت خرابی و اشکال
 
@@ -354,6 +354,28 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - **محدودیت شناخته‌شده:** Host Firewall Policy برای Browser-facing HTTPS Port بدون Administrator Access به‌صورت Authoritative قابل تغییر/Validation نبود.
 - **Task دقیق بعدی:** Task 38، Tracked OS Service را با Administrator Privilege نصب می‌کند، Trusted TLS/Firewall Policy را برقرار می‌کند، Reboot انجام می‌دهد و Automatic UI Recovery را در حالی Validate می‌کند که PBX Networking بدون تأیید جداگانه Disabled باقی می‌ماند.
 
+## 2026-09-26 — رکورد تکمیل Task 38
+
+- **نتیجه:** Deployment Trackشده به‌صورت OS-level Systemd Service نصب شد و Automatic Recovery پس از Reboot واقعی Host اثبات شد.
+- **Service Identity:** Systemd Stack را با User/Group اختصاصی `voip-monitor` و `Restart=on-failure` اجرا می‌کند؛ Backend فقط Loopback و HTTPS Gateway تنها Browser-facing Listener باقی می‌ماند.
+- **Runtime Boundary:** Launcher اکنون `VOIP_MONITOR_NODE_BIN` صریح می‌پذیرد؛ System Service به‌جای Ignored Local Toolchain از Production Runtime Path استفاده می‌کند.
+- **Installer:** Root-only Fail-closed Production Installer اضافه شد که Node 24، تطابق TLS Key/Certificate، وجود Data Source، Bound مربوط به PBX Network Mode، Service Account/Runtime/Data/TLS Placement، Unit Installation و Enable/Start را Validate می‌کند.
+- **Self-signed Exception:** Self-Signed Certificate همچنان Default رد می‌شود. Operator استفاده موقت از Certificate فعلی را صریحاً تأیید کرد و این فقط با `--allow-self-signed` فعال می‌شود.
+- **Reboot Proof:** پس از Reboot واقعی Host، `voip-monitor.service` بدون Manual Start Enabled + Active/Running بود؛ Health=ok، Readiness=ready، Frontend Root Render شد، Backend Loopback باقی ماند و HTTPS خودکار Recover شد.
+- **Firewall State:** طبق خروجی Operator، UFW غیرفعال است. HTTPS پس از Reboot Reachable است، پس Exposure عملی است؛ اما Restrictive Host Firewall Policy وجود ندارد که بتوان آن را Hardened نامید.
+- **PBX Scope:** Monitoring Read-only از قبل تأییدشده بدون تغییر باقی ماند؛ هیچ PBX Write/Configuration Action انجام نشد.
+
+### Failure / Bug / Gapهای Task 38
+
+- **Remote Privileged-command Limitation — مدیریت شد:** این Session طبق Remote Policy نمی‌تواند sudo/root Firewall/Systemd Installation Command اجرا کند. Operator Installer بازبینی‌شده را اجرا کرد و خروجی Systemd/UFW را ارائه داد.
+- **Systemd Runtime-path Incompatibility — پیش از Installation رفع شد:** Unit عمومی ابتدا به Node زیر Ignored `.local` وابسته بود که Parent Permission آن برای Dedicated Service Account قابل Traverse نبود. اصلاح: Support صریح `VOIP_MONITOR_NODE_BIN` و Root-owned Read-only Production Runtime Path اضافه شد.
+- **Installer Self-signed Policy Mismatch — با Explicit Exception رفع شد:** Installer اولیه به‌درستی Self-Signed TLS را رد می‌کرد، در حالی که Operator موقتاً آن را پذیرفت. اصلاح: Rejection امن Default حفظ شد و `--allow-self-signed` Opt-in صریح اضافه شد.
+- **Post-reboot `/proc` Environment Inspection Denied — بدون اثر:** Session Non-root نتوانست Process Environment سرویس را مستقیم بخواند. Systemd Identity/Status، Filesystem Ownership، Listenerها، HTTPS Health/Readiness و Reboot Recovery Validation کافی را فراهم کردند.
+- **Root Firewall Introspection برای این Session در دسترس نبود:** UFW/nft به Root نیاز دارند. Operator UFW را Inactive گزارش کرد؛ HTTPS Reachability پس از Reboot Reachability را ثابت می‌کند، نه Firewall Hardening محدودکننده را.
+- **محدودیت شناخته‌شده:** TLS همچنان Self-Signed است و Browser/PKI Trust سازمانی ندارد.
+- **محدودیت شناخته‌شده:** Host Firewall Enforcement محدودکننده نیست؛ اگر Segmentation لازم باشد، Hardening بعدی باید Source CIDRها را تعریف و در Host یا Upstream Firewall Enforce کند.
+- **Task دقیق بعدی:** Task 39 اولین Bilingual Operator Dashboard را فقط از APIهای Safe موجود می‌سازد، بدون PBX Write Action یا Collection Scope جدید.
+
 ### پروتکل ادامه مداوم
 
 برای هر کار/جلسه آینده:
@@ -380,7 +402,7 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - [ ] Phase 11: سخت شدن، تهیه نسخه پشتیبان، بازیابی آزمایش شده، و یک دفترچه راه اندازی تولید.
 - [ ] Phase 12: اعتبار سنجی انتشار، از جمله رویه استقرار تازه خنثی برای سازمان که می تواند بدون حمل مقادیر خصوصی از استقرار دیگر، روی یک سرویس جدید نصب شود.
 
-Phase 1 بسته است. بخش تعریف‌شده Security Monitoring در Phase 7 همچنان تا Task 34 کامل است. Taskهای 35-36 Storage/Configuration مربوط به Notification را بدون Delivery اضافه کرده‌اند و Task 37 اکنون Live Same-Origin HTTPS Backend/Frontend Deployment را روی Monitoring Host با PBX Networking غیرفعال فراهم کرده است. Task دقیق بعدی پس از Merge شدن Task 37، **Task 38 — نصب OS-level Service Persistence، برقراری Trusted TLS و Firewall Policy، Reboot و اثبات Automatic UI Recovery بدون فعال کردن PBX Access جدید.**
+Phase 1 بسته است. بخش تعریف‌شده Security Monitoring در Phase 7 همچنان تا Task 34 کامل است. Taskهای 35-36 Storage/Configuration مربوط به Notification را بدون Delivery اضافه کرده‌اند، Task 37 Live Same-Origin HTTPS Application را فراهم کرده و Task 38 OS-level Reboot Persistence را با Temporary Self-Signed TLS Exception مورد تأیید Operator اثبات کرده است. Task دقیق بعدی پس از Merge شدن Task 38، **Task 39 — اولین Bilingual Operator Dashboard واقعی فقط با APIهای Safe موجود برای PBX/Provider، System Metrics و Security Alerts.**
 
 ## 26-09-2026 - رکورد تکمیل Task 28
 

@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-09-26. Task 36 is merged into main through PR #38. Task 37 live same-origin HTTPS backend/frontend deployment is implemented locally on feature/server-ui-deployment and is currently running on the authorized monitoring host with PBX networking disabled; OS-level reboot persistence and trusted TLS are not yet complete.
+Status: 2026-09-26. Task 37 is merged into main through PR #40. Task 38 OS-level systemd persistence and reboot recovery are implemented locally on feature/os-persistence-tls-recovery. The service recovered automatically after reboot; the operator explicitly accepted temporary self-signed TLS, and host UFW is inactive rather than restrictive.
 
 ## Phase 0 — environment discovery
 
@@ -74,19 +74,19 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 34: consume the existing PBX-scoped alert SSE/history APIs in the authenticated bilingual security UI, with a bounded 24-hour/100-row recent history and deduplicated realtime current/history updates; no external notification delivery.
 - [x] Task 35: define bounded external-notification channel metadata, pending/cancelled delivery-queue persistence, deterministic per-channel alert deduplication, immutable channel PBX/transport identity, and PBX/channel cascade semantics; no runtime enqueue wiring, delivery worker, provider client, or real external contact.
 - [x] Task 36: expose authenticated PBX-scoped notification-channel list/get/put/delete APIs and encrypted HTTPS webhook-target secret management with same-origin mutation protection and no target/internal-secret disclosure; no delivery worker or external contact.
-- [x] Task 37: deploy the built bilingual frontend and backend as a same-origin HTTPS stack on the monitoring host using private local runtime configuration, loopback-only backend exposure, a managed local launcher, and a generic tracked systemd unit; live UI/health/readiness passed with PBX networking disabled.
+- [x] Task 37: deploy the built bilingual frontend and backend as a same-origin HTTPS stack on the monitoring host using private local runtime configuration, loopback-only backend exposure, a managed local launcher, and a generic tracked systemd unit; live UI/health/readiness passed.
+- [x] Task 38: install and enable the OS-level systemd service, migrate runtime Node/data/TLS boundaries out of private toolchain paths, validate live HTTPS/health/readiness after a real host reboot, preserve the approved read-only PBX monitoring scope, and support an explicit temporary self-signed TLS exception; firewall remains non-restrictive because UFW is inactive.
 
 ### Current execution handoff
 
-- Current branch: feature/server-ui-deployment, created from synchronized main after Task 36 merged as PR #38.
-- Task 37 is complete locally and the UI is live on the authorized monitoring host through the HTTPS gateway.
-- The backend listens on loopback only; the HTTPS gateway is the browser-facing same-origin boundary and serves the built frontend while proxying setup/auth/API/health/readiness routes.
-- Private runtime configuration, SQLite data, TLS key/certificate, PID, and logs remain under ignored local storage and are not committed.
-- The initial deployment forced PBX network mode disabled. After explicit operator approval, the private local deployment was switched to the already-configured bounded read-only monitoring mode; deployment-specific PBX details remain local-only.
-- The local launcher supports start/stop/status/run. A shutdown bug was fixed by starting the stack in its own process group so stop terminates both backend and gateway; start/health/stop/listener-clear/restart/status then passed.
-- The current host uses a self-signed local TLS certificate, so browsers require a one-time trust exception until trusted TLS is installed.
-- A generic systemd unit is tracked for reusable deployments, but this session cannot install it because the current account cannot write the system unit directory and the user systemd manager is not persistent. The live stack therefore does not yet auto-start after host reboot.
-- Exact next task after Task 37 merge: **Task 38 — complete OS-level service persistence with administrator installation of the tracked systemd unit, replace or trust TLS appropriately, validate firewall exposure, reboot the host, and prove automatic service/UI recovery without expanding the currently approved read-only PBX monitoring scope.**
+- Current branch: `feature/os-persistence-tls-recovery`, created from synchronized `main` after Task 37 merged as PR #40.
+- Task 38 is complete locally and on the authorized monitoring host. `voip-monitor.service` is installed, enabled, and active under the dedicated `voip-monitor` service account.
+- Production Node runtime is no longer read from ignored `.local`; systemd uses the public runtime path configured through `VOIP_MONITOR_NODE_BIN`. Persistent application data lives under the service-owned production data directory.
+- A real host reboot was completed. Without any manual start command afterward, systemd automatically recovered the service; the backend returned health/ready, the bilingual UI root rendered, the backend remained loopback-only, and the HTTPS gateway listened on the browser-facing port.
+- The operator explicitly accepted the current self-signed certificate as a temporary deployment choice. The installer still rejects self-signed TLS by default and requires the explicit `--allow-self-signed` exception.
+- UFW was reported inactive by the operator before reboot. Post-reboot browser/HTTPS access proves the service port is reachable, but no restrictive host firewall policy is currently enforced.
+- The currently approved PBX scope remains bounded read-only monitoring; Task 38 did not broaden it or perform PBX configuration writes.
+- Exact next task after Task 38 merge: **Task 39 — build the first real bilingual operator dashboard using only existing safe APIs: PBX/provider connection summary, live-update state, current system-metric summary, and security-alert summary/navigation; no new PBX actions or broader data collection.**
 
 ### Failure and bug log
 
@@ -354,6 +354,28 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - **Known limitation:** host firewall policy for the browser-facing HTTPS port could not be authoritatively changed/validated without administrator access.
 - **Exact next task:** Task 38 installs the tracked OS service with administrator privileges, establishes trusted TLS/firewall policy, reboots, and verifies automatic UI recovery while keeping PBX networking disabled unless separately approved.
 
+## 2026-09-26 — Task 38 completion record
+
+- **Result:** installed the tracked deployment as an enabled OS-level systemd service and proved automatic recovery across a real host reboot.
+- **Service identity:** systemd runs the stack as the dedicated `voip-monitor` user/group with `Restart=on-failure`; the backend remains loopback-only and the HTTPS gateway remains the only browser-facing listener.
+- **Runtime boundary:** the launcher now accepts an explicit `VOIP_MONITOR_NODE_BIN`; the system service uses a production runtime path instead of the ignored local toolchain.
+- **Installer:** added a root-only fail-closed production installer that validates Node 24, TLS key/certificate matching, data-source existence, PBX network-mode bounds, service account/runtime/data/TLS placement, unit installation, and enable/start behavior.
+- **Self-signed exception:** self-signed certificates remain rejected by default. The operator explicitly approved temporary use of the existing self-signed certificate, enabled only through `--allow-self-signed`.
+- **Reboot proof:** after the real host reboot, `voip-monitor.service` was enabled + active/running without manual start; health returned ok, readiness returned ready, the frontend root rendered, backend remained on loopback, and HTTPS recovered automatically.
+- **Firewall state:** operator-reported UFW state is inactive. The HTTPS service is reachable after reboot, so exposure is functional, but there is no restrictive host firewall policy to claim as hardened.
+- **PBX scope:** the already-approved read-only monitoring mode remains unchanged; no PBX write/configuration action was performed.
+
+### Task 38 failures / bugs / gaps
+
+- **Remote privileged-command limitation — handled:** this session cannot execute sudo/root firewall/systemd installation commands through the remote policy. The operator executed the reviewed installer and supplied systemd/UFW results.
+- **Systemd runtime-path incompatibility — resolved before installation:** the generic unit originally depended on Node below ignored `.local`, whose parent permissions prevent the dedicated service account from traversing it. Fix: add explicit `VOIP_MONITOR_NODE_BIN` support and install a root-owned read-only production runtime path.
+- **Installer self-signed policy mismatch — resolved by explicit exception:** the initial installer correctly rejected self-signed TLS, while the operator chose to accept it temporarily. Fix: retain secure rejection as the default and add explicit `--allow-self-signed` opt-in.
+- **Post-reboot `/proc` environment inspection denied — non-impacting:** the non-root session could not read the service process environment directly. systemd identity/status, filesystem ownership, listeners, HTTPS health/readiness, and reboot recovery supplied the required independent validation.
+- **Root firewall introspection unavailable to this session:** UFW/nft rules require root. The operator reported UFW inactive; successful post-reboot HTTPS access proves reachability but not restrictive firewall hardening.
+- **Known limitation:** TLS remains self-signed and therefore browser/PKI trust is not organization-managed.
+- **Known limitation:** host firewall enforcement is not restrictive; if segmentation is required, a later hardening task must define source CIDRs and enforce them at host or upstream firewall level.
+- **Exact next task:** Task 39 builds the first bilingual operator dashboard from existing safe APIs only, without adding PBX write actions or new collection scope.
+
 ### Persistent continuation protocol
 
 For every future task/session:
@@ -380,7 +402,7 @@ Tasks 7–13 implemented substantial Asterisk-provider and telephony-state found
 - [ ] Phase 11: hardening, backup, tested restore, and a production deployment runbook.
 - [ ] Phase 12: release validation, including an organization-neutral fresh-deployment procedure that can onboard a new service without carrying private values from another deployment.
 
-Phase 1 is closed. Phase 7's defined security-monitoring slice remains complete through Task 34. Tasks 35-36 add notification storage/configuration without delivery, and Task 37 now provides a live same-origin HTTPS backend/frontend deployment on the monitoring host with PBX networking disabled. Exact next task after Task 37 merge is **Task 38 — install OS-level service persistence, establish trusted TLS and firewall policy, reboot, and prove automatic UI recovery without enabling new PBX access.**
+Phase 1 is closed. Phase 7's defined security-monitoring slice remains complete through Task 34. Tasks 35-36 add notification storage/configuration without delivery, Task 37 provides the live same-origin HTTPS application, and Task 38 proves OS-level reboot persistence with the operator-approved temporary self-signed TLS exception. Exact next task after Task 38 merge is **Task 39 — the first real bilingual operator dashboard using existing safe PBX/provider, system-metric, and security-alert APIs only.**
 
 ## 2026-09-26 — Task 28 completion record
 
