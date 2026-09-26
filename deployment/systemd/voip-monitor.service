@@ -1,0 +1,23 @@
+[Unit]
+Description=VoIP Monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=voip-monitor
+Group=voip-monitor
+WorkingDirectory=/opt/voip-monitor
+Environment=VOIP_MONITOR_ENV_FILE=/etc/voip-monitor/voip-monitor.env
+ExecStart=/opt/voip-monitor/scripts/run-production.sh run
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/voip-monitor /var/log/voip-monitor
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

@@ -331,4 +331,15 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 212. List/get require authentication; PUT/DELETE also require same-origin protection; channel/PBX mismatch fails closed.
 213. Deleting a channel also removes its encrypted target secret; Task 35 queue cascade remains database-owned.
 214. Task 36 activates no alert subscriber, enqueue runtime, worker, HTTP client, retry policy, redirect handling, or external transmission.
-215. Task 37 deploys the existing backend and bilingual frontend on voip-mon as a managed same-origin service with private local deployment values and no implied new real-PBX access.
+215. Task 37 deploys the existing backend and bilingual frontend on the monitoring host as a managed same-origin service with private local deployment values and no implied new real-PBX access.
+
+## 2026-09-26 — Task 37 live UI deployment decisions
+
+216. **Same-origin gateway:** browser traffic terminates at one HTTPS gateway that serves the built frontend and proxies setup/auth/API/health/readiness to a loopback-only backend.
+217. **Secure production session preserved:** the live deployment uses production auth semantics and HTTPS rather than weakening Secure cookies for LAN HTTP.
+218. **Private deployment state:** runtime env, database, secret store, TLS private key, PID, and logs remain ignored/local; public Git contains only organization-neutral scripts/unit/instructions.
+219. **PBX disabled during UI deployment:** the live deployment explicitly keeps PBX networking disabled; UI deployment is not authorization for a PBX connection.
+220. **Local process management:** the non-privileged launcher owns the stack in a dedicated process group and provides start/stop/status/run; stop must remove both backend and gateway listeners.
+221. **Reusable OS service definition:** a generic hardened systemd unit is tracked, but installing/enabling it is an administrator operation and was not possible in this session.
+222. **TLS trust boundary:** a local self-signed certificate is acceptable only for this initial controlled UI exposure; trusted production TLS is required before calling the deployment fully hardened.
+223. **Task 38 boundary:** next install OS-level persistence, trusted TLS/firewall policy, reboot, and verify automatic UI recovery while PBX networking stays disabled unless separately approved.

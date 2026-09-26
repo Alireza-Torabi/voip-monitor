@@ -1,6 +1,6 @@
 # Project context
 
-Status: Task 35 is merged through PR #37. Task 36 is implemented locally on feature/notification-channel-api-secrets as of 2026-09-26: authenticated PBX-scoped notification-channel APIs plus encrypted HTTPS webhook-target secret management exist. API responses expose only safe metadata/hasTarget. No DNS lookup, webhook request, delivery worker, or real external-provider contact exists. Exact next task is Task 37 to deploy the existing backend and bilingual frontend UI on voip-mon as a managed same-origin service using private local deployment configuration. License: Apache-2.0.
+Status: Task 36 is merged through PR #38. Task 37 is implemented locally on feature/server-ui-deployment as of 2026-09-26 and the authorized monitoring host currently serves the built bilingual frontend and backend through a same-origin HTTPS gateway while the backend remains loopback-only and PBX network mode remains disabled. Private runtime data/TLS stay local. A generic systemd unit is tracked but not installed on this host; trusted TLS, firewall validation, reboot persistence, and tested backup/restore remain incomplete. License: Apache-2.0.
 
 ## Repository state
 
