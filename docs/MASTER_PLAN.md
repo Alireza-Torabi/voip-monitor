@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-09-25. Phase 1 public repository foundation is complete. Task 19 is merged into `main` as PR #20. Phase 6 Task 20 restricted SSH configuration/trust foundation is implemented on `feature/restricted-ssh-config-trust`. It adds per-PBX SSH metadata persistence, encrypted password/private-key credential storage using the existing AES-256-GCM secret store, mandatory pinned OpenSSH SHA-256 host-key trust, and reuse of the shared SSRF/network boundary; no SSH client/socket, DNS lookup, real-host access, scheduler, persistence of metrics, or browser/API exposure exists yet.
+Status: 2026-09-26. Tasks 1–27 are merged through PR #28. Task 28 bounded security-alert/rule evaluation is complete, committed, and pushed on feature/security-alert-rule-boundary but is not yet merged into main. No Task 29 work may begin until that merge is confirmed.
 
 ## Phase 0 — environment discovery
 
@@ -73,6 +73,7 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - Task 27 implementation is complete locally. The backend exposes authenticated current/history security-event endpoints plus a PBX-scoped SSE stream. History uses the same explicit UTC range and maximum 500-row boundary as system metrics; the stream sends an initial current snapshot and subsequent normalized security events, with same-origin enforcement, 15-second heartbeat, cleanup, and a 64-stream process cap. No raw AMI/provider payload is exposed.
 - Task 27 used synthetic/mock API and SSE validation only. No production log access, real PBX connection, or SSH security-log access was performed.
 - Task 28 is complete locally. Exact next task: **Task 29 — define the bounded security-alert persistence/current-state boundary with deduplication, without external delivery.**
+- Documentation reconciliation on 2026-09-26 refreshed stale architecture/toolchain/operations/troubleshooting status, replaced the broken English-copy Persian master plan with a real Persian companion, and established ignored `.local/SESSION_HANDOFF.md` as the per-task new-chat continuation prompt. This does not start Task 29.
 
 ### Failure and bug log
 
