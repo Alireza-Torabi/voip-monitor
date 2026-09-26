@@ -124,6 +124,39 @@ export interface SecurityAlertRuleConfigRepository {
   list(instanceId: string): SecurityAlertRuleConfig[];
   delete(instanceId: string, ruleId: SecurityAlertRuleId): boolean;
 }
+export type NotificationTransport = 'WEBHOOK';
+export interface NotificationChannelConfig {
+  id: string;
+  instanceId: string;
+  transport: NotificationTransport;
+  displayName: string;
+  enabled: boolean;
+  secretName: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface NotificationChannelRepository {
+  put(config: NotificationChannelConfig): void;
+  get(id: string): NotificationChannelConfig | undefined;
+  list(instanceId: string): NotificationChannelConfig[];
+  delete(id: string): boolean;
+}
+export type NotificationDeliveryStatus = 'PENDING' | 'CANCELLED';
+export interface NotificationDeliveryRecord {
+  deliveryKey: string;
+  channelId: string;
+  instanceId: string;
+  alert: SecurityAlertRecord;
+  status: NotificationDeliveryStatus;
+  queuedAt: string;
+  cancelledAt?: string;
+}
+export interface NotificationDeliveryQueueRepository {
+  enqueue(channelId: string, alert: SecurityAlertRecord): NotificationDeliveryRecord;
+  get(deliveryKey: string): NotificationDeliveryRecord | undefined;
+  listPending(instanceId: string, limit: number): NotificationDeliveryRecord[];
+  cancel(deliveryKey: string): boolean;
+}
 export type SecurityAlertListener = (alert: SecurityAlertRecord) => void;
 export interface SecurityAlertRepository {
   save(alert: SecurityAlertRecord, retentionCutoff: string): void;
@@ -145,6 +178,8 @@ export interface AppStorage {
   readonly securityEvents: SecurityEventRepository;
   readonly securityAlertRules: SecurityAlertRuleConfigRepository;
   readonly securityAlerts: SecurityAlertRepository;
+  readonly notificationChannels: NotificationChannelRepository;
+  readonly notificationDeliveries: NotificationDeliveryQueueRepository;
   readonly secretRecords: EncryptedSecretRepository;
   hasEncryptedSecrets(): boolean;
   migrationHistory(): MigrationRecord[];
@@ -259,6 +294,8 @@ export class SqliteStorage implements AppStorage {
   readonly securityEvents: SecurityEventRepository;
   readonly securityAlertRules: SecurityAlertRuleConfigRepository;
   readonly securityAlerts: SecurityAlertRepository;
+  readonly notificationChannels: NotificationChannelRepository;
+  readonly notificationDeliveries: NotificationDeliveryQueueRepository;
   readonly secretRecords: EncryptedSecretRepository;
   private closed = false;
   private readonly securityAlertListeners = new Set<SecurityAlertListener>();
@@ -674,6 +711,108 @@ export class SqliteStorage implements AppStorage {
           )
           .run(instanceId, ruleId).changes > 0,
     };
+    this.notificationChannels = {
+      put: (config) => {
+        const validated = parseNotificationChannelConfig(JSON.stringify(config));
+        const existing = this.notificationChannels.get(validated.id);
+        if (
+          existing &&
+          (existing.instanceId !== validated.instanceId ||
+            existing.transport !== validated.transport)
+        )
+          throw new StorageError();
+        this.db
+          .prepare(
+            `INSERT INTO notification_channel_config
+              (id, pbx_instance_id, transport, display_name, enabled, secret_name, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(id) DO UPDATE SET
+               display_name=excluded.display_name,
+               enabled=excluded.enabled,
+               secret_name=excluded.secret_name,
+               updated_at=excluded.updated_at`,
+          )
+          .run(
+            validated.id,
+            validated.instanceId,
+            validated.transport,
+            validated.displayName,
+            Number(validated.enabled),
+            validated.secretName,
+            validated.createdAt,
+            validated.updatedAt,
+          );
+      },
+      get: (id) => {
+        const row = this.db
+          .prepare('SELECT * FROM notification_channel_config WHERE id = ?')
+          .get(id);
+        return row ? mapNotificationChannel(row) : undefined;
+      },
+      list: (instanceId) =>
+        this.db
+          .prepare(
+            'SELECT * FROM notification_channel_config WHERE pbx_instance_id = ? ORDER BY id',
+          )
+          .all(instanceId)
+          .map(mapNotificationChannel),
+      delete: (id) =>
+        this.db.prepare('DELETE FROM notification_channel_config WHERE id = ?').run(id).changes > 0,
+    };
+    this.notificationDeliveries = {
+      enqueue: (channelId, alert) => {
+        const validatedAlert = parseSecurityAlertRecord(JSON.stringify(alert));
+        const channel = this.notificationChannels.get(channelId);
+        if (!channel || !channel.enabled || channel.instanceId !== validatedAlert.instanceId)
+          throw new StorageError();
+        const deliveryKey = notificationDeliveryKey(channelId, validatedAlert);
+        const now = new Date().toISOString();
+        this.db
+          .prepare(
+            `INSERT INTO notification_delivery_queue
+              (delivery_key, channel_id, pbx_instance_id, rule_id, observed_at, alert_json, status, queued_at, cancelled_at)
+             VALUES (?, ?, ?, ?, ?, ?, 'PENDING', ?, NULL)
+             ON CONFLICT(delivery_key) DO NOTHING`,
+          )
+          .run(
+            deliveryKey,
+            channelId,
+            validatedAlert.instanceId,
+            validatedAlert.ruleId,
+            validatedAlert.observedAt,
+            JSON.stringify(validatedAlert),
+            now,
+          );
+        const record = this.notificationDeliveries.get(deliveryKey);
+        if (!record) throw new StorageError();
+        return record;
+      },
+      get: (deliveryKey) => {
+        const row = this.db
+          .prepare('SELECT * FROM notification_delivery_queue WHERE delivery_key = ?')
+          .get(deliveryKey);
+        return row ? mapNotificationDelivery(row) : undefined;
+      },
+      listPending: (instanceId, limit) => {
+        if (!Number.isSafeInteger(limit) || limit < 1 || limit > 500) throw new StorageError();
+        return this.db
+          .prepare(
+            `SELECT * FROM notification_delivery_queue
+             WHERE pbx_instance_id = ? AND status = 'PENDING'
+             ORDER BY queued_at ASC, delivery_key ASC LIMIT ?`,
+          )
+          .all(instanceId, limit)
+          .map(mapNotificationDelivery);
+      },
+      cancel: (deliveryKey) =>
+        this.db
+          .prepare(
+            `UPDATE notification_delivery_queue
+             SET status = 'CANCELLED', cancelled_at = ?
+             WHERE delivery_key = ? AND status = 'PENDING'`,
+          )
+          .run(new Date().toISOString(), deliveryKey).changes > 0,
+    };
     this.securityAlerts = {
       save: (alert, retentionCutoff) => {
         const validated = parseSecurityAlertRecord(JSON.stringify(alert));
@@ -951,6 +1090,115 @@ function isSecurityAlertNewer(
     }
   }
   return alert.observedAt > current.observed_at;
+}
+
+function isIsoUtc(value: unknown): value is string {
+  return typeof value === 'string' && value.endsWith('Z') && Number.isFinite(Date.parse(value));
+}
+
+function parseNotificationChannelConfig(value: string): NotificationChannelConfig {
+  try {
+    const config = JSON.parse(value) as Record<string, unknown>;
+    if (
+      !Object.keys(config).every((key) =>
+        [
+          'id',
+          'instanceId',
+          'transport',
+          'displayName',
+          'enabled',
+          'secretName',
+          'createdAt',
+          'updatedAt',
+        ].includes(key),
+      ) ||
+      typeof config.id !== 'string' ||
+      config.id.length < 1 ||
+      config.id.length > 64 ||
+      typeof config.instanceId !== 'string' ||
+      config.instanceId.length < 1 ||
+      config.transport !== 'WEBHOOK' ||
+      typeof config.displayName !== 'string' ||
+      config.displayName.trim().length < 1 ||
+      config.displayName.trim().length > 80 ||
+      (config.enabled !== true && config.enabled !== false) ||
+      typeof config.secretName !== 'string' ||
+      config.secretName.length < 1 ||
+      config.secretName.length > 64 ||
+      !isIsoUtc(config.createdAt) ||
+      !isIsoUtc(config.updatedAt)
+    )
+      throw new StorageError();
+    return {
+      id: config.id,
+      instanceId: config.instanceId,
+      transport: config.transport,
+      displayName: config.displayName.trim(),
+      enabled: config.enabled,
+      secretName: config.secretName,
+      createdAt: config.createdAt as string,
+      updatedAt: config.updatedAt as string,
+    };
+  } catch (error) {
+    if (error instanceof StorageError) throw error;
+    throw new StorageError();
+  }
+}
+
+function mapNotificationChannel(row: Record<string, unknown>): NotificationChannelConfig {
+  return parseNotificationChannelConfig(
+    JSON.stringify({
+      id: row.id,
+      instanceId: row.pbx_instance_id,
+      transport: row.transport,
+      displayName: row.display_name,
+      enabled: Boolean(row.enabled),
+      secretName: row.secret_name,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }),
+  );
+}
+
+function mapNotificationDelivery(row: Record<string, unknown>): NotificationDeliveryRecord {
+  const alert = parseSecurityAlertRecord(String(row.alert_json));
+  const status = row.status;
+  if (
+    typeof row.delivery_key !== 'string' ||
+    row.delivery_key.length !== 64 ||
+    typeof row.channel_id !== 'string' ||
+    typeof row.pbx_instance_id !== 'string' ||
+    row.pbx_instance_id !== alert.instanceId ||
+    (status !== 'PENDING' && status !== 'CANCELLED') ||
+    !isIsoUtc(row.queued_at) ||
+    (status === 'PENDING' ? row.cancelled_at !== null : !isIsoUtc(row.cancelled_at))
+  )
+    throw new StorageError();
+  return {
+    deliveryKey: row.delivery_key,
+    channelId: row.channel_id,
+    instanceId: row.pbx_instance_id,
+    alert,
+    status,
+    queuedAt: row.queued_at as string,
+    ...(status === 'CANCELLED' ? { cancelledAt: row.cancelled_at as string } : {}),
+  };
+}
+
+function notificationDeliveryKey(channelId: string, alert: SecurityAlertRecord): string {
+  return createHash('sha256')
+    .update(
+      JSON.stringify([
+        channelId,
+        alert.instanceId,
+        alert.ruleId,
+        alert.observedAt,
+        alert.matchedEventCount,
+        alert.streamGeneration ?? null,
+        alert.streamSequence ?? null,
+      ]),
+    )
+    .digest('hex');
 }
 
 function parseSecurityAlertRuleConfig(value: string): SecurityAlertRuleConfig {

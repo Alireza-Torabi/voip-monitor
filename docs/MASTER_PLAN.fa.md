@@ -1,6 +1,6 @@
 # Master Plan
 
-وضعیت: 2026-09-26. Task 33 از طریق PR #35 داخل main Merge شده است. Task 34 شامل Realtime Security Alert Update محدود و Recent Alert History است که روی feature/security-monitoring-realtime-history به‌صورت Local پیاده‌سازی شده؛ External Notification Delivery در این Task وجود ندارد.
+وضعیت: 2026-09-26. Task 34 از طریق PR #36 داخل main Merge شده است. Foundation محدود External Notification Delivery در Task 35 به‌صورت Local روی feature/notification-delivery-foundation پیاده‌سازی شده؛ هیچ External Provider تماس داده نمی‌شود و هیچ Delivery Worker وجود ندارد.
 
 ## Phase 0 - کشف محیط
 
@@ -72,17 +72,21 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - [x] Task 32: فهرست پیکربندی قوانین Security Alert با محدوده PBX احراز هویت شده/دریافت/برقرار/حذف APIها با محافظت از جهش با منشاء مشابه و اعتبارسنجی بسته با شکست محدود. بدون External Notification Delivery
 - [x] Task 33: اضافه کردن اولین UI دوزبانه نظارت امنیتی برای هشدارهای فعلی با محدوده PBX و مدیریت دو Alert Rule محدود. بدون External Notification Delivery
 - [x] Task 34: APIهای هشدار SSE/history با محدوده PBX موجود در رابط کاربری امنیتی دوزبانه تأیید شده، با تاریخچه اخیر محدود 24 ساعته/100 ردیفی و به‌روزرسانی‌های بیدرنگ فعلی/تاریخچه حذف شده را مصرف کنید. بدون External Notification Delivery
+- [x] Task 35: Metadata محدود External Notification Channel، Persistence مربوط به Delivery Queue با Stateهای Pending/Cancelled، Deduplication قطعی Alert برای هر Channel، هویت immutable برای PBX/Transport Channel و Cascade Semantics مربوط به PBX/Channel تعریف شد؛ بدون Runtime Enqueue Wiring، Delivery Worker، Provider Client یا تماس واقعی خارجی.
 
-### انتقال فعلی اعدام
+### وضعیت فعلی ادامه کار
 
-- شاخه فعلی: `feature/security-monitoring-realtime-history`، از `main` همگام شده پس از ادغام Task 33 به عنوان PR #35 ایجاد شد.
-- Task 34 به صورت محلی کامل شده است. `SecurityWorkspace` دوزبانه احراز هویت شده اکنون هشدارهای فعلی PBX انتخابی، آخرین 24 ساعت سابقه هشدار با محدود درخواست مشتری 100 ردیفی سخت، و جریان SSE هشدار با محدوده PBX موجود خود را بارگیری می کند.
-- عکس های فوری اولیه SSE جایگزین مجموعه هشدار فعلی نمایش داده شده در هر قانون می شوند. پیام‌های هشدار ادامه‌دار بعدی جایگزین وضعیت فعلی برای آن قانون می‌شوند و یک ردیف تاریخچه کپی شده را اضافه می‌کنند که در 100 ردیف نمایش داده می‌شود.
-- از دست دادن بیدرنگ غیرمخرب است: آخرین وضعیت فعلی/تاریخچه بارگیری شده قابل مشاهده است و بازخوانی دستی در دسترس باقی می ماند. محموله های بلادرنگ بسته نمی شوند و حالت نمایش داده شده را تغییر نمی دهند.
-- Task 34 فقط از مرزهای هشدار Backendی با همان مبدأ تأیید شده موجود استفاده می کند. هیچ اتصال PBX، اقدام ارائه دهنده، گسترش قوانین، پیکربندی اعلان یا تحویل خارجی را اضافه نمی کند.
-- اعتبار سنجی Task 34 فقط مصنوعی/محلی است. با هیچ PBX واقعی، گزارش امنیتی تولید، وب هوک، ارائه دهنده اعلان یا هدف تحویل خارجی تماس گرفته نشد.
-- Task 34 بخش اجرای نظارت بر امنیت تعریف شده فعلی را در Phase 7 می بندد. وظیفه دقیق بعدی پس از ادغام Task 34: ** Task 35 - یک پایه External Notification Delivery محدود (تنها قراردادهای پیکربندی/صف/تکثیر) بدون ارسال به هیچ ارائه دهنده خارجی واقعی تا زمانی که به طور جداگانه تأیید شود، تعریف کنید.**
-- قانون مستندسازی: `docs/MASTER_PLAN.fa.md` باید ترجمه فارسی کامل این فایل با همان ساختار و محتوا باشد و هرگز یک نوع خلاصه شده نباشد.
+- Branch فعلی: `feature/notification-delivery-foundation` که پس از Merge شدن Task 34 با PR #36 از `main` همگام‌شده ساخته شده است.
+- Task 35 به‌صورت Local کامل است. Migration 11 جدول‌های PBX-scoped یعنی `notification_channel_config` و `notification_delivery_queue` را اضافه می‌کند.
+- Channel Configuration فقط Metadata است: ID، مالکیت PBX، Transport ثابت `WEBHOOK`، Display Name، Enabled Flag و Reference نوع `secretName`. هیچ URL، Token، Credential یا Secret اختصاصی Provider در Tracked Code یا Plaintext Queue Data ذخیره نمی‌شود.
+- هویت Channel موجود در PBX و Transport immutable است. فقط Display Name، Enabled State، Secret Reference و Updated Timestamp قابل تغییرند.
+- Queue Recordها فقط Alert محدود به‌همراه هویت Channel/PBX/Rule و State نوع `PENDING` یا `CANCELLED` را نگه می‌دارند. در Task 35 هیچ State نوع `SENT`، Retry، Attempt Counter، Worker Lease، Backoff یا Provider Response Model وجود ندارد.
+- Delivery Deduplication برای هر Channel به‌علاوه هویت کامل Security Alert محدود deterministic است. Enqueue مجدد همان Alert برای همان Channel یک No-op است و همان Queue Record موجود را برمی‌گرداند.
+- Channel غیرفعال، Channel گمشده و Cross-PBX Enqueue به‌صورت Fail-closed رد می‌شوند. حذف Channel، Queue Recordهای آن را Cascade می‌کند؛ حذف PBX نیز Channel و Queue State را Cascade می‌کند.
+- Task 35 فقط Storage/Contracts است. هیچ چیز به Alert Publication Subscribe نمی‌کند و هیچ ارسال خارجی انجام نمی‌شود.
+- Validation فقط Synthetic/Local است. هیچ PBX واقعی، Webhook، Notification Provider، DNS Target، URL، Credential یا External Endpoint تماس داده نشد.
+- Task دقیق بعدی پس از Merge شدن Task 35: **Task 36 — APIهای احرازشده و PBX-scoped برای Notification Channel Configuration و Encrypted Webhook-target Secret Management، در حالی که Delivery Worker/Runtime و تماس واقعی با External Provider خارج از Scope می‌مانند.**
+- قاعده مستندات: `docs/MASTER_PLAN.fa.md` باید ترجمه کامل فارسی همین فایل با ساختار و محتوای یکسان باشد و هرگز به نسخه خلاصه تبدیل نشود.
 
 ### ثبت خرابی و اشکال
 
@@ -280,6 +284,30 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - **محدودیت شناخته شده:** External Notification Delivery به دلیل طراحی کاملاً وجود ندارد.
 - **وظیفه دقیق بعدی:** Task 35 فقط قراردادهای پیکربندی/صف/تکثیر اعلان خارجی محدود شده را تعریف می کند، بدون تحویل ارائه دهنده واقعی تا زمانی که به طور جداگانه تایید شود.
 
+## 2026-09-26 — رکورد تکمیل Task 35
+
+- **نتیجه:** Migration 11 و Repositoryهای محدود Notification Channel/Queue به‌عنوان Foundation صرفاً Storage برای External Delivery اضافه شدند.
+- **قرارداد Channel:** هر Channel به یک PBX محدود است، یک ID پایدار دارد، Transport فعلاً فقط به `WEBHOOK` محدود شده و Metadata عمومی Persistشده فقط شامل Display Name، Enabled State و reference مبهم `secretName` است.
+- **Scope تغییرناپذیر:** بعد از ایجاد یک Channel ID، PBX Owner و Transport آن قابل جابه‌جایی نیستند. Updateهای mutable نمی‌توانند Queue Work موجود را بین PBXها یا Delivery Transportها منتقل کنند.
+- **قرارداد Queue:** Queue Recordها کل `SecurityAlertRecord` محدود، Delivery Key قطعی، هویت Channel/PBX و فقط Stateهای `PENDING` یا `CANCELLED` را Persist می‌کنند.
+- **Deduplication:** Delivery Key با SHA-256 از Channel ID به‌علاوه هویت کامل Alert محدود ساخته می‌شود. همان Alert/Channel Pair فقط یک Queue Row تولید می‌کند.
+- **Fail-closed Enqueue:** Channel گمشده/غیرفعال و Alert با PBX ناسازگار رد می‌شوند. خواندن Pending List حداکثر به 500 ردیف محدود است.
+- **رفتار Cascade:** حذف Channel، Queue Rowهای همان Channel را حذف می‌کند؛ حذف PBX نیز Notification Configuration و Queue State را Cascade می‌کند.
+- **External Side Effect:** هیچ‌کدام. در Task 35 هیچ Alert Subscription، Auto-Enqueue Runtime، HTTP Client، SMTP Client، Webhook Sender، Retry Worker، Provider Adapter، DNS Lookup یا Network Request وجود ندارد.
+- **Targeted Validation:** Storage Suite با 10/10 PASS، Migration 11، Config Bounds، Cross-PBX Immutability، رد Enqueue برای Channel غیرفعال/ناسازگار، Duplicate-safe Enqueue، Cancel Semantics و Cascade Coverage را پوشش داد.
+- **سیستم واقعی:** هیچ PBX واقعی یا External Notification System تماس داده نشد.
+
+### Failure / Bug / Gapهای Task 35
+
+- **Initial Remote Patch Wrapper Failure — قبل از تغییر فایل پروژه رفع شد:** Patch اول Task 35 شامل Backtickهای SQL/TypeScript داخل JavaScript Template Payload ابزار Remote بود و Wrapper پیش از اجرا آن را رد کرد. اصلاح: Patch با Placeholder خنثی ساخته شد و Backtick فقط داخل Tool Call جایگزین شد.
+- **Invariant-test Patch اعمال نشد — شناسایی شد:** بعد از افزودن Immutable Channel Scope، Anchor اولیه برای درج Test با فایل Formatشده match نشد. چون آن Shell Command fail-fast نبود، Build/Test ادامه پیدا کرد و بدون Coverage برای Invariant جدید PASS شد. این PASS به‌عنوان ناکافی رد شد.
+- **Invariant-test Heredoc Retry Failed — رفع شد:** تلاش بعدی با Inline Heredoc به‌خاطر آسیب در Quoting/Triple-String پیش از تغییر Test File متوقف شد. اصلاح: یک Python Patch File محلی و ignored نوشته شد، زیر `set -euo pipefail` اجرا شد، سپس Build و Storage Suite دوباره اجرا شدند؛ 10/10 با Coverage مربوط به Cross-PBX Reassignment پاس شد.
+- **محدودیت شناخته‌شده:** `secretName` فعلاً فقط یک Opaque Reference است. Task 35 بررسی نمی‌کند Secret رمزگذاری‌شده متناظر واقعاً وجود دارد و Schema مربوط به Webhook URL/Auth Secret را تعریف نمی‌کند.
+- **محدودیت شناخته‌شده:** هیچ Subscriber مربوط به Alert Publication به‌طور خودکار Delivery را Enqueue نمی‌کند. Queue Insertion فقط در Repository Boundary وجود دارد.
+- **محدودیت شناخته‌شده:** هیچ Delivery Worker، Retry/Backoff، Provider Response/Status، Dead-letter Behavior یا External Connectivity واقعی وجود ندارد.
+- **محدودیت شناخته‌شده:** Transport عمداً فقط به Placeholder Contract نوع `WEBHOOK` محدود است؛ Transportهای اختصاصی Email/SMS/Chat مدل نشده‌اند.
+- **Task دقیق بعدی:** Task 36 فقط APIهای احرازشده و PBX-scoped برای Channel Configuration به‌همراه Encrypted Webhook-target Secret Management را اضافه می‌کند؛ External Sending همچنان خارج از Scope است.
+
 ### پروتکل ادامه مداوم
 
 برای هر کار/جلسه آینده:
@@ -306,7 +334,7 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - [ ] Phase 11: سخت شدن، تهیه نسخه پشتیبان، بازیابی آزمایش شده، و یک دفترچه راه اندازی تولید.
 - [ ] Phase 12: اعتبار سنجی انتشار، از جمله رویه استقرار تازه خنثی برای سازمان که می تواند بدون حمل مقادیر خصوصی از استقرار دیگر، روی یک سرویس جدید نصب شود.
 
-Phase 1 بسته است. بخش نظارت بر امنیت تعریف شده Phase 7 در حال حاضر از طریق Task 34 کامل شده است: رویدادهای امنیتی احراز هویت AMI عادی، تداوم رویداد محدود/API/SSE، ارزیابی هشدار محدود، تداوم هشدار/حالت فعلی/API/SSE، پیکربندی قاعده پایدار، پیکربندی قاعده ثابت، پیکربندی قاعده‌بندی/runed. رابط‌های برنامه‌نویسی برنامه‌نویسی (API) و رابط کاربری هشدار دوزبانه فعلی/تاریخ اخیر/زمان بیدرنگ. وظیفه بعدی دقیق بعد از ادغام Task 34 **Task 35 است — یک پایه External Notification Delivery محدود (تنها قراردادهای پیکربندی/صف/تکثیر)، بدون تحویل واقعی ارائه دهنده خارجی تا زمانی که به طور جداگانه تایید شود.**
+Phase 1 بسته است. بخش تعریف‌شده Security Monitoring در Phase 7 همچنان تا Task 34 کامل است. Task 35 فقط نخستین Foundation مربوط به Storage/Contract برای External Notification پس از Monitoring را اضافه می‌کند: Channel Metadata محدود، Queue State بدون Duplicate با وضعیت PENDING/CANCELLED، و بدون Delivery Runtime. Task دقیق بعدی پس از Merge شدن Task 35، **Task 36 — APIهای احرازشده و PBX-scoped برای Notification Channel Configuration به‌همراه مدیریت رمزگذاری‌شده Webhook Target Secret، بدون Delivery Worker یا تماس واقعی با External Provider.**
 
 ## 26-09-2026 - رکورد تکمیل Task 28
 

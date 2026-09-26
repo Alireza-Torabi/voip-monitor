@@ -199,4 +199,40 @@ export const migrations = [
       ) STRICT;
     `,
   },
+  {
+    version: 11,
+    name: 'notification_delivery_foundation',
+    sql: `
+      CREATE TABLE notification_channel_config (
+        id TEXT PRIMARY KEY CHECK (length(id) BETWEEN 1 AND 64),
+        pbx_instance_id TEXT NOT NULL REFERENCES pbx_instance(id) ON DELETE CASCADE,
+        transport TEXT NOT NULL CHECK (transport = 'WEBHOOK'),
+        display_name TEXT NOT NULL CHECK (length(trim(display_name)) BETWEEN 1 AND 80),
+        enabled INTEGER NOT NULL CHECK (enabled IN (0, 1)),
+        secret_name TEXT NOT NULL CHECK (length(secret_name) BETWEEN 1 AND 64),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      ) STRICT;
+      CREATE INDEX notification_channel_config_instance
+        ON notification_channel_config(pbx_instance_id, id);
+
+      CREATE TABLE notification_delivery_queue (
+        delivery_key TEXT PRIMARY KEY CHECK (length(delivery_key) = 64),
+        channel_id TEXT NOT NULL REFERENCES notification_channel_config(id) ON DELETE CASCADE,
+        pbx_instance_id TEXT NOT NULL REFERENCES pbx_instance(id) ON DELETE CASCADE,
+        rule_id TEXT NOT NULL CHECK (rule_id IN ('AUTHENTICATION_FAILURE_ANY', 'AUTHENTICATION_FAILURE_THRESHOLD')),
+        observed_at TEXT NOT NULL,
+        alert_json TEXT NOT NULL CHECK (json_valid(alert_json)),
+        status TEXT NOT NULL CHECK (status IN ('PENDING', 'CANCELLED')),
+        queued_at TEXT NOT NULL,
+        cancelled_at TEXT,
+        CHECK (
+          (status = 'PENDING' AND cancelled_at IS NULL) OR
+          (status = 'CANCELLED' AND cancelled_at IS NOT NULL)
+        )
+      ) STRICT;
+      CREATE INDEX notification_delivery_queue_pending
+        ON notification_delivery_queue(pbx_instance_id, status, queued_at);
+    `,
+  },
 ] as const;

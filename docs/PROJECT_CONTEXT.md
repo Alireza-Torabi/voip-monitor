@@ -1,10 +1,10 @@
 # Project context
 
-Status: Phase 7's defined security-monitoring slice is complete locally through Task 34 on feature/security-monitoring-realtime-history as of 2026-09-26 after Task 33 merged through PR #35. The backend has normalized AMI authentication-security events, event persistence/API/SSE, bounded alert evaluation, alert persistence/API/SSE, persistent PBX-scoped rule configuration/runtime wiring, and authenticated bounded rule APIs. The bilingual frontend now shows current alerts, a bounded recent 24-hour/100-row history, persistence-backed realtime updates, and the two bounded rule controls. External notification delivery, broader security sources/rules, telephony browser state, and broader production dashboard work remain future work. License: Apache-2.0.
+Status: Phase 7's defined security-monitoring slice is merged through Task 34/PR #36. Task 35 is implemented locally on feature/notification-delivery-foundation as of 2026-09-26. Migration 11 adds PBX-scoped notification-channel metadata plus duplicate-safe pending/cancelled delivery-queue persistence. No runtime subscribes to alerts for delivery, no provider client/worker exists, and no real external endpoint is contacted. Authenticated notification configuration/secret management, runtime enqueue, delivery execution, retry semantics, broader security sources/rules, telephony browser state, and broader production dashboard work remain future work. License: Apache-2.0.
 
 ## Repository state
 
-The public repository tracks origin/main; Task 33 is merged through PR #35. The current branch consumes existing Security Alert history/SSE in the authenticated SecurityWorkspace. It requests only a 24-hour/100-row recent window, opens one PBX-scoped EventSource for the selected profile, deduplicates identical realtime alert display records, and does not add network access to the PBX or any external notification provider.
+The public repository tracks origin/main; Task 34 is merged through PR #36. The current branch is storage/contracts only: notification channel metadata references an opaque secret name, queue rows contain only bounded SecurityAlertRecord data and PENDING/CANCELLED state, deterministic channel+alert deduplication prevents duplicate queued work, and no delivery network path exists.
 
 ## Product constraints
 
