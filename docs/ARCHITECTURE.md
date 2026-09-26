@@ -83,3 +83,7 @@ Migration 3 adds `administrator` and `auth_session`. The first administrator is 
 ## Authenticated PBX onboarding
 
 `GET/POST /api/pbx-instances` and `GET/PATCH/DELETE /api/pbx-instances/:id` pass through the Task 5 session principal boundary; writes retain its Origin check. The API stores a server-generated UUID, display name, provider type, enabled flag, and timestamps in `pbx_instance`. `asterisk_config` stores the AMI host, port, and username. `pbx_secret` stores the encrypted AMI password; responses expose only presence. `PbxOnboardingService` owns validated changes and one SQLite transaction across metadata, secret writes, and setup state. The browser never receives decrypted credentials and clears entered secrets after submission. The browser can now display in-memory provider connection state and trigger an authenticated same-origin connection test. A successful test records the last verification time and safe discovery metadata; connection-affecting edits invalidate verification. The provider-status endpoint exposes safe health only. The Task 7 SSRF/network policy remains mandatory for all real connections.
+
+### Task 28 — security alert evaluation
+
+The security alert layer evaluates only normalized persisted `SecurityEvent` records. It uses a fixed rule allowlist, strict rule validation, bounded history reads, and fail-closed evaluation states. It has no external delivery or PBX mutation side effects.

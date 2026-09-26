@@ -250,3 +250,11 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 152. **No event enrichment at API edge:** The API/realtime layer does not reconstruct identities, addresses, request parameters, severity, or other provider metadata. Its responsibility is authentication, PBX scoping, query bounds, and delivery of the already-normalized security contract.
 153. **Task 27 validation seam:** Synthetic API tests may inject a minimal authenticated principal and security-event listener without issuing real credentials or opening a PBX connection. Production compatibility remains unclaimed.
 154. **Task 27 phase boundary:** No security-alert evaluation, notification delivery, dashboard/UI, SSH security-log access, or broader provider security source is introduced. The next task is Task 28 for a bounded fail-closed security-alert/rule evaluation boundary over normalized persisted security events.
+
+## 2026-09-26 — Phase 7 Task 28 security-alert/rule evaluation decisions
+
+155. **Persisted-event boundary:** alert evaluation consumes only normalized `SecurityEvent` records and PBX-scoped persisted history; raw AMI/provider fields and production logs remain outside the evaluator.
+156. **Rule allowlist:** Task 28 supports only `AUTHENTICATION_FAILURE_ANY` and `AUTHENTICATION_FAILURE_THRESHOLD`. Thresholds are bounded to 1–100, windows to 1–3600 seconds, optional reasons use the existing authentication-failure union, and history reads are capped at 500 rows.
+157. **Fail-closed evaluation:** unknown/malformed rules, invalid events, and storage/evaluation errors never produce a match; they return explicit failure states.
+158. **No side effects:** the evaluator does not send messages, call webhooks, modify PBX state, open network connections, or invoke external actions.
+159. **Task 28 phase boundary:** rule configuration persistence, alert/current-state persistence, deduplication, delivery, UI, broader security sources, and production compatibility remain future work. Next task is Task 29 for bounded alert persistence/current-state semantics.
