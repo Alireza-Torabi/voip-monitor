@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { api, ApiError, type PbxConnectionState, type PbxProfile, type Principal } from './api.js';
 import { messages, type Language } from './i18n.js';
+import { SecurityWorkspace } from './SecurityWorkspace.js';
 
 type Text = (typeof messages)[Language];
 type Phase = 'loading' | 'setup' | 'login' | 'ready' | 'error';
@@ -624,6 +625,7 @@ export function App({
             onRefresh={refreshProfiles}
             onUnauthorized={unauthorized}
           />
+          <SecurityWorkspace text={text} profiles={profiles} onUnauthorized={unauthorized} />
         </>
       )}
     </main>

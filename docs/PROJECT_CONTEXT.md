@@ -1,10 +1,10 @@
 # Project context
 
-Status: Phase 7 Task 32 is implemented locally on feature/security-alert-rule-api as of 2026-09-26 after Task 31 merged through PR #33. The backend now has normalized AMI authentication-security events, event persistence/API/SSE, bounded alert evaluation, alert persistence/API/SSE, persistent bounded PBX-scoped rule configuration, application-owned runtime evaluation/persistence wiring, and authenticated bounded rule-configuration APIs. Security-monitoring UI, external notification delivery, dashboard expansion, and broader security sources remain future work. License: Apache-2.0.
+Status: Phase 7 Task 33 is implemented locally on feature/security-monitoring-ui as of 2026-09-26 after Task 32 merged through PR #34. The backend has normalized AMI authentication-security events, event persistence/API/SSE, bounded alert evaluation, alert persistence/API/SSE, persistent bounded PBX-scoped rule configuration, application-owned runtime evaluation/persistence wiring, and authenticated bounded rule-configuration APIs. The frontend now has the first authenticated bilingual PBX-scoped security workspace for current alerts and the two bounded rules. Realtime/history alert UI, external notification delivery, broader dashboard work, and broader security sources remain future work. License: Apache-2.0.
 
 ## Repository state
 
-The public repository tracks origin/main; Task 31 is merged through PR #33. The current branch adds authenticated PBX-scoped security-alert rule configuration list/get/put/delete APIs. Mutation scope is path-owned and same-origin protected; request bodies cannot override PBX/rule identity, validation preserves existing bounded rule shapes, and no default rule or external notification is introduced.
+The public repository tracks origin/main; Task 32 is merged through PR #34. The current branch adds an authenticated bilingual SecurityWorkspace that consumes only existing bounded current-alert and rule-configuration APIs. PBX selection comes from onboarded profiles, rule controls are fixed to the two allowlisted rule IDs, raw provider fields remain absent, and no external notification setting or real-system access is introduced.
 
 ## Product constraints
 

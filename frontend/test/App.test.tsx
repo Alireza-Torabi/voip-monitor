@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { App, PbxWorkspace } from '../src/App.js';
+import { SecurityWorkspace } from '../src/SecurityWorkspace.js';
 import { messages } from '../src/i18n.js';
 
 describe('bilingual onboarding shell', () => {
@@ -54,5 +55,37 @@ describe('bilingual onboarding shell', () => {
     expect(html).toContain('Test connection');
     expect(html).toContain('2026-09-25T00:00:00.000Z');
     expect(html).not.toContain('synthetic-ami-secret');
+  });
+
+  it('renders bounded security monitoring controls for a configured PBX', () => {
+    const html = renderToStaticMarkup(
+      <SecurityWorkspace
+        text={messages.en}
+        profiles={[
+          {
+            id: 'synthetic-id',
+            displayName: 'Synthetic PBX',
+            providerType: 'ASTERISK',
+            enabled: true,
+            amiHost: 'pbx.example.test',
+            amiPort: 5038,
+            amiUsername: 'synthetic-user',
+            hasAmiPassword: true,
+            connectionStatus: 'CONNECTED',
+            createdAt: '',
+            updatedAt: '',
+          },
+        ]}
+        onUnauthorized={() => {}}
+      />,
+    );
+    expect(html).toContain('Security monitoring');
+    expect(html).toContain('Current alerts');
+    expect(html).toContain('Any authentication failure');
+    expect(html).toContain('Authentication failure threshold');
+    expect(html).toContain('name="rule-threshold"');
+    expect(html).toContain('max="100"');
+    expect(html).toContain('name="rule-window-seconds"');
+    expect(html).toContain('max="3600"');
   });
 });

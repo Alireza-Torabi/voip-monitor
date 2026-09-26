@@ -19,6 +19,34 @@ export interface PbxProfile {
   createdAt: string;
   updatedAt: string;
 }
+
+export type SecurityAlertRuleId = 'AUTHENTICATION_FAILURE_ANY' | 'AUTHENTICATION_FAILURE_THRESHOLD';
+export type SecurityAlertReason =
+  | 'INVALID_ACCOUNT'
+  | 'INVALID_PASSWORD'
+  | 'CHALLENGE_RESPONSE_FAILED'
+  | 'ACL_FAILURE'
+  | 'UNEXPECTED_ADDRESS'
+  | 'UNKNOWN';
+export type SecurityAlertRuleConfig =
+  | { instanceId: string; id: 'AUTHENTICATION_FAILURE_ANY'; enabled: boolean }
+  | {
+      instanceId: string;
+      id: 'AUTHENTICATION_FAILURE_THRESHOLD';
+      enabled: boolean;
+      threshold: number;
+      windowSeconds: number;
+      reason?: SecurityAlertReason;
+    };
+export interface SecurityAlertRecord {
+  instanceId: string;
+  ruleId: SecurityAlertRuleId;
+  observedAt: string;
+  matchedEventCount: number;
+  streamGeneration?: number;
+  streamSequence?: number;
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -60,6 +88,21 @@ export const api = {
   updatePbx: (id: string, value: object) =>
     request<PbxProfile>(`/api/pbx-instances/${id}`, 'PATCH', value),
   deletePbx: (id: string) => request<{ status: string }>(`/api/pbx-instances/${id}`, 'DELETE'),
+  listSecurityAlerts: (id: string) =>
+    request<{ current: SecurityAlertRecord[] }>(`/api/pbx-instances/${id}/security-alerts`),
+  listSecurityAlertRules: (id: string) =>
+    request<{ items: SecurityAlertRuleConfig[] }>(`/api/pbx-instances/${id}/security-alert-rules`),
+  putSecurityAlertRule: (id: string, ruleId: SecurityAlertRuleId, value: object) =>
+    request<SecurityAlertRuleConfig>(
+      `/api/pbx-instances/${id}/security-alert-rules/${ruleId}`,
+      'PUT',
+      value,
+    ),
+  deleteSecurityAlertRule: (id: string, ruleId: SecurityAlertRuleId) =>
+    request<{ status: string }>(
+      `/api/pbx-instances/${id}/security-alert-rules/${ruleId}`,
+      'DELETE',
+    ),
   testPbxConnection: (id: string) =>
     request<{
       status: 'verified';
