@@ -65,14 +65,13 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 25: establish the first bounded security-monitoring source boundary and normalized authentication security-event contract from Asterisk AMI SecurityEvent frames; unknown events and raw identity/network/request fields are discarded, capability becomes supported only after an observed normalized event, and validation remains synthetic/mock only with no production log access.
 - [x] Task 26: define bounded security-event current/history persistence with duplicate-safe identity, monotonic current ordering across provider connection generations, transactional retention pruning, and a seven-day default retention boundary; persistence remains read-only and synthetic/mock validated without production log access.
 - [x] Task 27: expose authenticated PBX-scoped security-event current/history APIs and bounded realtime SSE delivery without exposing raw AMI/provider fields; stream establishment is same-origin protected, PBX scoped, heartbeat bounded, and concurrent streams capped.
-- [x] Task 28: define bounded security-alert/rule evaluation over normalized persisted security events with fail-closed validation and no external delivery.
 
 ### Current execution handoff
 
-- Current branch: `feature/security-alert-rule-boundary`, created from synchronized `main` after Task 27 merged as PR #28.
+- Current branch: `feature/security-event-api-realtime`, created from synchronized `main` after Task 26 merged as PR #27.
 - Task 27 implementation is complete locally. The backend exposes authenticated current/history security-event endpoints plus a PBX-scoped SSE stream. History uses the same explicit UTC range and maximum 500-row boundary as system metrics; the stream sends an initial current snapshot and subsequent normalized security events, with same-origin enforcement, 15-second heartbeat, cleanup, and a 64-stream process cap. No raw AMI/provider payload is exposed.
 - Task 27 used synthetic/mock API and SSE validation only. No production log access, real PBX connection, or SSH security-log access was performed.
-- Task 28 is complete locally. Exact next task: **Task 29 — define the bounded security-alert persistence/current-state boundary with deduplication, without external delivery.**
+- Exact next task: **Task 28 — define the bounded security-alert/rule evaluation boundary over normalized persisted security events, with fail-closed rules and no notification delivery yet.**
 
 ### Failure and bug log
 
@@ -178,21 +177,62 @@ Tasks 7–13 implemented substantial Asterisk-provider and telephony-state found
 
 Phase 1 is closed. Phase 6 Task 24 is implemented on `feature/system-metrics-api-realtime`; repository validation and public/secret review remain the release gates before commit/push. No real PBX or production host was contacted for Task 24. Exact next task after merge: **Task 25 — establish the first bounded security-monitoring source boundary and normalized security-event contract, without production log access unless separately required and approved.**
 
-## 2026-09-26 — Task 28 completion record
 
-- **Result:** Added `SecurityAlertEvaluator` as a bounded backend rule-evaluation boundary over normalized persisted `SecurityEvent` history.
-- **Supported rules:** `AUTHENTICATION_FAILURE_ANY` and `AUTHENTICATION_FAILURE_THRESHOLD` only.
-- **Fail-closed behavior:** unknown rules, unexpected fields, invalid bounds, invalid events, and storage/evaluation errors never become a match.
-- **Bounds:** threshold 1–100, window 1–3600 seconds, maximum 500 history rows per evaluation.
-- **Side effects:** none. No PBX write, external delivery, webhook, notification provider, or network action is performed.
-- **Validation:** lint, format check, typecheck, backend 117/117 tests, frontend 10/10 tests, and independent evaluator smoke checks passed.
-- **Real systems:** no real PBX, production log, SSH security log, or external delivery target was contacted.
+## نسخه فارسی
 
-### Task 28 failures / bugs / gaps
+این فایل به‌عنوان نسخه فارسی برنامه جامع پروژه نگهداری می‌شود. Master Plan انگلیسی مرجع فنی اصلی است. Failها، Bugها، Root Cause، Fix و Known Limitation باید برای هر Task ثبت شوند.
 
-- **Typecheck failure — resolved:** raw `unknown` rule values were used as numeric threshold/window values. Root cause was missing explicit type narrowing. Fix: narrow both values to `number` before range validation; full gates then passed.
-- **Dedicated evaluator test-file gap — open:** the Remote editing seam rejected creation of a new dedicated evaluator test file. Independent smoke validation was executed, but a committed dedicated evaluator test remains a follow-up gap.
+# خلاصه فارسی برنامه پروژه
 
-### Mandatory failure/bug recording rule
+## وضعیت و روند اجرا
 
-For every future task, retain resolved failures and bugs in this plan with: observed stage, root cause, fix, re-validation result, current status/impact, and known limitations. Do not delete historical failures merely because they were fixed.
+این فایل نسخه فارسی همراه Master Plan اصلی است. جزئیات تاریخی و فنی فایل انگلیسی نیز در همین نسخه نگهداری شده تا برنامه در یک محل قابل ردیابی باشد.
+
+### وضعیت فعلی
+
+- Task 27 با موفقیت Merge شده است.
+- Task 28 در شاخه `feature/security-alert-rule-boundary` اجرا شده است.
+- هدف Task 28 ایجاد مرز محدود ارزیابی Ruleهای امنیتی روی رخدادهای نرمال‌شده و ذخیره‌شده است.
+- Rule ناشناخته یا دارای ورودی نامعتبر باید Fail-Closed شود.
+- در Task 28 هیچ ارسال پیام، Webhook یا تغییر وضعیت PBX انجام نمی‌شود.
+
+### Ruleهای Task 28
+
+- `AUTHENTICATION_FAILURE_ANY`
+- `AUTHENTICATION_FAILURE_THRESHOLD`
+
+Rule آستانه‌ای دارای حد آستانه، بازه زمانی و حداکثر تعداد رکورد History محدود است. فقط Reasonهای تعریف‌شده در قرارداد SecurityEvent پذیرفته می‌شوند.
+
+### وضعیت Validation
+
+- Lint: موفق
+- Format Check: موفق
+- Typecheck: موفق
+- Backend Test: 117 از 117 موفق
+- Frontend Test: 10 از 10 موفق
+- Smoke Test ارزیاب Rule: موفق
+- هیچ PBX واقعی یا Log تولیدی برای Task 28 استفاده نشده است.
+
+## ثبت اجباری Fail و Bug
+
+برای هر Task باید موارد زیر ثبت شود و Failهای اصلاح‌شده نباید حذف شوند:
+
+1. شرح Failure یا Bug
+2. مرحله‌ای که مشکل در آن دیده شد
+3. Root Cause
+4. Fix
+5. روش Validation مجدد
+6. وضعیت فعلی و Impact در صورت باز بودن
+7. Known Limitation
+
+### Fail ثبت‌شده در Task 28
+
+TypeScript در اولین Typecheck اجازه استفاده مستقیم از مقادیر `unknown` به‌عنوان عدد را نداد. Root Cause، نبودن Type Narrowing صریح برای Threshold و Window بود. مقادیر ابتدا به نوع عددی محدود شدند و سپس Range Validation انجام شد. Typecheck و کل Test Suite بعد از اصلاح موفق شدند.
+
+### Gap شناخته‌شده
+
+تلاش برای افزودن فایل تست مستقل Evaluator از طریق Remote editing seam پذیرفته نشد. بنابراین Smoke Test مستقل اجرا شد، اما تست مستقل Commit‌شده برای Evaluator هنوز باید در یک Task مناسب تکمیل شود.
+
+## Next Task
+
+**Task 29 — تعریف Persistence محدود برای Security Alert و Current State، همراه با Deduplication و بدون Delivery خارجی.**
