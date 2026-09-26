@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, chmod } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import type { PbxInstanceMetadata, SystemMetricsSample } from '@voip-monitor/shared';
+import type { PbxInstanceMetadata, SecurityEvent, SystemMetricsSample } from '@voip-monitor/shared';
 import type { AppConfig } from '../config.js';
 import { migrations } from './migrations.js';
 
@@ -86,6 +86,13 @@ export interface SystemMetricsRepository {
   pruneBefore(cutoff: string): number;
 }
 
+export interface SecurityEventRepository {
+  save(event: SecurityEvent, retentionCutoff: string): void;
+  getCurrent(instanceId: string): SecurityEvent | undefined;
+  listHistory(instanceId: string, from: string, to: string, limit: number): SecurityEvent[];
+  pruneBefore(cutoff: string): number;
+}
+
 export interface AppStorage {
   transaction<T>(action: () => T): T;
   readonly setup: SetupRepository;
@@ -94,6 +101,7 @@ export interface AppStorage {
   readonly pbxProfiles: PbxProfileRepository;
   readonly sshConfigs: SshConfigRepository;
   readonly systemMetrics: SystemMetricsRepository;
+  readonly securityEvents: SecurityEventRepository;
   readonly secretRecords: EncryptedSecretRepository;
   hasEncryptedSecrets(): boolean;
   migrationHistory(): MigrationRecord[];
@@ -205,6 +213,7 @@ export class SqliteStorage implements AppStorage {
   readonly pbxProfiles: PbxProfileRepository;
   readonly sshConfigs: SshConfigRepository;
   readonly systemMetrics: SystemMetricsRepository;
+  readonly securityEvents: SecurityEventRepository;
   readonly secretRecords: EncryptedSecretRepository;
   private closed = false;
 
@@ -493,6 +502,92 @@ export class SqliteStorage implements AppStorage {
             .changes,
         ),
     };
+    this.securityEvents = {
+      save: (event, retentionCutoff) => {
+        const eventJson = JSON.stringify(event);
+        const eventKey = securityEventKey(event);
+        const now = new Date().toISOString();
+        inTransaction(this.db, () => {
+          this.db
+            .prepare(
+              `INSERT INTO security_event_history
+              (event_key, pbx_instance_id, source, observed_at, stream_generation, stream_sequence, event_json)
+              VALUES (?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(event_key) DO NOTHING`,
+            )
+            .run(
+              eventKey,
+              event.instanceId,
+              event.source,
+              event.observedAt,
+              event.streamGeneration ?? null,
+              event.streamSequence ?? null,
+              eventJson,
+            );
+          const current = this.db
+            .prepare(
+              `SELECT observed_at, stream_generation, stream_sequence
+               FROM security_event_current WHERE pbx_instance_id = ?`,
+            )
+            .get(event.instanceId) as
+            | {
+                observed_at: string;
+                stream_generation: number | null;
+                stream_sequence: number | null;
+              }
+            | undefined;
+          if (!current || isSecurityEventNewer(event, current)) {
+            this.db
+              .prepare(
+                `INSERT INTO security_event_current
+                (pbx_instance_id, source, observed_at, stream_generation, stream_sequence, event_json, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(pbx_instance_id) DO UPDATE SET
+                  source=excluded.source,
+                  observed_at=excluded.observed_at,
+                  stream_generation=excluded.stream_generation,
+                  stream_sequence=excluded.stream_sequence,
+                  event_json=excluded.event_json,
+                  updated_at=excluded.updated_at`,
+              )
+              .run(
+                event.instanceId,
+                event.source,
+                event.observedAt,
+                event.streamGeneration ?? null,
+                event.streamSequence ?? null,
+                eventJson,
+                now,
+              );
+          }
+          this.db
+            .prepare('DELETE FROM security_event_history WHERE observed_at < ?')
+            .run(retentionCutoff);
+        });
+      },
+      getCurrent: (instanceId) => {
+        const row = this.db
+          .prepare('SELECT event_json FROM security_event_current WHERE pbx_instance_id = ?')
+          .get(instanceId) as { event_json: string } | undefined;
+        return row ? parseSecurityEvent(row.event_json) : undefined;
+      },
+      listHistory: (instanceId, from, to, limit) => {
+        if (!Number.isSafeInteger(limit) || limit <= 0) throw new StorageError();
+        const rows = this.db
+          .prepare(
+            `SELECT event_json FROM security_event_history
+             WHERE pbx_instance_id = ? AND observed_at >= ? AND observed_at <= ?
+             ORDER BY observed_at DESC, id DESC LIMIT ?`,
+          )
+          .all(instanceId, from, to, limit) as { event_json: string }[];
+        return rows.map((row) => parseSecurityEvent(row.event_json));
+      },
+      pruneBefore: (cutoff) =>
+        Number(
+          this.db.prepare('DELETE FROM security_event_history WHERE observed_at < ?').run(cutoff)
+            .changes,
+        ),
+    };
     this.secretRecords = {
       firstIdentity: () => {
         const row = this.db
@@ -622,6 +717,73 @@ export class SqliteStorage implements AppStorage {
     if (this.closed) return;
     this.closed = true;
     this.db.close();
+  }
+}
+
+function securityEventKey(event: SecurityEvent): string {
+  return createHash('sha256')
+    .update(
+      JSON.stringify({
+        instanceId: event.instanceId,
+        source: event.source,
+        observedAt: event.observedAt,
+        streamGeneration: event.streamGeneration ?? null,
+        streamSequence: event.streamSequence ?? null,
+        type: event.type,
+        ...(event.type === 'AUTHENTICATION_FAILURE' ? { reason: event.reason } : {}),
+      }),
+    )
+    .digest('hex');
+}
+
+function isSecurityEventNewer(
+  event: SecurityEvent,
+  current: {
+    observed_at: string;
+    stream_generation: number | null;
+    stream_sequence: number | null;
+  },
+): boolean {
+  if (event.streamGeneration !== undefined && current.stream_generation !== null) {
+    if (event.streamGeneration !== current.stream_generation) {
+      return event.streamGeneration > current.stream_generation;
+    }
+    if (event.streamSequence !== undefined && current.stream_sequence !== null) {
+      if (event.streamSequence !== current.stream_sequence) {
+        return event.streamSequence > current.stream_sequence;
+      }
+    }
+  }
+  return event.observedAt > current.observed_at;
+}
+
+function parseSecurityEvent(value: string): SecurityEvent {
+  try {
+    const event = JSON.parse(value) as Partial<SecurityEvent>;
+    if (
+      typeof event.instanceId !== 'string' ||
+      event.source !== 'AMI' ||
+      typeof event.observedAt !== 'string' ||
+      (event.type !== 'AUTHENTICATION_SUCCESS' && event.type !== 'AUTHENTICATION_FAILURE')
+    ) {
+      throw new Error();
+    }
+    if (
+      event.type === 'AUTHENTICATION_FAILURE' &&
+      ![
+        'INVALID_ACCOUNT',
+        'INVALID_PASSWORD',
+        'CHALLENGE_RESPONSE_FAILED',
+        'ACL_FAILURE',
+        'UNEXPECTED_ADDRESS',
+        'UNKNOWN',
+      ].includes(event.reason as string)
+    ) {
+      throw new Error();
+    }
+    return event as SecurityEvent;
+  } catch {
+    throw new StorageError();
   }
 }
 

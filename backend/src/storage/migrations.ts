@@ -131,4 +131,31 @@ export const migrations = [
         ON system_metric_history(pbx_instance_id, observed_at);
     `,
   },
+  {
+    version: 8,
+    name: 'security_event_persistence',
+    sql: `
+      CREATE TABLE security_event_current (
+        pbx_instance_id TEXT PRIMARY KEY REFERENCES pbx_instance(id) ON DELETE CASCADE,
+        source TEXT NOT NULL CHECK (source = 'AMI'),
+        observed_at TEXT NOT NULL,
+        stream_generation INTEGER,
+        stream_sequence INTEGER,
+        event_json TEXT NOT NULL CHECK (json_valid(event_json)),
+        updated_at TEXT NOT NULL
+      ) STRICT;
+      CREATE TABLE security_event_history (
+        id INTEGER PRIMARY KEY,
+        event_key TEXT NOT NULL UNIQUE,
+        pbx_instance_id TEXT NOT NULL REFERENCES pbx_instance(id) ON DELETE CASCADE,
+        source TEXT NOT NULL CHECK (source = 'AMI'),
+        observed_at TEXT NOT NULL,
+        stream_generation INTEGER,
+        stream_sequence INTEGER,
+        event_json TEXT NOT NULL CHECK (json_valid(event_json))
+      ) STRICT;
+      CREATE INDEX security_event_history_instance_observed
+        ON security_event_history(pbx_instance_id, observed_at);
+    `,
+  },
 ] as const;
