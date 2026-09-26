@@ -252,8 +252,6 @@ export function createApp(
             items: storage.systemMetrics.listHistory(id, from, to, limit),
           });
         }
-        if (!sameOrigin(request, auth.requiresSecureOrigin))
-          return send(response, 403, { error: 'forbidden' });
         if (metricsStreams.size >= 64) return send(response, 429, { error: 'too_many_requests' });
         if (response.headersSent) return;
         response.writeHead(200, {
@@ -394,8 +392,6 @@ export function createApp(
             items: storage.securityAlerts.listHistory(id, from, to, limit),
           });
         }
-        if (!sameOrigin(request, auth.requiresSecureOrigin))
-          return send(response, 403, { error: 'forbidden' });
         if (securityAlertStreams.size >= 64)
           return send(response, 429, { error: 'too_many_requests' });
         response.writeHead(200, {
@@ -452,8 +448,6 @@ export function createApp(
             items: storage.securityEvents.listHistory(id, from, to, limit),
           });
         }
-        if (!sameOrigin(request, auth.requiresSecureOrigin))
-          return send(response, 403, { error: 'forbidden' });
         if (securityStreams.size >= 64) return send(response, 429, { error: 'too_many_requests' });
         response.writeHead(200, {
           'content-type': 'text/event-stream; charset=utf-8',

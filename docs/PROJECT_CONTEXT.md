@@ -1,6 +1,6 @@
 # Project context
 
-Status: Task 36 is merged through PR #38. Task 37 is implemented locally on feature/server-ui-deployment as of 2026-09-26 and the authorized monitoring host currently serves the built bilingual frontend and backend through a same-origin HTTPS gateway while the backend remains loopback-only and PBX network mode remains disabled. Private runtime data/TLS stay local. A generic systemd unit is tracked but not installed on this host; trusted TLS, firewall validation, reboot persistence, and tested backup/restore remain incomplete. License: Apache-2.0.
+Status: Task 36 is merged through PR #38. Task 37 is implemented locally on feature/server-ui-deployment as of 2026-09-26 and the authorized monitoring host currently serves the built bilingual frontend and backend through a same-origin HTTPS gateway while the backend remains loopback-only and the initial deployment used disabled PBX networking; after explicit operator approval the private local runtime was switched to the already-configured bounded read-only monitoring mode. Private runtime data/TLS stay local. A generic systemd unit is tracked but not installed on this host; trusted TLS, firewall validation, reboot persistence, and tested backup/restore remain incomplete. License: Apache-2.0.
 
 ## Repository state
 
