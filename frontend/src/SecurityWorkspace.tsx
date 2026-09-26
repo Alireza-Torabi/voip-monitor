@@ -32,6 +32,8 @@ export function SecurityWorkspace({
 }) {
   const [selectedId, setSelectedId] = useState(profiles[0]?.id ?? '');
   const [alerts, setAlerts] = useState<SecurityAlertRecord[]>([]);
+  const [history, setHistory] = useState<SecurityAlertRecord[]>([]);
+  const [liveConnected, setLiveConnected] = useState(false);
   const [rules, setRules] = useState<SecurityAlertRuleConfig[]>([]);
   const [anyEnabled, setAnyEnabled] = useState(false);
   const [thresholdEnabled, setThresholdEnabled] = useState(false);
@@ -43,6 +45,32 @@ export function SecurityWorkspace({
   const [pending, setPending] = useState(false);
 
   const selectedProfile = profiles.find((profile) => profile.id === selectedId);
+
+  function alertKey(alert: SecurityAlertRecord) {
+    return `${alert.ruleId}:${alert.observedAt}:${alert.streamGeneration ?? ''}:${alert.streamSequence ?? ''}:${alert.matchedEventCount}`;
+  }
+
+  function validAlert(value: unknown, instanceId: string): value is SecurityAlertRecord {
+    if (!value || typeof value !== 'object') return false;
+    const alert = value as Partial<SecurityAlertRecord>;
+    return (
+      alert.instanceId === instanceId &&
+      (alert.ruleId === 'AUTHENTICATION_FAILURE_ANY' ||
+        alert.ruleId === 'AUTHENTICATION_FAILURE_THRESHOLD') &&
+      typeof alert.observedAt === 'string' &&
+      Number.isSafeInteger(alert.matchedEventCount) &&
+      Number(alert.matchedEventCount) > 0
+    );
+  }
+
+  function mergeRealtimeAlert(alert: SecurityAlertRecord) {
+    setAlerts((current) => [alert, ...current.filter((item) => item.ruleId !== alert.ruleId)]);
+    setHistory((current) => {
+      const key = alertKey(alert);
+      if (current.some((item) => alertKey(item) === key)) return current;
+      return [alert, ...current].slice(0, 100);
+    });
+  }
 
   function applyRules(items: SecurityAlertRuleConfig[]) {
     setRules(items);
@@ -65,6 +93,7 @@ export function SecurityWorkspace({
   async function load(id = selectedId) {
     if (!id) {
       setAlerts([]);
+      setHistory([]);
       applyRules([]);
       return;
     }
@@ -72,11 +101,15 @@ export function SecurityWorkspace({
     setError('');
     setStatus('');
     try {
-      const [alertResult, ruleResult] = await Promise.all([
+      const to = new Date();
+      const from = new Date(to.getTime() - 24 * 60 * 60 * 1000);
+      const [alertResult, ruleResult, historyResult] = await Promise.all([
         api.listSecurityAlerts(id),
         api.listSecurityAlertRules(id),
+        api.listSecurityAlertHistory(id, from.toISOString(), to.toISOString(), 100),
       ]);
       setAlerts(alertResult.current);
+      setHistory(historyResult.items);
       applyRules(ruleResult.items);
     } catch (failure) {
       if (failure instanceof ApiError && failure.status === 401) onUnauthorized();
@@ -96,8 +129,36 @@ export function SecurityWorkspace({
     if (selectedId) void load(selectedId);
     else {
       setAlerts([]);
+      setHistory([]);
       applyRules([]);
     }
+  }, [selectedId]);
+
+  useEffect(() => {
+    if (!selectedId || typeof EventSource === 'undefined') {
+      setLiveConnected(false);
+      return;
+    }
+    const source = new EventSource(api.securityAlertStreamUrl(selectedId));
+    const onAlert = (event: MessageEvent<string>) => {
+      try {
+        const value = JSON.parse(event.data) as { current?: unknown; alert?: unknown };
+        if (Array.isArray(value.current)) {
+          setAlerts(value.current.filter((item) => validAlert(item, selectedId)));
+        }
+        if (validAlert(value.alert, selectedId)) mergeRealtimeAlert(value.alert);
+      } catch {
+        // Malformed realtime payloads fail closed and do not alter displayed state.
+      }
+    };
+    source.addEventListener('security-alert', onAlert as EventListener);
+    source.onopen = () => setLiveConnected(true);
+    source.onerror = () => setLiveConnected(false);
+    return () => {
+      source.removeEventListener('security-alert', onAlert as EventListener);
+      source.close();
+      setLiveConnected(false);
+    };
   }, [selectedId]);
 
   async function saveRule(ruleId: SecurityAlertRuleId) {
@@ -179,6 +240,7 @@ export function SecurityWorkspace({
         >
           {text.refreshSecurity}
         </button>
+        <span role="status">{liveConnected ? text.liveConnected : text.liveDisconnected}</span>
       </div>
 
       <h3>{text.currentAlerts}</h3>
@@ -188,6 +250,29 @@ export function SecurityWorkspace({
         <ul className="security-alerts">
           {alerts.map((alert) => (
             <li key={`${alert.ruleId}:${alert.observedAt}:${alert.streamSequence ?? ''}`}>
+              <strong>
+                {alert.ruleId === 'AUTHENTICATION_FAILURE_ANY'
+                  ? text.anyFailureRule
+                  : text.thresholdRule}
+              </strong>
+              <div>
+                {text.observedAt}: <span dir="ltr">{alert.observedAt}</span>
+              </div>
+              <div>
+                {text.matchedEvents}: {alert.matchedEventCount}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <h3>{text.recentAlerts}</h3>
+      {history.length === 0 ? (
+        <p>{text.noRecentAlerts}</p>
+      ) : (
+        <ul className="security-alerts">
+          {history.map((alert) => (
+            <li key={`history:${alertKey(alert)}`}>
               <strong>
                 {alert.ruleId === 'AUTHENTICATION_FAILURE_ANY'
                   ? text.anyFailureRule

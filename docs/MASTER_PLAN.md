@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-09-26. Task 32 is merged into main through PR #34. Task 33 first authenticated security-monitoring UI is implemented locally on feature/security-monitoring-ui; no external notification delivery is included.
+Status: 2026-09-26. Task 33 is merged into main through PR #35. Task 34 bounded realtime Security Alert updates and recent alert history are implemented locally on feature/security-monitoring-realtime-history; no external notification delivery is included.
 
 ## Phase 0 — environment discovery
 
@@ -71,16 +71,17 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 31: persist bounded PBX-scoped security-alert rule configuration and wire one application-owned runtime that persists normalized security events, evaluates enabled rules, and persists matches; no external notification delivery.
 - [x] Task 32: expose authenticated PBX-scoped security-alert rule configuration list/get/put/delete APIs with same-origin mutation protection and bounded fail-closed validation; no external notification delivery.
 - [x] Task 33: add the first authenticated bilingual security-monitoring UI for PBX-scoped current alerts and management of the two bounded alert rules; no external notification delivery.
+- [x] Task 34: consume the existing PBX-scoped alert SSE/history APIs in the authenticated bilingual security UI, with a bounded 24-hour/100-row recent history and deduplicated realtime current/history updates; no external notification delivery.
 
 ### Current execution handoff
 
-- Current branch: `feature/security-monitoring-ui`, created from synchronized `main` after Task 32 merged as PR #34.
-- Task 33 is complete locally. The authenticated bilingual frontend now mounts a dedicated `SecurityWorkspace` whenever at least one PBX profile exists.
-- Operators can select one PBX, refresh and view its persisted current Security Alerts, and manage only the two allowlisted rules. The threshold rule UI preserves the backend bounds (threshold 1–100, window 1–3600 seconds, optional existing failure reason).
-- The UI uses only the existing authenticated same-origin API client; it never accepts PBX/rule identity from free-form input, never displays raw AMI/security identity fields, and does not add notification settings.
-- Task 33 is intentionally snapshot/manual-refresh UI only. Existing alert SSE/history APIs are not yet consumed by the browser.
-- Task 33 validation is synthetic/local only. No real PBX, production security log, webhook, notification provider, or external delivery target was contacted.
-- Exact next task after Task 33 merge: **Task 34 — add bounded realtime Security Alert updates and recent Alert history to the authenticated security-monitoring UI using the existing SSE/history APIs, without external notification delivery.**
+- Current branch: `feature/security-monitoring-realtime-history`, created from synchronized `main` after Task 33 merged as PR #35.
+- Task 34 is complete locally. The authenticated bilingual `SecurityWorkspace` now loads the selected PBX's current alerts, the most recent 24 hours of alert history with a hard 100-row client request bound, and its existing PBX-scoped alert SSE stream.
+- SSE initial snapshots replace the displayed current per-rule alert set; subsequent persisted alert messages replace current state for that rule and prepend a deduplicated history row, capped at 100 displayed rows.
+- Realtime loss is non-destructive: the last loaded current/history state remains visible and manual refresh remains available. Malformed realtime payloads fail closed and do not alter displayed state.
+- Task 34 uses only existing authenticated same-origin backend alert boundaries. It adds no PBX connection, provider action, rule expansion, notification configuration, or external delivery.
+- Task 34 validation is synthetic/local only. No real PBX, production security log, webhook, notification provider, or external delivery target was contacted.
+- Task 34 closes the currently defined Security Monitoring implementation slice in Phase 7. Exact next task after Task 34 merge: **Task 35 — define a bounded external-notification delivery foundation (configuration/queue/deduplication contracts only), without sending to any real external provider until separately approved.**
 - Documentation rule: `docs/MASTER_PLAN.fa.md` must be a complete Persian translation of this file with the same structure and content, never a summarized variant.
 
 ### Failure and bug log
@@ -256,6 +257,29 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - **Known limitation:** only the two existing AMI authentication-failure rules are shown. Broader security sources/rules and external notification delivery remain future work.
 - **Exact next task:** Task 34 adds bounded realtime current-alert updates plus recent alert history in the authenticated security-monitoring UI using existing backend boundaries.
 
+## 2026-09-26 — Task 34 completion record
+
+- **Result:** Added recent Security Alert history and persistence-backed realtime Alert updates to the authenticated bilingual `SecurityWorkspace` using only existing backend APIs.
+- **History bound:** manual/snapshot loads request only the selected PBX's most recent 24 hours, with `limit=100`; server-side API bounds remain authoritative.
+- **Realtime contract:** one same-origin `EventSource` is opened for the selected PBX. The initial `{current}` SSE payload replaces current per-rule state; later `{alert}` payloads replace current state for that rule and prepend history.
+- **Deduplication/display bound:** realtime history uses the complete bounded alert display identity and ignores repeated identical alert payloads; displayed recent history is capped at 100 rows.
+- **Failure behavior:** malformed SSE JSON/contracts fail closed. Stream disconnect changes only the live-status indicator; existing state remains visible and manual refresh continues to work.
+- **Bilingual behavior:** recent-history and live-connection labels were added through the existing English/Persian i18n boundary.
+- **External side effects:** none. No webhook, email, SMS, chat provider, PBX write, or other external notification is performed.
+- **Targeted validation:** Frontend tests passed 14/14, including 24-hour history loading plus duplicate-safe realtime merge behavior.
+- **Real systems:** no real PBX, production log, SSH security log, or external delivery target was contacted.
+
+### Task 34 failures / bugs / gaps
+
+- **Initial API patch wrapper failure — resolved before project-file modification:** the first local patch payload embedded TypeScript `${...}` interpolation inside the remote tool's JavaScript template string, so the wrapper rejected it before execution. Root cause was tool-layer interpolation, not project code. Fix: resend the patch through ordinary quoted strings; API/i18n typecheck then passed.
+- **Persian-plan translator helper syntax failure — resolved:** the first Task 34 translation helper had an invalid Python lambda expression and exited before writing the Persian plan. Root cause was a local helper typo. Fix: correct the lambda syntax before rerunning.
+- **Persian-plan translation batch split failure — resolved:** the next helper revision over-escaped regex sequences in the generated Python file, so the first translated batch delimiter could not be split back into source lines. No accepted translated plan was produced. Fix: replace the helper with correctly escaped line/prefix and batch-delimiter expressions, then rerun structural parity checks.
+- **Persian-plan semantic parity drift — resolved:** a later full translation preserved line structure but localized several `Task N` references and duplicated one formatted `SSH` token, so structural parity alone was insufficient. Fix: normalize Task/Phase references, repair the affected aligned lines, and extend final parity checks to compare Task references and code-span counts per line.
+- **Known limitation:** native `EventSource` does not expose the HTTP status/body for a failed stream in the browser. A stream auth expiry therefore appears as disconnected realtime status; the next normal authenticated API refresh/mutation still follows the existing 401 logout path.
+- **Known limitation:** recent history is intentionally a fixed 24-hour/100-row UI window. Operator-selectable history ranges, pagination, and longer retention presentation remain future work.
+- **Known limitation:** external notification delivery remains entirely absent by design.
+- **Exact next task:** Task 35 defines bounded external-notification configuration/queue/deduplication contracts only, with no real provider delivery until separately approved.
+
 ### Persistent continuation protocol
 
 For every future task/session:
@@ -275,14 +299,14 @@ Tasks 7–13 implemented substantial Asterisk-provider and telephony-state found
 - [x] Phase 4 foundation gate: Asterisk provider integration — network policy, AMI transport, login/discovery, runtime lifecycle, connection verification, normalized event subscription, channel snapshots/reconciliation, and one controlled real Asterisk 13.x compatibility gate are complete.
 - [x] Phase 5 foundation: telephony state engine — deterministic channel/call, chan_sip endpoint/registration, outbound-registration trunk, queue/member/caller, and live-only agent interaction state foundations are implemented. Queue/Agent real-PBX compatibility remains unclaimed until a later controlled compatibility gate.
 - [x] Phase 6 foundation: provider-neutral system-metric contracts, fail-closed collector validation, restricted SSH command allowlisting/execution bounds/Linux-systemd parsers, encrypted per-PBX SSH configuration, pinned host-key trust, shared SSRF policy, concrete restricted SSH transport, runtime scheduling, per-PBX source health, bounded current/history persistence, and authenticated current/history plus realtime system-metrics exposure are implemented.
-- [ ] Phase 7: security monitoring.
+- [x] Phase 7: security monitoring — normalized AMI authentication events, persistence/API/SSE, bounded alert evaluation/persistence/rules/runtime, authenticated rule APIs, and bilingual current/recent-history/realtime alert UI are complete for the defined slice; broader sources/rules and external delivery remain separate future work.
 - [ ] Phase 8: authenticated API and realtime.
 - [ ] Phase 9: bilingual dashboard.
 - [ ] Phase 10: history and retention.
 - [ ] Phase 11: hardening, backup, tested restore, and a production deployment runbook.
 - [ ] Phase 12: release validation, including an organization-neutral fresh-deployment procedure that can onboard a new service without carrying private values from another deployment.
 
-Phase 1 is closed. Phase 7 currently includes normalized AMI authentication-security events, bounded event persistence/API/SSE, bounded alert evaluation, alert persistence/current-state/API/SSE, persistent rule configuration/runtime wiring, authenticated bounded rule-configuration APIs, and Task 33's first authenticated bilingual security-monitoring UI. Exact next task after Task 33 merge is **Task 34 — bounded realtime alert updates and recent alert history in that UI using the existing SSE/history APIs, without external notification delivery.**
+Phase 1 is closed. Phase 7's currently defined security-monitoring slice is complete through Task 34: normalized AMI authentication-security events, bounded event persistence/API/SSE, bounded alert evaluation, alert persistence/current-state/API/SSE, persistent rule configuration/runtime wiring, authenticated bounded rule-configuration APIs, and bilingual current/recent-history/realtime alert UI. Exact next task after Task 34 merge is **Task 35 — a bounded external-notification delivery foundation (configuration/queue/deduplication contracts only), with no real external provider delivery until separately approved.**
 
 ## 2026-09-26 — Task 28 completion record
 

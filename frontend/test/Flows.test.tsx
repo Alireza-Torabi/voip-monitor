@@ -241,6 +241,18 @@ describe('security monitoring workspace', () => {
             ],
           });
         }
+        if (path.startsWith('/api/pbx-instances/synthetic-id/security-alerts/history?')) {
+          return response({
+            items: [
+              {
+                instanceId: 'synthetic-id',
+                ruleId: 'AUTHENTICATION_FAILURE_ANY',
+                observedAt: '2026-09-26T06:00:00.000Z',
+                matchedEventCount: 1,
+              },
+            ],
+          });
+        }
         if (path === '/api/pbx-instances/synthetic-id/security-alert-rules') {
           return response({
             items: [
@@ -264,6 +276,8 @@ describe('security monitoring workspace', () => {
       ),
     );
     expect(container.textContent).toContain('Matched events: 3');
+    expect(container.textContent).toContain('Recent alert history (24 hours)');
+    expect(container.textContent).toContain('Matched events: 1');
     expect(input('rule-threshold').value).toBe('3');
     expect(input('rule-window-seconds').value).toBe('60');
     expect(input('rule-threshold-enabled').checked).toBe(true);
@@ -273,6 +287,8 @@ describe('security monitoring workspace', () => {
     const fetchMock = vi.fn(async (path: string, init?: RequestInit) => {
       if (path === '/api/pbx-instances/synthetic-id/security-alerts')
         return response({ current: [] });
+      if (path.startsWith('/api/pbx-instances/synthetic-id/security-alerts/history?'))
+        return response({ items: [] });
       if (path === '/api/pbx-instances/synthetic-id/security-alert-rules') {
         return response({ items: [] });
       }
@@ -316,5 +332,64 @@ describe('security monitoring workspace', () => {
           String(init?.body).includes('"windowSeconds":120'),
       ),
     ).toBe(true);
+  });
+
+  it('merges persistence-backed realtime alerts into current state and recent history without duplicates', async () => {
+    class FakeEventSource {
+      static latest: FakeEventSource | undefined;
+      onopen: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      private listeners = new Map<string, EventListener>();
+      constructor(readonly url: string) {
+        FakeEventSource.latest = this;
+      }
+      addEventListener(type: string, listener: EventListenerOrEventListenerObject) {
+        if (typeof listener === 'function') this.listeners.set(type, listener);
+      }
+      removeEventListener(type: string) {
+        this.listeners.delete(type);
+      }
+      close() {}
+      emit(type: string, value: object) {
+        this.listeners.get(type)?.(new MessageEvent(type, { data: JSON.stringify(value) }));
+      }
+    }
+    vi.stubGlobal('EventSource', FakeEventSource);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string) => {
+        if (path === '/api/pbx-instances/synthetic-id/security-alerts')
+          return response({ current: [] });
+        if (path.startsWith('/api/pbx-instances/synthetic-id/security-alerts/history?'))
+          return response({ items: [] });
+        if (path === '/api/pbx-instances/synthetic-id/security-alert-rules')
+          return response({ items: [] });
+        throw new Error('unexpected API route');
+      }),
+    );
+    await act(async () =>
+      root.render(
+        <SecurityWorkspace text={messages.en} profiles={[profile]} onUnauthorized={() => {}} />,
+      ),
+    );
+    expect(FakeEventSource.latest?.url).toBe(
+      '/api/pbx-instances/synthetic-id/security-alerts/stream',
+    );
+    await act(async () => FakeEventSource.latest?.onopen?.());
+    expect(container.textContent).toContain('Live updates connected');
+    const alert = {
+      instanceId: 'synthetic-id',
+      ruleId: 'AUTHENTICATION_FAILURE_THRESHOLD',
+      observedAt: '2026-09-26T07:30:00.000Z',
+      matchedEventCount: 4,
+      streamGeneration: 3,
+      streamSequence: 9,
+    };
+    await act(async () => {
+      FakeEventSource.latest?.emit('security-alert', { alert });
+      FakeEventSource.latest?.emit('security-alert', { alert });
+    });
+    expect(container.textContent).toContain('Matched events: 4');
+    expect(container.querySelectorAll('.security-alerts li')).toHaveLength(2);
   });
 });
