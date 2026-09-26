@@ -432,6 +432,127 @@ test('system metrics API requires auth and exposes current/history', async () =>
     }
   }));
 
+test('security events API requires auth and exposes current/history', async () =>
+  fixture(async ({ config, storage, secrets, auth }) => {
+    const token = (
+      await readFile(join(config.secretDirectory, 'bootstrap-admin.token'), 'utf8')
+    ).trim();
+    await auth.createFirst('admin', 'synthetic admin passphrase', token);
+    const onboarding = new PbxOnboardingService(storage, secrets);
+    const profile = onboarding.create(profileInput(false));
+    const current = {
+      instanceId: profile.id,
+      source: 'AMI',
+      observedAt: '2026-09-26T00:00:00.000Z',
+      streamGeneration: 1,
+      streamSequence: 2,
+      type: 'AUTHENTICATION_FAILURE',
+      reason: 'INVALID_PASSWORD',
+    };
+    storage.securityEvents.save(current, '2026-09-25T00:00:00.000Z');
+    const runtime = {
+      connectionState: () => 'UNVERIFIED',
+      subscribeSecurityEvents: () => () => {},
+    };
+    const apiAuth = {
+      requiresSecureOrigin: false,
+      principal: function (token) {
+        return token === 'synthetic' ? { id: 'admin', username: 'admin' } : undefined;
+      },
+    };
+    const app = await serve(storage, secrets, apiAuth, runtime);
+    try {
+      const cookie = 'vm_session=synthetic';
+      assert.equal(
+        (await fetch(app.base + '/api/pbx-instances/' + profile.id + '/security-events')).status,
+        401,
+      );
+      const currentResponse = await fetch(
+        app.base + '/api/pbx-instances/' + profile.id + '/security-events',
+        { headers: { Cookie: cookie } },
+      );
+      assert.equal(currentResponse.status, 200);
+      assert.equal((await currentResponse.json()).current.reason, 'INVALID_PASSWORD');
+      const history = await fetch(
+        app.base +
+          '/api/pbx-instances/' +
+          profile.id +
+          '/security-events/history?from=2026-09-25T23:00:00Z&to=2026-09-26T01:00:00Z&limit=10',
+        { headers: { Cookie: cookie } },
+      );
+      assert.equal(history.status, 200);
+      assert.equal((await history.json()).items.length, 1);
+      assert.equal(
+        (
+          await fetch(
+            app.base +
+              '/api/pbx-instances/' +
+              profile.id +
+              '/security-events/history?from=bad&to=2026-09-26T01:00:00Z&limit=10',
+            { headers: { Cookie: cookie } },
+          )
+        ).status,
+        400,
+      );
+    } finally {
+      await app.close();
+    }
+  }));
+
+test('security event stream is authenticated, PBX-scoped, and same-origin', async () =>
+  fixture(async ({ config, storage, secrets, auth }) => {
+    const token = (
+      await readFile(join(config.secretDirectory, 'bootstrap-admin.token'), 'utf8')
+    ).trim();
+    await auth.createFirst('admin', 'synthetic admin passphrase', token);
+    const onboarding = new PbxOnboardingService(storage, secrets);
+    const profile = onboarding.create(profileInput(false));
+    const listeners = new Set();
+    const runtime = {
+      connectionState: () => 'UNVERIFIED',
+      subscribeSecurityEvents: (listener) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    };
+    const apiAuth = {
+      requiresSecureOrigin: false,
+      principal: function (token) {
+        return token === 'synthetic' ? { id: 'admin', username: 'admin' } : undefined;
+      },
+    };
+    const app = await serve(storage, secrets, apiAuth, runtime);
+    try {
+      const cookie = 'vm_session=synthetic';
+      const forbidden = await fetch(
+        app.base + '/api/pbx-instances/' + profile.id + '/security-events/stream',
+        { headers: { Cookie: cookie, origin: 'https://evil.example' } },
+      );
+      assert.equal(forbidden.status, 403);
+      const response = await fetch(
+        app.base + '/api/pbx-instances/' + profile.id + '/security-events/stream',
+        { headers: { Cookie: cookie, origin: app.base } },
+      );
+      assert.equal(response.status, 200);
+      assert.match(response.headers.get('content-type') ?? '', /text\/event-stream/);
+      const reader = response.body.getReader();
+      assert.match(new TextDecoder().decode((await reader.read()).value), /event: security-event/);
+      const event = {
+        instanceId: profile.id,
+        source: 'AMI',
+        observedAt: '2026-09-26T00:01:00.000Z',
+        streamGeneration: 2,
+        streamSequence: 1,
+        type: 'AUTHENTICATION_SUCCESS',
+      };
+      for (const listener of listeners) listener(event);
+      assert.match(new TextDecoder().decode((await reader.read()).value), /AUTHENTICATION_SUCCESS/);
+      await reader.cancel();
+    } finally {
+      await app.close();
+    }
+  }));
+
 test('system metrics stream is authenticated and PBX-scoped', async () =>
   fixture(async ({ config, storage, secrets, auth }) => {
     const token = (

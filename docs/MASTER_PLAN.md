@@ -64,14 +64,14 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 24: expose authenticated system-metrics current/history HTTP APIs and a PBX-scoped realtime SSE publication boundary, with bounded query/stream limits and no raw SSH/transport details; no real-host/PBX access.
 - [x] Task 25: establish the first bounded security-monitoring source boundary and normalized authentication security-event contract from Asterisk AMI SecurityEvent frames; unknown events and raw identity/network/request fields are discarded, capability becomes supported only after an observed normalized event, and validation remains synthetic/mock only with no production log access.
 - [x] Task 26: define bounded security-event current/history persistence with duplicate-safe identity, monotonic current ordering across provider connection generations, transactional retention pruning, and a seven-day default retention boundary; persistence remains read-only and synthetic/mock validated without production log access.
+- [x] Task 27: expose authenticated PBX-scoped security-event current/history APIs and bounded realtime SSE delivery without exposing raw AMI/provider fields; stream establishment is same-origin protected, PBX scoped, heartbeat bounded, and concurrent streams capped.
 
 ### Current execution handoff
 
-- Current branch: `feature/security-event-persistence-boundary`, created from synchronized `main` after Task 25 merged as PR #26.
-- Task 26 implementation is complete locally. Migration 8 adds PBX-scoped current and history security-event tables. History uses a stable SHA-256 event key for duplicate-safe insertion; current advances only for a newer stream generation/sequence or, when ordering metadata is unavailable, a newer observation timestamp. Historical pruning is transactional and never deletes current state.
-- Runtime persistence subscribes to the existing normalized provider security-event boundary. Persistence failures are isolated from the read-only PBX/provider lifecycle and raw AMI fields remain outside storage.
-- Task 26 uses only synthetic/mock data. No production log access, real PBX connection, or SSH security-log access was performed.
-- Exact next task: **Task 27 — expose authenticated PBX-scoped security-event current/history APIs and bounded realtime delivery without exposing raw AMI/provider fields.**
+- Current branch: `feature/security-event-api-realtime`, created from synchronized `main` after Task 26 merged as PR #27.
+- Task 27 implementation is complete locally. The backend exposes authenticated current/history security-event endpoints plus a PBX-scoped SSE stream. History uses the same explicit UTC range and maximum 500-row boundary as system metrics; the stream sends an initial current snapshot and subsequent normalized security events, with same-origin enforcement, 15-second heartbeat, cleanup, and a 64-stream process cap. No raw AMI/provider payload is exposed.
+- Task 27 used synthetic/mock API and SSE validation only. No production log access, real PBX connection, or SSH security-log access was performed.
+- Exact next task: **Task 28 — define the bounded security-alert/rule evaluation boundary over normalized persisted security events, with fail-closed rules and no notification delivery yet.**
 
 ### Failure and bug log
 
