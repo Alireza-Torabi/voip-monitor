@@ -321,3 +321,14 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 205. **Cascade semantics:** channel deletion cascades its queue rows and PBX deletion cascades both channel and queue state.
 206. **No implicit secret validity claim:** Task 35 stores only an opaque secret reference and does not claim the referenced encrypted secret exists or has a valid webhook target schema.
 207. **Task 36 boundary:** next expose authenticated PBX-scoped notification channel configuration plus encrypted webhook-target secret management. Runtime enqueue/delivery and all real external-provider contact remain out of scope.
+
+## 2026-09-26 — Task 36 notification-channel API decisions
+
+208. Webhook targets are persisted only through SecretStore; API responses never expose target URL or decrypted secret material.
+209. Public notification-channel responses omit internal secret names and expose only operational metadata plus hasTarget.
+210. Task 36 accepts only bounded HTTPS target syntax without embedded credentials or fragments and performs no DNS resolution/contact.
+211. New channels require a target; later updates may retain the existing encrypted target without resubmission.
+212. List/get require authentication; PUT/DELETE also require same-origin protection; channel/PBX mismatch fails closed.
+213. Deleting a channel also removes its encrypted target secret; Task 35 queue cascade remains database-owned.
+214. Task 36 activates no alert subscriber, enqueue runtime, worker, HTTP client, retry policy, redirect handling, or external transmission.
+215. Task 37 deploys the existing backend and bilingual frontend on voip-mon as a managed same-origin service with private local deployment values and no implied new real-PBX access.

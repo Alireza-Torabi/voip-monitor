@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-09-26. Task 34 is merged into main through PR #36. Task 35 bounded external-notification delivery foundation is implemented locally on feature/notification-delivery-foundation; no external provider is contacted and no delivery worker exists.
+Status: 2026-09-26. Task 35 is merged into main through PR #37. Task 36 authenticated notification-channel APIs plus encrypted webhook-target secret management are implemented locally on feature/notification-channel-api-secrets; no delivery worker or real external-provider contact exists.
 
 ## Phase 0 — environment discovery
 
@@ -73,20 +73,19 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 33: add the first authenticated bilingual security-monitoring UI for PBX-scoped current alerts and management of the two bounded alert rules; no external notification delivery.
 - [x] Task 34: consume the existing PBX-scoped alert SSE/history APIs in the authenticated bilingual security UI, with a bounded 24-hour/100-row recent history and deduplicated realtime current/history updates; no external notification delivery.
 - [x] Task 35: define bounded external-notification channel metadata, pending/cancelled delivery-queue persistence, deterministic per-channel alert deduplication, immutable channel PBX/transport identity, and PBX/channel cascade semantics; no runtime enqueue wiring, delivery worker, provider client, or real external contact.
+- [x] Task 36: expose authenticated PBX-scoped notification-channel list/get/put/delete APIs and encrypted HTTPS webhook-target secret management with same-origin mutation protection and no target/internal-secret disclosure; no delivery worker or external contact.
 
 ### Current execution handoff
 
-- Current branch: `feature/notification-delivery-foundation`, created from synchronized `main` after Task 34 merged as PR #36.
-- Task 35 is complete locally. Migration 11 adds PBX-scoped `notification_channel_config` plus `notification_delivery_queue`.
-- Channel configuration is metadata only: ID, PBX ownership, fixed `WEBHOOK` transport, display name, enabled flag, and a `secretName` reference. No URL, token, credential, or provider-specific secret is stored in tracked code or plaintext queue data.
-- Existing channel identity is immutable across PBX and transport. Only display name, enabled state, secret reference, and updated timestamp are mutable.
-- Queue records contain only the bounded Security Alert record plus channel/PBX/rule identity and `PENDING` or `CANCELLED` state. There is no `SENT`, retry, attempt counter, worker lease, backoff, or provider response model in Task 35.
-- Delivery deduplication is deterministic per channel plus the complete bounded Security Alert identity. Re-enqueueing the same Alert for the same channel is a no-op and returns the existing queue record.
-- Disabled channels, missing channels, and cross-PBX enqueue attempts fail closed. Channel deletion cascades its queued records; PBX deletion cascades channel and queue state.
-- Task 35 is storage/contracts only. Nothing subscribes to alert publication and nothing sends externally.
-- Validation is synthetic/local only. No real PBX, webhook, notification provider, DNS target, URL, credential, or external endpoint was contacted.
-- Exact next task after Task 35 merge: **Task 36 — expose authenticated PBX-scoped notification-channel configuration APIs and encrypted webhook-target secret management, while keeping delivery worker/runtime and real external-provider contact out of scope.**
-- Documentation rule: `docs/MASTER_PLAN.fa.md` must be a complete Persian translation of this file with the same structure and content, never a summarized variant.
+- Current branch: feature/notification-channel-api-secrets, created from synchronized main after Task 35 merged as PR #37.
+- Task 36 is complete locally. Authenticated PBX-scoped notification-channel APIs expose list/get plus PUT/DELETE.
+- Webhook targets are HTTPS-only, bounded to 2048 characters, reject embedded credentials/fragments, and are encrypted immediately through SecretStore.
+- API responses expose safe operational metadata plus hasTarget only; target URL, internal secret name, ciphertext, and decrypted material remain private.
+- New channels require a target; later updates may omit it and preserve the existing encrypted target.
+- PUT/DELETE use existing same-origin protection and cross-PBX scope fails closed.
+- Deleting a channel removes its encrypted target secret as well as channel/queue state.
+- Task 36 performs no DNS resolution, URL probe, webhook request, delivery worker action, or external network contact.
+- Exact next task after Task 36 merge: Task 37 — deploy the existing backend and bilingual frontend UI on voip-mon as a managed same-origin service, with private local deployment configuration and no new real-PBX access unless separately approved.
 
 ### Failure and bug log
 
@@ -308,6 +307,27 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - **Known limitation:** transport is deliberately limited to the `WEBHOOK` contract placeholder; email/SMS/chat-specific transports are not modeled.
 - **Exact next task:** Task 36 exposes authenticated PBX-scoped channel configuration plus encrypted webhook-target secret management only; external sending remains out of scope.
 
+## 2026-09-26 — Task 36 completion record
+
+- Result: added NotificationConfigurationService plus authenticated PBX-scoped notification-channel list/get/put/delete APIs.
+- Secret boundary: webhook target URLs are stored only through AES-256-GCM SecretStore and never returned by the API.
+- Validation boundary: only HTTPS targets are accepted; embedded credentials/fragments are rejected; input is bounded to 2048 characters; no host is resolved or contacted.
+- Safe projection: responses include operational metadata plus hasTarget and omit target URL, internal secret name, ciphertext, and decrypted material.
+- Update semantics: create requires a target; later updates can retain the existing encrypted target without resubmission.
+- Delete semantics: channel deletion removes the encrypted target secret and Task 35 foreign keys remove queued rows.
+- API protection: reads require authentication; mutations require authentication plus same-origin protection.
+- Targeted validation: onboarding/API suite passed 6/6 including auth, same-origin rejection, HTTPS-only validation, encrypted-secret verification, no URL/internal-secret leakage, update-without-target, and delete-secret behavior.
+- Real systems: no real PBX or external notification provider was contacted.
+
+### Task 36 failures / bugs / gaps
+
+- Wrong SSH configuration lookup path — resolved: the first lookup used a non-existent system-metrics path; the actual reusable service is backend/src/ssh/configuration.ts.
+- Notification service directory missing — resolved: the first file write failed before project modification because backend/src/notifications did not yet exist; the directory was created.
+- Initial API-test insertion anchor mismatch — resolved: the first test patch targeted a non-existent onboarding test title; the actual anchor was inspected and the targeted suite then passed.
+- Known limitation: Task 36 models only the webhook target URL; provider-specific auth headers, bearer tokens, signing secrets, certificates, and custom payload templates are not modeled.
+- Known limitation: HTTPS syntax validation is not a future network-safety claim; any delivery worker must still enforce DNS/SSRF policy, redirect policy, timeouts, and bounded responses.
+- Exact next task: Task 37 deploys the existing backend/frontend UI on voip-mon as a managed same-origin service; deployment values remain private/local and do not authorize new real-PBX access.
+
 ### Persistent continuation protocol
 
 For every future task/session:
@@ -334,7 +354,7 @@ Tasks 7–13 implemented substantial Asterisk-provider and telephony-state found
 - [ ] Phase 11: hardening, backup, tested restore, and a production deployment runbook.
 - [ ] Phase 12: release validation, including an organization-neutral fresh-deployment procedure that can onboard a new service without carrying private values from another deployment.
 
-Phase 1 is closed. Phase 7's defined security-monitoring slice remains complete through Task 34. Task 35 adds the first post-monitoring external-notification storage/contracts foundation only: bounded channel metadata, duplicate-safe pending/cancelled queue state, and no delivery runtime. Exact next task after Task 35 merge is **Task 36 — authenticated PBX-scoped notification-channel configuration APIs plus encrypted webhook-target secret management, with no delivery worker or real external-provider contact.**
+Phase 1 is closed. Phase 7's defined security-monitoring slice remains complete through Task 34. Task 35 adds notification storage/contracts and Task 36 adds authenticated channel configuration plus encrypted webhook-target management without activating delivery. Exact next task after Task 36 merge is **Task 37 — deploy the existing backend and bilingual frontend UI on voip-mon as a managed same-origin service, keeping private deployment values local and making no new real-PBX contact without explicit approval.**
 
 ## 2026-09-26 — Task 28 completion record
 

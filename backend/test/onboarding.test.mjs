@@ -289,6 +289,89 @@ test('failed credential write rolls back metadata and setup; delete cascades sec
     assert.equal(storage.secretRecords.has(created.id, 'ami-password'), false);
   }));
 
+test('notification channel API encrypts webhook targets and never exposes them', async () =>
+  fixture(async ({ config, storage, secrets, auth }) => {
+    const app = await serve(storage, secrets, auth);
+    try {
+      const cookie = await login(app.base, config);
+      const createdResponse = await send(app.base, 'POST', '/api/pbx-instances', profile(), cookie);
+      assert.equal(createdResponse.status, 201);
+      const created = await createdResponse.json();
+      const base = `/api/pbx-instances/${created.id}/notification-channels`;
+      const channel = `${base}/ops-webhook`;
+
+      assert.equal((await fetch(app.base + base)).status, 401);
+      assert.equal(
+        (
+          await send(
+            app.base,
+            'PUT',
+            channel,
+            { displayName: 'Ops', enabled: true, targetUrl: 'https://hooks.example.test/voip' },
+            cookie,
+            'https://evil.example',
+          )
+        ).status,
+        403,
+      );
+      assert.equal(
+        (
+          await send(
+            app.base,
+            'PUT',
+            channel,
+            { displayName: 'Ops', enabled: true, targetUrl: 'http://hooks.example.test/voip' },
+            cookie,
+          )
+        ).status,
+        400,
+      );
+
+      const savedResponse = await send(
+        app.base,
+        'PUT',
+        channel,
+        { displayName: 'Ops', enabled: true, targetUrl: 'https://hooks.example.test/voip' },
+        cookie,
+      );
+      assert.equal(savedResponse.status, 200);
+      const savedText = await savedResponse.text();
+      assert.ok(!savedText.includes('hooks.example.test'));
+      assert.ok(!savedText.includes('secretName'));
+      const saved = JSON.parse(savedText);
+      assert.equal(saved.hasTarget, true);
+      assert.equal(saved.transport, 'WEBHOOK');
+
+      const internal = storage.notificationChannels.get('ops-webhook');
+      assert.ok(internal);
+      assert.equal(
+        secrets.getSecret(created.id, internal.secretName).toString(),
+        'https://hooks.example.test/voip',
+      );
+
+      const listText = await (await fetch(app.base + base, { headers: { cookie } })).text();
+      assert.ok(!listText.includes('hooks.example.test'));
+      assert.ok(!listText.includes('secretName'));
+      assert.equal(JSON.parse(listText).items.length, 1);
+
+      const updated = await send(
+        app.base,
+        'PUT',
+        channel,
+        { displayName: 'Ops renamed', enabled: false },
+        cookie,
+      );
+      assert.equal(updated.status, 200);
+      assert.equal((await updated.json()).hasTarget, true);
+
+      assert.equal((await send(app.base, 'DELETE', channel, undefined, cookie)).status, 200);
+      assert.equal(secrets.hasSecret(created.id, internal.secretName), false);
+      assert.equal((await fetch(app.base + channel, { headers: { cookie } })).status, 404);
+    } finally {
+      await app.close();
+    }
+  }));
+
 test('migration chain upgrades schema 3 without modifying published migrations', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'voip-monitor-upgrade-'));
   const config = loadAppConfig({ DATA_PATH: directory, APP_ENV: 'test' });

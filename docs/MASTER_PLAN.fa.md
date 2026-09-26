@@ -1,6 +1,6 @@
 # Master Plan
 
-وضعیت: 2026-09-26. Task 34 از طریق PR #36 داخل main Merge شده است. Foundation محدود External Notification Delivery در Task 35 به‌صورت Local روی feature/notification-delivery-foundation پیاده‌سازی شده؛ هیچ External Provider تماس داده نمی‌شود و هیچ Delivery Worker وجود ندارد.
+وضعیت: 2026-09-26. Task 35 از طریق PR #37 داخل main Merge شده است. APIهای احرازشده Notification Channel به‌همراه Encrypted Webhook Target Secret Management در Task 36 به‌صورت Local روی feature/notification-channel-api-secrets پیاده‌سازی شده‌اند؛ هیچ Delivery Worker یا تماس واقعی با External Provider وجود ندارد.
 
 ## Phase 0 - کشف محیط
 
@@ -73,20 +73,19 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - [x] Task 33: اضافه کردن اولین UI دوزبانه نظارت امنیتی برای هشدارهای فعلی با محدوده PBX و مدیریت دو Alert Rule محدود. بدون External Notification Delivery
 - [x] Task 34: APIهای هشدار SSE/history با محدوده PBX موجود در رابط کاربری امنیتی دوزبانه تأیید شده، با تاریخچه اخیر محدود 24 ساعته/100 ردیفی و به‌روزرسانی‌های بیدرنگ فعلی/تاریخچه حذف شده را مصرف کنید. بدون External Notification Delivery
 - [x] Task 35: Metadata محدود External Notification Channel، Persistence مربوط به Delivery Queue با Stateهای Pending/Cancelled، Deduplication قطعی Alert برای هر Channel، هویت immutable برای PBX/Transport Channel و Cascade Semantics مربوط به PBX/Channel تعریف شد؛ بدون Runtime Enqueue Wiring، Delivery Worker، Provider Client یا تماس واقعی خارجی.
+- [x] Task 36: APIهای احرازشده و PBX-scoped برای list/get/put/delete در Notification Channel و Encrypted HTTPS Webhook Target Secret Management با Same-Origin Protection اضافه شدند؛ بدون افشای Target/Internal Secret، Delivery Worker یا تماس خارجی.
 
 ### وضعیت فعلی ادامه کار
 
-- Branch فعلی: `feature/notification-delivery-foundation` که پس از Merge شدن Task 34 با PR #36 از `main` همگام‌شده ساخته شده است.
-- Task 35 به‌صورت Local کامل است. Migration 11 جدول‌های PBX-scoped یعنی `notification_channel_config` و `notification_delivery_queue` را اضافه می‌کند.
-- Channel Configuration فقط Metadata است: ID، مالکیت PBX، Transport ثابت `WEBHOOK`، Display Name، Enabled Flag و Reference نوع `secretName`. هیچ URL، Token، Credential یا Secret اختصاصی Provider در Tracked Code یا Plaintext Queue Data ذخیره نمی‌شود.
-- هویت Channel موجود در PBX و Transport immutable است. فقط Display Name، Enabled State، Secret Reference و Updated Timestamp قابل تغییرند.
-- Queue Recordها فقط Alert محدود به‌همراه هویت Channel/PBX/Rule و State نوع `PENDING` یا `CANCELLED` را نگه می‌دارند. در Task 35 هیچ State نوع `SENT`، Retry، Attempt Counter، Worker Lease، Backoff یا Provider Response Model وجود ندارد.
-- Delivery Deduplication برای هر Channel به‌علاوه هویت کامل Security Alert محدود deterministic است. Enqueue مجدد همان Alert برای همان Channel یک No-op است و همان Queue Record موجود را برمی‌گرداند.
-- Channel غیرفعال، Channel گمشده و Cross-PBX Enqueue به‌صورت Fail-closed رد می‌شوند. حذف Channel، Queue Recordهای آن را Cascade می‌کند؛ حذف PBX نیز Channel و Queue State را Cascade می‌کند.
-- Task 35 فقط Storage/Contracts است. هیچ چیز به Alert Publication Subscribe نمی‌کند و هیچ ارسال خارجی انجام نمی‌شود.
-- Validation فقط Synthetic/Local است. هیچ PBX واقعی، Webhook، Notification Provider، DNS Target، URL، Credential یا External Endpoint تماس داده نشد.
-- Task دقیق بعدی پس از Merge شدن Task 35: **Task 36 — APIهای احرازشده و PBX-scoped برای Notification Channel Configuration و Encrypted Webhook-target Secret Management، در حالی که Delivery Worker/Runtime و تماس واقعی با External Provider خارج از Scope می‌مانند.**
-- قاعده مستندات: `docs/MASTER_PLAN.fa.md` باید ترجمه کامل فارسی همین فایل با ساختار و محتوای یکسان باشد و هرگز به نسخه خلاصه تبدیل نشود.
+- Branch فعلی feature/notification-channel-api-secrets است که پس از Merge شدن Task 35 با PR #37 از main همگام‌شده ساخته شده است.
+- Task 36 به‌صورت Local کامل است. APIهای احرازشده و PBX-scoped در Notification Channel، list/get و PUT/DELETE را ارائه می‌کنند.
+- Webhook Target فقط HTTPS است، حداکثر 2048 کاراکتر دارد، Embedded Credential/Fragment را رد می‌کند و فوراً از طریق SecretStore رمزگذاری می‌شود.
+- API Response فقط Operational Metadata امن به‌علاوه hasTarget را نمایش می‌دهد؛ Target URL، Internal Secret Name، Ciphertext و Decrypted Material خصوصی می‌مانند.
+- Channel جدید به Target نیاز دارد؛ Updateهای بعدی می‌توانند Target را حذف کنند و Encrypted Target موجود را حفظ کنند.
+- PUT/DELETE از Same-Origin Protection موجود استفاده می‌کنند و Cross-PBX Scope به‌صورت Fail-closed عمل می‌کند.
+- حذف Channel، Encrypted Target Secret و همچنین Channel/Queue State آن را حذف می‌کند.
+- Task 36 هیچ DNS Resolution، URL Probe، Webhook Request، Delivery Worker Action یا External Network Contact انجام نمی‌دهد.
+- Task دقیق بعدی پس از Merge شدن Task 36: Task 37 — Deploy کردن Backend موجود و Bilingual Frontend UI روی voip-mon به‌عنوان Managed Same-Origin Service، با Private Local Deployment Configuration و بدون Real-PBX Access جدید مگر با تأیید جداگانه.
 
 ### ثبت خرابی و اشکال
 
@@ -308,6 +307,27 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - **محدودیت شناخته‌شده:** Transport عمداً فقط به Placeholder Contract نوع `WEBHOOK` محدود است؛ Transportهای اختصاصی Email/SMS/Chat مدل نشده‌اند.
 - **Task دقیق بعدی:** Task 36 فقط APIهای احرازشده و PBX-scoped برای Channel Configuration به‌همراه Encrypted Webhook-target Secret Management را اضافه می‌کند؛ External Sending همچنان خارج از Scope است.
 
+## 2026-09-26 — رکورد تکمیل Task 36
+
+- نتیجه: NotificationConfigurationService به‌همراه APIهای احرازشده و PBX-scoped برای list/get/put/delete در Notification Channel اضافه شد.
+- Secret Boundary: Webhook Target URL فقط از طریق SecretStore با AES-256-GCM ذخیره می‌شود و هرگز توسط API برگردانده نمی‌شود.
+- Validation Boundary: فقط HTTPS پذیرفته می‌شود؛ Embedded Credential/Fragment رد می‌شود؛ Input حداکثر 2048 کاراکتر است؛ هیچ Hostی resolve یا contact نمی‌شود.
+- Safe Projection: Response شامل Operational Metadata به‌علاوه hasTarget است و Target URL، Internal Secret Name، Ciphertext و Decrypted Material را حذف می‌کند.
+- Update Semantics: Create به Target نیاز دارد؛ Updateهای بعدی می‌توانند Encrypted Target موجود را بدون ارسال مجدد حفظ کنند.
+- Delete Semantics: حذف Channel، Encrypted Target Secret را حذف می‌کند و Foreign Keyهای Task 35 نیز Queue Rowها را حذف می‌کنند.
+- API Protection: Read نیازمند Authentication و Mutation نیازمند Authentication به‌علاوه Same-Origin Protection است.
+- Targeted Validation: Onboarding/API Suite با 6/6 PASS شامل Auth، Same-Origin Rejection، HTTPS-only Validation، Encrypted Secret Verification، عدم Leak URL/Internal Secret، Update بدون Target و Delete-secret Behavior بود.
+- سیستم واقعی: هیچ PBX واقعی یا External Notification Provider تماس داده نشد.
+
+### Failure / Bug / Gapهای Task 36
+
+- مسیر اشتباه SSH Configuration — رفع شد: Lookup اول از مسیر ناموجود System-metrics استفاده کرد؛ Service قابل‌استفاده واقعی backend/src/ssh/configuration.ts است.
+- پوشه Notification Service وجود نداشت — رفع شد: اولین File Write پیش از تغییر Project به‌دلیل نبود backend/src/notifications شکست خورد؛ Directory ساخته شد.
+- Initial API-test Insertion Anchor Mismatch — رفع شد: اولین Test Patch یک عنوان Test ناموجود را هدف گرفته بود؛ Anchor واقعی بررسی شد و سپس Targeted Suite پاس شد.
+- محدودیت شناخته‌شده: Task 36 فقط Webhook Target URL را مدل می‌کند؛ Provider-specific Auth Header، Bearer Token، Signing Secret، Certificate و Custom Payload Template مدل نشده‌اند.
+- محدودیت شناخته‌شده: HTTPS Syntax Validation ادعای Network Safety آینده نیست؛ Delivery Worker باید DNS/SSRF Policy، Redirect Policy، Timeout و Bounded Response را enforce کند.
+- Task دقیق بعدی: Task 37، Backend/Frontend UI موجود را روی voip-mon به‌عنوان Managed Same-Origin Service Deploy می‌کند؛ Deployment Valueها Private/Local می‌مانند و Real-PBX Access جدیدی مجاز نمی‌کنند.
+
 ### پروتکل ادامه مداوم
 
 برای هر کار/جلسه آینده:
@@ -334,7 +354,7 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - [ ] Phase 11: سخت شدن، تهیه نسخه پشتیبان، بازیابی آزمایش شده، و یک دفترچه راه اندازی تولید.
 - [ ] Phase 12: اعتبار سنجی انتشار، از جمله رویه استقرار تازه خنثی برای سازمان که می تواند بدون حمل مقادیر خصوصی از استقرار دیگر، روی یک سرویس جدید نصب شود.
 
-Phase 1 بسته است. بخش تعریف‌شده Security Monitoring در Phase 7 همچنان تا Task 34 کامل است. Task 35 فقط نخستین Foundation مربوط به Storage/Contract برای External Notification پس از Monitoring را اضافه می‌کند: Channel Metadata محدود، Queue State بدون Duplicate با وضعیت PENDING/CANCELLED، و بدون Delivery Runtime. Task دقیق بعدی پس از Merge شدن Task 35، **Task 36 — APIهای احرازشده و PBX-scoped برای Notification Channel Configuration به‌همراه مدیریت رمزگذاری‌شده Webhook Target Secret، بدون Delivery Worker یا تماس واقعی با External Provider.**
+Phase 1 بسته است. بخش تعریف‌شده Security Monitoring در Phase 7 همچنان تا Task 34 کامل است. Task 35 Storage/Contract مربوط به Notification را اضافه می‌کند و Task 36 Authenticated Channel Configuration و Encrypted Webhook Target Management را بدون فعال کردن Delivery اضافه کرده است. Task دقیق بعدی پس از Merge شدن Task 36، **Task 37 — Deploy کردن Backend موجود و Bilingual Frontend UI روی voip-mon به‌عنوان Managed Same-Origin Service، با Private Deployment Valueهای Local و بدون تماس جدید با PBX واقعی مگر با تأیید صریح.**
 
 ## 26-09-2026 - رکورد تکمیل Task 28
 
