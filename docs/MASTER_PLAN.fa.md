@@ -1,5 +1,6 @@
 <div dir="rtl">
-# Master Plan
+
+  # Master Plan
 
 وضعیت: 2026-09-26. Task 30 از طریق PR #32 به اصلی ادغام می شود. Task 31 پیکربندی قاعده Security Alert محدود و پایدار و ارزیابی Runtime / سیم‌کشی پایدار به صورت محلی در Runtime/قاعده-Security Alert-قاعده اجرا می‌شود. بدون External Notification Delivery گنجانده شده است.
 
