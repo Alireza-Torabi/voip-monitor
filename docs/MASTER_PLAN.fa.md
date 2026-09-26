@@ -19,31 +19,32 @@
 - [x] Task 25 تا 27: Security Event از AMI، Persistence و HTTP/SSE.
 - [x] Task 28: ارزیابی محدود و Fail-Closed قوانین Security Alert بدون External Delivery.
 - [x] Task 29: Persistence محدود Security Alert شامل History بدون Duplicate، Current State جدا برای هر Rule، Ordering بر اساس Stream در صورت وجود، Retention تراکنشی و Cascade با حذف PBX.
+- [x] Task 30: API احرازشده Current/History برای Security Alert و SSE محدود و PBX-scoped که فقط Alertهای جدید و واقعاً Persist‌شده را منتشر می‌کند؛ بدون External Notification Delivery.
 
 ## وضعیت فعلی Git و Handoff
 
-- Task 28 همراه اصلاحات مستندات از طریق PR #30 داخل `main` Merge شده است.
-- Branch فعلی: `feature/security-alert-persistence-boundary`
-- Task 29 به‌صورت Local پیاده‌سازی شده و هنوز Commit/Push/Merge نشده است.
-- Task 29 هیچ اتصال به PBX واقعی، Production Log یا سرویس Notification ایجاد نکرده است.
-- Task بعدی پس از Merge شدن Task 29: **Task 30 — ارائه API احرازشده Current/History برای Security Alert و Realtime محدود Alert، بدون External Notification Delivery.**
+- Task 29 از طریق PR #31 داخل `main` Merge شده است.
+- Branch فعلی: `feature/security-alert-api-realtime`
+- Task 30 به‌صورت Local پیاده‌سازی شده و هنوز Commit/Push/Merge نشده است.
+- هیچ PBX واقعی، Production Security Log، Webhook یا سرویس Notification در Task 30 استفاده نشده است.
+- Task بعدی پس از Merge شدن Task 30: **Task 31 — تعریف Persistent و Bounded برای Security Alert Rule Configuration و اتصال Runtime Evaluation به Persistence، بدون External Notification Delivery.**
 
-## Task 29 چه چیزی اضافه کرد؟
+## Task 30 چه چیزی اضافه کرد؟
 
-- Migration 9 با جدول‌های `security_alert_current` و `security_alert_history`.
-- Current State بر اساس ترکیب PBX و Rule نگهداری می‌شود تا Ruleها State یکدیگر را overwrite نکنند.
-- History با SHA-256 روی Identity محدود Alert، Duplicate-safe است.
-- Stream Generation/Sequence در صورت وجود برای تعیین Alert جدیدتر استفاده می‌شود؛ در غیر این صورت `observedAt` معیار است.
-- Prune کردن History داخل همان Transaction انجام می‌شود و Current State را حذف نمی‌کند.
-- رکورد Alert فقط Rule ID، زمان، تعداد Eventهای Matchشده و Ordering اختیاری را نگه می‌دارد؛ Raw AMI و Identity/Address ذخیره نمی‌شود.
+- `GET /api/pbx-instances/:id/security-alerts` برای Current Alertهای Persist‌شده به‌صورت مجموعه per-rule.
+- `GET /api/pbx-instances/:id/security-alerts/history` با بازه UTC اجباری و سقف 500 ردیف.
+- `GET /api/pbx-instances/:id/security-alerts/stream` با SSE احرازشده، Same-Origin، PBX Scope، Heartbeat و سقف 64 Stream همزمان.
+- Initial SSE Snapshot از Current State Persist‌شده ارسال می‌شود.
+- Realtime فقط بعد از Transaction موفق و فقط برای Alert جدیدی که History واقعاً Insert کرده باشد منتشر می‌شود؛ Duplicate Save دوباره Publish نمی‌شود.
+- Exception یک Listener بعد از Persistence، Storage را Rollback یا خراب نمی‌کند.
 
-## Failure و محدودیت Task 29
+## Failure و محدودیت Task 30
 
-- در Patch اولیه Migration 9، delimiter پایانی migration جا افتاد. علت، boundary اشتباه در اسکریپت Local جایگزینی متن بود. قبل از اجرای Gateهای کامل با inspection پیدا و اصلاح شد و تست Storage بعد از Fix پاس شد.
-- Rule Configuration هنوز Persist نمی‌شود.
-- Evaluator هنوز به‌صورت خودکار در Runtime اجرا و نتیجه Match را Persist نمی‌کند؛ Ownership این چرخه هنوز تعریف نشده است.
-- Alert API/SSE و External Notification هنوز وجود ندارند.
-- Dashboard Production و Backup/Restore کامل و آزموده‌شده هنوز باقی مانده‌اند.
+- در Patch اولیه Heartbeat SSE، Escape مربوط به newline اشتباه تولید شد و TypeScript string شکسته شد. Root Cause، escape handling در Local patch generator بود. قبل از Typecheck کامل اصلاح شد.
+- در Draft اولیه، هر `save()` می‌توانست Realtime publish کند حتی اگر History به‌دلیل Dedup تغییری نکرده باشد. این رفتار اصلاح شد و Publish فقط بعد از Insert واقعی و Commit موفق انجام می‌شود.
+- Task 30 هنوز Alert را خودکار تولید نمی‌کند؛ Persistent Rule Configuration و Runtime Ownership برای اجرای Evaluator هنوز وجود ندارد.
+- External Notification Delivery و Dashboard Alert Presentation هنوز پیاده نشده‌اند.
+- Telephony State هنوز Browser-facing API/Realtime ندارد.
 
 ## قاعده پایان هر Task
 

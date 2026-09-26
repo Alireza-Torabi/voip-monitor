@@ -102,8 +102,10 @@ export interface SecurityAlertRecord {
   streamGeneration?: number;
   streamSequence?: number;
 }
+export type SecurityAlertListener = (alert: SecurityAlertRecord) => void;
 export interface SecurityAlertRepository {
   save(alert: SecurityAlertRecord, retentionCutoff: string): void;
+  subscribe(listener: SecurityAlertListener): () => void;
   getCurrent(instanceId: string, ruleId: SecurityAlertRuleId): SecurityAlertRecord | undefined;
   listCurrent(instanceId: string): SecurityAlertRecord[];
   listHistory(instanceId: string, from: string, to: string, limit: number): SecurityAlertRecord[];
@@ -235,6 +237,7 @@ export class SqliteStorage implements AppStorage {
   readonly securityAlerts: SecurityAlertRepository;
   readonly secretRecords: EncryptedSecretRepository;
   private closed = false;
+  private readonly securityAlertListeners = new Set<SecurityAlertListener>();
 
   private constructor(private readonly db: DatabaseSync) {
     this.setup = {
@@ -613,23 +616,25 @@ export class SqliteStorage implements AppStorage {
         const alertJson = JSON.stringify(validated);
         const alertKey = securityAlertKey(validated);
         const now = new Date().toISOString();
+        let inserted = false;
         inTransaction(this.db, () => {
-          this.db
-            .prepare(
-              `INSERT INTO security_alert_history
-              (alert_key, pbx_instance_id, rule_id, observed_at, stream_generation, stream_sequence, alert_json)
-              VALUES (?, ?, ?, ?, ?, ?, ?)
-              ON CONFLICT(alert_key) DO NOTHING`,
-            )
-            .run(
-              alertKey,
-              validated.instanceId,
-              validated.ruleId,
-              validated.observedAt,
-              validated.streamGeneration ?? null,
-              validated.streamSequence ?? null,
-              alertJson,
-            );
+          inserted =
+            this.db
+              .prepare(
+                `INSERT INTO security_alert_history
+                (alert_key, pbx_instance_id, rule_id, observed_at, stream_generation, stream_sequence, alert_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(alert_key) DO NOTHING`,
+              )
+              .run(
+                alertKey,
+                validated.instanceId,
+                validated.ruleId,
+                validated.observedAt,
+                validated.streamGeneration ?? null,
+                validated.streamSequence ?? null,
+                alertJson,
+              ).changes > 0;
           const current = this.db
             .prepare(
               `SELECT observed_at, stream_generation, stream_sequence
@@ -669,6 +674,19 @@ export class SqliteStorage implements AppStorage {
             .prepare('DELETE FROM security_alert_history WHERE observed_at < ?')
             .run(retentionCutoff);
         });
+        if (inserted) {
+          for (const listener of this.securityAlertListeners) {
+            try {
+              listener(validated);
+            } catch {
+              // Alert consumers are isolated from persistence success.
+            }
+          }
+        }
+      },
+      subscribe: (listener) => {
+        this.securityAlertListeners.add(listener);
+        return () => this.securityAlertListeners.delete(listener);
       },
       getCurrent: (instanceId, ruleId) => {
         const row = this.db

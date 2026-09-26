@@ -229,8 +229,15 @@ test('security alert persistence is duplicate-safe, per-rule monotonic, retentio
       });
 
       const any = alert('AUTHENTICATION_FAILURE_ANY', '2026-09-26T10:00:00.000Z', 2, 10, 1);
+      let publications = 0;
+      const unsubscribe = storage.securityAlerts.subscribe(() => {
+        publications += 1;
+        throw new Error('synthetic listener failure');
+      });
       storage.securityAlerts.save(any, '2026-09-26T09:00:00.000Z');
       storage.securityAlerts.save(any, '2026-09-26T09:00:00.000Z');
+      unsubscribe();
+      assert.equal(publications, 1);
       assert.equal(
         storage.securityAlerts.listHistory(
           'alert-pbx',

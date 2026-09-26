@@ -432,6 +432,133 @@ test('system metrics API requires auth and exposes current/history', async () =>
     }
   }));
 
+test('security alerts API requires auth and exposes current/history', async () =>
+  fixture(async ({ config, storage, secrets, auth }) => {
+    const token = (
+      await readFile(join(config.secretDirectory, 'bootstrap-admin.token'), 'utf8')
+    ).trim();
+    await auth.createFirst('admin', 'synthetic admin passphrase', token);
+    const onboarding = new PbxOnboardingService(storage, secrets);
+    const profile = onboarding.create(profileInput(false));
+    storage.securityAlerts.save(
+      {
+        instanceId: profile.id,
+        ruleId: 'AUTHENTICATION_FAILURE_ANY',
+        observedAt: '2026-09-26T00:00:00.000Z',
+        matchedEventCount: 1,
+        streamGeneration: 2,
+        streamSequence: 3,
+      },
+      '2026-09-25T00:00:00.000Z',
+    );
+    const apiAuth = {
+      requiresSecureOrigin: false,
+      principal: function (token) {
+        return token === 'synthetic' ? { id: 'admin', username: 'admin' } : undefined;
+      },
+    };
+    const app = await serve(storage, secrets, apiAuth);
+    try {
+      const cookie = 'vm_session=synthetic';
+      assert.equal(
+        (await fetch(app.base + '/api/pbx-instances/' + profile.id + '/security-alerts')).status,
+        401,
+      );
+      const currentResponse = await fetch(
+        app.base + '/api/pbx-instances/' + profile.id + '/security-alerts',
+        { headers: { Cookie: cookie } },
+      );
+      assert.equal(currentResponse.status, 200);
+      const current = (await currentResponse.json()).current;
+      assert.equal(current.length, 1);
+      assert.equal(current[0].ruleId, 'AUTHENTICATION_FAILURE_ANY');
+      const history = await fetch(
+        app.base +
+          '/api/pbx-instances/' +
+          profile.id +
+          '/security-alerts/history?from=2026-09-25T23:00:00Z&to=2026-09-26T01:00:00Z&limit=10',
+        { headers: { Cookie: cookie } },
+      );
+      assert.equal(history.status, 200);
+      assert.equal((await history.json()).items.length, 1);
+      assert.equal(
+        (
+          await fetch(
+            app.base +
+              '/api/pbx-instances/' +
+              profile.id +
+              '/security-alerts/history?from=bad&to=2026-09-26T01:00:00Z&limit=10',
+            { headers: { Cookie: cookie } },
+          )
+        ).status,
+        400,
+      );
+    } finally {
+      await app.close();
+    }
+  }));
+
+test('security alert stream is authenticated, PBX-scoped, same-origin, and persistence-backed', async () =>
+  fixture(async ({ config, storage, secrets, auth }) => {
+    const token = (
+      await readFile(join(config.secretDirectory, 'bootstrap-admin.token'), 'utf8')
+    ).trim();
+    await auth.createFirst('admin', 'synthetic admin passphrase', token);
+    const onboarding = new PbxOnboardingService(storage, secrets);
+    const profile = onboarding.create(profileInput(false));
+    const other = onboarding.create(profileInput(false));
+    const apiAuth = {
+      requiresSecureOrigin: false,
+      principal: function (token) {
+        return token === 'synthetic' ? { id: 'admin', username: 'admin' } : undefined;
+      },
+    };
+    const app = await serve(storage, secrets, apiAuth);
+    try {
+      const cookie = 'vm_session=synthetic';
+      const forbidden = await fetch(
+        app.base + '/api/pbx-instances/' + profile.id + '/security-alerts/stream',
+        { headers: { Cookie: cookie, origin: 'https://evil.example' } },
+      );
+      assert.equal(forbidden.status, 403);
+      const response = await fetch(
+        app.base + '/api/pbx-instances/' + profile.id + '/security-alerts/stream',
+        { headers: { Cookie: cookie, origin: app.base } },
+      );
+      assert.equal(response.status, 200);
+      assert.match(response.headers.get('content-type') ?? '', /text\/event-stream/);
+      const reader = response.body.getReader();
+      assert.match(new TextDecoder().decode((await reader.read()).value), /event: security-alert/);
+
+      storage.securityAlerts.save(
+        {
+          instanceId: other.id,
+          ruleId: 'AUTHENTICATION_FAILURE_ANY',
+          observedAt: '2026-09-26T00:01:00.000Z',
+          matchedEventCount: 1,
+        },
+        '2026-09-25T00:00:00.000Z',
+      );
+      storage.securityAlerts.save(
+        {
+          instanceId: profile.id,
+          ruleId: 'AUTHENTICATION_FAILURE_THRESHOLD',
+          observedAt: '2026-09-26T00:02:00.000Z',
+          matchedEventCount: 4,
+          streamGeneration: 3,
+          streamSequence: 5,
+        },
+        '2026-09-25T00:00:00.000Z',
+      );
+      const streamed = new TextDecoder().decode((await reader.read()).value);
+      assert.match(streamed, /AUTHENTICATION_FAILURE_THRESHOLD/);
+      assert.doesNotMatch(streamed, new RegExp(other.id));
+      await reader.cancel();
+    } finally {
+      await app.close();
+    }
+  }));
+
 test('security events API requires auth and exposes current/history', async () =>
   fixture(async ({ config, storage, secrets, auth }) => {
     const token = (

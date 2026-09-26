@@ -2,7 +2,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { AuthService } from './auth/index.js';
 import { OnboardingInputError, PbxOnboardingService } from './onboarding/index.js';
 import { log } from './logger.js';
-import type { AppStorage } from './storage/index.js';
+import type { AppStorage, SecurityAlertRecord } from './storage/index.js';
 import type { SecretStore } from './security/secret-store.js';
 import { ProviderRuntimeError, type ProviderRuntimeManager } from './providers/runtime/index.js';
 import type {
@@ -97,6 +97,7 @@ export function createApp(
   const limiter = new AttemptLimiter();
   const metricsStreams = new Set<ServerResponse>();
   const securityStreams = new Set<ServerResponse>();
+  const securityAlertStreams = new Set<ServerResponse>();
   const onboarding =
     storage && secrets
       ? new PbxOnboardingService(
@@ -224,6 +225,64 @@ export function createApp(
           metricsStreams.delete(response);
           unsubscribeSample();
           unsubscribeHealth();
+        });
+        return;
+      }
+
+      const securityAlertAction = path.match(
+        /^\/api\/pbx-instances\/([^/]+)\/security-alerts(\/history|\/stream)?$/,
+      );
+      if (securityAlertAction) {
+        if (!auth || !storage || !auth.principal(sessionToken(request)))
+          return send(response, 401, { error: 'unauthorized' });
+        const id = securityAlertAction[1]!;
+        const action = securityAlertAction[2] ?? '';
+        if (!onboarding?.get(id)) return send(response, 404, { error: 'not_found' });
+        if (request.method !== 'GET') return send(response, 404, { error: 'not_found' });
+        const url = new URL(request.url ?? '/', 'http://localhost');
+        if (action === '') {
+          return send(response, 200, {
+            current: storage.securityAlerts.listCurrent(id),
+          });
+        }
+        if (action === '/history') {
+          const from = iso(url.searchParams.get('from'));
+          const to = iso(url.searchParams.get('to'));
+          if (!from || !to || from > to) return send(response, 400, { error: 'invalid_range' });
+          const rawLimit = url.searchParams.get('limit') ?? '100';
+          const limit = Number(rawLimit);
+          if (!Number.isSafeInteger(limit) || limit < 1 || limit > 500)
+            return send(response, 400, { error: 'invalid_limit' });
+          return send(response, 200, {
+            items: storage.securityAlerts.listHistory(id, from, to, limit),
+          });
+        }
+        if (!sameOrigin(request, auth.requiresSecureOrigin))
+          return send(response, 403, { error: 'forbidden' });
+        if (securityAlertStreams.size >= 64)
+          return send(response, 429, { error: 'too_many_requests' });
+        response.writeHead(200, {
+          'content-type': 'text/event-stream; charset=utf-8',
+          'cache-control': 'no-cache, no-store',
+          connection: 'keep-alive',
+        });
+        writeSse(response, 'security-alert', {
+          current: storage.securityAlerts.listCurrent(id),
+        });
+        const onAlert = (alert: SecurityAlertRecord) => {
+          if (alert.instanceId === id && !response.destroyed)
+            writeSse(response, 'security-alert', { alert });
+        };
+        securityAlertStreams.add(response);
+        const unsubscribe = storage.securityAlerts.subscribe(onAlert);
+        const heartbeat = setInterval(() => {
+          if (response.destroyed) clearInterval(heartbeat);
+          else response.write(': heartbeat\n\n');
+        }, 15_000);
+        request.on('close', () => {
+          clearInterval(heartbeat);
+          securityAlertStreams.delete(response);
+          unsubscribe();
         });
         return;
       }

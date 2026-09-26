@@ -261,3 +261,13 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 163. **Monotonic current ordering:** when both stored and incoming alerts carry provider stream ordering, generation and then sequence determine freshness; otherwise normalized observation time is the fallback.
 164. **Transactional retention and cascade:** history insert, current advancement, and retention pruning occur inside one SQLite transaction. History pruning never removes current state, and PBX deletion cascades current/history alert rows.
 165. **Task 29 phase boundary:** no persistent rule configuration, evaluator scheduling/runtime ownership, alert HTTP/SSE exposure, webhook/notification delivery, dashboard UI, or production-system compatibility claim is added. Next task is Task 30 for authenticated PBX-scoped alert current/history APIs and bounded realtime alert delivery without external notification delivery.
+
+
+## 2026-09-26 — Phase 7 Task 30 security-alert API/realtime decisions
+
+166. **Authenticated alert boundary:** security-alert current/history endpoints require the existing authenticated principal and an existing PBX instance. Unauthenticated requests receive the generic authorization response and nonexistent PBX instances remain not-found after authentication.
+167. **Current and history contracts:** current returns the PBX-scoped per-rule current alert set. History requires normalized UTC from/to bounds, from not later than to, and a maximum 500-row limit.
+168. **Persistence-backed realtime:** alert SSE subscribes to the alert repository's post-commit publication boundary. Only a newly inserted deduplicated history alert is published; a duplicate no-op save is not republished.
+169. **Realtime safety bounds:** stream establishment is same-origin protected, PBX scoped, concurrent alert streams are capped at 64 per process, a 15-second heartbeat is used, and disconnects remove listener registration and stream accounting.
+170. **Failure isolation:** alert listener exceptions are swallowed after persistence succeeds so a browser/realtime consumer can never roll back or break storage.
+171. **Task 30 phase boundary:** persistent rule configuration, evaluator runtime scheduling/ownership, external notification delivery, dashboard UI, broader security sources, and production-system compatibility remain future work. Next task is Task 31 for persistent bounded rule configuration and runtime evaluation/persistence wiring without external notification delivery.

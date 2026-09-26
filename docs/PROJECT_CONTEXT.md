@@ -1,10 +1,10 @@
 # Project context
 
-Status: Phase 7 Task 29 is implemented locally on feature/security-alert-persistence-boundary as of 2026-09-26 after Task 28 merged through PR #30. The backend has normalized Asterisk AMI authentication-security events, PBX-scoped security event persistence/API/SSE, bounded fail-closed alert evaluation, and PBX-scoped alert current/history persistence with deterministic deduplication and per-rule monotonic current state. Alert APIs/realtime delivery, persistent rule configuration/execution ownership, external notification delivery, dashboard UI, and broader security sources remain future work. License: Apache-2.0.
+Status: Phase 7 Task 30 is implemented locally on feature/security-alert-api-realtime as of 2026-09-26 after Task 29 merged through PR #31. The backend has normalized AMI authentication-security events, security-event persistence/API/SSE, bounded alert evaluation, alert current/history persistence, and authenticated PBX-scoped alert current/history API plus persistence-backed SSE. Persistent rule configuration/runtime evaluation ownership, external notification delivery, dashboard UI, and broader security sources remain future work. License: Apache-2.0.
 
 ## Repository state
 
-The public repository tracks origin/main; Task 28 and its documentation reconciliation are merged through PR #30. The current branch adds migration 9 and SecurityAlertRepository on top of the normalized security-event/evaluator boundary. Alert current state is keyed by PBX + rule, history is duplicate-safe by bounded alert identity, source stream ordering is preferred for monotonic advancement when available, retention pruning is transactional, and PBX deletion cascades alert rows. No rule configuration persistence, automatic evaluator runtime wiring, alert API/SSE, external delivery, or real-system access is introduced by Task 29.
+The public repository tracks origin/main; Task 29 is merged through PR #31. The current branch exposes only bounded persisted SecurityAlertRecord values through authenticated PBX-scoped current/history APIs and a same-origin SSE stream. Realtime publication occurs only after a successful new deduplicated alert persistence transaction; duplicate save attempts do not republish, and listener failures are isolated. No persistent rule configuration, automatic evaluator runtime wiring, external notification delivery, or real-system access is introduced by Task 30.
 
 ## Product constraints
 
@@ -37,3 +37,7 @@ Known gap: the repository has independent evaluator smoke validation, but a dedi
 ## Task 29 — security alert persistence/current state
 
 Task 29 adds PBX-scoped alert current/history storage only. Supported alert records are restricted to the two Task 28 rule IDs, bounded matched-event counts, normalized timestamps, and optional provider stream ordering. Current state is independent per rule, history is deterministic and duplicate-safe, retention is bounded, and current state survives history pruning. No automatic evaluation scheduling, alert delivery, PBX mutation, production log access, or real-PBX compatibility claim is part of this task.
+
+## Task 30 — security alert API/realtime
+
+Task 30 exposes persisted alert state only. Current state is returned as the PBX's per-rule current alert set. History uses explicit UTC bounds and a maximum 500 rows. The SSE stream sends the persisted current snapshot and subsequent successfully persisted nonduplicate alerts, is same-origin protected, PBX scoped, heartbeat bounded, and capped at 64 concurrent streams. No external notification target, PBX mutation, production log access, or automatic rule execution is part of this task.
