@@ -186,4 +186,17 @@ export const migrations = [
         ON security_alert_history(pbx_instance_id, observed_at);
     `,
   },
+  {
+    version: 10,
+    name: 'security_alert_rule_configuration',
+    sql: `
+      CREATE TABLE security_alert_rule_config (
+        pbx_instance_id TEXT NOT NULL REFERENCES pbx_instance(id) ON DELETE CASCADE,
+        rule_id TEXT NOT NULL CHECK (rule_id IN ('AUTHENTICATION_FAILURE_ANY', 'AUTHENTICATION_FAILURE_THRESHOLD')),
+        rule_json TEXT NOT NULL CHECK (json_valid(rule_json)),
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (pbx_instance_id, rule_id)
+      ) STRICT;
+    `,
+  },
 ] as const;

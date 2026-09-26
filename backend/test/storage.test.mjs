@@ -38,10 +38,10 @@ test('fresh database migrates once and persists setup and PBX metadata across re
     assert.equal(first.setup.get().state, 'SETUP_REQUIRED');
     assert.deepEqual(first.pbxInstances.list(), []);
     const history = first.migrationHistory();
-    assert.equal(history.length, 9);
+    assert.equal(history.length, 10);
     assert.deepEqual(
       history.map((row) => row.version),
-      [1, 2, 3, 4, 5, 6, 7, 8, 9],
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
     );
     assert.match(history[0].checksum, /^[a-f0-9]{64}$/);
     first.setup.set('SETUP_IN_PROGRESS');
@@ -205,6 +205,66 @@ test('security event persistence is duplicate-safe, monotonic, and retention-saf
         storage.securityEvents.getCurrent('security-pbx').observedAt,
         '2026-09-26T10:02:00.000Z',
       );
+    } finally {
+      storage.close();
+    }
+  }));
+
+test('security alert rule configuration is bounded, persistent, replaceable, and cascades', () =>
+  fixture(async (config) => {
+    const storage = await SqliteStorage.open(config);
+    try {
+      storage.pbxInstances.save({
+        id: 'rule-pbx',
+        providerType: 'ASTERISK',
+        displayName: 'Rules',
+      });
+      storage.securityAlertRules.put({
+        instanceId: 'rule-pbx',
+        id: 'AUTHENTICATION_FAILURE_ANY',
+        enabled: true,
+      });
+      storage.securityAlertRules.put({
+        instanceId: 'rule-pbx',
+        id: 'AUTHENTICATION_FAILURE_THRESHOLD',
+        enabled: true,
+        threshold: 3,
+        windowSeconds: 60,
+        reason: 'INVALID_PASSWORD',
+      });
+      assert.equal(storage.securityAlertRules.list('rule-pbx').length, 2);
+      assert.equal(
+        storage.securityAlertRules.get('rule-pbx', 'AUTHENTICATION_FAILURE_THRESHOLD').threshold,
+        3,
+      );
+      storage.securityAlertRules.put({
+        instanceId: 'rule-pbx',
+        id: 'AUTHENTICATION_FAILURE_THRESHOLD',
+        enabled: false,
+        threshold: 5,
+        windowSeconds: 120,
+      });
+      assert.equal(
+        storage.securityAlertRules.get('rule-pbx', 'AUTHENTICATION_FAILURE_THRESHOLD').threshold,
+        5,
+      );
+      assert.throws(
+        () =>
+          storage.securityAlertRules.put({
+            instanceId: 'rule-pbx',
+            id: 'AUTHENTICATION_FAILURE_THRESHOLD',
+            enabled: true,
+            threshold: 0,
+            windowSeconds: 60,
+          }),
+        StorageError,
+      );
+      assert.equal(
+        storage.securityAlertRules.delete('rule-pbx', 'AUTHENTICATION_FAILURE_ANY'),
+        true,
+      );
+      storage.pbxProfiles.delete('rule-pbx');
+      assert.deepEqual(storage.securityAlertRules.list('rule-pbx'), []);
     } finally {
       storage.close();
     }
