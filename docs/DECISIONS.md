@@ -262,7 +262,6 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 164. **Transactional retention and cascade:** history insert, current advancement, and retention pruning occur inside one SQLite transaction. History pruning never removes current state, and PBX deletion cascades current/history alert rows.
 165. **Task 29 phase boundary:** no persistent rule configuration, evaluator scheduling/runtime ownership, alert HTTP/SSE exposure, webhook/notification delivery, dashboard UI, or production-system compatibility claim is added. Next task is Task 30 for authenticated PBX-scoped alert current/history APIs and bounded realtime alert delivery without external notification delivery.
 
-
 ## 2026-09-26 — Phase 7 Task 30 security-alert API/realtime decisions
 
 166. **Authenticated alert boundary:** security-alert current/history endpoints require the existing authenticated principal and an existing PBX instance. Unauthenticated requests receive the generic authorization response and nonexistent PBX instances remain not-found after authentication.
@@ -281,3 +280,12 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 176. **No duplicate provider subscription side effects:** the previous standalone event-persistence subscription is replaced by SecurityAlertRuntime rather than retained in parallel.
 177. **Task 31 phase boundary:** no authenticated rule-configuration mutation API/UI, external notification delivery, broader rule/source family, or production-system compatibility claim is added. Next task is Task 32 for authenticated PBX-scoped rule-configuration APIs only.
 178. **Bilingual master-plan invariant:** docs/MASTER_PLAN.fa.md must remain a complete Persian translation of docs/MASTER_PLAN.md with the same structure and content; summary-only divergence is not allowed.
+
+## 2026-09-26 — Phase 7 Task 32 alert-rule API decisions
+
+179. **Authenticated configuration boundary:** alert-rule configuration APIs require the existing authenticated principal and an existing PBX instance.
+180. **Path-owned scope:** PBX instance ID and rule ID come only from the URL. Bodies containing `instanceId` or `id` are rejected rather than allowed to redirect mutation scope.
+181. **Bounded mutation contract:** only PUT and DELETE mutate one allowlisted rule. Mutations require same-origin protection; no bulk replace or implicit default creation is introduced.
+182. **Rule validation parity:** API validation preserves the Task 28/31 rule allowlist, threshold 1–100, window 1–3600 seconds, failure-reason allowlist, and rejection of unexpected fields.
+183. **Read contract:** list returns only configured rules for one PBX; single-rule GET returns not-found when the allowlisted rule has no configuration. Unknown rule IDs are not exposed as configurable resources.
+184. **Task 32 phase boundary:** no external notification delivery, broader security source/rule family, or browser UI is added. Next task is Task 33 for the first authenticated security-monitoring UI over the existing bounded alert/rule APIs.

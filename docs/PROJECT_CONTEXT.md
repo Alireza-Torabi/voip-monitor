@@ -1,10 +1,10 @@
 # Project context
 
-Status: Phase 7 Task 31 is implemented locally on feature/security-alert-rule-runtime as of 2026-09-26 after Task 30 merged through PR #32. The backend now has normalized AMI authentication-security events, event persistence/API/SSE, bounded alert evaluation, alert persistence/API/SSE, persistent bounded PBX-scoped rule configuration, and application-owned runtime evaluation/persistence wiring. Authenticated rule-configuration API/UI, external notification delivery, dashboard UI, and broader security sources remain future work. License: Apache-2.0.
+Status: Phase 7 Task 32 is implemented locally on feature/security-alert-rule-api as of 2026-09-26 after Task 31 merged through PR #33. The backend now has normalized AMI authentication-security events, event persistence/API/SSE, bounded alert evaluation, alert persistence/API/SSE, persistent bounded PBX-scoped rule configuration, application-owned runtime evaluation/persistence wiring, and authenticated bounded rule-configuration APIs. Security-monitoring UI, external notification delivery, dashboard expansion, and broader security sources remain future work. License: Apache-2.0.
 
 ## Repository state
 
-The public repository tracks origin/main; Task 30 is merged through PR #32. The current branch adds migration 10, bounded PBX-scoped alert-rule configuration, and SecurityAlertRuntime. The runtime persists normalized events before evaluation, loads only persisted rules for that PBX, skips disabled rules, and persists only matches. No default rule is silently enabled, no external notification delivery exists, and no real-system access is introduced by Task 31.
+The public repository tracks origin/main; Task 31 is merged through PR #33. The current branch adds authenticated PBX-scoped security-alert rule configuration list/get/put/delete APIs. Mutation scope is path-owned and same-origin protected; request bodies cannot override PBX/rule identity, validation preserves existing bounded rule shapes, and no default rule or external notification is introduced.
 
 ## Product constraints
 
