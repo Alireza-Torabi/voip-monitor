@@ -4,6 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App, FirstAdminForm, LoginForm, PbxWorkspace } from '../src/App.js';
 import { SecurityWorkspace } from '../src/SecurityWorkspace.js';
+import { OperatorDashboard } from '../src/OperatorDashboard.js';
 import { messages } from '../src/i18n.js';
 
 type TestResponse = { ok: boolean; status: number; json: () => Promise<object> };
@@ -391,5 +392,87 @@ describe('security monitoring workspace', () => {
     });
     expect(container.textContent).toContain('Matched events: 4');
     expect(container.querySelectorAll('.security-alerts li')).toHaveLength(2);
+  });
+});
+
+describe('operator dashboard', () => {
+  const profile = {
+    id: 'dashboard-pbx',
+    displayName: 'Dashboard PBX',
+    providerType: 'ASTERISK',
+    enabled: true,
+    amiHost: 'pbx.example.test',
+    amiPort: 5038,
+    amiUsername: 'synthetic-user',
+    hasAmiPassword: true,
+    connectionStatus: 'CONNECTED',
+    createdAt: '',
+    updatedAt: '',
+  } as const;
+
+  it('summarizes existing provider, metrics, alert, and realtime boundaries', async () => {
+    class FakeEventSource {
+      onopen: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      constructor(readonly url: string) {}
+      addEventListener() {}
+      close() {}
+    }
+    vi.stubGlobal('EventSource', FakeEventSource);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string) => {
+        if (path === '/api/pbx-instances/dashboard-pbx/provider-status') {
+          return response({
+            connectionStatus: 'CONNECTED',
+            managed: true,
+            networkEnabled: true,
+          });
+        }
+        if (path === '/api/pbx-instances/dashboard-pbx/system-metrics') {
+          return response({
+            current: {
+              instanceId: 'dashboard-pbx',
+              source: 'SSH',
+              observedAt: '2026-10-05T04:00:00.000Z',
+              cpu: { utilizationPercent: 12.5 },
+              memory: { totalBytes: 8589934592, availableBytes: 6442450944 },
+              uptime: { uptimeSeconds: 90000 },
+            },
+            source: {
+              instanceId: 'dashboard-pbx',
+              health: { source: 'SSH', freshness: 'CURRENT' },
+              consecutiveFailures: 0,
+            },
+          });
+        }
+        if (path === '/api/pbx-instances/dashboard-pbx/security-alerts') {
+          return response({
+            current: [
+              {
+                instanceId: 'dashboard-pbx',
+                ruleId: 'AUTHENTICATION_FAILURE_ANY',
+                observedAt: '2026-10-05T04:00:00.000Z',
+                matchedEventCount: 1,
+              },
+            ],
+          });
+        }
+        throw new Error('unexpected API route: ' + path);
+      }),
+    );
+
+    await act(async () =>
+      root.render(
+        <OperatorDashboard text={messages.en} profiles={[profile]} onUnauthorized={() => {}} />,
+      ),
+    );
+
+    expect(container.textContent).toContain('Operator dashboard');
+    expect(container.textContent).toContain('Connected');
+    expect(container.textContent).toContain('12.5%');
+    expect(container.textContent).toContain('2.0 GiB / 8.0 GiB');
+    expect(container.textContent).toContain('1d 1h');
+    expect(container.textContent).toContain('Current security alerts');
   });
 });

@@ -47,6 +47,43 @@ export interface SecurityAlertRecord {
   streamSequence?: number;
 }
 
+export type DataFreshnessState = 'NEVER_COLLECTED' | 'CURRENT' | 'STALE' | 'UNAVAILABLE' | 'ERROR';
+
+export interface DataSourceHealth {
+  source: 'SSH';
+  freshness: DataFreshnessState;
+  lastAttempt?: string;
+  lastSuccess?: string;
+  lastUpdate?: string;
+  error?: { code: string };
+}
+
+export interface SystemMetricsSample {
+  instanceId: string;
+  source: 'SSH';
+  observedAt: string;
+  cpu?: { utilizationPercent: number };
+  memory?: { totalBytes: number; availableBytes: number };
+  uptime?: { uptimeSeconds: number };
+}
+
+export interface SystemMetricsSourceStatus {
+  instanceId: string;
+  health: DataSourceHealth;
+  consecutiveFailures: number;
+}
+
+export interface SystemMetricsResponse {
+  current: SystemMetricsSample | null;
+  source?: SystemMetricsSourceStatus;
+}
+
+export interface ProviderStatus {
+  connectionStatus: PbxConnectionState;
+  managed: boolean;
+  networkEnabled: boolean;
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -84,6 +121,11 @@ export const api = {
   me: () => request<Principal>('/auth/me'),
   logout: () => request<{ status: string }>('/auth/logout', 'POST'),
   listPbx: () => request<{ items: PbxProfile[] }>('/api/pbx-instances'),
+  providerStatus: (id: string) =>
+    request<ProviderStatus>(`/api/pbx-instances/${id}/provider-status`),
+  systemMetrics: (id: string) =>
+    request<SystemMetricsResponse>(`/api/pbx-instances/${id}/system-metrics`),
+  systemMetricsStreamUrl: (id: string) => `/api/pbx-instances/${id}/system-metrics/stream`,
   createPbx: (value: object) => request<PbxProfile>('/api/pbx-instances', 'POST', value),
   updatePbx: (id: string, value: object) =>
     request<PbxProfile>(`/api/pbx-instances/${id}`, 'PATCH', value),

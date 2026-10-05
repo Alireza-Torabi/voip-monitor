@@ -1,6 +1,6 @@
 # Master Plan
 
-وضعیت: 2026-09-26. Task 37 از طریق PR #40 داخل main Merge شده است. OS-level Systemd Persistence و Reboot Recovery در Task 38 روی feature/os-persistence-tls-recovery پیاده‌سازی شده‌اند. Service پس از Reboot واقعی به‌صورت خودکار Recover شد؛ Operator موقتاً Self-Signed TLS را صریحاً پذیرفت و UFW Host غیرفعال است، نه Restrictive.
+وضعیت: 2026-10-05. Task 38 داخل main Merge شده است. Task 39 روی feature/operator-dashboard کامل شده و Merge آن به main هنوز Pending است. اولین داشبورد دوزبانه اپراتور فقط از Boundaryهای Authenticated و Read-only موجود برای Provider Status، System Metrics و Security Alerts استفاده می‌کند؛ هیچ PBX Action یا مسیر Collection جدیدی اضافه نشده است.
 
 ## Phase 0 - کشف محیط
 
@@ -76,19 +76,26 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - [x] Task 36: APIهای احرازشده و PBX-scoped برای list/get/put/delete در Notification Channel و Encrypted HTTPS Webhook Target Secret Management با Same-Origin Protection اضافه شدند؛ بدون افشای Target/Internal Secret، Delivery Worker یا تماس خارجی.
 - [x] Task 37: Built Bilingual Frontend و Backend به‌صورت Same-Origin HTTPS Stack روی Monitoring Host با Private Local Runtime Configuration، Loopback-only Backend Exposure، Managed Local Launcher و Generic Tracked Systemd Unit Deploy شدند؛ Live UI/Health/Readiness PASS شد.
 - [x] Task 38: OS-level Systemd Service نصب و Enable شد، Runtime Node/Data/TLS از Private Toolchain Pathها جدا شد، Live HTTPS/Health/Readiness پس از Reboot واقعی Host Validate شد، Scope فعلی Read-only PBX Monitoring حفظ شد و Explicit Temporary Self-Signed TLS Exception اضافه شد؛ Firewall Host Restrictive نیست چون UFW غیرفعال است.
+- [x] Task 39: اولین Bilingual Operator Dashboard فقط با APIهای Authenticated و Read-only موجود برای PBX/Provider، System Metrics و Security Alerts اضافه شد. داشبورد شامل PBX Selection، Provider Connection Summary با Polling محدود Local Status، System-metric Summary، Realtime SSE Health، Current Security-alert Count و Navigation به مدیریت PBX/Security است. هیچ PBX Write Action، Collector جدید یا Backend Network Path جدیدی اضافه نشده است.
 
 ### وضعیت فعلی ادامه کار
 
-- Branch فعلی `feature/os-persistence-tls-recovery` است که پس از Merge شدن Task 37 با PR #40 از `main` همگام‌شده ساخته شده است.
-- Task 38 به‌صورت Local و روی Monitoring Host مجاز کامل است. `voip-monitor.service` با Service Account اختصاصی `voip-monitor` نصب، Enabled و Active است.
-- Production Node Runtime دیگر از `.local` خوانده نمی‌شود؛ Systemd از Public Runtime Path تعیین‌شده با `VOIP_MONITOR_NODE_BIN` استفاده می‌کند. Persistent Application Data در Production Data Directory متعلق به Service قرار دارد.
-- Reboot واقعی Host انجام شد. بدون هیچ Manual Start پس از Boot، Systemd سرویس را خودکار Recover کرد؛ Backend Health/Ready شد، Bilingual UI Root Render شد، Backend فقط Loopback باقی ماند و HTTPS Gateway روی Browser-facing Port بالا آمد.
-- Operator استفاده موقت از Self-Signed Certificate فعلی را صریحاً پذیرفت. Installer همچنان Self-Signed TLS را به‌صورت Default رد می‌کند و فقط با `--allow-self-signed` آن را می‌پذیرد.
-- طبق خروجی Operator، UFW قبل از Reboot غیرفعال بود. دسترسی HTTPS پس از Reboot Reachability را ثابت می‌کند، اما Host Firewall Policy محدودکننده‌ای در حال حاضر Enforce نمی‌شود.
-- Scope تأییدشده PBX همچنان Monitoring محدود و Read-only است؛ Task 38 آن را گسترش نداد و هیچ PBX Configuration Write انجام نشد.
-- Task دقیق بعدی پس از Merge شدن Task 38: **Task 39 — ساخت اولین Bilingual Operator Dashboard واقعی فقط با APIهای Safe موجود: خلاصه PBX/Provider Connection، Live-update State، Current System-metric Summary و Security-alert Summary/Navigation؛ بدون PBX Action جدید یا Data Collection گسترده‌تر.**
+- Branch فعلی `feature/operator-dashboard` است که پس از تأیید وجود Task 38 در `origin/main` از `main` همگام‌شده ساخته شد.
+- پیاده‌سازی و Validation مربوط به Task 39 روی این Branch کامل است؛ Merge به main هنوز Pending است.
+- داشبورد Authenticated و دوزبانه فقط از Boundaryهای Safe موجود استفاده می‌کند: Local Provider Status، Current System Metrics به‌همراه Metrics SSE، و Current Persisted Security Alerts به‌همراه Alert SSE.
+- وضعیت اتصال Provider هر ۱۵ ثانیه از Endpoint محلی موجود `provider-status` Refresh می‌شود؛ این کار PBX Probe یا Connection جدید ایجاد نمی‌کند.
+- داشبورد هیچ Backend Route، PBX Write Action، Credential Exposure، Collector یا Data Collection Scope گسترده‌تری اضافه نمی‌کند.
+- در پیاده‌سازی یا Validation Task 39 هیچ PBX واقعی Access نشد.
+- Task دقیق بعدی پس از Merge شدن Task 39: **Task 40 — ارائه `TelephonyStateEngine` موجود از طریق APIهای Authenticated، PBX-scoped، Bounded و Read-only برای Current State و Realtime، بدون PBX Connection یا Write Action جدید.**
 
 ### ثبت خرابی و اشکال
+
+- **Task 39 Remote-wrapper Quoting Failure — رفع شد:** اولین Command افزودن Test به‌دلیل Nested Template Literal در Remote Wrapper Parse نشد. هیچ File ناقصی نوشته نشد؛ Command با Quoting امن بازنویسی شد.
+- **Task 39 Frontend Typecheck Failure — رفع شد:** SSE Reducer مقدار Explicit `undefined` را به Exact Optional Property می‌داد. Fix: Property غایب Omit می‌شود. Frontend Typecheck و 15/15 Test PASS شدند.
+- **Task 39 Formatting Drift — رفع شد:** Prettier فایل‌های Dashboard/API/Test را Normalize کرد.
+- **Task 39 Full-gate Backend Test Failure — رفع شد:** Full Test Suite ابتدا یک Assertion قدیمی System-metrics Runtime را Fail کرد، چون Synthetic Sample تاریخ ثابت 2026-09-25 داشت ولی Runtime Retention با Clock واقعی، History قدیمی‌تر از ۷ روز را Prune می‌کند. Root Cause یک Date-dependent Test Fixture بود، نه Runtime Behavior یا Backend Change مربوط به Task 39. Fix: Sample Window به یک Current-time Base مشترک در سطح Module متصل شد و History Query Bounds از همان Base ساخته شدند. Targeted Runtime Test سپس 3/3 PASS شد.
+- **محدودیت شناخته‌شده Task 39:** Telephony Current State هنوز API مرورگر ندارد، پس Active Call/Channel/Endpoint/Trunk/Queue/Agent Interaction در Dashboard نمایش داده نمی‌شود.
+- **محدودیت شناخته‌شده Task 39:** Provider Status Stream ندارد و با Polling محدود ۱۵ ثانیه‌ای Local Status Refresh می‌شود؛ Metrics و Alerts از SSE موجود استفاده می‌کنند.
 
 - **Task 9 CI — رفع شد:** قانون `.gitignore` اصلی `runtime/` با هر دایرکتوری به نام `runtime` از جمله `backend/src/providers/runtime/` مطابقت داشت. منبع مدیر Runtime به صورت محلی وجود داشت اما نادیده گرفته شد/ردیابی نشد، بنابراین بررسی تایپ محلی انجام شد در حالی که پرداخت GitHub تمیز در Typecheck ناموفق بود زیرا ماژول وارد شده وجود نداشت. رفع: قاعده Runtime-داده را به صورت `/runtime/` لنگر بزنید، `backend/src/providers/runtime/index.ts` را ردیابی کنید، و جستجوگر پایه را محدود کنید تا فقط دایرکتوری های خصوصی/Runtime سطح بالا رد شوند. سپس Gate‌های محلی کامل عبور کردند و هر دو بررسی GitHub Actions به پایان رسید.
 - ** خرابی اعتبارسنجی Task 10 — برطرف شد: ** اولین Gate پر لینت ناموفق بود زیرا آزمایش رویداد Node جدید به `Buffer` بدون وارد کردن صریح `node:buffer` در محیط ESLint مخزن ارجاع داد. واردات اضافه شد و مجموعه کامل دروازه با موفقیت مجدد اجرا شد.
@@ -376,6 +383,27 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - **محدودیت شناخته‌شده:** Host Firewall Enforcement محدودکننده نیست؛ اگر Segmentation لازم باشد، Hardening بعدی باید Source CIDRها را تعریف و در Host یا Upstream Firewall Enforce کند.
 - **Task دقیق بعدی:** Task 39 اولین Bilingual Operator Dashboard را فقط از APIهای Safe موجود می‌سازد، بدون PBX Write Action یا Collection Scope جدید.
 
+## 2026-10-05 — رکورد تکمیل Task 39
+
+- **نتیجه:** اولین Bilingual Operator Dashboard واقعی روی `feature/operator-dashboard` پیاده‌سازی شد.
+- **APIهای موجود:** فقط `provider-status`، Current System Metrics، System-metrics SSE، Current Security Alerts و Security-alert SSE مصرف می‌شوند؛ Backend Route جدیدی اضافه نشد.
+- **خلاصه اپراتور:** PBX Selector، Provider Connection State، Live-update Health، CPU، Memory، Uptime، Current Security-alert Count و Navigation به Workspaceهای PBX/Security.
+- **Freshness:** Provider Status هر ۱۵ ثانیه از Local Status Refresh می‌شود؛ Metrics و Alerts از SSE موجود استفاده می‌کنند.
+- **UI:** Labelهای انگلیسی/فارسی و Mobile Single-column Layout اضافه شدند.
+- **Validation:** Testهای Frontend با Synthetic Data، Boundaryهای Provider/Metrics/Alerts/Realtime را پوشش می‌دهند.
+- **Final Validation:** Lint، Format Check، Typecheck، Backend Testهای 126/126، Frontend Testهای 15/15، Production Build، Foundation Check، License Check، Staged Diff Check، Private-path Exclusion، Remote Desktop Identifier Review و Common Secret-marker Review همگی PASS شدند.
+- **PBX Scope:** هیچ PBX واقعی Contact، Probe یا Modify نشد.
+
+### Failure / Bug / Gapهای Task 39
+
+- **Remote Command Quoting Failure — رفع شد.**
+- **Optional-property Type Mismatch — رفع شد.**
+- **Formatting Drift — رفع شد.**
+- **Date-dependent Backend Test Fixture — رفع شد:** Full Suite نشان داد System-metrics Runtime Test از Sample ثابت 2026-09-25 استفاده می‌کند، در حالی که Seven-day Retention از Current Clock استفاده می‌کند. Fixture اکنون Sample/History Timestampها را از یک Current-time Base مشترک می‌سازد و Targeted Runtime Tests برابر 3/3 PASS شدند.
+- **Known limitation:** Telephony Current-state Browser Surface هنوز وجود ندارد.
+- **Known limitation:** Provider Connection State Poll می‌شود، Stream نمی‌شود.
+- **Task دقیق بعدی:** Task 40، Current-state و Realtime APIهای Authenticated، Bounded و Read-only برای `TelephonyStateEngine` موجود را اضافه می‌کند؛ بدون PBX Connection، Action یا Data Collection جدید.
+
 ### پروتکل ادامه مداوم
 
 برای هر کار/جلسه آینده:
@@ -397,12 +425,12 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - [x] پایه Phase 6: قراردادهای متریک سیستم ارائه‌دهنده خنثی، اعتبار سنجی جمع‌آوری بسته با شکست، محدودیت‌های فرمان SSH فهرست مجاز/اجرای محدودیت‌ها/ تجزیه‌کننده‌های سیستم لینوکس، پیکربندی SSH رمزگذاری‌شده به ازای هر PBX، اعتماد کلید میزبان پین شده، خط‌مشی SSRF مشترک، حمل‌ونقل منبع فعلی SSHBX محدود شده، حمل‌ونقل منبع سلامت BX در هر زمان تداوم، و جریان/تاریخچه تأیید شده به‌علاوه قرار گرفتن در معرض سنجه‌های سیستم بلادرنگ پیاده‌سازی می‌شوند.
 - [x] مرحله 7: نظارت بر امنیت - رویدادهای احراز هویت عادی AMI، Persistence/API/SSE، ارزیابی هشدار محدود/تداوم/قوانین/Runtime، APIهای احراز هویت شده، و رابط کاربری هشدار دوزبانه فعلی/تاریخ اخیر/زمان بیدرنگ برای بخش تعریف شده کامل هستند. منابع/قوانین گسترده‌تر و تحویل خارجی، کارهای آینده جداگانه باقی می‌مانند.
 - [ ] Phase 8: API تایید شده و بلادرنگ.
-- [ ] Phase 9: داشبورد دو زبانه.
+- [x] Phase 9: پایه Bilingual Operator Dashboard با Boundaryهای Safe موجود Provider/System/Security.
 - [ ] Phase 10: تاریخچه و حفظ.
 - [ ] Phase 11: سخت شدن، تهیه نسخه پشتیبان، بازیابی آزمایش شده، و یک دفترچه راه اندازی تولید.
 - [ ] Phase 12: اعتبار سنجی انتشار، از جمله رویه استقرار تازه خنثی برای سازمان که می تواند بدون حمل مقادیر خصوصی از استقرار دیگر، روی یک سرویس جدید نصب شود.
 
-Phase 1 بسته است. بخش تعریف‌شده Security Monitoring در Phase 7 همچنان تا Task 34 کامل است. Taskهای 35-36 Storage/Configuration مربوط به Notification را بدون Delivery اضافه کرده‌اند، Task 37 Live Same-Origin HTTPS Application را فراهم کرده و Task 38 OS-level Reboot Persistence را با Temporary Self-Signed TLS Exception مورد تأیید Operator اثبات کرده است. Task دقیق بعدی پس از Merge شدن Task 38، **Task 39 — اولین Bilingual Operator Dashboard واقعی فقط با APIهای Safe موجود برای PBX/Provider، System Metrics و Security Alerts.**
+Phase 1 بسته است. بخش تعریف‌شده Security Monitoring در Phase 7 همچنان تا Task 34 کامل است. Taskهای 35-36 Notification Storage/Configuration را بدون Delivery اضافه کرده‌اند، Task 37 Live Same-Origin HTTPS Application را فراهم کرده، Task 38 OS-level Reboot Persistence را اثبات کرده و Task 39 اولین Bilingual Operator Dashboard را روی Boundaryهای Safe موجود Provider/System/Security اضافه کرده است. Task دقیق بعدی پس از Merge شدن Task 39، **Task 40 — Authenticated Bounded Read-only Current-state و Realtime Exposure برای `TelephonyStateEngine` موجود، بدون PBX Connection یا Write Action جدید.**
 
 ## 26-09-2026 - رکورد تکمیل Task 28
 

@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-09-26. Task 37 is merged into main through PR #40. Task 38 OS-level systemd persistence and reboot recovery are implemented locally on feature/os-persistence-tls-recovery. The service recovered automatically after reboot; the operator explicitly accepted temporary self-signed TLS, and host UFW is inactive rather than restrictive.
+Status: 2026-10-05. Task 38 is merged into main. Task 39 is complete on feature/operator-dashboard and merge into main is pending. The first bilingual operator dashboard uses only existing authenticated read-only provider-status, system-metrics, and security-alert boundaries; no new PBX action or collection path was added.
 
 ## Phase 0 — environment discovery
 
@@ -76,19 +76,26 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 36: expose authenticated PBX-scoped notification-channel list/get/put/delete APIs and encrypted HTTPS webhook-target secret management with same-origin mutation protection and no target/internal-secret disclosure; no delivery worker or external contact.
 - [x] Task 37: deploy the built bilingual frontend and backend as a same-origin HTTPS stack on the monitoring host using private local runtime configuration, loopback-only backend exposure, a managed local launcher, and a generic tracked systemd unit; live UI/health/readiness passed.
 - [x] Task 38: install and enable the OS-level systemd service, migrate runtime Node/data/TLS boundaries out of private toolchain paths, validate live HTTPS/health/readiness after a real host reboot, preserve the approved read-only PBX monitoring scope, and support an explicit temporary self-signed TLS exception; firewall remains non-restrictive because UFW is inactive.
+- [x] Task 39: add the first bilingual operator dashboard using existing authenticated read-only PBX/provider, system-metrics, and security-alert APIs. It provides PBX selection, provider connection summary with bounded local-status polling, system-metric summary, realtime SSE health, current security-alert count, and navigation to existing PBX/security management. No PBX write action, new collector, or new backend network path was added.
 
 ### Current execution handoff
 
-- Current branch: `feature/os-persistence-tls-recovery`, created from synchronized `main` after Task 37 merged as PR #40.
-- Task 38 is complete locally and on the authorized monitoring host. `voip-monitor.service` is installed, enabled, and active under the dedicated `voip-monitor` service account.
-- Production Node runtime is no longer read from ignored `.local`; systemd uses the public runtime path configured through `VOIP_MONITOR_NODE_BIN`. Persistent application data lives under the service-owned production data directory.
-- A real host reboot was completed. Without any manual start command afterward, systemd automatically recovered the service; the backend returned health/ready, the bilingual UI root rendered, the backend remained loopback-only, and the HTTPS gateway listened on the browser-facing port.
-- The operator explicitly accepted the current self-signed certificate as a temporary deployment choice. The installer still rejects self-signed TLS by default and requires the explicit `--allow-self-signed` exception.
-- UFW was reported inactive by the operator before reboot. Post-reboot browser/HTTPS access proves the service port is reachable, but no restrictive host firewall policy is currently enforced.
-- The currently approved PBX scope remains bounded read-only monitoring; Task 38 did not broaden it or perform PBX configuration writes.
-- Exact next task after Task 38 merge: **Task 39 — build the first real bilingual operator dashboard using only existing safe APIs: PBX/provider connection summary, live-update state, current system-metric summary, and security-alert summary/navigation; no new PBX actions or broader data collection.**
+- Current branch: `feature/operator-dashboard`, created from synchronized `main` after confirming Task 38 is contained in `origin/main`.
+- Task 39 implementation and validation are complete on this branch; merge into main remains pending.
+- The authenticated bilingual dashboard consumes only existing safe boundaries: local provider status, current system metrics plus metrics SSE, and current persisted security alerts plus alert SSE.
+- Provider connection state is refreshed every 15 seconds through the existing local `provider-status` endpoint; this does not create a new PBX probe or connection.
+- The dashboard adds no backend route, PBX write action, credential exposure, collector, or broader data collection scope.
+- No real PBX was contacted as part of Task 39 implementation or validation.
+- Exact next task after Task 39 merge: **Task 40 — expose the existing `TelephonyStateEngine` through an authenticated, PBX-scoped, bounded read-only current-state and realtime API so calls/channels/endpoints/trunks/queues/agent interactions can later be presented without creating new PBX connections or write actions.**
 
 ### Failure and bug log
+
+- **Task 39 remote-wrapper quoting failure — resolved before file modification:** the first test-append command contained an unescaped JavaScript template literal inside the remote command wrapper and failed to parse. No repository file was partially written. Fix: replace the nested template literal with plain string concatenation and rerun the edit.
+- **Task 39 frontend typecheck failure — resolved:** the first dashboard SSE reducer explicitly assigned `undefined` to an optional `source` property under `exactOptionalPropertyTypes`. Fix: omit the property when no source status exists. Frontend typecheck and all 15 frontend tests then passed.
+- **Task 39 formatting drift — resolved:** the new API/dashboard/test files were not initially Prettier-clean. The repository formatter corrected them before the final gate run.
+- **Task 39 full-gate backend test failure — resolved:** the complete test suite initially failed one pre-existing system-metrics runtime assertion because its synthetic sample timestamp was fixed at 2026-09-25 while runtime retention uses the real current clock and prunes history older than seven days. Root cause was a date-dependent test fixture, not runtime behavior or Task 39 backend changes. Fix: anchor the synthetic sample window to one module-level current-time base and derive the history query bounds from that same base. The targeted system-metrics runtime suite then passed 3/3 before the full gate rerun.
+- **Task 39 known limitation:** telephony current state remains internal to `TelephonyStateEngine`; no authenticated telephony state API exists yet, so the dashboard intentionally does not show active calls/channels/endpoints/trunks/queues/agent interactions.
+- **Task 39 known limitation:** provider connection status has no realtime stream; the dashboard uses bounded 15-second polling of the existing local status endpoint while system metrics and security alerts use existing SSE streams.
 
 - **Task 9 CI failure — resolved:** the original `.gitignore` rule `runtime/` matched every directory named `runtime`, including `backend/src/providers/runtime/`. The runtime manager source existed locally but was ignored/untracked, so local typecheck passed while a clean GitHub checkout failed at typecheck because the imported module was missing. Fix: root-anchor the runtime-data rule as `/runtime/`, track `backend/src/providers/runtime/index.ts`, and narrow the foundation checker so only top-level private/runtime directories are rejected. Full local gates then passed and both GitHub Actions checks passed.
 - **Task 10 validation failure — resolved:** the first full lint gate failed because the new Node event test referenced `Buffer` without an explicit `node:buffer` import under the repository ESLint environment. The import was added and the complete gate suite was rerun successfully.
@@ -376,6 +383,27 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - **Known limitation:** host firewall enforcement is not restrictive; if segmentation is required, a later hardening task must define source CIDRs and enforce them at host or upstream firewall level.
 - **Exact next task:** Task 39 builds the first bilingual operator dashboard from existing safe APIs only, without adding PBX write actions or new collection scope.
 
+## 2026-10-05 — Task 39 completion record
+
+- **Result:** implemented the first real bilingual operator dashboard on `feature/operator-dashboard`.
+- **Existing API reuse:** the dashboard reads `provider-status`, current system metrics, system-metrics SSE, current security alerts, and security-alert SSE; no new backend route was introduced.
+- **Operator summary:** PBX selector, provider connection state, live-update health, CPU, memory, uptime, current security-alert count, and direct navigation to existing PBX/security workspaces.
+- **Freshness behavior:** provider status uses a bounded 15-second local-status refresh; system metrics and security alerts use the existing authenticated SSE streams.
+- **Responsive/bilingual UI:** English/Persian labels and a mobile single-column summary layout were added without changing setup/login/PBX/security flows.
+- **Test coverage:** frontend coverage now validates provider, metrics, alert, and realtime dashboard boundaries with synthetic data only.
+- **Final validation:** lint, format check, typecheck, backend 126/126 tests, frontend 15/15 tests, production build, foundation check, license check, staged diff check, private-path exclusion, Remote Desktop identifier review, and common secret-marker review all passed.
+- **PBX scope:** no real PBX was contacted, probed, modified, or given new permissions during this task.
+
+### Task 39 failures / bugs / gaps
+
+- **Remote command quoting failure — resolved:** a nested template literal broke the first remote wrapper command before file modification. The command was rewritten with safe quoting.
+- **Optional-property type mismatch — resolved:** SSE merge code assigned explicit `undefined` to an exact optional property. The reducer now conditionally omits absent source state.
+- **Formatting drift — resolved:** Prettier normalized the new dashboard/API/test files.
+- **Date-dependent backend test fixture — resolved:** the full suite exposed that the system-metrics runtime test used a fixed 2026-09-25 sample while seven-day retention uses the current clock. The fixture now derives sample/history timestamps from one current-time base; targeted runtime tests passed 3/3.
+- **Known limitation:** no telephony current-state browser surface exists because the internal telephony engine still has no authenticated PBX-scoped API/realtime boundary.
+- **Known limitation:** provider connection state is polled rather than streamed because no provider-status SSE boundary exists.
+- **Exact next task:** Task 40 exposes the existing `TelephonyStateEngine` through authenticated bounded read-only current-state and realtime APIs only; no new PBX connection, action, or data-collection scope.
+
 ### Persistent continuation protocol
 
 For every future task/session:
@@ -397,12 +425,12 @@ Tasks 7–13 implemented substantial Asterisk-provider and telephony-state found
 - [x] Phase 6 foundation: provider-neutral system-metric contracts, fail-closed collector validation, restricted SSH command allowlisting/execution bounds/Linux-systemd parsers, encrypted per-PBX SSH configuration, pinned host-key trust, shared SSRF policy, concrete restricted SSH transport, runtime scheduling, per-PBX source health, bounded current/history persistence, and authenticated current/history plus realtime system-metrics exposure are implemented.
 - [x] Phase 7: security monitoring — normalized AMI authentication events, persistence/API/SSE, bounded alert evaluation/persistence/rules/runtime, authenticated rule APIs, and bilingual current/recent-history/realtime alert UI are complete for the defined slice; broader sources/rules and external delivery remain separate future work.
 - [ ] Phase 8: authenticated API and realtime.
-- [ ] Phase 9: bilingual dashboard.
+- [x] Phase 9: bilingual operator dashboard foundation using existing safe provider/system/security boundaries.
 - [ ] Phase 10: history and retention.
 - [ ] Phase 11: hardening, backup, tested restore, and a production deployment runbook.
 - [ ] Phase 12: release validation, including an organization-neutral fresh-deployment procedure that can onboard a new service without carrying private values from another deployment.
 
-Phase 1 is closed. Phase 7's defined security-monitoring slice remains complete through Task 34. Tasks 35-36 add notification storage/configuration without delivery, Task 37 provides the live same-origin HTTPS application, and Task 38 proves OS-level reboot persistence with the operator-approved temporary self-signed TLS exception. Exact next task after Task 38 merge is **Task 39 — the first real bilingual operator dashboard using existing safe PBX/provider, system-metric, and security-alert APIs only.**
+Phase 1 is closed. Phase 7's defined security-monitoring slice remains complete through Task 34. Tasks 35-36 add notification storage/configuration without delivery, Task 37 provides the live same-origin HTTPS application, Task 38 proves OS-level reboot persistence with the operator-approved temporary self-signed TLS exception, and Task 39 adds the first bilingual operator dashboard over existing safe provider/system/security boundaries. Exact next task after Task 39 merge is **Task 40 — authenticated bounded read-only current-state and realtime exposure for the existing TelephonyStateEngine, without new PBX connections or write actions.**
 
 ## 2026-09-26 — Task 28 completion record
 

@@ -41,11 +41,13 @@ function profileInput() {
   };
 }
 
+const sampleBaseMs = Date.now();
+
 function sample(instanceId, second = 0) {
   return {
     instanceId,
     source: 'SSH',
-    observedAt: `2026-09-25T00:00:${String(second).padStart(2, '0')}.000Z`,
+    observedAt: new Date(sampleBaseMs + second * 1000).toISOString(),
     capabilities: {
       cpu: 'SUPPORTED',
       memory: 'NOT_CONFIGURED',
@@ -139,8 +141,8 @@ test('system metrics runtime keeps SSH health per PBX and publishes bounded samp
     assert.equal(
       storage.systemMetrics.listHistory(
         profile.id,
-        '2026-09-25T00:00:00.000Z',
-        '2026-09-25T00:01:00.000Z',
+        new Date(sampleBaseMs).toISOString(),
+        new Date(sampleBaseMs + 60_000).toISOString(),
         10,
       ).length,
       1,
