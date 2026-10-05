@@ -5,6 +5,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App, FirstAdminForm, LoginForm, PbxWorkspace } from '../src/App.js';
 import { SecurityWorkspace } from '../src/SecurityWorkspace.js';
+import { SshMetricsWorkspace } from '../src/SshMetricsWorkspace.js';
 import { OperatorDashboard } from '../src/OperatorDashboard.js';
 import { TelephonyWorkspace } from '../src/TelephonyWorkspace.js';
 import { messages } from '../src/i18n.js';
@@ -728,5 +729,68 @@ describe('telephony entity workspace', () => {
     expect(container.textContent).toContain('Results: 1');
     expect(container.textContent).toContain('active-03');
     expect(container.textContent).not.toContain('active-25');
+  });
+});
+
+describe('SSH metrics management workspace', () => {
+  it('loads only safe metadata and clears write-only credential after save', async () => {
+    const profile = {
+      id: 'ssh-pbx',
+      displayName: 'SSH PBX',
+      providerType: 'ASTERISK',
+      enabled: true,
+      amiHost: 'pbx.example.test',
+      amiPort: 5038,
+      amiUsername: 'synthetic-user',
+      hasAmiPassword: true,
+      connectionStatus: 'CONNECTED',
+      createdAt: '',
+      updatedAt: '',
+    } as const;
+    const fingerprint = 'SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string, init?: RequestInit) => {
+        if (
+          path === '/api/pbx-instances/ssh-pbx/ssh-configuration' &&
+          (!init || init.method === undefined)
+        )
+          return response({}, 404);
+        if (path === '/api/pbx-instances/ssh-pbx/ssh-configuration' && init?.method === 'PUT') {
+          const body = JSON.parse(String(init.body)) as { credential?: string };
+          expect(body.credential).toBe('synthetic-ssh-password');
+          return response({
+            pbxInstanceId: 'ssh-pbx',
+            host: 'pbx.example.test',
+            port: 22,
+            username: 'monitor',
+            authMethod: 'PASSWORD',
+            hostKeyPolicy: 'PINNED_SHA256',
+            hostKeyFingerprint: fingerprint,
+            hasCredential: true,
+            hasPrivateKeyPassphrase: false,
+            createdAt: '',
+            updatedAt: '',
+          });
+        }
+        throw new Error('unexpected API route: ' + path);
+      }),
+    );
+
+    await act(async () =>
+      root.render(
+        <SshMetricsWorkspace text={messages.en} profiles={[profile]} onUnauthorized={() => {}} />,
+      ),
+    );
+
+    await enter('ssh-host', 'pbx.example.test');
+    await enter('ssh-username', 'monitor');
+    await enter('ssh-fingerprint', fingerprint);
+    await enter('ssh-credential', 'synthetic-ssh-password');
+    await submit();
+
+    expect(container.textContent).toContain('SSH configuration saved and runtime synchronized.');
+    expect(input('ssh-credential').value).toBe('');
+    expect(container.textContent).not.toContain('synthetic-ssh-password');
   });
 });

@@ -120,7 +120,7 @@ Collector فقط وقتی فعال می‌شود که PBX Profile موجود و 
 
 Collector فقط Commandهای Read-only ثابت Repository را اجرا می‌کند: `/proc/stat`، `/proc/meminfo`، `df -P -B1`، `/proc/uptime` و `systemctl show` محدود. Privilege وسیع Shell/Admin ندهید.
 
-در حال حاضر Public UI/API برای SSH Configuration وجود ندارد. تا زمان پیاده‌سازی آن، Provisioning باید با Procedure محلی و تأییدشده انجام و Runtime Synchronization Seam بعد از Mutation فراخوانی شود. هیچ Value واقعی SSH در Git قرار نگیرد.
+Administrator احراز هویت‌شده اکنون می‌تواند SSH Metadata و Credentialهای Write-only همان PBX را از Workspace/API اختصاصی System metrics SSH مدیریت کند. هر Mutation موفق Runtime را فوری Sync می‌کند. Save کردن هیچ Host واقعی را Test/Probe نمی‌کند. هیچ Value واقعی SSH در Git قرار نگیرد.
 
 ## محدودیت نمایش Trunk
 

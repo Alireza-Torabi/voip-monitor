@@ -100,7 +100,7 @@ Missing SSH configuration or credential is represented as `UNAVAILABLE`. It is n
 
 The collector executes only the fixed read-only allowlist implemented by the repository: `/proc/stat`, `/proc/meminfo`, `df -P -B1`, `/proc/uptime`, and bounded `systemctl show` queries. Do not grant broader shell/admin privileges.
 
-There is currently no public SSH-configuration UI/API. Until that management surface exists, provisioning must use an approved deployment-local administrative procedure and call the runtime synchronization seam after mutation. Never place SSH values in Git.
+Authenticated administrators can now manage PBX-scoped SSH metadata and write-only credentials through the System metrics SSH workspace/API. Every successful mutation synchronizes the metrics runtime immediately. Saving configuration does not test or probe the host. Never place SSH values in Git.
 
 ## Trunk visibility limitation
 

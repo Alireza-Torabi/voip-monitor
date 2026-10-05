@@ -87,6 +87,7 @@ if (config) {
           runtime,
           systemMetricsRuntime,
           telephonyState,
+          sshConfiguration,
         );
         server.on('error', () => {
           log('error', 'server_error');

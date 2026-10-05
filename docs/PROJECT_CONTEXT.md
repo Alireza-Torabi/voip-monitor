@@ -1,10 +1,10 @@
 # Project context
 
-Status: Task 41 is merged into main. The unmerged fix/chakra-ui-shell correction now covers full Chakra/CSP integration, workspace-based telephony navigation, deployment portability hardening, and generic cross-organization deployment runbooks. System metrics remain UNAVAILABLE when PBX-scoped SSH metadata/credential is absent; current trunk discovery remains registration-based through SIPshowregistry. No new real-PBX access was performed. Reprioritized next tasks: Task 42 SSH metrics management surface, Task 43 broader trunk discovery, Task 44 telephony history/retention. License: Apache-2.0.
+Status: PR #45 is merged. Task 42 is complete on feature/ssh-metrics-management and merge is pending. The application now has authenticated PBX-scoped SSH configuration management with write-only encrypted credentials, mandatory pinned SHA-256 host-key trust, same-origin writes, immediate SystemMetricsRuntime sync, and a bilingual Chakra management workspace. No real SSH/PBX host was contacted or probed. Exact next task after Task 42 merge is Task 43 broader provider-neutral trunk discovery; Task 44 remains telephony history/retention. License: Apache-2.0.
 
 ## Repository state
 
-The public repository tracks origin/main. Task 41 is merged. The current branch is fix/chakra-ui-shell and changes frontend presentation/navigation/tests, strict-CSP styling integration, portability/deployment documentation, and foundation checks only; no new PBX network behavior is introduced.
+The public repository tracks origin/main. The current feature branch is feature/ssh-metrics-management for Task 42; changes are SSH configuration API/UI/runtime-sync/tests/docs only and do not add a real-host probe or new PBX action.
 
 ## Product constraints
 
