@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-05. PR #49 is merged. Task 43 is complete locally on feature/trunk-discovery and merge is pending. No real PBX verification was performed. Task 44 is next after merge.
+Status: 2026-10-05. PR #50 is merged. A runtime-resilience correction is complete locally on fix/runtime-sse-resilience and merge is pending. Task 44 has not started.
 
 ## Phase 0 — environment discovery
 
@@ -85,25 +85,22 @@ These later checks do not change the historical Phase 1 validation record. Docke
 
 ### Current execution handoff
 
-- Current branch: feature/trunk-discovery, created from synchronized main after PR #49 merged local account management.
-- Task 43 is implemented synthetic/mock first and does not perform any real-PBX verification.
-- The provider-neutral trunk model now distinguishes OUTBOUND_REGISTRATION from PEER, records technology as CHAN_SIP or PJSIP, and records discovery confidence as CONFIRMED or CANDIDATE.
-- CONFIRMED is reserved for explicit outbound registration objects. Existing chan_sip SIPshowregistry remains supported, and PJSIP outbound registrations are collected with PJSIPShowRegistrationsOutbound.
-- Static chan_sip peers (Dynamic=no/false/0) are represented as PEER + CHAN_SIP + CANDIDATE. Their registration state is explicitly NOT_APPLICABLE; bounded reachability is derived from the existing peer status normalizer.
-- PJSIP endpoints are listed with PJSIPShowEndpoints; only endpoints with a meaningful OutboundAuths value are represented as PEER + PJSIP + CANDIDATE. Empty/none-style outbound-auth fields are ignored.
-- Candidate semantics are intentional: AMI does not expose one provider-independent boolean that proves every peer/endpoint is a trunk. The UI therefore does not mislabel candidates as confirmed trunks.
-- The existing SIPpeers action is reused once per reconcile to build both endpoint state and static chan_sip trunk candidates, avoiding a duplicate large peer-list request.
-- Trunk source collection is bounded to 4096 items per source and remains read-only. Raw SIP/PJSIP addresses, contacts, auth usernames, ServerUri values, and other provider-specific payload fields are not forwarded into normalized state.
-- Multiple trunk sources are merged by stable normalized trunk ID. If the same ID appears as both a candidate peer and an explicit registration, the CONFIRMED registration wins.
-- Trunk capability is SUPPORTED when at least one read-only trunk source is available, even if another source is unsupported or permission denied. If no source is supported, permission denial takes precedence over unsupported.
-- Existing chan_sip live Registry events remain normalized as CONFIRMED registration updates. PJSIP/static-peer additions are reconciliation snapshot based; no new write or qualify action was introduced.
-- The Trunks workspace now shows Technology, Kind, Classification, Registration, Reachability, and Updated columns, and explains CONFIRMED versus CANDIDATE.
-- Final validation under project Node 24.21.0/npm 11.19.0 passes: lint, format check, typecheck, backend 135/135 tests, frontend 23/23 tests, production build, foundation check, license check, and diff check. Targeted provider/event/state-engine coverage passes 34/34.
-- Selenium UI validation before Task 43 passed with the deployment-local Selenium test account: authenticated Dashboard/Settings access, dashboard edit controls, resize click, dashboard-root fullscreen excluding the application header, Users & accounts, and Persian RTL direction.
-- No PBX configuration/write operation was added. No real PBX/AMI compatibility probe was run for Task 43.
-- Exact next roadmap task after merge is Task 44: define and persist bounded PBX-scoped telephony history/retention from existing normalized state/events only, without new PBX actions or collection sources.
+- Current branch: fix/runtime-sse-resilience, created from synchronized main after PR #50 merged Task 43. Task 44 has not started.
+- The live UI outage reported during work was traced to the backend Node process exiting with a V8 heap OOM while the HTTPS gateway process remained alive. The gateway therefore kept serving the frontend shell while API calls failed, producing the visible Application unavailable state.
+- The exact allocation producer cannot be proven after the crashed process exited, but the server had a concrete unbounded-memory risk: all SSE writers ignored response backpressure and could continue buffering serialized state for a slow or stalled client. The correction bounds each SSE response writable buffer to 256 KiB and destroys that stream if the bound is exceeded; EventSource clients may reconnect normally.
+- SSE stream cleanup is now idempotent and attached to both request and response close events, ensuring listener, heartbeat, stream-set, and reset-subscription cleanup when either side terminates.
+- The production launcher previously ran the backend in the background and the HTTPS gateway in the foreground; backend death therefore did not terminate the systemd main process. The launcher now supervises both children with wait -n and returns failure if either exits unexpectedly, allowing the existing systemd Restart=on-failure policy to recover the whole stack.
+- The current deployed service was restarted after diagnosis and health/readiness returned to OK. The source correction is not deployed until this branch is merged.
+- Final validation passes under project Node 24.21.0/npm 11.19.0: lint, format check, typecheck, backend 136/136 tests, frontend 23/23 tests, production build, foundation check, license check, launcher bash syntax, and diff check. The slow-SSE bounded-buffer regression test is included in the backend total.
+- This correction changes no PBX action, collection source, credential behavior, or telephony semantics and requires no real-PBX probe.
+- After this correction merges, recreate feature/telephony-history from main and execute Task 44.
 
 ### Failure and bug log
+
+- **UI showed Application unavailable while systemd still reported the service active — root cause identified and correction implemented:** the backend Node child had terminated with "Reached heap limit / JavaScript heap out of memory", but the launcher kept the HTTPS gateway foreground process alive. The frontend shell therefore remained reachable while API requests could not reach port 3000. The launcher now treats backend or gateway death as whole-stack failure so systemd can restart it.
+- **SSE backpressure could grow server memory without a hard bound — corrected defensively:** server SSE writes did not check buffered writable bytes. Because the crashed heap is no longer available, this cannot be claimed as the uniquely proven OOM allocation source; however, it was a real unbounded-memory path. Each stream now has a 256 KiB write-buffer ceiling and is disconnected when exceeded.
+- **SSE cleanup depended only on request close — hardened:** cleanup is now idempotent and bound to both request and response close events, removing listeners, stream-set membership, reset subscriptions, and heartbeat timers exactly once.
+- **Final production build initially failed on root-owned generated frontend artifacts — resolved as an environment ownership issue:** a previous root build had recreated files under frontend/dist as root. Ownership of generated dist artifacts only was restored to the repository user and the production build, foundation, license, launcher syntax, and diff gates then passed. No tracked source ownership or deployment secret path was changed.
 
 - **Final foundation gate initially hit Git safe-directory ownership protection — resolved:** the remote command session runs as a different OS user than the repository owner, so the foundation script's internal Git enumeration was rejected as dubious ownership. No repository/content defect existed. The gate was rerun with a process-scoped Git `safe.directory` configuration for `/opt/voip-monitor`; foundation, license, and diff checks then passed without changing repository ownership or tracked configuration.
 - **Trunk inventory falsely equated trunks with outbound registrations — resolved for Task 43:** the previous model only consumed SIPshowregistry, so static/IP-auth chan_sip peers and PJSIP definitions could be absent. Fix: merge explicit chan_sip/PJSIP outbound registrations with conservatively classified peer candidates and expose confidence instead of claiming every peer is a confirmed trunk.

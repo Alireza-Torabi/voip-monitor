@@ -3,8 +3,8 @@
 # ============================================================
 # Name: run-production.sh
 # Description: Start, stop, or inspect the local VoIP Monitor production deployment.
-# Version: 1.1.0
-# Updated: 2026-09-26
+# Version: 1.2.0
+# Updated: 2026-10-05
 # Requirements: bash, Node.js 24 toolchain, built workspace, TLS certificate/key
 # Usage: ./scripts/run-production.sh {start|stop|status|run}
 # License: Apache-2.0
@@ -58,10 +58,17 @@ run_stack() {
 
   "$node" "$ROOT_DIR/backend/dist/index.js" &
   backend_pid=$!
+  gateway_pid=""
 
   cleanup() {
     kill "$backend_pid" 2>/dev/null || true
+    if [[ -n "$gateway_pid" ]]; then
+      kill "$gateway_pid" 2>/dev/null || true
+    fi
     wait "$backend_pid" 2>/dev/null || true
+    if [[ -n "$gateway_pid" ]]; then
+      wait "$gateway_pid" 2>/dev/null || true
+    fi
   }
   trap cleanup EXIT INT TERM
 
@@ -82,7 +89,18 @@ run_stack() {
     exit 1
   fi
 
-  "$node" "$ROOT_DIR/scripts/production-gateway.mjs"
+  "$node" "$ROOT_DIR/scripts/production-gateway.mjs" &
+  gateway_pid=$!
+
+  wait -n "$backend_pid" "$gateway_pid" || true
+  if ! kill -0 "$backend_pid" 2>/dev/null; then
+    echo "Backend exited while the production gateway was still running." >&2
+  elif ! kill -0 "$gateway_pid" 2>/dev/null; then
+    echo "Production gateway exited while the backend was still running." >&2
+  else
+    echo "Production stack exited unexpectedly." >&2
+  fi
+  return 1
 }
 
 case "${1:-}" in

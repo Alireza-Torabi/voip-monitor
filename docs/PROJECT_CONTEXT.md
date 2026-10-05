@@ -1,10 +1,10 @@
 # Project context
 
-Status: PR #49 is merged. Task 43 is complete locally on the unmerged feature/trunk-discovery branch: provider-neutral trunk state now covers confirmed chan_sip/PJSIP outbound registrations plus conservative static-peer/PJSIP outbound-auth candidates with explicit technology/confidence, bounded source sizes, safe deduplication, and no provider-private addresses/auth details. Selenium validation with the deployment-local Selenium test account passed before the task. No real PBX verification occurred. Task 44 is next after merge. License: Apache-2.0.
+Status: PR #50 is merged. The current unmerged fix/runtime-sse-resilience correction addresses an observed backend JavaScript heap OOM and the launcher behavior that left the HTTPS gateway alive after backend death. SSE output is now bounded under slow-client backpressure, SSE cleanup is idempotent on request/response close, and the production launcher exits if either backend or gateway exits so systemd Restart=on-failure can recover the full stack. Task 44 remains next after this correction merges. License: Apache-2.0.
 
 ## Repository state
 
-The public repository tracks origin/main. The current correction branch is fix/dashboard-storage-jalali; changes are frontend current/history presentation, bilingual deployment/configuration documentation, tests, and project records only.
+The public repository tracks origin/main. The current correction branch is fix/runtime-sse-resilience; it changes only HTTP/SSE runtime resilience, production child-process supervision, regression coverage, and project records. Task 44 is intentionally not mixed into this correction.
 
 ## Product constraints
 

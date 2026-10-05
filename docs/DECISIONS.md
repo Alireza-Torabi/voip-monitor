@@ -499,3 +499,14 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 327. **PJSIP/static peer refresh model:** only the existing chan_sip Registry event is live-normalized; PJSIP registrations and peer candidates refresh on normal reconciliation.
 328. **Real-PBX verification remains separately gated:** Task 43 completion is based on synthetic/mock compatibility. No production PBX probe is required to merge the implementation.
 329. **Task 44 remains next:** after Task 43 merges, implement bounded PBX-scoped telephony history/retention from normalized data only.
+
+
+## 2026-10-05 — Runtime SSE/backpressure resilience correction
+
+330. **Observed outage classification:** the browser Application unavailable state can occur while the HTTPS shell remains reachable if the backend child dies; systemd Active on the launcher alone is not sufficient proof that the backend API is alive.
+331. **OOM evidence boundary:** the observed backend exit was a V8 JavaScript heap OOM. The post-crash evidence does not prove one unique allocation producer, so the SSE backpressure path is documented as a concrete unbounded-memory risk, not asserted as the sole proven OOM source.
+332. **Bound SSE server buffering:** each SSE ServerResponse is limited to 256 KiB of queued writable bytes. Exceeding the bound destroys that stream so EventSource can reconnect rather than allowing indefinite process-memory growth.
+333. **Idempotent SSE teardown:** stream cleanup is attached to both request and response close boundaries and guarded to run once, removing listeners, timers, reset subscriptions, and stream-set entries.
+334. **Backend and gateway are one service failure domain:** the production launcher supervises both child processes. Unexpected exit of either child makes the launcher fail so the existing systemd Restart=on-failure policy can restart the whole stack.
+335. **No PBX scope change:** runtime-resilience changes affect HTTP/SSE transport and local process supervision only; no PBX action, collection source, credential flow, or telephony contract changes.
+336. **Task 44 waits for correction merge:** telephony-history implementation must branch from main only after this runtime-resilience correction is merged.

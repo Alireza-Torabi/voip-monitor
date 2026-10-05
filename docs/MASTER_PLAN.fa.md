@@ -1,6 +1,6 @@
 # Master Plan
 
-وضعیت: 2026-10-05. PR #49 داخل main Merge شده است. Task 43 روی feature/trunk-discovery به‌صورت Local کامل است و Merge آن Pending است. هیچ Real-PBX Verification برای Task 43 انجام نشده است. پس از Merge، Task 44 مرحله بعد است.
+وضعیت: 2026-10-05. PR #50 داخل main Merge شده است. یک Correction مربوط به Runtime Resilience روی fix/runtime-sse-resilience به‌صورت Local کامل است و Merge آن Pending است. Task 44 هنوز شروع نشده است.
 
 ## Phase 0 - کشف محیط
 
@@ -85,25 +85,22 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 
 ### وضعیت فعلی ادامه کار
 
-- Branch فعلی feature/trunk-discovery است که بعد از Merge شدن PR #49 از main همگام‌شده ساخته شد.
-- Task 43 ابتدا با Synthetic/Mock پیاده‌سازی شده و هیچ Real-PBX Verification انجام نداده است.
-- مدل Provider-neutral مربوط به Trunk اکنون OUTBOUND_REGISTRATION را از PEER جدا می‌کند، Technology را CHAN_SIP یا PJSIP ثبت می‌کند و Confidence را CONFIRMED یا CANDIDATE نشان می‌دهد.
-- CONFIRMED فقط برای Outbound Registration صریح استفاده می‌شود. SIPshowregistry برای chan_sip حفظ شده و PJSIP Outbound Registration با PJSIPShowRegistrationsOutbound جمع‌آوری می‌شود.
-- Static chan_sip Peer با Dynamic=no/false/0 به‌صورت PEER + CHAN_SIP + CANDIDATE نمایش داده می‌شود. Registration State آن NOT_APPLICABLE است و Reachability از Normalizer موجود Peer Status گرفته می‌شود.
-- در PJSIP، PJSIPShowEndpoints استفاده می‌شود و فقط Endpointهایی که OutboundAuths معنادار دارند به‌صورت PEER + PJSIP + CANDIDATE وارد Inventory می‌شوند. مقدارهای Empty/none-like نادیده گرفته می‌شوند.
-- استفاده از CANDIDATE عمدی است؛ AMI یک Flag عمومی و Provider-independent ندارد که ثابت کند هر Peer/Endpoint حتماً Trunk است. UI بنابراین Candidate را به‌اشتباه Confirmed Trunk معرفی نمی‌کند.
-- Action موجود SIPpeers در هر Reconcile فقط یک‌بار خوانده می‌شود و همان Snapshot هم Endpoint State و هم Static chan_sip Candidateها را می‌سازد تا Peer List بزرگ دوباره دریافت نشود.
-- هر Trunk Source حداکثر 4096 Item دارد و کاملاً Read-only است. Address، Contact، Auth Username، ServerUri و Provider-specific Payload وارد Normalized State نمی‌شوند.
-- Sourceها بر اساس Trunk ID پایدار Merge می‌شوند. اگر یک ID هم Candidate و هم Registration صریح باشد، CONFIRMED برنده است.
-- اگر حداقل یک Trunk Source قابل استفاده باشد Capability برابر SUPPORTED است؛ Denied/Unsupported بودن Source دیگر اطلاعات معتبر Sourceهای دیگر را حذف نمی‌کند.
-- Live Event موجود chan_sip از نوع Registry همچنان Registration Update را با CONFIRMED تولید می‌کند. PJSIP و Static Peerها فعلاً از Reconciliation Snapshot به‌روز می‌شوند و هیچ Qualify/Write Action جدیدی اضافه نشده است.
-- صفحه Trunks اکنون ستون‌های Technology، Kind، Classification، Registration، Reachability و Updated را نشان می‌دهد و تفاوت CONFIRMED و CANDIDATE را توضیح می‌دهد.
-- Final Validation با Project Node 24.21.0/npm 11.19.0 PASS است: Lint، Format Check، Typecheck، Backend 135/135، Frontend 23/23، Production Build، Foundation Check، License Check و Diff Check. Targeted Testهای Provider/Event/State Engine برابر 34/34 PASS هستند.
-- قبل از Task 43، Selenium با Account محلی مخصوص Selenium Login واقعی را Verify کرد: Dashboard/Settings، Edit/Resize، Fullscreen روی Dashboard بدون Header اصلی، Users & accounts و RTL واقعی فارسی PASS شدند.
-- هیچ PBX Write یا Config Change اضافه نشده و برای Task 43 هیچ Real PBX/AMI Probe اجرا نشده است.
-- Task دقیق بعدی بعد از Merge، Task 44 است: Persistence و Retention محدود Telephony History از Normalized State/Event موجود، بدون PBX Action یا Collection Source جدید.
+- Branch فعلی fix/runtime-sse-resilience است که بعد از Merge شدن PR #50 و Task 43 از main همگام‌شده ساخته شد. Task 44 هنوز شروع نشده است.
+- پیام Application unavailable روی UI بررسی شد و مشخص شد Backend Node Process با V8 Heap OOM خارج شده بود، در حالی که HTTPS Gateway همچنان Alive مانده بود. بنابراین Frontend Shell نمایش داده می‌شد اما API روی Port 3000 در دسترس نبود.
+- بعد از Exit شدن Process امکان اثبات دقیق Allocation Producer وجود ندارد، اما یک Memory-risk واقعی و Unbounded وجود داشت: SSE Writerها Backpressure را بررسی نمی‌کردند و برای Client کند یا Stalled می‌توانستند Serialized State را در Memory Buffer کنند. اکنون هر SSE Response حداکثر 256 KiB Writable Buffer دارد و در صورت عبور از Limit همان Stream Disconnect می‌شود تا EventSource بتواند Reconnect کند.
+- Cleanup مربوط به SSE اکنون Idempotent است و هم روی Request Close و هم Response Close اجرا می‌شود تا Listener، Heartbeat، Stream Membership و Reset Subscription دقیقاً یک‌بار آزاد شوند.
+- Launcher قبلی Backend را Background و HTTPS Gateway را Foreground اجرا می‌کرد؛ در نتیجه مرگ Backend باعث Exit شدن systemd Main Process نمی‌شد. اکنون Launcher هر دو Child را با wait -n Supervise می‌کند و با Exit غیرمنتظره هرکدام Fail می‌شود تا Restart=on-failure کل Stack را Recover کند.
+- سرویس Live بعد از Diagnosis Restart شد و Health/Ready به حالت OK برگشت. Source Correction تا قبل از Merge این Branch Deploy نمی‌شود.
+- Final Validation با Project Node 24.21.0/npm 11.19.0 PASS است: Lint، Format Check، Typecheck، Backend 136/136، Frontend 23/23، Production Build، Foundation Check، License Check، Launcher Bash Syntax و Diff Check. Slow-SSE Bounded-buffer Regression Test داخل Backend Total قرار دارد.
+- این Correction هیچ PBX Action، Collection Source، Credential Behavior یا Telephony Semantics را تغییر نمی‌دهد و Real-PBX Probe نیاز ندارد.
+- بعد از Merge این Correction، Branch مربوط به feature/telephony-history دوباره از main ساخته می‌شود و Task 44 اجرا خواهد شد.
 
 ### ثبت خرابی و اشکال
+
+- **UI پیام Application unavailable می‌داد در حالی که systemd سرویس را Active نشان می‌داد — Root Cause مشخص و Correction پیاده شد:** Backend Node Child با خطای Reached heap limit / JavaScript heap out of memory خارج شده بود اما Launcher، HTTPS Gateway Foreground را زنده نگه داشته بود. بنابراین Frontend Shell قابل دسترس بود ولی API به Port 3000 نمی‌رسید. Launcher اکنون مرگ Backend یا Gateway را Failure کل Stack در نظر می‌گیرد تا systemd آن را Restart کند.
+- **SSE Backpressure بدون Hard Bound می‌توانست Memory را رشد دهد — به‌صورت Defensive اصلاح شد:** Server مقدار Writable Buffer را بررسی نمی‌کرد. چون Heap Process Crash‌شده دیگر در دسترس نیست، این مسیر به‌عنوان تنها علت قطعی OOM ادعا نمی‌شود؛ اما یک Risk واقعی و Unbounded بود. هر Stream اکنون سقف 256 KiB دارد و در صورت عبور Disconnect می‌شود.
+- **SSE Cleanup فقط به Request Close وابسته بود — Harden شد:** Cleanup اکنون Idempotent و متصل به Request/Response Close است و Listener، Stream Set، Reset Subscription و Heartbeat را دقیقاً یک‌بار آزاد می‌کند.
+- **Production Build نهایی ابتدا به Generated Frontend Artifactهای Root-owned برخورد کرد — به‌عنوان Environment Ownership Issue رفع شد:** یک Build قبلی با Root فایل‌های frontend/dist را با مالکیت Root ساخته بود. فقط Ownership Artifactهای Generated به Repository User برگردانده شد و Production Build، Foundation، License، Launcher Syntax و Diff سپس PASS شدند. Ownership سورس Track‌شده یا Secret Path تغییر نکرد.
 
 - **Foundation Gate نهایی ابتدا به Git safe-directory Ownership Protection برخورد کرد — رفع شد:** Remote Command Session با OS User متفاوت از Repository Owner اجرا می‌شود و Git Enumeration داخلی Foundation Script را به‌عنوان Dubious Ownership رد کرد. این مورد Defect کد/Repository نبود. Gate با Process-scoped Git `safe.directory` برای `/opt/voip-monitor` دوباره اجرا شد و Foundation، License و Diff بدون تغییر Ownership یا Tracked Configuration PASS شدند.
 - **یکی دانستن Trunk Inventory با Outbound Registration — در Task 43 رفع شد:** مدل قبلی فقط SIPshowregistry را مصرف می‌کرد و Static/IP-auth chan_sip Peer و PJSIP Definition ممکن بود دیده نشوند. اکنون Registrationهای صریح با Peer Candidateهای محافظه‌کارانه Merge می‌شوند و Confidence صریح نمایش داده می‌شود.
