@@ -84,6 +84,103 @@ export interface ProviderStatus {
   networkEnabled: boolean;
 }
 
+export type TelephonySynchronization = 'CURRENT' | 'AWAITING_SNAPSHOT' | 'STALE';
+export type TelephonyCapabilityState =
+  'SUPPORTED' | 'UNSUPPORTED' | 'NOT_CONFIGURED' | 'PERMISSION_DENIED' | 'UNKNOWN';
+
+export interface TelephonyChannelState {
+  channelId: string;
+  channelName?: string;
+  linkedId?: string;
+  state?: string;
+  bridgeId?: string;
+  updatedAt: string;
+}
+
+export interface TelephonyCallState {
+  callId: string;
+  linkedId?: string;
+  channelIds: string[];
+  bridgeIds: string[];
+  updatedAt: string;
+}
+
+export interface TelephonyEndpointState {
+  endpointId: string;
+  registrationState: string;
+  reachability: string;
+  updatedAt: string;
+}
+
+export interface TelephonyTrunkState {
+  trunkId: string;
+  kind: string;
+  registrationState: string;
+  updatedAt: string;
+}
+
+export interface TelephonyQueueState {
+  queueId: string;
+  strategy?: string;
+  waitingCount: number;
+  updatedAt: string;
+}
+
+export interface TelephonyQueueMemberState {
+  queueId: string;
+  memberId: string;
+  memberName?: string;
+  availability: string;
+  paused: boolean;
+  inCall: boolean;
+  updatedAt: string;
+}
+
+export interface TelephonyQueueCallerState {
+  queueId: string;
+  callerId: string;
+  position?: number;
+  waitSeconds?: number;
+  updatedAt: string;
+}
+
+export interface TelephonyAgentInteractionState {
+  queueId: string;
+  callerId: string;
+  memberId: string;
+  memberName?: string;
+  phase: string;
+  updatedAt: string;
+}
+
+export interface TelephonyInstanceState {
+  instanceId: string;
+  revision: number;
+  synchronization: TelephonySynchronization;
+  lastSnapshotAt: string;
+  lastEventAt?: string;
+  channels: TelephonyChannelState[];
+  calls: TelephonyCallState[];
+  endpointCapability: TelephonyCapabilityState;
+  endpointSynchronization: TelephonySynchronization | 'UNAVAILABLE';
+  endpoints: TelephonyEndpointState[];
+  trunkCapability: TelephonyCapabilityState;
+  trunkSynchronization: TelephonySynchronization | 'UNAVAILABLE';
+  trunks: TelephonyTrunkState[];
+  queueCapability: TelephonyCapabilityState;
+  queueSynchronization: TelephonySynchronization | 'UNAVAILABLE';
+  queues: TelephonyQueueState[];
+  queueMembers: TelephonyQueueMemberState[];
+  queueCallers: TelephonyQueueCallerState[];
+  agentCapability: TelephonyCapabilityState;
+  agentSynchronization: 'LIVE_ONLY' | 'STALE';
+  agentInteractions: TelephonyAgentInteractionState[];
+}
+
+export interface TelephonyStateResponse {
+  current: TelephonyInstanceState | null;
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -126,6 +223,9 @@ export const api = {
   systemMetrics: (id: string) =>
     request<SystemMetricsResponse>(`/api/pbx-instances/${id}/system-metrics`),
   systemMetricsStreamUrl: (id: string) => `/api/pbx-instances/${id}/system-metrics/stream`,
+  telephonyState: (id: string) =>
+    request<TelephonyStateResponse>(`/api/pbx-instances/${id}/telephony-state`),
+  telephonyStateStreamUrl: (id: string) => `/api/pbx-instances/${id}/telephony-state/stream`,
   createPbx: (value: object) => request<PbxProfile>('/api/pbx-instances', 'POST', value),
   updatePbx: (id: string, value: object) =>
     request<PbxProfile>(`/api/pbx-instances/${id}`, 'PATCH', value),

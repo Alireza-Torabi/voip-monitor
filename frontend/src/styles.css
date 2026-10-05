@@ -102,70 +102,10 @@ button:disabled {
   align-content: start;
 }
 
-.dashboard {
-  border: 1px solid #d5dde4;
-  border-radius: 0.5rem;
-  padding: 1rem;
-  background: #f8fafc;
-}
-.dashboard-heading,
-.dashboard-nav {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-.dashboard-heading h2,
-.dashboard-heading p {
-  margin-top: 0;
-}
-.dashboard-heading label {
-  min-width: 14rem;
-}
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-  gap: 0.75rem;
-  margin-top: 1rem;
-}
-.summary-card {
-  display: grid;
-  gap: 0.45rem;
-  border: 1px solid #d5dde4;
-  border-radius: 0.4rem;
-  padding: 0.9rem;
-  background: white;
-  min-width: 0;
-}
-.summary-card strong {
-  font-size: 1.15rem;
-  overflow-wrap: anywhere;
-}
-.summary-card small {
-  color: #556575;
-  overflow-wrap: anywhere;
-}
-.summary-label {
-  color: #556575;
-  font-size: 0.85rem;
-  font-weight: 700;
-}
-.dashboard-nav {
-  justify-content: flex-start;
-  margin-top: 1rem;
-}
-.dashboard-nav a {
-  color: #173b61;
-  font-weight: 700;
-}
 @media (max-width: 42rem) {
   main {
     margin: 0;
     padding: 1rem;
     border-radius: 0;
-  }
-  .dashboard-grid {
-    grid-template-columns: 1fr;
   }
 }

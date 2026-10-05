@@ -377,3 +377,14 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 243. **No new PBX work:** Task 40 creates no provider instance, AMI connection, AMI action, credential read, permission expansion, SSH collection, storage query for telephony history, or PBX mutation.
 244. **Current-state limitation:** telephony state remains in memory only. Agent interactions remain `LIVE_ONLY` and Queue/Agent production compatibility is still unverified.
 245. **Task 41 boundary:** next consume these telephony current-state/SSE boundaries in the bilingual operator UI only; no PBX write action, telephony history, or broader collection scope.
+
+
+## 2026-10-05 — Task 41 Chakra telephony dashboard decisions
+
+246. **Chakra UI v3 dashboard scope:** use Chakra UI v3 primitives for the operator dashboard and Task 41 telephony presentation. Do not rewrite unrelated setup, PBX-management, or security-rule forms merely to achieve visual uniformity in this task.
+247. **Existing API only:** the UI consumes Task 40 `telephony-state` current/SSE plus the already-existing provider/system/security boundaries. Rendering a browser does not create PBX connections, actions, permissions, collectors, or history reads.
+248. **Responsive information hierarchy:** top-level operational state uses responsive summary cards; current telephony entities use bounded responsive detail cards rather than dense desktop-only tables so the same UI remains usable on narrow screens.
+249. **RTL with technical LTR islands:** Persian inherits application RTL direction. Provider-neutral technical identifiers remain unmodified and are rendered LTR at the element boundary when bidi ordering could corrupt them.
+250. **Dependency/license boundary:** pin `@chakra-ui/react 3.37.0` and `@emotion/react 11.14.0` through the lockfile. Review the transitive `tslib 2.8.1` Zero-Clause BSD license text and add SPDX `0BSD` to the explicit reviewed-license set.
+251. **Task 42 boundary:** next define and persist bounded PBX-scoped telephony history/retention using only existing normalized telephony state/events; no new PBX action, collection source, or browser history UI.
+252. **Chakra bundle tradeoff is explicit:** Task 41 accepts the current 519,828-byte raw production JavaScript bundle and non-fatal Ark UI `"use client"` Rolldown warnings because the user explicitly selected Chakra UI and the SPA build passes. Future bundle optimization must be measured separately rather than silently replacing the selected design system.

@@ -1,10 +1,10 @@
 # Project context
 
-Status: Task 39 is merged into main. Task 40 is complete on feature/telephony-state-api as of 2026-10-05 and merge into main is pending. The existing TelephonyStateEngine now has authenticated PBX-scoped read-only current-state and SSE realtime APIs with bounded stream count and no new PBX connection/action/permission/collection behavior. Exact next task after Task 40 merge is Task 41: consume the telephony state API/SSE in the bilingual operator UI. License: Apache-2.0.
+Status: Task 40 is merged into main. Task 41 is complete on feature/telephony-dashboard-ui as of 2026-10-05 and merge into main is pending. The bilingual operator dashboard now consumes authenticated PBX-scoped telephony current-state/SSE and uses Chakra UI v3 primitives for responsive presentation. No new PBX action, collection source, permission, or telephony history boundary was added. Exact next task after Task 41 merge is Task 42: bounded PBX-scoped telephony history/retention persistence from existing normalized state/events. License: Apache-2.0.
 
 ## Repository state
 
-The public repository tracks origin/main. Task 39 is merged. The current feature branch is feature/telephony-state-api for Task 40; it changes backend API wiring/tests/documentation only and introduces no new PBX network behavior.
+The public repository tracks origin/main. Task 40 is merged. The current feature branch is feature/telephony-dashboard-ui for Task 41; it changes frontend UI/API-client/tests, dependency lock state, license allowlist, and documentation only, with no new PBX network behavior.
 
 ## Product constraints
 
