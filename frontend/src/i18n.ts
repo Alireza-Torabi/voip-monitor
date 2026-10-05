@@ -108,6 +108,23 @@ export const messages = {
     metricsUnavailableTitle: 'System metrics are not configured',
     metricsUnavailableHint:
       'CPU, memory and uptime require optional PBX-scoped restricted SSH configuration and credentials.',
+    persianDateTime: 'Persian date & time',
+    storageTitle: 'Storage / filesystems',
+    storageHint:
+      'Mounted filesystems reported by the monitored host; the number of entries is dynamic.',
+    storageNoData: 'No filesystem data is available yet.',
+    storageUsed: 'Used',
+    storageFree: 'Free',
+    storageTotal: 'Total',
+    metricsTrendTitle: 'System performance trend',
+    metricsTrendHint: 'CPU and memory utilization from the recent system-metrics history.',
+    metricsTrendNoData: 'Not enough history is available yet.',
+    metricsTrendOldest: 'Oldest',
+    metricsTrendNow: 'Now',
+    serviceHealthTitle: 'Service health',
+    serviceHealthHint:
+      'Read-only systemd service states when service monitoring is configured for this deployment.',
+    serviceHealthNoData: 'No monitored service state is configured yet.',
     openDetails: 'Open details',
     activeOnly: 'Active channels only',
     entityWorkspaceHint:
@@ -297,6 +314,23 @@ export const messages = {
     metricsUnavailableTitle: 'System Metrics پیکربندی نشده است',
     metricsUnavailableHint:
       'CPU، Memory و Uptime به Restricted SSH Configuration و Credential اختیاری و PBX-scoped نیاز دارند.',
+    persianDateTime: 'تاریخ و ساعت شمسی',
+    storageTitle: 'فضای ذخیره‌سازی / Filesystemها',
+    storageHint:
+      'Filesystemهای Mount‌شده‌ای که Host مانیتورشده گزارش می‌کند؛ تعداد آن‌ها کاملاً Dynamic است.',
+    storageNoData: 'هنوز داده‌ای برای Filesystemها موجود نیست.',
+    storageUsed: 'مصرف‌شده',
+    storageFree: 'آزاد',
+    storageTotal: 'کل',
+    metricsTrendTitle: 'روند عملکرد سیستم',
+    metricsTrendHint: 'درصد مصرف CPU و Memory بر اساس History اخیر System Metrics.',
+    metricsTrendNoData: 'هنوز History کافی برای رسم نمودار وجود ندارد.',
+    metricsTrendOldest: 'قدیمی‌ترین',
+    metricsTrendNow: 'اکنون',
+    serviceHealthTitle: 'وضعیت سرویس‌ها',
+    serviceHealthHint:
+      'وضعیت Read-only سرویس‌های systemd در صورتی که Service Monitoring برای این Deployment پیکربندی شده باشد.',
+    serviceHealthNoData: 'هنوز Service State مانیتورشده‌ای پیکربندی نشده است.',
     openDetails: 'باز کردن جزئیات',
     activeOnly: 'فقط Channelهای فعال',
     entityWorkspaceHint:

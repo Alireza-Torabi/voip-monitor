@@ -427,3 +427,15 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 275. **Credential replacement requires explicit resubmission:** Task 42 keeps the existing strict configuration service contract; Save writes a complete validated SSH configuration including a fresh credential. The UI never pre-fills an existing secret.
 276. **UI secret clearing:** submitted credential/passphrase fields are cleared after successful Save and are not persisted in localStorage or rendered back to the user.
 277. **Task 43 boundary:** next broaden read-only trunk inventory beyond SIPshowregistry using provider-neutral normalization and synthetic/mock compatibility coverage before any separately approved real-PBX verification.
+
+
+## 2026-10-05 — Dashboard storage/history/Jalali correction
+
+278. **Filesystem count is dynamic:** dashboard storage renders the complete current filesystems array and never assumes a fixed number of disks/mounts.
+279. **Storage semantics are filesystem-level:** because the restricted SSH collector uses df -P -B1, dashboard entries represent mounted filesystems. Do not label them as authoritative physical disks.
+280. **Reuse bounded history:** the dashboard may consume the existing system-metrics history API for recent visualization. Keep the client window bounded at six hours and maximum 120 samples, and append realtime SSE samples with the same local cap.
+281. **No chart dependency:** CPU/memory trend rendering uses compact SVG/Chakra primitives rather than adding another frontend chart package.
+282. **Persian date/time is client-local:** the dashboard uses Intl.DateTimeFormat with the Persian calendar and the browser-local clock. It does not infer PBX/server timezone and adds no date library.
+283. **Service health is conditional:** render systemd service states only when the existing metrics sample contains them; absence remains an explicit not-configured/no-data state.
+284. **Legacy OpenSSH compatibility:** deployment documentation must include a SHA-256 host-key fingerprint fallback for OpenSSH versions where ssh-keygen -E is unavailable, computed from the trusted local host public-key file.
+285. **Task 43 remains next:** this correction is presentation/deployment documentation only and does not consume the trunk-discovery task.

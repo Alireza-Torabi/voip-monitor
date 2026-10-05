@@ -19,6 +19,7 @@ import {
   type PbxProfile,
   type SecurityAlertRecord,
   type SystemMetricsResponse,
+  type SystemMetricsSample,
   type TelephonyInstanceState,
 } from './api.js';
 import { isActiveChannel, type TelephonyPage } from './TelephonyWorkspace.js';
@@ -178,6 +179,308 @@ function StatCard({
   );
 }
 
+function formatPersianDateTime(value: Date) {
+  const date = new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  }).format(value);
+  const time = new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).format(value);
+  return { date, time };
+}
+
+function PersianClock({ text }: { text: TextMap }) {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const formatted = formatPersianDateTime(now);
+  return (
+    <Card.Root variant="outline" bg="blue.50" borderColor="blue.100" minW={{ md: '260px' }}>
+      <Card.Body gap="0.5" py="3">
+        <Text fontSize="xs" color="blue.700" fontWeight="semibold">
+          {text.persianDateTime}
+        </Text>
+        <Heading size="md" dir="rtl">
+          {formatted.time}
+        </Heading>
+        <Text fontSize="sm" color="fg.muted" dir="rtl">
+          {formatted.date}
+        </Text>
+      </Card.Body>
+    </Card.Root>
+  );
+}
+
+function StorageOverview({
+  text,
+  filesystems,
+}: {
+  text: TextMap;
+  filesystems: NonNullable<SystemMetricsSample['filesystems']>;
+}) {
+  return (
+    <Card.Root variant="outline">
+      <Card.Header pb="2">
+        <Card.Title fontSize="md">{text.storageTitle}</Card.Title>
+        <Card.Description>{text.storageHint}</Card.Description>
+      </Card.Header>
+      <Card.Body>
+        {filesystems.length === 0 ? (
+          <Text color="fg.muted">{text.storageNoData}</Text>
+        ) : (
+          <SimpleGrid columns={{ base: 1, md: 2, xl: 3 }} gap="4">
+            {filesystems.map((filesystem) => {
+              const usedBytes = Math.max(0, filesystem.totalBytes - filesystem.availableBytes);
+              const usedPercent =
+                filesystem.totalBytes > 0 ? (100 * usedBytes) / filesystem.totalBytes : 0;
+              const palette =
+                usedPercent >= 90 ? 'red.500' : usedPercent >= 75 ? 'orange.400' : 'blue.500';
+              return (
+                <Box
+                  key={filesystem.filesystemId}
+                  data-storage-filesystem={filesystem.mountPoint}
+                  borderWidth="1px"
+                  borderRadius="xl"
+                  p="4"
+                  minW="0"
+                  bg="bg.panel"
+                >
+                  <Flex justify="space-between" align="start" gap="3" mb="3">
+                    <Box minW="0">
+                      <Text fontWeight="semibold" dir="ltr" overflowWrap="anywhere">
+                        {filesystem.mountPoint}
+                      </Text>
+                      <Text fontSize="xs" color="fg.muted" dir="ltr" overflowWrap="anywhere">
+                        {filesystem.filesystemId}
+                      </Text>
+                    </Box>
+                    <Badge
+                      colorPalette={
+                        usedPercent >= 90 ? 'red' : usedPercent >= 75 ? 'orange' : 'blue'
+                      }
+                    >
+                      {usedPercent.toFixed(0)}%
+                    </Badge>
+                  </Flex>
+                  <Box h="9px" borderRadius="full" bg="gray.100" overflow="hidden" mb="3">
+                    <Box h="full" w={`${usedPercent}%`} bg={palette} borderRadius="full" />
+                  </Box>
+                  <SimpleGrid columns={2} gap="2">
+                    <Box>
+                      <Text fontSize="xs" color="fg.muted">
+                        {text.storageUsed}
+                      </Text>
+                      <Text fontSize="sm" fontWeight="semibold">
+                        {formatBytes(usedBytes)}
+                      </Text>
+                    </Box>
+                    <Box>
+                      <Text fontSize="xs" color="fg.muted">
+                        {text.storageFree}
+                      </Text>
+                      <Text fontSize="sm" fontWeight="semibold">
+                        {formatBytes(filesystem.availableBytes)}
+                      </Text>
+                    </Box>
+                  </SimpleGrid>
+                  <Text fontSize="xs" color="fg.muted" mt="2">
+                    {text.storageTotal}: {formatBytes(filesystem.totalBytes)}
+                  </Text>
+                </Box>
+              );
+            })}
+          </SimpleGrid>
+        )}
+      </Card.Body>
+    </Card.Root>
+  );
+}
+
+function ServiceHealthOverview({
+  text,
+  services,
+}: {
+  text: TextMap;
+  services: NonNullable<SystemMetricsSample['services']>;
+}) {
+  return (
+    <Card.Root variant="outline">
+      <Card.Header pb="2">
+        <Card.Title fontSize="md">{text.serviceHealthTitle}</Card.Title>
+        <Card.Description>{text.serviceHealthHint}</Card.Description>
+      </Card.Header>
+      <Card.Body>
+        {services.length === 0 ? (
+          <Text color="fg.muted">{text.serviceHealthNoData}</Text>
+        ) : (
+          <Stack gap="2">
+            {services.map((service) => (
+              <Flex
+                key={service.serviceId}
+                justify="space-between"
+                align="center"
+                gap="3"
+                borderBottomWidth="1px"
+                pb="2"
+                _last={{ borderBottomWidth: '0', pb: '0' }}
+              >
+                <Text fontSize="sm" fontWeight="semibold" dir="ltr" overflowWrap="anywhere">
+                  {service.serviceId}
+                </Text>
+                <Badge
+                  colorPalette={
+                    service.state === 'ACTIVE'
+                      ? 'green'
+                      : service.state === 'FAILED'
+                        ? 'red'
+                        : service.state === 'INACTIVE'
+                          ? 'orange'
+                          : 'gray'
+                  }
+                >
+                  {service.state}
+                </Badge>
+              </Flex>
+            ))}
+          </Stack>
+        )}
+      </Card.Body>
+    </Card.Root>
+  );
+}
+
+function MetricsTrend({ text, samples }: { text: TextMap; samples: SystemMetricsSample[] }) {
+  const ordered = [...samples].sort((a, b) => a.observedAt.localeCompare(b.observedAt));
+  const usable = ordered.filter((sample) => sample.cpu || sample.memory);
+  const width = 620;
+  const height = 180;
+  const left = 32;
+  const right = 12;
+  const top = 12;
+  const bottom = 26;
+  const plotWidth = width - left - right;
+  const plotHeight = height - top - bottom;
+
+  const points = (selector: (sample: SystemMetricsSample) => number | undefined) =>
+    usable
+      .map((sample, index) => {
+        const value = selector(sample);
+        if (value === undefined) return undefined;
+        const x =
+          left + (usable.length <= 1 ? plotWidth / 2 : (index * plotWidth) / (usable.length - 1));
+        const y = top + plotHeight - (Math.max(0, Math.min(100, value)) * plotHeight) / 100;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      })
+      .filter((value): value is string => value !== undefined)
+      .join(' ');
+
+  const cpuPoints = points((sample) => sample.cpu?.utilizationPercent);
+  const memoryPoints = points((sample) =>
+    sample.memory && sample.memory.totalBytes > 0
+      ? (100 * (sample.memory.totalBytes - sample.memory.availableBytes)) / sample.memory.totalBytes
+      : undefined,
+  );
+
+  return (
+    <Card.Root variant="outline">
+      <Card.Header pb="2">
+        <Flex justify="space-between" align="start" gap="4" flexWrap="wrap">
+          <Box>
+            <Card.Title fontSize="md">{text.metricsTrendTitle}</Card.Title>
+            <Card.Description>{text.metricsTrendHint}</Card.Description>
+          </Box>
+          <HStack gap="3" fontSize="xs">
+            <HStack gap="1">
+              <Box boxSize="8px" borderRadius="full" bg="blue.500" />
+              <Text>{text.cpuUsage}</Text>
+            </HStack>
+            <HStack gap="1">
+              <Box boxSize="8px" borderRadius="full" bg="purple.500" />
+              <Text>{text.memoryUsage}</Text>
+            </HStack>
+          </HStack>
+        </Flex>
+      </Card.Header>
+      <Card.Body pt="2">
+        {usable.length < 2 ? (
+          <Text color="fg.muted">{text.metricsTrendNoData}</Text>
+        ) : (
+          <Box overflowX="auto">
+            <svg
+              viewBox={`0 0 ${width} ${height}`}
+              width="100%"
+              height="220"
+              role="img"
+              aria-label={text.metricsTrendTitle}
+            >
+              {[0, 25, 50, 75, 100].map((value) => {
+                const y = top + plotHeight - (value * plotHeight) / 100;
+                return (
+                  <g key={value}>
+                    <line
+                      x1={left}
+                      x2={width - right}
+                      y1={y}
+                      y2={y}
+                      stroke="var(--chakra-colors-gray-200)"
+                      strokeWidth="1"
+                    />
+                    <text x="2" y={y + 4} fontSize="10" fill="var(--chakra-colors-gray-500)">
+                      {value}%
+                    </text>
+                  </g>
+                );
+              })}
+              {cpuPoints ? (
+                <polyline
+                  points={cpuPoints}
+                  fill="none"
+                  stroke="var(--chakra-colors-blue-500)"
+                  strokeWidth="2.5"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                />
+              ) : null}
+              {memoryPoints ? (
+                <polyline
+                  points={memoryPoints}
+                  fill="none"
+                  stroke="var(--chakra-colors-purple-500)"
+                  strokeWidth="2.5"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                />
+              ) : null}
+              <text x={left} y={height - 5} fontSize="10" fill="var(--chakra-colors-gray-500)">
+                {text.metricsTrendOldest}
+              </text>
+              <text
+                x={width - right}
+                y={height - 5}
+                fontSize="10"
+                textAnchor="end"
+                fill="var(--chakra-colors-gray-500)"
+              >
+                {text.metricsTrendNow}
+              </text>
+            </svg>
+          </Box>
+        )}
+      </Card.Body>
+    </Card.Root>
+  );
+}
+
 function QueueBars({ text, queues }: { text: TextMap; queues: TelephonyInstanceState['queues'] }) {
   const top = [...queues].sort((a, b) => b.waitingCount - a.waitingCount).slice(0, 6);
   const max = Math.max(1, ...top.map((item) => item.waitingCount));
@@ -234,6 +537,7 @@ export function OperatorDashboard({
     profiles[0]?.connectionStatus ?? 'UNVERIFIED',
   );
   const [metrics, setMetrics] = useState<SystemMetricsResponse>();
+  const [metricHistory, setMetricHistory] = useState<SystemMetricsSample[]>([]);
   const [alerts, setAlerts] = useState<SecurityAlertRecord[]>([]);
   const [telephony, setTelephony] = useState<TelephonyInstanceState | null>(null);
   const [metricsLive, setMetricsLive] = useState<LiveState>('connecting');
@@ -256,6 +560,7 @@ export function OperatorDashboard({
     let cancelled = false;
     setConnection(selected.connectionStatus);
     setMetrics(undefined);
+    setMetricHistory([]);
     setAlerts([]);
     setTelephony(null);
     setError('');
@@ -284,6 +589,17 @@ export function OperatorDashboard({
         .systemMetrics(selected.id)
         .then((value) => {
           if (!cancelled) setMetrics(value);
+        })
+        .catch(fail),
+      api
+        .systemMetricsHistory(
+          selected.id,
+          new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+          new Date().toISOString(),
+          120,
+        )
+        .then((value) => {
+          if (!cancelled) setMetricHistory(value.items);
         })
         .catch(fail),
       api
@@ -317,6 +633,16 @@ export function OperatorDashboard({
             ...(source ? { source } : {}),
           };
         });
+        if (payload.current) {
+          setMetricHistory((current) => {
+            const withoutDuplicate = current.filter(
+              (sample) => sample.observedAt !== payload.current!.observedAt,
+            );
+            return [...withoutDuplicate, payload.current!]
+              .sort((a, b) => a.observedAt.localeCompare(b.observedAt))
+              .slice(-120);
+          });
+        }
       } catch {
         setMetricsLive('disconnected');
       }
@@ -434,24 +760,27 @@ export function OperatorDashboard({
             {text.dashboardHint}
           </Text>
         </Box>
-        <Box minW={{ base: '100%', md: '280px' }}>
-          <Text fontSize="sm" fontWeight="semibold" mb="1.5">
-            {text.dashboardPbx}
-          </Text>
-          <NativeSelect.Root>
-            <NativeSelect.Field
-              value={selected?.id ?? ''}
-              onChange={(event) => setSelectedId(event.target.value)}
-            >
-              {profiles.map((profile) => (
-                <option key={profile.id} value={profile.id}>
-                  {profile.displayName}
-                </option>
-              ))}
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-        </Box>
+        <HStack align="stretch" gap="3" flexWrap="wrap" justify={{ md: 'flex-end' }}>
+          <PersianClock text={text} />
+          <Box minW={{ base: '100%', md: '260px' }} alignSelf="end">
+            <Text fontSize="sm" fontWeight="semibold" mb="1.5">
+              {text.dashboardPbx}
+            </Text>
+            <NativeSelect.Root>
+              <NativeSelect.Field
+                value={selected?.id ?? ''}
+                onChange={(event) => setSelectedId(event.target.value)}
+              >
+                {profiles.map((profile) => (
+                  <option key={profile.id} value={profile.id}>
+                    {profile.displayName}
+                  </option>
+                ))}
+              </NativeSelect.Field>
+              <NativeSelect.Indicator />
+            </NativeSelect.Root>
+          </Box>
+        </HStack>
       </Flex>
 
       <SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} gap="4">
@@ -538,6 +867,13 @@ export function OperatorDashboard({
           detail={sample?.source ?? text.noMetrics}
         />
       </SimpleGrid>
+
+      <SimpleGrid columns={{ base: 1, xl: 2 }} gap="4">
+        <MetricsTrend text={text} samples={metricHistory} />
+        <ServiceHealthOverview text={text} services={sample?.services ?? []} />
+      </SimpleGrid>
+
+      <StorageOverview text={text} filesystems={sample?.filesystems ?? []} />
 
       {metricsUnavailable ? (
         <Card.Root variant="outline" bg="orange.50" borderColor="orange.200">

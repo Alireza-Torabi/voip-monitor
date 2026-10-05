@@ -457,13 +457,51 @@ describe('operator dashboard', () => {
               observedAt: '2026-10-05T04:00:00.000Z',
               cpu: { utilizationPercent: 12.5 },
               memory: { totalBytes: 8589934592, availableBytes: 6442450944 },
+              filesystems: [
+                {
+                  filesystemId: '/',
+                  mountPoint: '/',
+                  totalBytes: 107374182400,
+                  availableBytes: 64424509440,
+                },
+                {
+                  filesystemId: '/data',
+                  mountPoint: '/data',
+                  totalBytes: 214748364800,
+                  availableBytes: 107374182400,
+                },
+              ],
               uptime: { uptimeSeconds: 90000 },
+              services: [
+                { serviceId: 'asterisk.service', state: 'ACTIVE' },
+                { serviceId: 'helper.service', state: 'INACTIVE' },
+              ],
             },
             source: {
               instanceId: 'dashboard-pbx',
               health: { source: 'SSH', freshness: 'CURRENT' },
               consecutiveFailures: 0,
             },
+          });
+        }
+        if (path.startsWith('/api/pbx-instances/dashboard-pbx/system-metrics/history?')) {
+          return response({
+            items: [
+              {
+                instanceId: 'dashboard-pbx',
+                source: 'SSH',
+                observedAt: '2026-10-05T03:00:00.000Z',
+                cpu: { utilizationPercent: 20 },
+                memory: { totalBytes: 8589934592, availableBytes: 5368709120 },
+              },
+              {
+                instanceId: 'dashboard-pbx',
+                source: 'SSH',
+                observedAt: '2026-10-05T04:00:00.000Z',
+                cpu: { utilizationPercent: 12.5 },
+                memory: { totalBytes: 8589934592, availableBytes: 6442450944 },
+              },
+            ],
           });
         }
         if (path === '/api/pbx-instances/dashboard-pbx/security-alerts') {
@@ -586,6 +624,13 @@ describe('operator dashboard', () => {
     expect(container.textContent).toContain('Current calls');
     expect(container.textContent).toContain('Endpoint reachability');
     expect(container.textContent).toContain('Queue pressure');
+    expect(container.textContent).toContain('Persian date & time');
+    expect(container.textContent).toContain('System performance trend');
+    expect(container.textContent).toContain('Storage / filesystems');
+    expect(container.querySelectorAll('[data-storage-filesystem]')).toHaveLength(2);
+    expect(container.textContent).toContain('/data');
+    expect(container.textContent).toContain('Service health');
+    expect(container.textContent).toContain('asterisk.service');
     expect(container.textContent).not.toContain('call-1');
     expect(container.textContent).toContain('Agent interactions1');
 

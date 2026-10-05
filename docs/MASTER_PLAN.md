@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-05. Task 41 is merged into main. A corrective UI consistency pass is complete on fix/chakra-ui-shell and merge into main is pending. The previous Task 41 implementation applied Chakra UI only to the operator dashboard, leaving setup/login/PBX/security surfaces on legacy raw HTML/CSS. This correction moves the complete operator-facing shell and all forms/workspaces onto the same Chakra UI v3 design system while preserving the existing read-only PBX scope.
+Status: 2026-10-05. Task 42 is merged through PR #46. A user-requested dashboard/deployment correction is complete locally on fix/dashboard-storage-jalali and merge is pending. Task 43 has not started.
 
 ## Phase 0 — environment discovery
 
@@ -85,18 +85,24 @@ These later checks do not change the historical Phase 1 validation record. Docke
 
 ### Current execution handoff
 
-- Current branch: feature/ssh-metrics-management, created from synchronized main after PR #45 merged the complete Task 41 UI correction.
-- Task 42 implementation is complete locally and pending commit/push/merge.
-- Backend now exposes authenticated PBX-scoped GET/PUT/DELETE /api/pbx-instances/:id/ssh-configuration.
-- GET returns only safe metadata plus hasCredential / hasPrivateKeyPassphrase; no password, private key, passphrase, ciphertext, nonce, or other secret material is returned.
-- PUT and DELETE require an authenticated administrator and same-origin write protection. Inputs continue to use the existing strict SshConfigurationService schema: syntax-safe host, bounded port/username, auth method, write-only credential, and mandatory pinned SHA-256 host-key fingerprint.
-- Every successful PUT/DELETE immediately invokes SystemMetricsRuntime.syncProfile(id) so a newly configured source is activated/replaced, or a removed source is stopped, without restarting the service.
-- The frontend adds a bilingual Chakra System metrics SSH workspace with PBX selection, password/private-key modes, write-only credential handling, pinned fingerprint field, remove action, and explicit notice that Save does not probe/test the real host.
-- No SSH test endpoint was added and no real PBX/SSH host was contacted. Task 42 remains synthetic/mock validated only.
-- Final validation passes under project Node 24.21.0/npm 11.19.0: lint, format check, typecheck, backend 128/128 tests, frontend 18/18 tests, production build, foundation check, license check, and diff check. Targeted SSH configuration tests 8/8 also pass after the final synthetic-fixture secret-scan adjustment.
-- Exact next task after Task 42 merge: **Task 43 — broaden provider-neutral trunk inventory beyond outbound SIP registrations with bounded read-only chan_sip/PJSIP-compatible discovery, synthetic/mock compatibility tests first, and no real-PBX verification until separately approved.**
+- Current branch: fix/dashboard-storage-jalali, created from synchronized main after PR #46 merged Task 42.
+- This correction does not start Task 43 and adds no PBX action or new collector.
+- Dashboard now consumes the existing system-metrics current/history boundaries more completely: CPU, memory, uptime, dynamic filesystem/mount storage, optional service-health state, and a recent CPU/memory trend chart.
+- Storage rendering is fully data-driven from SystemMetricsSample.filesystems; no disk count is hardcoded. One, two, or many mounted filesystems render responsively. The UI deliberately labels this as filesystem/storage state because the collector source is df, not physical-disk inventory.
+- The dashboard uses the existing bounded history API for a six-hour / 120-sample CPU-memory trend. Realtime system-metrics SSE samples are appended locally to the same bounded view; no new persistence or backend route was added.
+- A live Persian-calendar date/time card uses the browser-local clock via Intl.DateTimeFormat with the Persian calendar; no date/time dependency was added.
+- Optional service-health rows render dynamically when systemd service-state metrics are configured; otherwise the dashboard states that no monitored service state is configured.
+- The deployment guide now documents both modern ssh-keygen -E sha256 fingerprint extraction and a legacy OpenSSH fallback using OpenSSL for hosts where ssh-keygen reports unknown option -- E.
+- Final validation passes under project Node 24.21.0/npm 11.19.0: lint, format check, typecheck, backend 128/128 tests, frontend 18/18 tests, production build, foundation check, license check, and diff check. Frontend coverage includes two dynamic filesystem cards, the trend section, service-health rendering, and the Persian date/time label.
+- No real PBX/SSH host was contacted or probed by this correction.
+- Exact next task after this correction merges remains Task 43: broader provider-neutral trunk discovery beyond outbound registrations, synthetic/mock first and real-PBX verification only with separate approval.
 
 ### Failure and bug log
+
+- **Filesystem visibility gap — corrected:** system metrics already carried a variable-length filesystem array, but the dashboard ignored it. The UI now renders every current filesystem/mount dynamically with used/free/total bytes and usage percentage; there is no assumption of two disks or any fixed count.
+- **Physical-disk ambiguity — documented:** the current source is POSIX df, so dashboard storage entries represent mounted filesystems, not authoritative physical-drive inventory. A future hardware-inventory task would require a separate provider-neutral source if physical disks are needed.
+- **Dashboard history underuse — corrected:** the existing bounded system-metrics history API was unused by the dashboard. The UI now requests a recent bounded window and renders CPU/memory trends without adding a chart dependency or backend route.
+- **Legacy OpenSSH fingerprint command incompatibility — documented:** some older ssh-keygen versions do not support -E sha256. The deployment guide now includes an OpenSSL fallback that computes the same SHA-256 fingerprint from the trusted local host public-key file.
 
 - **Task 42 no runtime-sync API — resolved:** the existing SSH configuration service could persist encrypted credentials but public callers had no safe mutation boundary and therefore could not atomically activate/stop the metrics runtime. Fix: authenticated same-origin PUT/DELETE now call SystemMetricsRuntime.syncProfile(id) immediately after successful mutation.
 - **Task 42 credential exposure risk — prevented:** the API reuses SafeSshConfiguration; GET/PUT responses contain only metadata and boolean credential-presence flags. API tests explicitly assert that plaintext credential and ciphertext are absent.

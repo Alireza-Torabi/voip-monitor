@@ -122,6 +122,41 @@ Collector فقط Commandهای Read-only ثابت Repository را اجرا می�
 
 Administrator احراز هویت‌شده اکنون می‌تواند SSH Metadata و Credentialهای Write-only همان PBX را از Workspace/API اختصاصی System metrics SSH مدیریت کند. هر Mutation موفق Runtime را فوری Sync می‌کند. Save کردن هیچ Host واقعی را Test/Probe نمی‌کند. هیچ Value واقعی SSH در Git قرار نگیرد.
 
+### گرفتن Pinned SSH Host-key Fingerprint
+
+Fingerprint را از Local Console قابل اعتماد روی خود PBX/Host مانیتورشده بگیرید. اگر ED25519 فعال است، این روش ترجیح داده می‌شود:
+
+</div>
+
+```sh
+PUB=/etc/ssh/ssh_host_ed25519_key.pub
+ssh-keygen -lf "$PUB" -E sha256
+```
+
+<div dir="rtl">
+
+فقط مقدار `SHA256:...` را داخل Workspace مربوط به System metrics SSH وارد کنید. از Public Key مربوط به User/Client استفاده نکنید.
+
+در نسخه‌های قدیمی OpenSSH ممکن است خطای `unknown option -- E` دریافت شود. در این حالت بدون Upgrade اجباری PBX می‌توان همان OpenSSH SHA-256 Fingerprint را از Host Public Key محاسبه کرد:
+
+</div>
+
+```sh
+PUB=/etc/ssh/ssh_host_ed25519_key.pub
+printf 'SHA256:'
+awk '{print $2}' "$PUB" \
+  | tr -d '\n' \
+  | openssl base64 -d -A \
+  | openssl dgst -sha256 -binary \
+  | openssl base64 -A \
+  | tr -d '='
+printf '\n'
+```
+
+<div dir="rtl">
+
+اگر ED25519 روی آن Server فعال نیست، Public Host-key File مربوط به Algorithm واقعی ارائه‌شده توسط `sshd` را استفاده کنید و Fingerprint همان Key را Pin کنید. Fingerprint محیط یا شرکت دیگری را reuse نکنید.
+
 ## محدودیت نمایش Trunk
 
 Discovery فعلی Trunk از Asterisk `SIPshowregistry` استفاده می‌کند و فقط Outbound SIP Registrationها را نشان می‌دهد. Static SIP Peer، Inbound-only Definition و PJSIP Trunk ممکن است وجود داشته باشند ولی نمایش داده نشوند.
