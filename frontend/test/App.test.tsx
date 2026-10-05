@@ -3,12 +3,25 @@ import type { ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { App, PbxWorkspace } from '../src/App.js';
+import { createApplicationEmotionCache } from '../src/emotion-cache.js';
 import { SecurityWorkspace } from '../src/SecurityWorkspace.js';
 import { messages } from '../src/i18n.js';
 
 function renderUi(node: ReactNode) {
   return renderToStaticMarkup(<ChakraProvider value={defaultSystem}>{node}</ChakraProvider>);
 }
+
+describe('emotion CSP integration', () => {
+  it('copies the gateway nonce into the Emotion cache', () => {
+    const documentWithNonce = {
+      querySelector: () => ({ content: 'nonce-for-test' }),
+    } as unknown as Document;
+
+    const cache = createApplicationEmotionCache(documentWithNonce);
+
+    expect(cache.nonce).toBe('nonce-for-test');
+  });
+});
 
 describe('bilingual onboarding shell', () => {
   it('renders first administrator setup in English left to right', () => {

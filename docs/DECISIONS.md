@@ -397,3 +397,8 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 255. **Native semantics inside Chakra layout:** when Chakra polymorphic typing does not preserve native form element types, retain native semantic form elements and compose Chakra layout/components inside them rather than weakening TypeScript types.
 256. **Minimal global CSS:** global CSS is limited to browser-level reset, minimum viewport, font stack, and page background. Component styling belongs to Chakra primitives/tokens instead of legacy selectors/classes.
 257. **RTL boundary remains global:** Persian application direction is RTL at the document/shell boundary; technical identifiers remain explicit LTR islands.
+
+
+258. **CSP-compatible Chakra styling:** do not relax production CSP with unsafe-inline to accommodate Chakra/Emotion. The HTTPS gateway generates a fresh cryptographic nonce for each HTML document response, adds that nonce to style-src, injects it into the document, and the frontend passes it to a dedicated Emotion cache.
+259. **Nonce scope:** the CSP style nonce is document-scoped and generated only for served index.html documents. Static JS/CSS assets retain immutable caching and do not require the nonce.
+260. **Emotion cache ownership:** the root frontend composition owns one application Emotion cache, outside ChakraProvider, so all Chakra runtime style injection uses the gateway-provided nonce consistently.

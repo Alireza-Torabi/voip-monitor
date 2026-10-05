@@ -1,6 +1,6 @@
 # Proposed architecture
 
-Status: Task 41 is merged, and the follow-up UI consistency correction migrates the complete operator-facing React surface to one global Chakra UI v3 design system: shell, setup/login, PBX management, security workspace, and telephony dashboard. RTL remains document-level with explicit LTR technical islands. This is presentation-only and creates no PBX work. Telephony history remains unimplemented.
+Status: Task 41 is merged, and the follow-up UI consistency correction migrates the complete operator-facing React surface to one global Chakra UI v3 design system: shell, setup/login, PBX management, security workspace, and telephony dashboard. RTL remains document-level with explicit LTR technical islands. This is presentation-only and creates no PBX work. Telephony history remains unimplemented. Production styling remains under strict CSP: the HTTPS gateway generates a per-document style nonce and the root Emotion cache applies the same nonce to Chakra runtime style tags, avoiding unsafe-inline.
 
 ```text
 PBX (Asterisk / FreePBX)

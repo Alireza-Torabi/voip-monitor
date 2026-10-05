@@ -83,9 +83,10 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 ### وضعیت فعلی ادامه کار
 
 - Branch فعلی fix/chakra-ui-shell است که پس از Merge شدن Task 41 از main همگام‌شده ساخته شد.
-- UI Consistency Correction مربوط به Task 41 به‌صورت Local کامل است؛ Full Validation با Project Node 24.21.0/npm 11.19.0 شامل Lint، Format Check، Typecheck، Backend 127/127، Frontend 15/15، Production Build، Foundation Check، License Check و Diff Check همگی PASS است. Merge به main هنوز Pending است.
+- UI Consistency Correction مربوط به Task 41 شامل CSP/Emotion Nonce Fix به‌صورت Local کامل است؛ Full Validation با Project Node 24.21.0/npm 11.19.0 شامل Lint، Format Check، Typecheck، Backend 127/127، Frontend 16/16، Production Build، Foundation Check، License Check و Diff Check همگی PASS است. Merge به main هنوز Pending است.
 - Root Cause UI به‌هم‌ریخته: Task 41 فقط OperatorDashboard را با Chakra UI پیاده‌سازی کرده بود، در حالی که Application Shell، First-admin Setup، Login، PBX Management و Security Workspace همچنان Raw HTML/CSS قدیمی بودند.
 - Fix: Chakra UI v3 اکنون Global Provider دارد و Shell، Authentication Screenها، PBX Card/Formها، Security Alert/Ruleها و Operator Dashboard همگی از Primitiveهای Responsive یکسان استفاده می‌کنند.
+- Browser Validation یک Root Cause دوم و Production-only را مشخص کرد: HTTPS Gateway فقط style-src self را مجاز می‌کرد، در حالی که Chakra v3/Emotion در Runtime عنصر style Inject می‌کند. Browser این Styleها را Block می‌کرد و Chakra فقط به‌صورت Markup بدون Style دیده می‌شد. Fix با CSP Style Nonce تصادفی برای هر HTML Response، Inject همان Nonce در HTML و تنظیم Emotion Cache با همان Nonce انجام شد. unsafe-inline فعال نشده است.
 - Legacy Visual CSS حذف شده و styles.css فقط Browser-level Reset/Font/Background حداقلی دارد.
 - Persian همچنان Application-level RTL است و Technical Identifier/Addressها Explicit LTR باقی می‌مانند.
 - Behavior و API Boundaryهای موجود حفظ شده‌اند. هیچ Backend Route، PBX Action، Collector، Permission، Credential Behavior یا Network Scope تغییر نکرد.
@@ -98,6 +99,10 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - **Chakra Polymorphic Form Typing Failure — رفع شد:** Stack as form در Chakra v3 همچنان HTMLDivElement Type می‌شود. Fix: Semantic Native form حفظ شد و Chakra Stack داخل آن قرار گرفت.
 - **Legacy-selector Test Failure — رفع شد:** یک Security Realtime Test به CSS Selector قدیمی وابسته بود. Fix: Semantic data-security-alert Hook اضافه شد و Test رفتار را به‌جای Class Implementation Detail بررسی می‌کند.
 - **Design-system Completeness Check:** Raw Legacy Button/Select و Visual className Styling از Frontend Source حذف شده‌اند؛ Inputهای باقی‌مانده فقط Chakra HiddenInput داخلی برای Checkbox Semantics هستند.
+- **Production CSP/Emotion Incompatibility — در Branch رفع شد:** Browser Console خطاهای style-src نشان داد چون Gateway فقط Self-hosted Style را مجاز می‌کرد و Emotion Runtime Style Element می‌سازد. Fix: Style Nonce برای هر Document، Inject مقدار csp-nonce در HTML و Emotion Cache با همان Nonce. هیچ unsafe-inline اضافه نشد.
+- **Nonce Regression-test Environment Failure — رفع شد:** تست اولیه Global DOM را فرض کرده بود و در Node Test Environment Fail شد؛ اکنون از Minimal Typed Document Stub استفاده می‌کند. تلاش موقت JSDOM نیز به‌علت نبود @types/jsdom Typecheck را Fail کرد و هیچ Dependency تستی جدیدی نگه داشته نشد.
+- **Gateway Lint Failure — رفع شد:** Full Gate اولیه Global Buffer را تحت ESLint رد کرد. Fix: Buffer صریحاً از node:buffer Import شد.
+- **Root-owned Build Artifact Drift — رفع شد:** یک Build دستی قبلی با root باعث شده بود frontend/dist/assets مالک root باشد و Project Build نتواند Vite Output را Clean کند. Build قدیمی به .local منتقل و Production Build جدید با مالکیت torabi ساخته شد. این مشکل Environment Ownership بود، نه Source Regression.
 
 - **Task 41 Install Toolchain Mismatch — رفع شد:** اولین نصب Chakra با Remote Desktop Shell Node 22/npm 10 اجرا شد و چون Repository به Node 24 نیاز دارد Engine Warning داد. Lockfile Reset شد و نصب با Repository Runtime یعنی Node 24.21.0/npm 11.19.0 دوباره انجام شد.
 - **Task 41 Chakra Label Type Mismatch — رفع شد:** در Chakra v3، `Text` حتی با `as="label"` Property نوعی `htmlFor` را قبول نکرد. Fix: Semantic Native `label` حفظ شد و Chakra Typography داخل آن استفاده شد؛ Frontend Typecheck سپس PASS شد.

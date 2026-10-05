@@ -1,6 +1,6 @@
 # Project context
 
-Status: Task 41 is merged into main. A corrective UI consistency pass is complete on fix/chakra-ui-shell as of 2026-10-05 and merge is pending. The prior dashboard-only Chakra scope was incorrect; the complete operator-facing shell, setup/login, PBX management, security workspace, and dashboard now use Chakra UI v3 consistently. No backend/PBX boundary changed. Exact next task after the correction merges remains Task 42: bounded PBX-scoped telephony history/retention persistence from existing normalized state/events. License: Apache-2.0.
+Status: Task 41 is merged into main. A corrective UI consistency pass is complete on fix/chakra-ui-shell as of 2026-10-05 and merge is pending. The prior dashboard-only Chakra scope was incorrect; the complete operator-facing shell, setup/login, PBX management, security workspace, and dashboard now use Chakra UI v3 consistently. No backend/PBX boundary changed. Exact next task after the correction merges remains Task 42: bounded PBX-scoped telephony history/retention persistence from existing normalized state/events. License: Apache-2.0. Browser validation found production Chakra styles were blocked by the existing strict CSP; the current correction now uses a per-document CSP nonce shared with the root Emotion cache and does not enable unsafe-inline.
 
 ## Repository state
 
