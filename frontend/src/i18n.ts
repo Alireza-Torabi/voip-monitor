@@ -131,6 +131,35 @@ export const messages = {
     agentName: 'Agent',
     agentId: 'Agent ID',
     callerId: 'Caller ID',
+    sshMetricsTitle: 'System metrics SSH',
+    sshMetricsHint:
+      'Configure optional PBX-scoped restricted SSH for CPU, memory, uptime and filesystem metrics.',
+    sshConfiguration: 'SSH configuration',
+    sshWriteOnlyHint:
+      'Credentials are write-only, encrypted at rest, and never returned by the API.',
+    sshConfigured: 'CONFIGURED',
+    sshNotConfigured: 'NOT CONFIGURED',
+    sshHost: 'SSH host',
+    sshPort: 'SSH port',
+    sshUsername: 'SSH username',
+    sshAuthMethod: 'Authentication method',
+    sshPassword: 'Password',
+    sshPrivateKey: 'Private key',
+    sshFingerprint: 'Pinned host-key fingerprint',
+    sshFingerprintHint:
+      'Required SHA-256 host-key fingerprint in the form SHA256:... . The monitor never trusts a new host key automatically.',
+    sshKeyPassphrase: 'Private-key passphrase (optional)',
+    sshNoProbeTitle: 'Saving does not test the real host',
+    sshNoProbeHint:
+      'This task only stores validated metadata/credentials and synchronizes runtime state. No SSH connection is initiated by this screen.',
+    sshSave: 'Save SSH configuration',
+    sshRemove: 'Remove SSH configuration',
+    sshSaved: 'SSH configuration saved and runtime synchronized.',
+    sshRemoved: 'SSH configuration removed and runtime synchronized.',
+    sshLoadFailed: 'SSH configuration could not be loaded.',
+    sshSaveFailed:
+      'SSH configuration could not be saved. Check host, username, credential and SHA-256 fingerprint.',
+    sshRemoveFailed: 'SSH configuration could not be removed.',
     trunkDiscoveryLimited: 'Trunk discovery is currently registration-based',
     trunkDiscoveryLimitedHint:
       'Current provider discovery uses SIPshowregistry. Static SIP peers, inbound-only definitions and PJSIP trunks may exist on the PBX but are not represented by this snapshot yet.',
@@ -291,6 +320,35 @@ export const messages = {
     agentName: 'Agent',
     agentId: 'Agent ID',
     callerId: 'Caller ID',
+    sshMetricsTitle: 'SSH مربوط به System Metrics',
+    sshMetricsHint:
+      'Restricted SSH اختیاری و PBX-scoped را برای CPU، Memory، Uptime و Filesystem Metrics پیکربندی کنید.',
+    sshConfiguration: 'پیکربندی SSH',
+    sshWriteOnlyHint:
+      'Credentialها فقط Write-only هستند، در حالت ذخیره رمزنگاری می‌شوند و API هرگز آن‌ها را برنمی‌گرداند.',
+    sshConfigured: 'پیکربندی‌شده',
+    sshNotConfigured: 'پیکربندی‌نشده',
+    sshHost: 'SSH Host',
+    sshPort: 'SSH Port',
+    sshUsername: 'SSH Username',
+    sshAuthMethod: 'روش احراز هویت',
+    sshPassword: 'Password',
+    sshPrivateKey: 'Private Key',
+    sshFingerprint: 'Pinned Host-key Fingerprint',
+    sshFingerprintHint:
+      'Fingerprint اجباری SHA-256 با فرمت SHA256:... . Monitor هیچ Host Key جدیدی را خودکار Trust نمی‌کند.',
+    sshKeyPassphrase: 'Passphrase مربوط به Private Key (اختیاری)',
+    sshNoProbeTitle: 'Save کردن Host واقعی را Test نمی‌کند',
+    sshNoProbeHint:
+      'این Task فقط Metadata/Credential معتبر را ذخیره و Runtime را Sync می‌کند. این صفحه هیچ SSH Connection ایجاد نمی‌کند.',
+    sshSave: 'ذخیره پیکربندی SSH',
+    sshRemove: 'حذف پیکربندی SSH',
+    sshSaved: 'پیکربندی SSH ذخیره و Runtime همگام شد.',
+    sshRemoved: 'پیکربندی SSH حذف و Runtime همگام شد.',
+    sshLoadFailed: 'پیکربندی SSH قابل Load نبود.',
+    sshSaveFailed:
+      'پیکربندی SSH ذخیره نشد. Host، Username، Credential و SHA-256 Fingerprint را بررسی کنید.',
+    sshRemoveFailed: 'پیکربندی SSH حذف نشد.',
     trunkDiscoveryLimited: 'Discovery فعلی Trunk بر پایه Registration است',
     trunkDiscoveryLimitedHint:
       'Provider فعلی از SIPshowregistry استفاده می‌کند. Static SIP Peer، تعریف Inbound-only و PJSIP Trunk ممکن است روی PBX وجود داشته باشند ولی هنوز در این Snapshot نمایش داده نشوند.',

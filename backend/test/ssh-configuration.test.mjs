@@ -1,14 +1,17 @@
 import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
+import { once } from 'node:events';
 import dns from 'node:dns';
 import net from 'node:net';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { test } from 'node:test';
 import { loadAppConfig } from '../dist/config.js';
+import { AuthService } from '../dist/auth/index.js';
+import { createApp } from '../dist/server.js';
 import { NetworkBoundaryError } from '../dist/network/policy.js';
 import { SecretStore } from '../dist/security/secret-store.js';
 import {
@@ -47,7 +50,8 @@ async function fixture(run) {
       updatedAt: '2026-09-25T16:00:00.000Z',
     });
     secrets = await SecretStore.open(config, storage);
-    await run({ config, storage, secrets });
+    const auth = await AuthService.open(config, storage);
+    await run({ config, storage, secrets, auth });
   } finally {
     secrets?.close();
     storage?.close();
@@ -254,4 +258,105 @@ test('deleting SSH configuration removes only SSH secrets and PBX deletion casca
     assert.equal(storage.pbxProfiles.delete(PBX_ID), true);
     assert.equal(storage.sshConfigs.get(PBX_ID), undefined);
     assert.equal(storage.secretRecords.has(PBX_ID, SSH_SECRET_NAMES.passwordCredential), false);
+  }));
+
+async function serveSshApi(storage, secrets, auth, sshConfiguration, systemMetrics) {
+  const server = createApp(
+    storage,
+    secrets,
+    auth,
+    undefined,
+    systemMetrics,
+    undefined,
+    sshConfiguration,
+  );
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const address = server.address();
+  assert.ok(address && typeof address !== 'string');
+  const base = 'http://127.0.0.1:' + address.port;
+  return { base, close: () => new Promise((resolve) => server.close(resolve)) };
+}
+
+async function loginForSshApi(base, config) {
+  const token = (
+    await readFile(join(config.secretDirectory, 'bootstrap-admin.token'), 'utf8')
+  ).trim();
+  let response = await fetch(base + '/setup/admin', {
+    method: 'POST',
+    headers: { origin: base, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      username: 'admin',
+      ['password']: 'synthetic admin passphrase',
+      bootstrapToken: token,
+    }),
+  });
+  assert.equal(response.status, 201);
+  response = await fetch(base + '/auth/login', {
+    method: 'POST',
+    headers: { origin: base, 'content-type': 'application/json' },
+    body: JSON.stringify({ username: 'admin', ['password']: 'synthetic admin passphrase' }),
+  });
+  assert.equal(response.status, 200);
+  return response.headers.get('set-cookie').split(';')[0];
+}
+
+test('SSH configuration API is authenticated, write-only for credentials, same-origin protected, and syncs runtime', async () =>
+  fixture(async ({ config, storage, secrets, auth }) => {
+    const sshConfiguration = new SshConfigurationService(storage, secrets);
+    const syncCalls = [];
+    const systemMetrics = {
+      syncProfile(id) {
+        syncCalls.push(id);
+      },
+    };
+    const app = await serveSshApi(storage, secrets, auth, sshConfiguration, systemMetrics);
+    try {
+      const path = '/api/pbx-instances/' + PBX_ID + '/ssh-configuration';
+      assert.equal((await fetch(app.base + path)).status, 401);
+      const cookie = await loginForSshApi(app.base, config);
+
+      assert.equal(
+        (
+          await fetch(app.base + path, {
+            method: 'PUT',
+            headers: {
+              cookie,
+              origin: 'https://evil.example',
+              'content-type': 'application/json',
+            },
+            body: JSON.stringify(passwordConfiguration()),
+          })
+        ).status,
+        403,
+      );
+
+      const savedResponse = await fetch(app.base + path, {
+        method: 'PUT',
+        headers: { cookie, origin: app.base, 'content-type': 'application/json' },
+        body: JSON.stringify(passwordConfiguration()),
+      });
+      assert.equal(savedResponse.status, 200);
+      const savedText = await savedResponse.text();
+      assert.ok(!savedText.includes('synthetic-ssh-password'));
+      assert.ok(!savedText.includes('ciphertext'));
+      const saved = JSON.parse(savedText);
+      assert.equal(saved.host, 'pbx.example.test');
+      assert.equal(saved.hasCredential, true);
+      assert.deepEqual(syncCalls, [PBX_ID]);
+
+      const readText = await (await fetch(app.base + path, { headers: { cookie } })).text();
+      assert.ok(!readText.includes('synthetic-ssh-password'));
+      assert.equal(JSON.parse(readText).hasCredential, true);
+
+      const deleted = await fetch(app.base + path, {
+        method: 'DELETE',
+        headers: { cookie, origin: app.base },
+      });
+      assert.equal(deleted.status, 200);
+      assert.deepEqual(syncCalls, [PBX_ID, PBX_ID]);
+      assert.equal((await fetch(app.base + path, { headers: { cookie } })).status, 404);
+    } finally {
+      await app.close();
+    }
   }));

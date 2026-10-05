@@ -1,6 +1,6 @@
 # Proposed architecture
 
-Status: Task 41 is merged. The follow-up fix/chakra-ui-shell correction provides one global Chakra UI v3/CSP-nonce design system, a summary-first dashboard, and separate searchable/paginated realtime telephony workspaces. Deployment portability is an explicit architecture constraint: tracked repository state is organization-neutral and all deployment-specific facts/secrets remain outside Git. System metrics are an optional restricted-SSH source; trunk inventory is currently limited to outbound SIP registrations. No new PBX actions were added by this correction.
+Status: Task 42 adds authenticated PBX-scoped SSH system-metrics configuration management. Safe metadata is exposed through GET, write-only encrypted credential mutation through same-origin PUT/DELETE, and every successful mutation synchronizes SystemMetricsRuntime immediately. The bilingual Chakra UI includes a System metrics SSH workspace. No SSH connection/test operation is exposed, so real-host access remains approval-gated. Current trunk inventory is still outbound-registration based; Task 43 is next.
 
 ```text
 PBX (Asterisk / FreePBX)

@@ -19,12 +19,13 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { api, ApiError, type PbxConnectionState, type PbxProfile, type Principal } from './api.js';
 import { messages, type Language } from './i18n.js';
 import { SecurityWorkspace } from './SecurityWorkspace.js';
+import { SshMetricsWorkspace } from './SshMetricsWorkspace.js';
 import { OperatorDashboard, type OperatorDestination } from './OperatorDashboard.js';
 import { TelephonyWorkspace, type TelephonyPage } from './TelephonyWorkspace.js';
 
 type TextMap = (typeof messages)[Language];
 type Phase = 'loading' | 'setup' | 'login' | 'ready' | 'error';
-type Workspace = 'dashboard' | TelephonyPage | 'pbx' | 'security';
+type Workspace = 'dashboard' | TelephonyPage | 'pbx' | 'security' | 'ssh-metrics';
 
 function FormField({
   label,
@@ -822,6 +823,7 @@ export function App({
                     ['trunks', text.telephonyTrunks],
                     ['queues', text.telephonyQueues],
                     ['agents', text.telephonyAgents],
+                    ['ssh-metrics', text.sshMetricsTitle],
                     ['pbx', text.pbxTitle],
                     ['security', text.securityTitle],
                   ] as const
@@ -896,6 +898,9 @@ export function App({
                 page={workspace}
                 onUnauthorized={unauthorized}
               />
+            ) : null}
+            {workspace === 'ssh-metrics' ? (
+              <SshMetricsWorkspace text={text} profiles={profiles} onUnauthorized={unauthorized} />
             ) : null}
             {workspace === 'pbx' ? (
               <PbxWorkspace

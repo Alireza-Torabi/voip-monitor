@@ -84,6 +84,21 @@ export interface ProviderStatus {
   networkEnabled: boolean;
 }
 
+export type SshAuthMethod = 'PASSWORD' | 'PRIVATE_KEY';
+export interface SafeSshConfiguration {
+  pbxInstanceId: string;
+  host: string;
+  port: number;
+  username: string;
+  authMethod: SshAuthMethod;
+  hostKeyPolicy: 'PINNED_SHA256';
+  hostKeyFingerprint: string;
+  hasCredential: boolean;
+  hasPrivateKeyPassphrase: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type TelephonySynchronization = 'CURRENT' | 'AWAITING_SNAPSHOT' | 'STALE';
 export type TelephonyCapabilityState =
   'SUPPORTED' | 'UNSUPPORTED' | 'NOT_CONFIGURED' | 'PERMISSION_DENIED' | 'UNKNOWN';
@@ -222,6 +237,12 @@ export const api = {
     request<ProviderStatus>(`/api/pbx-instances/${id}/provider-status`),
   systemMetrics: (id: string) =>
     request<SystemMetricsResponse>(`/api/pbx-instances/${id}/system-metrics`),
+  sshConfiguration: (id: string) =>
+    request<SafeSshConfiguration>(`/api/pbx-instances/${id}/ssh-configuration`),
+  putSshConfiguration: (id: string, value: object) =>
+    request<SafeSshConfiguration>(`/api/pbx-instances/${id}/ssh-configuration`, 'PUT', value),
+  deleteSshConfiguration: (id: string) =>
+    request<{ status: string }>(`/api/pbx-instances/${id}/ssh-configuration`, 'DELETE'),
   systemMetricsStreamUrl: (id: string) => `/api/pbx-instances/${id}/system-metrics/stream`,
   telephonyState: (id: string) =>
     request<TelephonyStateResponse>(`/api/pbx-instances/${id}/telephony-state`),

@@ -13,6 +13,7 @@ import {
   NotificationConfigurationError,
   NotificationConfigurationService,
 } from './notifications/configuration.js';
+import { SshConfigurationError, SshConfigurationService } from './ssh/configuration.js';
 import { ProviderRuntimeError, type ProviderRuntimeManager } from './providers/runtime/index.js';
 import type {
   SystemMetricsHealthListener,
@@ -153,6 +154,7 @@ export function createApp(
   runtime?: ProviderRuntimeManager,
   systemMetrics?: SystemMetricsRuntime,
   telephonyState?: TelephonyStateEngine,
+  sshConfiguration?: SshConfigurationService,
 ): Server {
   const limiter = new AttemptLimiter();
   const metricsStreams = new Set<ServerResponse>();
@@ -333,6 +335,44 @@ export function createApp(
           unsubscribeHealth();
         });
         return;
+      }
+
+      const sshConfigurationAction = path.match(
+        /^\/api\/pbx-instances\/([^/]+)\/ssh-configuration$/,
+      );
+      if (sshConfigurationAction) {
+        if (!auth || !sshConfiguration || !auth.principal(sessionToken(request)))
+          return send(response, 401, { error: 'unauthorized' });
+        const id = sshConfigurationAction[1]!;
+        if (!onboarding?.get(id)) return send(response, 404, { error: 'not_found' });
+        if (request.method === 'GET') {
+          const current = sshConfiguration.get(id);
+          return current
+            ? send(response, 200, current)
+            : send(response, 404, { error: 'not_found' });
+        }
+        if (!['PUT', 'DELETE'].includes(request.method ?? ''))
+          return send(response, 404, { error: 'not_found' });
+        if (!sameOrigin(request, auth.requiresSecureOrigin))
+          return send(response, 403, { error: 'forbidden' });
+        try {
+          if (request.method === 'DELETE') {
+            const deleted = sshConfiguration.delete(id);
+            systemMetrics?.syncProfile(id);
+            return deleted
+              ? send(response, 200, { status: 'deleted' })
+              : send(response, 404, { error: 'not_found' });
+          }
+          const input = await body(request);
+          if (!input) return send(response, 400, { error: 'invalid_request' });
+          const configured = sshConfiguration.configure(id, input);
+          systemMetrics?.syncProfile(id);
+          return send(response, 200, configured);
+        } catch (error) {
+          if (!(error instanceof SshConfigurationError)) throw error;
+          if (error.code === 'PBX_NOT_FOUND') return send(response, 404, { error: 'not_found' });
+          return send(response, 400, { error: 'invalid_request' });
+        }
       }
 
       const notificationChannelAction = path.match(

@@ -415,3 +415,15 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 267. **Dashboard is summary-first:** high-cardinality telephony entities do not render as one long dashboard list. The dashboard uses status cards, CPU/memory/endpoint dial gauges, queue-pressure bars, uptime, and clickable entity counts.
 268. **Entity workspaces are bounded:** Calls, Channels, Endpoints, Trunks, Queues, and Agents each have a separate current-state workspace with search, 20-row pagination, PBX scoping, and realtime updates. Current Channels suppress known closed/terminated states.
 269. **No chart dependency added:** dashboard gauges and queue bars use Chakra/SVG primitives to avoid adding another visualization dependency and bundle/license surface.
+
+
+## 2026-10-05 — Task 42 SSH metrics management decisions
+
+270. **Authenticated PBX-scoped SSH API:** expose only GET/PUT/DELETE /api/pbx-instances/:id/ssh-configuration; there is no bulk/global SSH configuration endpoint.
+271. **Write-only credential contract:** API responses use SafeSshConfiguration and return only metadata plus credential-presence booleans. Passwords, private keys, passphrases, encrypted envelopes, ciphertext, nonces, and auth tags never leave the backend.
+272. **Pinned trust remains mandatory:** public configuration accepts only the existing PINNED_SHA256 policy and a syntactically valid SHA-256 host-key fingerprint. There is no accept-new/TOFU mode.
+273. **Mutation and runtime sync are one application operation:** after a successful PUT or DELETE, the HTTP boundary immediately invokes SystemMetricsRuntime.syncProfile(instanceId) so the runtime does not require a service restart or out-of-band synchronization call.
+274. **No real-host test in Task 42:** do not add a browser/API Test SSH operation. Saving configuration does not resolve DNS, open sockets, authenticate, or execute commands; real-host verification remains separately approval-gated.
+275. **Credential replacement requires explicit resubmission:** Task 42 keeps the existing strict configuration service contract; Save writes a complete validated SSH configuration including a fresh credential. The UI never pre-fills an existing secret.
+276. **UI secret clearing:** submitted credential/passphrase fields are cleared after successful Save and are not persisted in localStorage or rendered back to the user.
+277. **Task 43 boundary:** next broaden read-only trunk inventory beyond SIPshowregistry using provider-neutral normalization and synthetic/mock compatibility coverage before any separately approved real-PBX verification.
