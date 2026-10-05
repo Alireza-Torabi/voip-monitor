@@ -39,8 +39,24 @@ function iso(value: string | null): string | undefined {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
 }
 
-function writeSse(response: ServerResponse, event: string, data: object): void {
-  response.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+const MAX_SSE_BUFFERED_BYTES = 256 * 1024;
+
+export function writeSseChunk(response: ServerResponse, chunk: string): boolean {
+  if (response.destroyed || response.writableEnded) return false;
+  if (response.writableLength > MAX_SSE_BUFFERED_BYTES) {
+    response.destroy();
+    return false;
+  }
+  response.write(chunk);
+  if (response.writableLength > MAX_SSE_BUFFERED_BYTES) {
+    response.destroy();
+    return false;
+  }
+  return true;
+}
+
+function writeSse(response: ServerResponse, event: string, data: object): boolean {
+  return writeSseChunk(response, `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
 
 function sessionToken(request: IncomingMessage): string | undefined {
@@ -450,15 +466,19 @@ export function createApp(
             writeSse(response, 'telephony-state', { current: null });
         });
         const heartbeat = setInterval(() => {
-          if (response.destroyed) clearInterval(heartbeat);
-          else response.write(': heartbeat\n\n');
+          if (!writeSseChunk(response, ': heartbeat\n\n')) clearInterval(heartbeat);
         }, 15_000);
-        request.on('close', () => {
+        let closed = false;
+        const cleanup = () => {
+          if (closed) return;
+          closed = true;
           clearInterval(heartbeat);
           telephonyStateStreams.delete(response);
           unsubscribeState();
           unsubscribeReset?.();
-        });
+        };
+        request.once('close', cleanup);
+        response.once('close', cleanup);
         return;
       }
 
@@ -632,15 +652,19 @@ export function createApp(
         const unsubscribeSample = systemMetrics.subscribeSamples(onSample);
         const unsubscribeHealth = systemMetrics.subscribeHealth(onHealth);
         const heartbeat = setInterval(() => {
-          if (response.destroyed) clearInterval(heartbeat);
-          else response.write(': heartbeat\n\n');
+          if (!writeSseChunk(response, ': heartbeat\n\n')) clearInterval(heartbeat);
         }, 15_000);
-        request.on('close', () => {
+        let closed = false;
+        const cleanup = () => {
+          if (closed) return;
+          closed = true;
           clearInterval(heartbeat);
           metricsStreams.delete(response);
           unsubscribeSample();
           unsubscribeHealth();
-        });
+        };
+        request.once('close', cleanup);
+        response.once('close', cleanup);
         return;
       }
 
@@ -804,14 +828,18 @@ export function createApp(
         securityAlertStreams.add(response);
         const unsubscribe = storage.securityAlerts.subscribe(onAlert);
         const heartbeat = setInterval(() => {
-          if (response.destroyed) clearInterval(heartbeat);
-          else response.write(': heartbeat\n\n');
+          if (!writeSseChunk(response, ': heartbeat\n\n')) clearInterval(heartbeat);
         }, 15_000);
-        request.on('close', () => {
+        let closed = false;
+        const cleanup = () => {
+          if (closed) return;
+          closed = true;
           clearInterval(heartbeat);
           securityAlertStreams.delete(response);
           unsubscribe();
-        });
+        };
+        request.once('close', cleanup);
+        response.once('close', cleanup);
         return;
       }
 
@@ -859,14 +887,18 @@ export function createApp(
         securityStreams.add(response);
         const unsubscribe = runtime.subscribeSecurityEvents(onEvent);
         const heartbeat = setInterval(() => {
-          if (response.destroyed) clearInterval(heartbeat);
-          else response.write(': heartbeat\\n\\n');
+          if (!writeSseChunk(response, ': heartbeat\n\n')) clearInterval(heartbeat);
         }, 15_000);
-        request.on('close', () => {
+        let closed = false;
+        const cleanup = () => {
+          if (closed) return;
+          closed = true;
           clearInterval(heartbeat);
           securityStreams.delete(response);
           unsubscribe();
-        });
+        };
+        request.once('close', cleanup);
+        response.once('close', cleanup);
         return;
       }
 

@@ -1,6 +1,6 @@
 # Proposed architecture
 
-Status: PR #49 is merged. Task 43 is complete locally on feature/trunk-discovery: trunk inventory now combines explicit chan_sip/PJSIP outbound registrations with conservatively classified static chan_sip/PJSIP peer candidates, carries technology and confidence, reuses one SIPpeers snapshot for endpoints/static candidates, and exposes no provider-private address/auth fields. All new collection remains bounded/read-only; no real-PBX Task 43 probe was performed. Task 44 is next after merge.
+Status: PR #50 is merged. The current fix/runtime-sse-resilience correction bounds server-side SSE buffering and makes the production launcher supervise both backend and HTTPS gateway as one failure domain. If either process exits unexpectedly, the launcher returns failure and systemd Restart=on-failure restarts the stack. This correction changes no PBX collection behavior. Task 44 remains next after merge.
 
 ```text
 PBX (Asterisk / FreePBX)
