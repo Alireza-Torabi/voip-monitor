@@ -406,3 +406,119 @@ test('dashboard storage API is authenticated, PBX-scoped, same-origin protected,
       await app.close();
     }
   }));
+
+test('service monitoring API is authenticated, bounded, same-origin protected, and resyncs metrics', async () =>
+  fixture(async ({ config, storage, secrets, auth }) => {
+    const syncCalls = [];
+    const systemMetrics = {
+      syncProfile(id) {
+        syncCalls.push(id);
+      },
+    };
+    const app = await serveSshApi(storage, secrets, auth, undefined, systemMetrics);
+    try {
+      const path = '/api/pbx-instances/' + PBX_ID + '/service-monitoring';
+      assert.equal((await fetch(app.base + path)).status, 401);
+      const cookie = await loginForSshApi(app.base, config);
+      assert.deepEqual(
+        (await (await fetch(app.base + path, { headers: { cookie } })).json()).serviceIds,
+        [],
+      );
+
+      const blocked = await fetch(app.base + path, {
+        method: 'PUT',
+        headers: { cookie, origin: 'https://evil.example', 'content-type': 'application/json' },
+        body: JSON.stringify({ serviceIds: ['synthetic.service'] }),
+      });
+      assert.equal(blocked.status, 403);
+
+      const saved = await fetch(app.base + path, {
+        method: 'PUT',
+        headers: { cookie, origin: app.base, 'content-type': 'application/json' },
+        body: JSON.stringify({ serviceIds: ['synthetic.service', 'synthetic-helper.service'] }),
+      });
+      assert.equal(saved.status, 200);
+      assert.deepEqual((await saved.json()).serviceIds, [
+        'synthetic.service',
+        'synthetic-helper.service',
+      ]);
+      assert.deepEqual(syncCalls, [PBX_ID]);
+
+      const invalid = await fetch(app.base + path, {
+        method: 'PUT',
+        headers: { cookie, origin: app.base, 'content-type': 'application/json' },
+        body: JSON.stringify({ serviceIds: ['bad;service'] }),
+      });
+      assert.equal(invalid.status, 400);
+
+      const reset = await fetch(app.base + path, {
+        method: 'DELETE',
+        headers: { cookie, origin: app.base },
+      });
+      assert.equal(reset.status, 200);
+      assert.deepEqual(syncCalls, [PBX_ID, PBX_ID]);
+    } finally {
+      await app.close();
+    }
+  }));
+
+test('dashboard definitions API supports multiple bounded PBX-scoped layouts', async () =>
+  fixture(async ({ config, storage, secrets, auth }) => {
+    const app = await serveSshApi(storage, secrets, auth, undefined, undefined);
+    try {
+      const path = '/api/pbx-instances/' + PBX_ID + '/dashboards';
+      assert.equal((await fetch(app.base + path)).status, 401);
+      const cookie = await loginForSshApi(app.base, config);
+      const widgets = [
+        { id: 'cpu', type: 'cpu', width: 3, height: 2 },
+        { id: 'clock', type: 'clock', width: 3, height: 1 },
+      ];
+
+      const createdResponse = await fetch(app.base + path, {
+        method: 'POST',
+        headers: { cookie, origin: app.base, 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'TV wall', widgets }),
+      });
+      assert.equal(createdResponse.status, 201);
+      const created = await createdResponse.json();
+      assert.equal(created.name, 'TV wall');
+      assert.deepEqual(created.widgets, widgets);
+
+      const list = await (await fetch(app.base + path, { headers: { cookie } })).json();
+      assert.equal(list.items.length, 1);
+
+      const updatePath = path + '/' + created.id;
+      const updated = await fetch(app.base + updatePath, {
+        method: 'PUT',
+        headers: { cookie, origin: app.base, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          name: 'NOC TV',
+          widgets: [{ id: 'cpu', type: 'cpu', width: 6, height: 3 }],
+        }),
+      });
+      assert.equal(updated.status, 200);
+      assert.equal((await updated.json()).name, 'NOC TV');
+
+      const invalid = await fetch(app.base + path, {
+        method: 'POST',
+        headers: { cookie, origin: app.base, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          name: 'bad',
+          widgets: [{ id: 'x', type: 'cpu', width: 99, height: 1 }],
+        }),
+      });
+      assert.equal(invalid.status, 400);
+
+      const removed = await fetch(app.base + updatePath, {
+        method: 'DELETE',
+        headers: { cookie, origin: app.base },
+      });
+      assert.equal(removed.status, 200);
+      assert.equal(
+        (await (await fetch(app.base + path, { headers: { cookie } })).json()).items.length,
+        0,
+      );
+    } finally {
+      await app.close();
+    }
+  }));

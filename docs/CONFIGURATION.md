@@ -42,3 +42,14 @@ Dashboard storage visibility is PBX-scoped application configuration managed und
 - Reset: delete the preference and return to show-all.
 
 This setting changes presentation only. It does not modify the SSH collector, commands, mount configuration, or PBX filesystem.
+
+
+## Service monitoring
+
+Service health is configured per PBX under **Settings -> Service monitoring**. Enter one exact systemd service ID per line. The application stores at most 32 unique IDs using the same conservative allowlist as the restricted SSH command resolver. Saving or disabling service monitoring immediately resynchronizes only that PBX system-metrics runtime source.
+
+No service ID is a repository default. Deployments choose their own relevant services. The feature does not list arbitrary host processes and does not permit arbitrary shell commands.
+
+## Operator dashboards
+
+Dashboards are PBX-scoped server-persisted layouts. A PBX can have multiple named dashboards. Widgets come only from the fixed application catalog and can be added, deleted, reordered, and resized within bounded dimensions. Fullscreen mode targets the dashboard root so application navigation is excluded and controls auto-hide for TV/NOC use.

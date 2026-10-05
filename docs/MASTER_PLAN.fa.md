@@ -1,6 +1,6 @@
 # Master Plan
 
-وضعیت: 2026-10-05. Task 42 از طریق PR #46 داخل main Merge شده است. Correction درخواستی Dashboard/Deployment روی fix/dashboard-storage-jalali به‌صورت Local کامل است و Merge آن Pending است. Task 43 هنوز شروع نشده است.
+وضعیت: 2026-10-05. PR #47 داخل main Merge شده است. Correction مربوط به Dashboard Builder و Service Monitoring روی feature/dashboard-builder به‌صورت Local کامل است و Merge آن Pending است. Task 43 هنوز شروع نشده است.
 
 ## Phase 0 - کشف محیط
 
@@ -85,22 +85,26 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 
 ### وضعیت فعلی ادامه کار
 
-- Branch فعلی fix/dashboard-storage-jalali است که پس از Merge شدن Task 42 ساخته شد. Dashboard Visualization Correction قبلی روی همین Branch Push شده و Correction جدید Navigation/Storage Preference قبل از Merge روی آن اضافه شده است.
-- Task 43 هنوز شروع نشده است. هیچ PBX Action، Collector یا Real-host Probe جدیدی اضافه نشده است.
-- Main Navigation احراز هویت‌شده عمداً فقط سه بخش دارد: Dashboard، Telephony و Settings.
-- Telephony یک Horizontal Submenu برای Calls، Channels، Endpoints، Trunks، Queues و Agents دارد و فقط Workspace انتخاب‌شده Render می‌شود.
-- Settings یک Horizontal Submenu برای PBX profiles، System metrics SSH، Dashboard storage و Security monitoring دارد. Settingهای آینده نیز به‌جای شلوغ‌کردن Header در همین ساختار قرار می‌گیرند.
-- Visibility مربوط به Storage داشبورد اکنون PBX-scoped و Persisted است. Migration جدید یک JSON Array محدود از Selected Filesystem IDها را ذخیره می‌کند و هیچ Mount Path محیطی Hardcode نشده است.
-- اگر Preference وجود نداشته باشد، Dashboard همه Filesystemهای Current را نشان می‌دهد. Empty Selection ذخیره‌شده یعنی هیچ Filesystem نمایش داده نشود. Reset رکورد Preference را حذف و Default-all را برمی‌گرداند.
-- صفحه Dashboard storage، Filesystemهای واقعی را از Current System Metrics همان PBX Discover می‌کند، امکان انتخاب می‌دهد و از API احراز هویت‌شده و Same-origin برای GET/PUT/DELETE استفاده می‌کند.
-- مسیرهایی مثل Root یا Recording فقط Observation محیط Deployment هستند و Default Repository نیستند. هر Deployment هر Subset دلخواه از Filesystemهای واقعی خودش را انتخاب می‌کند.
-- Storage همچنان Filesystem/Mount بر پایه df است و Physical-disk Inventory ادعا نمی‌کند.
-- تاریخ/ساعت شمسی، CPU/Memory Trend، Service-health، Gaugeها، Queue Pressure و Dynamic Storage Cardهای Responsive حفظ شده‌اند.
-- Final Validation با Project Node 24.21.0/npm 11.19.0 PASS است: Lint، Format Check، Typecheck، Backend 130/130، Frontend 19/19، Production Build، Foundation Check، License Check و Diff Check. Coverage مربوط به Storage/API نیز Persistence، Auth، Same-origin Write، Reset/Cascade، Dashboard Filtering و Interactive Selection را پوشش می‌دهد.
-- Feature به هیچ Path، PBX Name، IP، Credential یا Topology محیط Validation فعلی وابسته نیست.
+- Branch فعلی feature/dashboard-builder است که پس از Merge شدن PR #47 از main همگام‌شده ساخته شد.
+- این Correction، Task 43 را شروع نمی‌کند و هیچ PBX Write Action یا Arbitrary SSH Command Surface جدیدی اضافه نمی‌کند.
+- Dashboard اکنون به‌جای یک صفحه ثابت، Builder ذخیره‌شده و PBX-scoped است. هر Dashboard نام و Ordered Widget List محدود دارد و چند Dashboard مستقل قابل Create، Select، Rename، Save و Delete هستند.
+- Widgetها فقط از Catalog ثابت و Allowlist‌شده اضافه می‌شوند، قابل Delete و Drag برای Reorder هستند و Width/Height محدود قابل Resize دارند. Persistence فقط Type/ID/Size/Order را ذخیره می‌کند و هیچ Executable Code یا Query/Config دلخواه ذخیره نمی‌شود.
+- وقتی برای یک PBX هیچ Dashboard ذخیره‌شده‌ای وجود نداشته باشد، Default Dashboard Generic به‌صورت خودکار ساخته می‌شود؛ هیچ Host/Path/Service مخصوص Deployment داخل آن نیست.
+- Fullscreen روی خود Dashboard Root با Browser Fullscreen API اجرا می‌شود، بنابراین Header/Navigation اصلی خارج Fullscreen است. Controlهای Dashboard بعد از سه ثانیه Auto-hide می‌شوند و با Pointer Movement دوباره ظاهر می‌شوند؛ مناسب TV/NOC.
+- Dashboard Definitionها در Migration 14 ذخیره می‌شوند و APIهای PBX-scoped و Authenticated/Same-origin برای List/Create/Update/Delete دارند. Payload حداکثر 64 Widget، Type ثابت، ID یکتا و Safe، Width بین 1 تا 12، Height بین 1 تا 4 و Name حداکثر 80 Character است.
+- Root Cause مربوط به Service Health رفع شد: Production Factory قبلاً Collector را بدون serviceIds می‌ساخت و Services Capability همیشه NOT_CONFIGURED می‌ماند. اکنون Config ذخیره‌شده همان PBX خوانده و Service IDها به Collector تزریق می‌شوند.
+- Settings اکنون Service monitoring دارد. Administrator حداکثر 32 Systemd Service ID یکتا و Safe را برای هر PBX تعریف می‌کند. PUT/DELETE بلافاصله SystemMetricsRuntime.syncProfile(id) را اجرا می‌کند و Restart برنامه یا PBX لازم نیست.
+- هیچ Service مربوط به محیط تست به‌عنوان Default Hardcode نشده است. Restricted SSH Allowlist تغییر نکرده و systemctl فقط IDهای Validateشده را بعد از Fixed Command Boundary دریافت می‌کند.
+- Final Validation با Project Node 24.21.0/npm 11.19.0 PASS است: Lint، Format Check، Typecheck، Backend 133/133، Frontend 21/21، Production Build، Foundation Check، License Check و Diff Check. Targeted Testهای Service Monitoring/Dashboard برابر 23/23 و Coverage مربوط به Builder/Service Settings برابر 21/21 PASS است.
+- در این Correction هیچ PBX/SSH Host واقعی Contact یا Probe نشد.
 - Task دقیق بعدی پس از Merge این Correction همچنان Task 43 است: Provider-neutral Trunk Discovery گسترده‌تر، ابتدا Synthetic/Mock و Real-PBX Verification فقط با Approval جداگانه.
 
 ### ثبت خرابی و اشکال
+
+- **Service Health همیشه NOT_CONFIGURED — رفع شد:** Production Collector Factory هیچ Service ID پیکربندی‌شده‌ای به Collector نمی‌داد. اکنون Service Monitoring Config به‌صورت PBX-scoped ذخیره و هنگام ساخت Collector تزریق می‌شود و Mutation فوری Metrics Runtime را Sync می‌کند.
+- **Fixed Dashboard برای TV/NOC مناسب نبود — رفع شد:** Layout چندگانه، Reorder، Resize و حذف Widget وجود نداشت. اکنون Dashboard Definition ذخیره‌شده، Widget Catalog، Drag Reorder، Resize محدود و CRUD چند Dashboard وجود دارد.
+- **Fullscreen همراه Application Chrome — جلوگیری شد:** Fullscreen روی Dashboard Root اعمال می‌شود نه کل Document؛ Header/Navigation وارد Fullscreen نمی‌شود و Controlها Auto-hide هستند.
+- **ریسک Extensibility داشبورد — محدود شد:** فقط Widget Typeهای Allowlist‌شده و ID/Type/Width/Height ذخیره می‌شوند؛ HTML/Script/Query/Command/URL یا Shell Data دلخواه Persist نمی‌شود.
 
 - **Top-level Navigation شلوغ — اصلاح شد:** Configuration و Entity Workspaceها مستقیم در Header جمع شده بودند. اکنون فقط Dashboard، Telephony و Settings Top-level هستند و Telephony/Settings Submenu افقی محدود خودشان را دارند.
 - **نبود کنترل روی Filesystemهای کم‌اهمیت — اصلاح شد:** Dashboard قبلاً تمام خروجی df را نمایش می‌داد. اکنون Selection ذخیره‌شده و PBX-scoped مشخص می‌کند کدام Filesystem IDها نمایش داده شوند، بدون تغییر Collection.

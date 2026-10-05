@@ -38,10 +38,10 @@ test('fresh database migrates once and persists setup and PBX metadata across re
     assert.equal(first.setup.get().state, 'SETUP_REQUIRED');
     assert.deepEqual(first.pbxInstances.list(), []);
     const history = first.migrationHistory();
-    assert.equal(history.length, 12);
+    assert.equal(history.length, 14);
     assert.deepEqual(
       history.map((row) => row.version),
-      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
     );
     assert.match(history[0].checksum, /^[a-f0-9]{64}$/);
     first.setup.set('SETUP_IN_PROGRESS');
@@ -583,6 +583,38 @@ test('dashboard storage selection is PBX-scoped, persistent, resettable, and cas
       storage.dashboardStorageConfig.put('storage-pref-pbx', ['/dev/root']);
       storage.pbxProfiles.delete('storage-pref-pbx');
       assert.equal(storage.dashboardStorageConfig.get('storage-pref-pbx'), undefined);
+    } finally {
+      storage.close();
+    }
+  }));
+
+test('service monitoring and operator dashboards persist PBX-scoped configuration and cascade', () =>
+  fixture(async (config) => {
+    const storage = await SqliteStorage.open(config);
+    try {
+      storage.pbxInstances.save({
+        id: 'builder-pbx',
+        providerType: 'ASTERISK',
+        displayName: 'Builder PBX',
+      });
+      storage.serviceMonitoringConfig.put('builder-pbx', ['synthetic.service']);
+      assert.deepEqual(storage.serviceMonitoringConfig.get('builder-pbx'), ['synthetic.service']);
+
+      const now = new Date().toISOString();
+      storage.operatorDashboards.save({
+        id: 'dashboard-one',
+        pbxInstanceId: 'builder-pbx',
+        name: 'TV',
+        widgetsJson: JSON.stringify([{ id: 'cpu', type: 'cpu', width: 3, height: 2 }]),
+        createdAt: now,
+        updatedAt: now,
+      });
+      assert.equal(storage.operatorDashboards.list('builder-pbx').length, 1);
+      assert.equal(storage.operatorDashboards.get('dashboard-one').name, 'TV');
+
+      storage.pbxProfiles.delete('builder-pbx');
+      assert.equal(storage.serviceMonitoringConfig.get('builder-pbx'), undefined);
+      assert.equal(storage.operatorDashboards.get('dashboard-one'), undefined);
     } finally {
       storage.close();
     }

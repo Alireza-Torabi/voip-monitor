@@ -7,6 +7,8 @@ import { App, FirstAdminForm, LoginForm, PbxWorkspace } from '../src/App.js';
 import { SecurityWorkspace } from '../src/SecurityWorkspace.js';
 import { SshMetricsWorkspace } from '../src/SshMetricsWorkspace.js';
 import { DashboardStorageWorkspace } from '../src/DashboardStorageWorkspace.js';
+import { DashboardBuilder } from '../src/DashboardBuilder.js';
+import { ServiceMonitoringWorkspace } from '../src/ServiceMonitoringWorkspace.js';
 import { OperatorDashboard } from '../src/OperatorDashboard.js';
 import { TelephonyWorkspace } from '../src/TelephonyWorkspace.js';
 import { messages } from '../src/i18n.js';
@@ -934,5 +936,182 @@ describe('dashboard storage settings', () => {
     );
     await act(async () => save?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
     expect(putBodies).toEqual([{ selectedFilesystemIds: ['/dev/root', '/dev/recording'] }]);
+  });
+});
+
+describe('dashboard builder', () => {
+  it('loads a persisted layout and supports widget edit/delete controls without a new collector', async () => {
+    class FakeEventSource {
+      onopen = null;
+      onerror = null;
+      addEventListener() {}
+      close() {}
+      constructor(readonly url: string) {}
+    }
+    vi.stubGlobal('EventSource', FakeEventSource);
+    const profile = {
+      id: 'builder-pbx',
+      displayName: 'Builder PBX',
+      providerType: 'ASTERISK',
+      enabled: true,
+      amiHost: 'pbx.example.test',
+      amiPort: 5038,
+      amiUsername: 'synthetic-user',
+      hasAmiPassword: true,
+      connectionStatus: 'CONNECTED',
+      createdAt: '',
+      updatedAt: '',
+    } as const;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path) => {
+        if (path === '/api/pbx-instances/builder-pbx/provider-status')
+          return response({ connectionStatus: 'CONNECTED', managed: true, networkEnabled: true });
+        if (path === '/api/pbx-instances/builder-pbx/system-metrics')
+          return response({
+            current: {
+              instanceId: 'builder-pbx',
+              source: 'SSH',
+              observedAt: '2026-10-05T04:00:00.000Z',
+              cpu: { utilizationPercent: 12 },
+            },
+            source: {
+              instanceId: 'builder-pbx',
+              health: { source: 'SSH', freshness: 'CURRENT' },
+              consecutiveFailures: 0,
+            },
+          });
+        if (path === '/api/pbx-instances/builder-pbx/dashboard-storage')
+          return response({ selectedFilesystemIds: null });
+        if (path.startsWith('/api/pbx-instances/builder-pbx/system-metrics/history?'))
+          return response({ items: [] });
+        if (path === '/api/pbx-instances/builder-pbx/security-alerts')
+          return response({ current: [], history: [] });
+        if (path === '/api/pbx-instances/builder-pbx/telephony-state')
+          return response({
+            current: {
+              instanceId: 'builder-pbx',
+              revision: 1,
+              synchronization: 'CURRENT',
+              lastSnapshotAt: '2026-10-05T04:00:00.000Z',
+              channels: [],
+              calls: [],
+              endpointCapability: 'SUPPORTED',
+              endpointSynchronization: 'CURRENT',
+              endpoints: [],
+              trunkCapability: 'SUPPORTED',
+              trunkSynchronization: 'CURRENT',
+              trunks: [],
+              queueCapability: 'SUPPORTED',
+              queueSynchronization: 'CURRENT',
+              queues: [],
+              queueMembers: [],
+              queueCallers: [],
+              agentCapability: 'SUPPORTED',
+              agentSynchronization: 'LIVE_ONLY',
+              agentInteractions: [],
+            },
+          });
+        if (path === '/api/pbx-instances/builder-pbx/dashboards')
+          return response({
+            items: [
+              {
+                id: 'dash-1',
+                pbxInstanceId: 'builder-pbx',
+                name: 'TV',
+                widgets: [
+                  { id: 'clock', type: 'clock', width: 3, height: 1 },
+                  { id: 'cpu', type: 'cpu', width: 3, height: 2 },
+                  { id: 'service', type: 'service-health', width: 4, height: 2 },
+                ],
+                createdAt: '',
+                updatedAt: '',
+              },
+            ],
+          });
+        throw new Error('unexpected API route: ' + path);
+      }),
+    );
+
+    await act(async () =>
+      root.render(
+        <DashboardBuilder text={messages.en} profiles={[profile]} onUnauthorized={() => {}} />,
+      ),
+    );
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(container.querySelectorAll('[data-dashboard-widget]')).toHaveLength(3);
+    expect(container.textContent).toContain('TV');
+    expect(container.textContent).toContain('Full screen');
+
+    const edit = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent === 'Edit dashboard',
+    );
+    await act(async () => edit?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    expect(container.textContent).toContain('Drag widgets to reorder them.');
+    const remove = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent === '×',
+    );
+    await act(async () => remove?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    expect(container.querySelectorAll('[data-dashboard-widget]')).toHaveLength(2);
+  });
+});
+
+describe('service monitoring settings', () => {
+  it('persists explicit bounded service IDs instead of hardcoding deployment services', async () => {
+    const profile = {
+      id: 'service-pbx',
+      displayName: 'Service PBX',
+      providerType: 'ASTERISK',
+      enabled: true,
+      amiHost: 'pbx.example.test',
+      amiPort: 5038,
+      amiUsername: 'synthetic-user',
+      hasAmiPassword: true,
+      connectionStatus: 'CONNECTED',
+      createdAt: '',
+      updatedAt: '',
+    } as const;
+    const writes: unknown[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path, init) => {
+        if (path === '/api/pbx-instances/service-pbx/service-monitoring' && init?.method === 'GET')
+          return response({ serviceIds: [] });
+        if (
+          path === '/api/pbx-instances/service-pbx/service-monitoring' &&
+          init?.method === 'PUT'
+        ) {
+          writes.push(JSON.parse(String(init.body)));
+          return response({ serviceIds: ['synthetic.service', 'synthetic-helper.service'] });
+        }
+        throw new Error('unexpected API route: ' + path);
+      }),
+    );
+
+    await act(async () =>
+      root.render(
+        <ServiceMonitoringWorkspace
+          text={messages.en}
+          profiles={[profile]}
+          onUnauthorized={() => {}}
+        />,
+      ),
+    );
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const area = container.querySelector('textarea');
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+      setter?.call(area, 'synthetic.service\nsynthetic-helper.service');
+      area?.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const save = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent === 'Save service monitoring',
+    );
+    await act(async () => save?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    expect(writes).toEqual([{ serviceIds: ['synthetic.service', 'synthetic-helper.service'] }]);
   });
 });

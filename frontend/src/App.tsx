@@ -21,13 +21,15 @@ import { messages, type Language } from './i18n.js';
 import { SecurityWorkspace } from './SecurityWorkspace.js';
 import { SshMetricsWorkspace } from './SshMetricsWorkspace.js';
 import { DashboardStorageWorkspace } from './DashboardStorageWorkspace.js';
-import { OperatorDashboard, type OperatorDestination } from './OperatorDashboard.js';
+import { ServiceMonitoringWorkspace } from './ServiceMonitoringWorkspace.js';
+import type { OperatorDestination } from './OperatorDashboard.js';
+import { DashboardBuilder } from './DashboardBuilder.js';
 import { TelephonyWorkspace, type TelephonyPage } from './TelephonyWorkspace.js';
 
 type TextMap = (typeof messages)[Language];
 type Phase = 'loading' | 'setup' | 'login' | 'ready' | 'error';
 type Workspace = 'dashboard' | 'telephony' | 'settings';
-type SettingsPage = 'pbx' | 'ssh-metrics' | 'storage' | 'security';
+type SettingsPage = 'pbx' | 'ssh-metrics' | 'service-monitoring' | 'storage' | 'security';
 
 function FormField({
   label,
@@ -895,7 +897,7 @@ export function App({
           <Stack gap={{ base: '6', md: '8' }}>
             {shellError ? <InlineMessage>{shellError}</InlineMessage> : null}
             {workspace === 'dashboard' ? (
-              <OperatorDashboard
+              <DashboardBuilder
                 text={text}
                 profiles={profiles}
                 onUnauthorized={unauthorized}
@@ -950,6 +952,7 @@ export function App({
                       [
                         ['pbx', text.pbxTitle],
                         ['ssh-metrics', text.sshMetricsTitle],
+                        ['service-monitoring', text.serviceMonitoringTitle],
                         ['storage', text.dashboardStorageTitle],
                         ['security', text.securityTitle],
                       ] as const
@@ -978,6 +981,13 @@ export function App({
                 ) : null}
                 {settingsPage === 'ssh-metrics' ? (
                   <SshMetricsWorkspace
+                    text={text}
+                    profiles={profiles}
+                    onUnauthorized={unauthorized}
+                  />
+                ) : null}
+                {settingsPage === 'service-monitoring' ? (
+                  <ServiceMonitoringWorkspace
                     text={text}
                     profiles={profiles}
                     onUnauthorized={unauthorized}

@@ -452,3 +452,19 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 292. **Collection remains complete:** dashboard visibility preference filters presentation only. Restricted SSH collection continues to collect the bounded filesystem sample and does not receive user-provided shell/path arguments.
 293. **Bounded preference input:** API accepts at most 128 unique non-empty filesystem IDs, each at most 512 characters, through authenticated PBX-scoped same-origin PUT; GET is read-only and DELETE resets.
 294. **Schema migration 12:** dashboard_storage_config is append-only migration state with PBX foreign-key cascade and JSON validity enforcement.
+
+
+## 2026-10-05 — Dashboard builder and service-monitoring correction
+
+295. **Dashboard becomes a persisted PBX-scoped builder:** one fixed layout is replaced by named dashboard definitions stored server-side so TV/NOC layouts are shared across browsers.
+296. **Multiple dashboards:** each PBX may own multiple dashboards. Absence of any saved dashboard causes the UI to create one generic default dashboard; deletion of the last dashboard recreates a generic default.
+297. **Allowlisted widget model:** dashboard persistence stores only unique safe widget ID, fixed widget type, bounded width, bounded height, name, and array order. No arbitrary executable/config data is accepted.
+298. **Bounded layout:** each dashboard accepts at most 64 widgets; width is 1-12 columns and height is 1-4 units. Drag-and-drop changes array order only.
+299. **No grid dependency:** native HTML drag/drop plus Chakra/CSS Grid and bounded resize controls are used instead of adding a dashboard/grid package and its license/bundle surface.
+300. **TV fullscreen boundary:** request fullscreen on the dashboard root element, not documentElement. Application navigation is therefore outside fullscreen. Dashboard controls auto-hide after three seconds and reappear on pointer movement.
+301. **Service Health configuration is PBX-scoped:** systemd service IDs are explicit persisted monitoring configuration, not application defaults or inferred host services.
+302. **Service identifier boundary:** at most 32 unique IDs, each at most 128 characters and matching the existing conservative service-ID allowlist. No shell fragment or arbitrary program/path is accepted.
+303. **Service changes resync metrics only:** service-monitoring PUT/DELETE calls SystemMetricsRuntime.syncProfile for that PBX. It does not restart the PBX or application.
+304. **Collector factory owns service injection:** production RestrictedSshSystemMetricsCollectorFactory reads the PBX service-monitoring repository and passes those IDs into RestrictedSshSystemMetricsCollector. This corrects the previous permanent NOT_CONFIGURED behavior.
+305. **Schema migrations 13-14:** migration 13 stores service-monitoring IDs with PBX cascade; migration 14 stores named operator dashboards with PBX cascade and JSON validity.
+306. **Task 43 remains next:** dashboard-builder/service-monitoring work is an operator-requested correction and does not consume the trunk-discovery roadmap task.

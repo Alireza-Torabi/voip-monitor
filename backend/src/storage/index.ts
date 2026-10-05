@@ -164,6 +164,28 @@ export interface DashboardStorageConfigRepository {
   delete(instanceId: string): boolean;
 }
 
+export interface ServiceMonitoringConfigRepository {
+  get(instanceId: string): string[] | undefined;
+  put(instanceId: string, serviceIds: string[]): void;
+  delete(instanceId: string): boolean;
+}
+
+export interface OperatorDashboardRecord {
+  id: string;
+  pbxInstanceId: string;
+  name: string;
+  widgetsJson: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OperatorDashboardRepository {
+  list(instanceId: string): OperatorDashboardRecord[];
+  get(id: string): OperatorDashboardRecord | undefined;
+  save(record: OperatorDashboardRecord): void;
+  delete(id: string): boolean;
+}
+
 export interface SecurityAlertRepository {
   save(alert: SecurityAlertRecord, retentionCutoff: string): void;
   subscribe(listener: SecurityAlertListener): () => void;
@@ -182,6 +204,8 @@ export interface AppStorage {
   readonly sshConfigs: SshConfigRepository;
   readonly systemMetrics: SystemMetricsRepository;
   readonly dashboardStorageConfig: DashboardStorageConfigRepository;
+  readonly serviceMonitoringConfig: ServiceMonitoringConfigRepository;
+  readonly operatorDashboards: OperatorDashboardRepository;
   readonly securityEvents: SecurityEventRepository;
   readonly securityAlertRules: SecurityAlertRuleConfigRepository;
   readonly securityAlerts: SecurityAlertRepository;
@@ -299,6 +323,8 @@ export class SqliteStorage implements AppStorage {
   readonly sshConfigs: SshConfigRepository;
   readonly systemMetrics: SystemMetricsRepository;
   readonly dashboardStorageConfig: DashboardStorageConfigRepository;
+  readonly serviceMonitoringConfig: ServiceMonitoringConfigRepository;
+  readonly operatorDashboards: OperatorDashboardRepository;
   readonly securityEvents: SecurityEventRepository;
   readonly securityAlertRules: SecurityAlertRuleConfigRepository;
   readonly securityAlerts: SecurityAlertRepository;
@@ -626,6 +652,100 @@ export class SqliteStorage implements AppStorage {
         this.db
           .prepare('DELETE FROM dashboard_storage_config WHERE pbx_instance_id = ?')
           .run(instanceId).changes > 0,
+    };
+    this.serviceMonitoringConfig = {
+      get: (instanceId) => {
+        const row = this.db
+          .prepare(
+            'SELECT service_ids_json FROM service_monitoring_config WHERE pbx_instance_id = ?',
+          )
+          .get(instanceId) as { service_ids_json: string } | undefined;
+        if (!row) return undefined;
+        try {
+          const parsed = JSON.parse(row.service_ids_json) as unknown;
+          if (!Array.isArray(parsed) || !parsed.every((value) => typeof value === 'string'))
+            throw new StorageError();
+          return parsed;
+        } catch {
+          throw new StorageError();
+        }
+      },
+      put: (instanceId, serviceIds) => {
+        this.db
+          .prepare(
+            `INSERT INTO service_monitoring_config
+             (pbx_instance_id, service_ids_json, updated_at)
+             VALUES (?, ?, ?)
+             ON CONFLICT(pbx_instance_id) DO UPDATE SET
+             service_ids_json=excluded.service_ids_json,
+             updated_at=excluded.updated_at`,
+          )
+          .run(instanceId, JSON.stringify(serviceIds), new Date().toISOString());
+      },
+      delete: (instanceId) =>
+        this.db
+          .prepare('DELETE FROM service_monitoring_config WHERE pbx_instance_id = ?')
+          .run(instanceId).changes > 0,
+    };
+    this.operatorDashboards = {
+      list: (instanceId) =>
+        this.db
+          .prepare(
+            `SELECT id, pbx_instance_id, name, widgets_json, created_at, updated_at
+             FROM operator_dashboard WHERE pbx_instance_id = ? ORDER BY updated_at DESC, id ASC`,
+          )
+          .all(instanceId)
+          .map((row) => {
+            const value = row as Record<string, string>;
+            return {
+              id: value.id!,
+              pbxInstanceId: value.pbx_instance_id!,
+              name: value.name!,
+              widgetsJson: value.widgets_json!,
+              createdAt: value.created_at!,
+              updatedAt: value.updated_at!,
+            };
+          }),
+      get: (id) => {
+        const row = this.db
+          .prepare(
+            `SELECT id, pbx_instance_id, name, widgets_json, created_at, updated_at
+             FROM operator_dashboard WHERE id = ?`,
+          )
+          .get(id) as Record<string, string> | undefined;
+        return row
+          ? {
+              id: row.id!,
+              pbxInstanceId: row.pbx_instance_id!,
+              name: row.name!,
+              widgetsJson: row.widgets_json!,
+              createdAt: row.created_at!,
+              updatedAt: row.updated_at!,
+            }
+          : undefined;
+      },
+      save: (record) => {
+        this.db
+          .prepare(
+            `INSERT INTO operator_dashboard
+             (id, pbx_instance_id, name, widgets_json, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON CONFLICT(id) DO UPDATE SET
+             name=excluded.name,
+             widgets_json=excluded.widgets_json,
+             updated_at=excluded.updated_at`,
+          )
+          .run(
+            record.id,
+            record.pbxInstanceId,
+            record.name,
+            record.widgetsJson,
+            record.createdAt,
+            record.updatedAt,
+          );
+      },
+      delete: (id) =>
+        this.db.prepare('DELETE FROM operator_dashboard WHERE id = ?').run(id).changes > 0,
     };
     this.securityEvents = {
       save: (event, retentionCutoff) => {

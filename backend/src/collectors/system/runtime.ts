@@ -16,6 +16,7 @@ export class RestrictedSshSystemMetricsCollectorFactory implements SystemMetrics
   constructor(
     private readonly configuration: SshConfigurationService,
     private readonly secrets: SecretStore,
+    private readonly storage?: AppStorage,
   ) {}
 
   create(instanceId: PbxInstanceId): SystemMetricsCollector {
@@ -25,7 +26,10 @@ export class RestrictedSshSystemMetricsCollectorFactory implements SystemMetrics
       pbxInstanceId: instanceId,
       resolveAddresses: (host) => new NodeAddressResolver().resolve(host),
     });
-    return new RestrictedSshSystemMetricsCollector({ transport });
+    return new RestrictedSshSystemMetricsCollector({
+      transport,
+      serviceIds: this.storage?.serviceMonitoringConfig.get(instanceId) ?? [],
+    });
   }
 }
 
