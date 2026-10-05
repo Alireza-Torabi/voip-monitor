@@ -9,7 +9,9 @@
  * License: Apache-2.0
  */
 
+import { Buffer } from 'node:buffer';
 import console from 'node:console';
+import { randomBytes } from 'node:crypto';
 import process from 'node:process';
 import { setTimeout } from 'node:timers';
 import { URL } from 'node:url';
@@ -47,13 +49,14 @@ const contentTypes = new Map([
   ['.woff2', 'font/woff2'],
 ]);
 
-function securityHeaders(response) {
+function securityHeaders(response, styleNonce) {
   response.setHeader('x-content-type-options', 'nosniff');
   response.setHeader('x-frame-options', 'DENY');
   response.setHeader('referrer-policy', 'no-referrer');
+  const nonceSource = styleNonce ? ` 'nonce-${styleNonce}'` : '';
   response.setHeader(
     'content-security-policy',
-    "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'",
+    `default-src 'self'; script-src 'self'; style-src 'self'${nonceSource}; img-src 'self' data:; connect-src 'self'`,
   );
 }
 
@@ -113,8 +116,13 @@ async function staticFile(pathname, response, headOnly) {
   }
 
   try {
-    const body = await readFile(filePath);
-    securityHeaders(response);
+    let body = await readFile(filePath);
+    const isHtmlDocument = filePath.endsWith('index.html');
+    const styleNonce = isHtmlDocument ? randomBytes(18).toString('base64') : undefined;
+    if (isHtmlDocument && !headOnly) {
+      body = Buffer.from(body.toString('utf8').replaceAll('__CSP_NONCE__', styleNonce));
+    }
+    securityHeaders(response, styleNonce);
     const extension = extname(filePath).toLowerCase();
     response.setHeader('content-type', contentTypes.get(extension) ?? 'application/octet-stream');
     response.setHeader(

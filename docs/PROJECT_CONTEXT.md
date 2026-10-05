@@ -1,10 +1,10 @@
 # Project context
 
-Status: Task 40 is merged into main. Task 41 is complete on feature/telephony-dashboard-ui as of 2026-10-05 and merge into main is pending. The bilingual operator dashboard now consumes authenticated PBX-scoped telephony current-state/SSE and uses Chakra UI v3 primitives for responsive presentation. No new PBX action, collection source, permission, or telephony history boundary was added. Exact next task after Task 41 merge is Task 42: bounded PBX-scoped telephony history/retention persistence from existing normalized state/events. License: Apache-2.0.
+Status: Task 41 is merged into main. The unmerged fix/chakra-ui-shell correction now covers full Chakra/CSP integration, workspace-based telephony navigation, deployment portability hardening, and generic cross-organization deployment runbooks. System metrics remain UNAVAILABLE when PBX-scoped SSH metadata/credential is absent; current trunk discovery remains registration-based through SIPshowregistry. No new real-PBX access was performed. Reprioritized next tasks: Task 42 SSH metrics management surface, Task 43 broader trunk discovery, Task 44 telephony history/retention. License: Apache-2.0.
 
 ## Repository state
 
-The public repository tracks origin/main. Task 40 is merged. The current feature branch is feature/telephony-dashboard-ui for Task 41; it changes frontend UI/API-client/tests, dependency lock state, license allowlist, and documentation only, with no new PBX network behavior.
+The public repository tracks origin/main. Task 41 is merged. The current branch is fix/chakra-ui-shell and changes frontend presentation/navigation/tests, strict-CSP styling integration, portability/deployment documentation, and foundation checks only; no new PBX network behavior is introduced.
 
 ## Product constraints
 

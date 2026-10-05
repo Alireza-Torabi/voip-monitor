@@ -22,6 +22,7 @@ REQUIRED = [
     "docs/PROJECT_CONTEXT.md", "docs/MASTER_PLAN.md", "docs/DECISIONS.md",
     "docs/ARCHITECTURE.md", "docs/DEPENDENCY_REVIEW.md",
     "docs/INSTALL.md", "docs/INSTALL.fa.md",
+    "docs/DEPLOYMENT_GUIDE.md", "docs/DEPLOYMENT_GUIDE.fa.md",
     "docs/CONFIGURATION.md", "docs/CONFIGURATION.fa.md",
     "docs/OPERATIONS.md", "docs/OPERATIONS.fa.md",
     "docs/TROUBLESHOOTING.md", "docs/TROUBLESHOOTING.fa.md",
@@ -101,7 +102,7 @@ def check() -> list[str]:
         errors.append("README.fa.md must link to README.md")
     for name in ("README.fa.md", "docs/INSTALL.fa.md", "docs/CONFIGURATION.fa.md",
                  "docs/OPERATIONS.fa.md", "docs/TROUBLESHOOTING.fa.md",
-                 "docs/REAL_PBX_VERIFICATION.fa.md"):
+                 "docs/REAL_PBX_VERIFICATION.fa.md", "docs/DEPLOYMENT_GUIDE.fa.md"):
         content = (ROOT / name).read_text(encoding="utf-8")
         opening = re.findall(r'<div dir="rtl"(?: align="right")?>', content)
         if len(opening) != content.count("</div>"):

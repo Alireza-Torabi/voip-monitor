@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-05. Task 40 is merged into main. Task 41 is complete on feature/telephony-dashboard-ui and merge into main is pending. The bilingual operator dashboard now consumes the existing telephony current-state/SSE boundary and is implemented with Chakra UI v3 primitives while preserving the existing read-only PBX scope.
+Status: 2026-10-05. Task 41 is merged into main. A corrective UI consistency pass is complete on fix/chakra-ui-shell and merge into main is pending. The previous Task 41 implementation applied Chakra UI only to the operator dashboard, leaving setup/login/PBX/security surfaces on legacy raw HTML/CSS. This correction moves the complete operator-facing shell and all forms/workspaces onto the same Chakra UI v3 design system while preserving the existing read-only PBX scope.
 
 ## Phase 0 — environment discovery
 
@@ -79,26 +79,45 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 39: add the first bilingual operator dashboard using existing authenticated read-only PBX/provider, system-metrics, and security-alert APIs. It provides PBX selection, provider connection summary with bounded local-status polling, system-metric summary, realtime SSE health, current security-alert count, and navigation to existing PBX/security management. No PBX write action, new collector, or new backend network path was added.
 - [x] Task 40: expose the existing `TelephonyStateEngine` through authenticated PBX-scoped read-only current-state and SSE realtime APIs. The stream publishes only normalized engine state, is capped at 64 concurrent streams with 15-second heartbeats, publishes `current: null` after a profile-runtime reset, and creates no PBX connection/action or new collection source.
 - [x] Task 41: consume Task 40 in the bilingual operator dashboard using Chakra UI v3 primitives. Present PBX-scoped telephony synchronization, current calls/channels/endpoints/trunks/queues/agent interactions, keep technical identifiers LTR inside the bilingual/RTL surface, and reuse existing provider/system/security summaries without adding PBX actions, telephony history, or broader collection.
+- [ ] Task 42: add an authenticated PBX-scoped SSH system-metrics configuration/credential management surface that preserves pinned host-key trust, write-only encrypted credentials, runtime sync, and environment portability; synthetic/mock validation only until a separate real-host approval.
+- [ ] Task 43: broaden provider-neutral trunk inventory beyond outbound SIP registrations, covering bounded chan_sip/PJSIP-compatible read-only discovery with synthetic/mock compatibility tests before any separately approved real-PBX verification.
+- [ ] Task 44: define and persist bounded PBX-scoped telephony history/retention from existing normalized telephony state/events only, without new PBX actions or collection sources.
 
 ### Current execution handoff
 
-- Current branch: `feature/telephony-dashboard-ui`, created from synchronized `main` after confirming Task 40 is contained in `origin/main`.
-- Task 41 implementation and targeted validation are complete on this branch; merge into main remains pending.
-- The operator dashboard now uses Chakra UI v3 primitives for its responsive cards, PBX selector, badges, navigation, and telephony detail panels.
-- The dashboard loads the existing telephony current-state API and opens one PBX-scoped telephony SSE stream alongside the existing metrics/security streams.
-- Telephony synchronization and current Calls, Channels, Endpoints, Trunks, Queues, Queue membership/caller counts, and Agent interactions are presented from the normalized Task 40 contract only.
-- Persian layout continues to inherit the application RTL direction; technical identifiers such as channel, trunk, queue, and endpoint IDs are explicitly rendered LTR where needed.
-- Chakra UI dependencies are pinned through the repository lockfile. The new transitive `tslib 2.8.1` Zero-Clause BSD license text was reviewed and `0BSD` was added to the repository license allowlist.
-- No real PBX was contacted as part of Task 41 implementation or validation.
-- Exact next task after Task 41 merge: **Task 42 — define and persist a bounded PBX-scoped telephony history/retention foundation from existing normalized telephony state/events, without adding PBX actions, new collection sources, or browser history UI.**
+- Current branch: `fix/chakra-ui-shell`, created from synchronized `main` after Task 41 merged through PR #44.
+- This unmerged correction now includes four operator-requested areas: full-shell Chakra consistency, CSP/Emotion nonce compatibility, a compact workspace-based telephony UI, and deployment portability/runbook hardening.
+- The dashboard is summary-first: provider/security/telephony status, CPU/memory/endpoint gauges, queue-pressure bars, uptime, and clickable entity counts. Detailed Calls/Channels/Endpoints/Trunks/Queues/Agents no longer render as one long dashboard list.
+- Calls, Channels, Endpoints, Trunks, Queues, and Agent interactions each render as a separate application workspace with PBX selector, search, 20-row bounded pagination, realtime state, and responsive table presentation. Closed/terminated channel states are filtered from the Channels workspace.
+- System-metrics diagnosis without PBX probing: the enabled/connected profile plus active network mode means the metrics factory exists; `UNAVAILABLE` therefore indicates missing PBX-scoped SSH configuration or missing encrypted SSH credential. No SSH connection/probe was performed.
+- Trunk diagnosis without new PBX actions: current provider discovery uses `SIPshowregistry`, so only outbound SIP registrations are represented. Static SIP peers, inbound-only definitions, and PJSIP trunks may exist while the current trunk list is empty.
+- Deployment portability is now an explicit repository rule in `AGENTS.md`. Generic English/Persian deployment guides define clean-clone deployment, runtime isolation, optional SSH metrics, backup/restore, upgrade/rollback, and the prohibition on copying organization-specific data into Git. The current environment remains documented only under ignored `.local/`.
+- Final validation under project Node 24.21.0/npm 11.19.0 passes: lint, format check, typecheck, backend 127/127 tests, frontend 17/17 tests, production build, foundation check, license check, and diff check. Frontend coverage includes Search, 20-row Pagination, realtime summary update, and closed-channel filtering.
+- Final public/staged review also passes: no private/runtime paths, Remote Desktop identifiers, common secret markers, current validation-environment IPs, PBX name, or host name are staged; a full tracked-tree scan also found none of the current validation-environment identifiers.
+- No real PBX was contacted, probed, modified, or granted new permissions during this correction.
+- Reprioritized exact next task after this correction merges: **Task 42 — authenticated PBX-scoped SSH metrics configuration/credential management with runtime sync and no real-host access until separately approved.** Task 43 broadens trunk discovery; Task 44 resumes telephony history/retention.
 
 ### Failure and bug log
+
+- **System-metrics `UNAVAILABLE` diagnosis — configuration gap, not zero data:** runtime creates a metrics source only when the PBX is enabled, the factory exists, SSH metadata exists, and an encrypted SSH credential is present. The current PBX is enabled/connected and networking is active, so the remaining local gate is missing SSH configuration or credential. No SSH probe was used to reach this conclusion.
+- **Trunk inventory gap — known provider limitation:** Task 15 currently models trunks from `SIPshowregistry` only. This can legitimately return zero while static chan_sip peers or PJSIP trunks exist. The UI now states that limitation instead of implying that zero means no PBX trunks. Task 43 is the planned broader provider-neutral discovery work.
+- **Long telephony dashboard — corrected:** rendering all calls/channels/endpoints/trunks/queues/agents on the dashboard created excessive vertical scrolling. Fix: summary dashboard plus separate searchable/paginated workspaces, with closed channels filtered from current display.
+- **Operator dashboard test expectation — corrected:** legacy tests expected detail entity IDs directly inside the dashboard. They now assert summary-only behavior, while a separate workspace test verifies 20-row pagination, search, and closed-channel filtering.
+
+- **Task 41 scope/design-system error — corrected:** the merged Task 41 implementation interpreted the user-selected Chakra UI design system as dashboard-only. This left setup/login/PBX/security surfaces on legacy raw HTML/CSS and produced an inconsistent application. That scope decision was wrong. Fix: migrate the complete operator-facing shell and forms/workspaces to Chakra UI v3 under one global provider and remove legacy visual CSS.
+- **Chakra polymorphic form typing failure — resolved:** using Stack as form leaves Chakra v3 typed as HTMLDivElement, so FormEvent<HTMLFormElement> and form-only properties failed typecheck. Fix: retain semantic native form elements and place Chakra Stack inside them.
+- **Legacy-selector test failure — resolved:** one security realtime test asserted a legacy CSS selector removed by the migration. Fix: add a semantic data-security-alert hook and assert behavior rather than CSS implementation details.
+- **Design-system completeness check:** raw legacy button/select controls and visual className styling are removed from frontend source; remaining input elements are Chakra HiddenInput internals for checkbox semantics.
+- **Production CSP/Emotion incompatibility — resolved in branch:** browser Console showed style-src violations because the gateway allowed only self-hosted styles while Emotion creates runtime style elements. Fix: per-document style-src self plus nonce, an injected csp-nonce meta value, and an Emotion cache carrying the same nonce. No unsafe-inline relaxation was added.
+- **Nonce regression-test environment failure — resolved:** the first nonce unit test assumed a global DOM and failed under the Node test environment; the test now uses a typed minimal document stub. A transient JSDOM-based attempt also failed typecheck because the repository does not carry @types/jsdom; no new test-only dependency was retained.
+- **Gateway lint failure — resolved:** the first full gate rejected global Buffer under repository ESLint. Fix: import Buffer explicitly from node:buffer.
+- **Root-owned build artifact drift — resolved:** a prior manual root build left frontend/dist/assets owned by root, so the unprivileged project build could not clean Vite output. The old build was moved into ignored .local storage and a clean torabi-owned production build was generated. This was an environment ownership issue, not a source regression.
 
 - **Task 41 install toolchain mismatch — resolved:** the first Chakra dependency install ran under the Remote Desktop shell Node 22/npm 10 and emitted an engine warning because the repository requires Node 24. The lockfile was reset and the install was rerun with the repository runtime Node 24.21.0/npm 11.19.0 before validation.
 - **Task 41 Chakra label type mismatch — resolved:** Chakra v3 `Text` typed as a paragraph did not accept `htmlFor` even with `as="label"`. Fix: keep the semantic native `label` and use Chakra typography inside it. Frontend typecheck then passed.
 - **Task 41 formatting drift — resolved:** the new Chakra dashboard/API client/CSS cleanup required Prettier normalization before targeted validation.
 - **Task 41 license gate failure — resolved:** Chakra pulled `tslib 2.8.1` with SPDX identifier `0BSD`, which was not yet in the repository-reviewed license set. The package's local license text was reviewed and matches the Zero-Clause BSD grant; `0BSD` was added to the explicit allowlist, after which the license check passed.
-- **Task 41 known limitation:** the Chakra migration intentionally covers the operator dashboard introduced by Tasks 39/41, not every setup/PBX/security form in the application. Rewriting unrelated screens would exceed the task scope.
+- **Task 41 correction:** the earlier dashboard-only Chakra limitation was invalidated by operator feedback. The full operator-facing shell, setup/login, PBX management, security workspace, and dashboard now use Chakra UI v3 consistently.
 - **Task 41 known limitation:** telephony data is current-state only; no history/retention browser view exists yet.
 - **Task 41 known limitation:** Agent interactions remain `LIVE_ONLY` and Queue/Agent production compatibility remains unverified.
 
@@ -472,7 +491,7 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - **Known limitation:** the current Chakra/Ark dependency footprint produces a 519,828-byte raw production JavaScript bundle and non-fatal Rolldown `"use client"` directive warnings. Bundle reduction is not part of Task 41.
 - **Known limitation:** telephony history/retention remains unimplemented.
 - **Known limitation:** Agent interactions remain live-only and Queue/Agent real-PBX compatibility is still unverified.
-- **Exact next task:** Task 42 defines and persists bounded PBX-scoped telephony history/retention from existing normalized telephony state/events only; no new PBX actions, collection sources, or browser history UI.
+- **Superseded next-task note:** operator feedback after Task 41 reprioritized SSH metrics onboarding and trunk completeness ahead of telephony history. History moved to Task 44; current Task 42 is the SSH configuration management surface.
 
 ### Persistent continuation protocol
 
@@ -500,7 +519,7 @@ Tasks 7–13 implemented substantial Asterisk-provider and telephony-state found
 - [ ] Phase 11: hardening, backup, tested restore, and a production deployment runbook.
 - [ ] Phase 12: release validation, including an organization-neutral fresh-deployment procedure that can onboard a new service without carrying private values from another deployment.
 
-Phase 1 is closed. Phase 7's defined security-monitoring slice remains complete through Task 34. Tasks 35-36 add notification storage/configuration without delivery, Task 37 provides the live same-origin HTTPS application, Task 38 proves OS-level reboot persistence, Task 39 adds the first bilingual operator dashboard, Task 40 exposes normalized telephony current state through authenticated PBX-scoped read-only HTTP/SSE, and Task 41 consumes that boundary in a Chakra UI v3 bilingual operator surface. Exact next task after Task 41 merge is **Task 42 — bounded telephony history/retention persistence over existing normalized state/events, without new PBX actions or collection sources.**
+Phase 1 is closed. Phase 7's defined security-monitoring slice remains complete through Task 34. Tasks 35-36 add notification storage/configuration without delivery, Task 37 provides the live same-origin HTTPS application, Task 38 proves OS-level reboot persistence, Task 39 adds the first bilingual operator dashboard, Task 40 exposes normalized telephony current state through authenticated PBX-scoped read-only HTTP/SSE, and Task 41 consumes that boundary in a Chakra UI v3 bilingual operator surface. Operator reprioritization after Task 41 moves operational configuration and trunk completeness ahead of history. Exact next task after the unmerged correction is **Task 42 — authenticated PBX-scoped SSH metrics configuration/credential management with runtime sync**; Task 43 broadens trunk discovery and Task 44 resumes bounded telephony history/retention.
 
 ## 2026-09-26 — Task 28 completion record
 

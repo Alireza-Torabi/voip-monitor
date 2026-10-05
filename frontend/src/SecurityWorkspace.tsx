@@ -1,4 +1,19 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import {
+  Badge,
+  Box,
+  Button,
+  Card,
+  Checkbox,
+  Flex,
+  Heading,
+  HStack,
+  Input,
+  NativeSelect,
+  SimpleGrid,
+  Stack,
+  Text,
+} from '@chakra-ui/react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import {
   api,
   ApiError,
@@ -10,7 +25,7 @@ import {
 } from './api.js';
 import { messages, type Language } from './i18n.js';
 
-type Text = (typeof messages)[Language];
+type TextMap = (typeof messages)[Language];
 
 const securityReasons: SecurityAlertReason[] = [
   'INVALID_ACCOUNT',
@@ -21,12 +36,95 @@ const securityReasons: SecurityAlertReason[] = [
   'UNKNOWN',
 ];
 
+function FormField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <Stack gap="1.5">
+      <Text fontSize="sm" fontWeight="semibold">
+        {label}
+      </Text>
+      {children}
+    </Stack>
+  );
+}
+
+function Message({ children, tone = 'error' }: { children: ReactNode; tone?: 'error' | 'status' }) {
+  return (
+    <Box
+      role={tone === 'error' ? 'alert' : 'status'}
+      borderWidth="1px"
+      borderColor={tone === 'error' ? 'red.200' : 'blue.200'}
+      bg={tone === 'error' ? 'red.50' : 'blue.50'}
+      color={tone === 'error' ? 'red.800' : 'blue.800'}
+      borderRadius="lg"
+      px="3"
+      py="2"
+      fontSize="sm"
+    >
+      {children}
+    </Box>
+  );
+}
+
+function AlertCards({
+  items,
+  text,
+  empty,
+  history = false,
+}: {
+  items: SecurityAlertRecord[];
+  text: TextMap;
+  empty: string;
+  history?: boolean;
+}) {
+  if (items.length === 0) {
+    return (
+      <Card.Root variant="outline">
+        <Card.Body>
+          <Text color="fg.muted">{empty}</Text>
+        </Card.Body>
+      </Card.Root>
+    );
+  }
+
+  return (
+    <SimpleGrid columns={{ base: 1, md: 2 }} gap="3">
+      {items.map((alert) => (
+        <Card.Root
+          key={`${history ? 'history:' : ''}${alert.ruleId}:${alert.observedAt}:${alert.streamSequence ?? ''}`}
+          variant="outline"
+          data-security-alert={history ? 'history' : 'current'}
+        >
+          <Card.Body gap="2">
+            <Flex justify="space-between" align="start" gap="3">
+              <Text fontWeight="semibold">
+                {alert.ruleId === 'AUTHENTICATION_FAILURE_ANY'
+                  ? text.anyFailureRule
+                  : text.thresholdRule}
+              </Text>
+              <Badge colorPalette="red">{alert.matchedEventCount}</Badge>
+            </Flex>
+            <Text fontSize="sm" color="fg.muted">
+              {text.observedAt}:{' '}
+              <Box as="span" dir="ltr">
+                {alert.observedAt}
+              </Box>
+            </Text>
+            <Text fontSize="sm" color="fg.muted">
+              {text.matchedEvents}: {alert.matchedEventCount}
+            </Text>
+          </Card.Body>
+        </Card.Root>
+      ))}
+    </SimpleGrid>
+  );
+}
+
 export function SecurityWorkspace({
   text,
   profiles,
   onUnauthorized,
 }: {
-  text: Text;
+  text: TextMap;
   profiles: PbxProfile[];
   onUnauthorized: () => void;
 }) {
@@ -212,194 +310,224 @@ export function SecurityWorkspace({
   const thresholdConfigured = rules.some((item) => item.id === 'AUTHENTICATION_FAILURE_THRESHOLD');
 
   return (
-    <section aria-labelledby="security-title">
-      <h2 id="security-title">{text.securityTitle}</h2>
-      <p>{text.securityHint}</p>
-      <label>
-        {text.securityPbx}
-        <select
-          name="security-pbx"
-          value={selectedId}
-          onChange={(event) => setSelectedId(event.target.value)}
+    <Box as="section" aria-labelledby="security-title">
+      <Stack gap="5">
+        <Flex
+          justify="space-between"
+          align={{ base: 'stretch', md: 'end' }}
+          direction={{ base: 'column', md: 'row' }}
+          gap="4"
         >
-          {profiles.map((profile) => (
-            <option key={profile.id} value={profile.id}>
-              {profile.displayName}
-            </option>
-          ))}
-        </select>
-      </label>
-      {selectedProfile && <h3>{selectedProfile.displayName}</h3>}
-      <div className="actions">
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => {
-            void load();
-          }}
-        >
-          {text.refreshSecurity}
-        </button>
-        <span role="status">{liveConnected ? text.liveConnected : text.liveDisconnected}</span>
-      </div>
+          <Box>
+            <Heading id="security-title" size="lg">
+              {text.securityTitle}
+            </Heading>
+            <Text color="fg.muted" mt="1">
+              {text.securityHint}
+            </Text>
+          </Box>
+          <Box minW={{ base: '100%', md: '260px' }}>
+            <Text fontSize="sm" fontWeight="semibold" mb="1.5">
+              {text.securityPbx}
+            </Text>
+            <NativeSelect.Root>
+              <NativeSelect.Field
+                name="security-pbx"
+                value={selectedId}
+                onChange={(event) => setSelectedId(event.target.value)}
+              >
+                {profiles.map((profile) => (
+                  <option key={profile.id} value={profile.id}>
+                    {profile.displayName}
+                  </option>
+                ))}
+              </NativeSelect.Field>
+              <NativeSelect.Indicator />
+            </NativeSelect.Root>
+          </Box>
+        </Flex>
 
-      <h3>{text.currentAlerts}</h3>
-      {alerts.length === 0 ? (
-        <p>{text.noAlerts}</p>
-      ) : (
-        <ul className="security-alerts">
-          {alerts.map((alert) => (
-            <li key={`${alert.ruleId}:${alert.observedAt}:${alert.streamSequence ?? ''}`}>
-              <strong>
-                {alert.ruleId === 'AUTHENTICATION_FAILURE_ANY'
-                  ? text.anyFailureRule
-                  : text.thresholdRule}
-              </strong>
-              <div>
-                {text.observedAt}: <span dir="ltr">{alert.observedAt}</span>
-              </div>
-              <div>
-                {text.matchedEvents}: {alert.matchedEventCount}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <h3>{text.recentAlerts}</h3>
-      {history.length === 0 ? (
-        <p>{text.noRecentAlerts}</p>
-      ) : (
-        <ul className="security-alerts">
-          {history.map((alert) => (
-            <li key={`history:${alertKey(alert)}`}>
-              <strong>
-                {alert.ruleId === 'AUTHENTICATION_FAILURE_ANY'
-                  ? text.anyFailureRule
-                  : text.thresholdRule}
-              </strong>
-              <div>
-                {text.observedAt}: <span dir="ltr">{alert.observedAt}</span>
-              </div>
-              <div>
-                {text.matchedEvents}: {alert.matchedEventCount}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <h3>{text.rulesTitle}</h3>
-      <div className="rule-grid">
-        <form
-          onSubmit={(event: FormEvent<HTMLFormElement>) => {
-            event.preventDefault();
-            void saveRule('AUTHENTICATION_FAILURE_ANY');
-          }}
-        >
-          <h4>{text.anyFailureRule}</h4>
-          <label className="check">
-            <input
-              name="rule-any-enabled"
-              type="checkbox"
-              checked={anyEnabled}
-              onChange={(event) => setAnyEnabled(event.target.checked)}
-            />
-            {text.ruleEnabled}
-          </label>
-          <div className="actions">
-            <button type="submit" disabled={pending}>
-              {text.saveRule}
-            </button>
-            {anyConfigured && (
-              <button
-                type="button"
+        <Card.Root variant="outline">
+          <Card.Body>
+            <Flex justify="space-between" align="center" gap="3" flexWrap="wrap">
+              <Box>
+                <Text fontWeight="semibold">{selectedProfile?.displayName}</Text>
+                <Badge colorPalette={liveConnected ? 'green' : 'gray'} mt="2">
+                  {liveConnected ? text.liveConnected : text.liveDisconnected}
+                </Badge>
+              </Box>
+              <Button
+                variant="outline"
                 disabled={pending}
                 onClick={() => {
-                  void removeRule('AUTHENTICATION_FAILURE_ANY');
+                  void load();
                 }}
               >
-                {text.removeRule}
-              </button>
-            )}
-          </div>
-        </form>
+                {text.refreshSecurity}
+              </Button>
+            </Flex>
+          </Card.Body>
+        </Card.Root>
 
-        <form
-          onSubmit={(event: FormEvent<HTMLFormElement>) => {
-            event.preventDefault();
-            void saveRule('AUTHENTICATION_FAILURE_THRESHOLD');
-          }}
-        >
-          <h4>{text.thresholdRule}</h4>
-          <label className="check">
-            <input
-              name="rule-threshold-enabled"
-              type="checkbox"
-              checked={thresholdEnabled}
-              onChange={(event) => setThresholdEnabled(event.target.checked)}
-            />
-            {text.ruleEnabled}
-          </label>
-          <label>
-            {text.threshold}
-            <input
-              name="rule-threshold"
-              type="number"
-              min={1}
-              max={100}
-              value={threshold}
-              onChange={(event) => setThreshold(event.target.value)}
-              required
-            />
-          </label>
-          <label>
-            {text.windowSeconds}
-            <input
-              name="rule-window-seconds"
-              type="number"
-              min={1}
-              max={3600}
-              value={windowSeconds}
-              onChange={(event) => setWindowSeconds(event.target.value)}
-              required
-            />
-          </label>
-          <label>
-            {text.reason}
-            <select
-              name="rule-reason"
-              value={reason}
-              onChange={(event) => setReason(event.target.value as SecurityAlertReason | '')}
-            >
-              <option value="">{text.anyReason}</option>
-              {securityReasons.map((value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="actions">
-            <button type="submit" disabled={pending}>
-              {text.saveRule}
-            </button>
-            {thresholdConfigured && (
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => {
-                  void removeRule('AUTHENTICATION_FAILURE_THRESHOLD');
-                }}
-              >
-                {text.removeRule}
-              </button>
-            )}
-          </div>
-        </form>
-      </div>
-      {status && <p role="status">{status}</p>}
-      {error && <p role="alert">{error}</p>}
-    </section>
+        <Box>
+          <Heading size="md" mb="3">
+            {text.currentAlerts}
+          </Heading>
+          <AlertCards items={alerts} text={text} empty={text.noAlerts} />
+        </Box>
+
+        <Box>
+          <Heading size="md" mb="3">
+            {text.recentAlerts}
+          </Heading>
+          <AlertCards items={history} text={text} empty={text.noRecentAlerts} history />
+        </Box>
+
+        <Box>
+          <Heading size="md" mb="3">
+            {text.rulesTitle}
+          </Heading>
+          <SimpleGrid columns={{ base: 1, lg: 2 }} gap="4">
+            <Card.Root variant="outline">
+              <Card.Header>
+                <Card.Title fontSize="md">{text.anyFailureRule}</Card.Title>
+              </Card.Header>
+              <Card.Body>
+                <form
+                  onSubmit={(event: FormEvent<HTMLFormElement>) => {
+                    event.preventDefault();
+                    void saveRule('AUTHENTICATION_FAILURE_ANY');
+                  }}
+                >
+                  <Stack gap="4">
+                    <Checkbox.Root
+                      checked={anyEnabled}
+                      onCheckedChange={(details) => setAnyEnabled(details.checked === true)}
+                    >
+                      <Checkbox.HiddenInput name="rule-any-enabled" />
+                      <Checkbox.Control>
+                        <Checkbox.Indicator />
+                      </Checkbox.Control>
+                      <Checkbox.Label>{text.ruleEnabled}</Checkbox.Label>
+                    </Checkbox.Root>
+                    <HStack gap="2" flexWrap="wrap">
+                      <Button type="submit" disabled={pending} colorPalette="blue">
+                        {text.saveRule}
+                      </Button>
+                      {anyConfigured ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          colorPalette="red"
+                          disabled={pending}
+                          onClick={() => {
+                            void removeRule('AUTHENTICATION_FAILURE_ANY');
+                          }}
+                        >
+                          {text.removeRule}
+                        </Button>
+                      ) : null}
+                    </HStack>
+                  </Stack>
+                </form>
+              </Card.Body>
+            </Card.Root>
+
+            <Card.Root variant="outline">
+              <Card.Header>
+                <Card.Title fontSize="md">{text.thresholdRule}</Card.Title>
+              </Card.Header>
+              <Card.Body>
+                <form
+                  onSubmit={(event: FormEvent<HTMLFormElement>) => {
+                    event.preventDefault();
+                    void saveRule('AUTHENTICATION_FAILURE_THRESHOLD');
+                  }}
+                >
+                  <Stack gap="4">
+                    <Checkbox.Root
+                      checked={thresholdEnabled}
+                      onCheckedChange={(details) => setThresholdEnabled(details.checked === true)}
+                    >
+                      <Checkbox.HiddenInput name="rule-threshold-enabled" />
+                      <Checkbox.Control>
+                        <Checkbox.Indicator />
+                      </Checkbox.Control>
+                      <Checkbox.Label>{text.ruleEnabled}</Checkbox.Label>
+                    </Checkbox.Root>
+                    <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
+                      <FormField label={text.threshold}>
+                        <Input
+                          name="rule-threshold"
+                          type="number"
+                          min={1}
+                          max={100}
+                          value={threshold}
+                          onChange={(event) => setThreshold(event.target.value)}
+                          required
+                          dir="ltr"
+                        />
+                      </FormField>
+                      <FormField label={text.windowSeconds}>
+                        <Input
+                          name="rule-window-seconds"
+                          type="number"
+                          min={1}
+                          max={3600}
+                          value={windowSeconds}
+                          onChange={(event) => setWindowSeconds(event.target.value)}
+                          required
+                          dir="ltr"
+                        />
+                      </FormField>
+                    </SimpleGrid>
+                    <FormField label={text.reason}>
+                      <NativeSelect.Root>
+                        <NativeSelect.Field
+                          name="rule-reason"
+                          value={reason}
+                          onChange={(event) =>
+                            setReason(event.target.value as SecurityAlertReason | '')
+                          }
+                        >
+                          <option value="">{text.anyReason}</option>
+                          {securityReasons.map((value) => (
+                            <option key={value} value={value}>
+                              {value}
+                            </option>
+                          ))}
+                        </NativeSelect.Field>
+                        <NativeSelect.Indicator />
+                      </NativeSelect.Root>
+                    </FormField>
+                    <HStack gap="2" flexWrap="wrap">
+                      <Button type="submit" disabled={pending} colorPalette="blue">
+                        {text.saveRule}
+                      </Button>
+                      {thresholdConfigured ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          colorPalette="red"
+                          disabled={pending}
+                          onClick={() => {
+                            void removeRule('AUTHENTICATION_FAILURE_THRESHOLD');
+                          }}
+                        >
+                          {text.removeRule}
+                        </Button>
+                      ) : null}
+                    </HStack>
+                  </Stack>
+                </form>
+              </Card.Body>
+            </Card.Root>
+          </SimpleGrid>
+        </Box>
+
+        {status ? <Message tone="status">{status}</Message> : null}
+        {error ? <Message>{error}</Message> : null}
+      </Stack>
+    </Box>
   );
 }

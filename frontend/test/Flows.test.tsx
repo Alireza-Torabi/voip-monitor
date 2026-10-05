@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
+import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App, FirstAdminForm, LoginForm, PbxWorkspace } from '../src/App.js';
 import { SecurityWorkspace } from '../src/SecurityWorkspace.js';
 import { OperatorDashboard } from '../src/OperatorDashboard.js';
+import { TelephonyWorkspace } from '../src/TelephonyWorkspace.js';
 import { messages } from '../src/i18n.js';
 
 type TestResponse = { ok: boolean; status: number; json: () => Promise<object> };
@@ -38,7 +40,15 @@ beforeEach(() => {
   window.localStorage.clear();
   container = document.createElement('div');
   document.body.append(container);
-  root = createRoot(container);
+  const reactRoot = createRoot(container);
+  root = {
+    render(children) {
+      reactRoot.render(<ChakraProvider value={defaultSystem}>{children}</ChakraProvider>);
+    },
+    unmount() {
+      reactRoot.unmount();
+    },
+  } as Root;
 });
 
 afterEach(async () => {
@@ -391,7 +401,7 @@ describe('security monitoring workspace', () => {
       FakeEventSource.latest?.emit('security-alert', { alert });
     });
     expect(container.textContent).toContain('Matched events: 4');
-    expect(container.querySelectorAll('.security-alerts li')).toHaveLength(2);
+    expect(container.querySelectorAll('[data-security-alert]')).toHaveLength(2);
   });
 });
 
@@ -571,12 +581,12 @@ describe('operator dashboard', () => {
     expect(container.textContent).toContain('2.0 GiB / 8.0 GiB');
     expect(container.textContent).toContain('1d 1h');
     expect(container.textContent).toContain('Current security alerts');
-    expect(container.textContent).toContain('Telephony current state');
+    expect(container.textContent).toContain('Telephony overview');
     expect(container.textContent).toContain('Current calls');
-    expect(container.textContent).toContain('call-1');
-    expect(container.textContent).toContain('SIP/100');
-    expect(container.textContent).toContain('support');
-    expect(container.textContent).toContain('Agent 100');
+    expect(container.textContent).toContain('Endpoint reachability');
+    expect(container.textContent).toContain('Queue pressure');
+    expect(container.textContent).not.toContain('call-1');
+    expect(container.textContent).toContain('Agent interactions1');
 
     const telephonyStream = FakeEventSource.instances.get(
       '/api/pbx-instances/dashboard-pbx/telephony-state/stream',
@@ -611,5 +621,112 @@ describe('operator dashboard', () => {
     expect(container.textContent).toContain('Stale');
     expect(container.textContent).toContain('Revision: 9');
     expect(container.textContent).not.toContain('Agent 100');
+    expect(container.textContent).toContain('Agent interactions0');
+  });
+});
+
+describe('telephony entity workspace', () => {
+  const profile = {
+    id: 'entity-pbx',
+    displayName: 'Entity PBX',
+    providerType: 'ASTERISK',
+    enabled: true,
+    amiHost: 'pbx.example.test',
+    amiPort: 5038,
+    amiUsername: 'synthetic-user',
+    hasAmiPassword: true,
+    connectionStatus: 'CONNECTED',
+    createdAt: '',
+    updatedAt: '',
+  } as const;
+
+  it('filters closed channels, searches current state, and paginates bounded rows', async () => {
+    class FakeEventSource {
+      onopen: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      addEventListener() {}
+      close() {}
+      constructor(readonly url: string) {}
+    }
+    vi.stubGlobal('EventSource', FakeEventSource);
+    const channels = Array.from({ length: 25 }, (_, index) => ({
+      channelId: `active-${String(index + 1).padStart(2, '0')}`,
+      channelName: `SIP/${100 + index}`,
+      state: 'Up',
+      updatedAt: '2026-10-05T04:00:01.000Z',
+    }));
+    channels.push({
+      channelId: 'closed-channel',
+      channelName: 'SIP/999',
+      state: 'Down',
+      updatedAt: '2026-10-05T04:00:01.000Z',
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string) => {
+        if (path === '/api/pbx-instances/entity-pbx/telephony-state') {
+          return response({
+            current: {
+              instanceId: 'entity-pbx',
+              revision: 1,
+              synchronization: 'CURRENT',
+              lastSnapshotAt: '2026-10-05T04:00:00.000Z',
+              channels,
+              calls: [],
+              endpointCapability: 'SUPPORTED',
+              endpointSynchronization: 'CURRENT',
+              endpoints: [],
+              trunkCapability: 'SUPPORTED',
+              trunkSynchronization: 'CURRENT',
+              trunks: [],
+              queueCapability: 'SUPPORTED',
+              queueSynchronization: 'CURRENT',
+              queues: [],
+              queueMembers: [],
+              queueCallers: [],
+              agentCapability: 'SUPPORTED',
+              agentSynchronization: 'LIVE_ONLY',
+              agentInteractions: [],
+            },
+          });
+        }
+        throw new Error('unexpected API route: ' + path);
+      }),
+    );
+
+    await act(async () =>
+      root.render(
+        <TelephonyWorkspace
+          text={messages.en}
+          profiles={[profile]}
+          page="channels"
+          onUnauthorized={() => {}}
+        />,
+      ),
+    );
+
+    expect(container.textContent).toContain('Results: 25');
+    expect(container.textContent).toContain('active-01');
+    expect(container.textContent).not.toContain('closed-channel');
+    expect(container.textContent).not.toContain('active-25');
+
+    const next = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent === 'Next',
+    );
+    await act(async () => next?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    expect(container.textContent).toContain('active-25');
+
+    const search = container.querySelector<HTMLInputElement>(
+      'input[placeholder="Search current state…"]',
+    );
+    expect(search).not.toBeNull();
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+      setter?.call(search, 'active-03');
+      search?.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(container.textContent).toContain('Results: 1');
+    expect(container.textContent).toContain('active-03');
+    expect(container.textContent).not.toContain('active-25');
   });
 });
