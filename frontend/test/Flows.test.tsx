@@ -412,11 +412,20 @@ describe('operator dashboard', () => {
 
   it('summarizes existing provider, metrics, alert, and realtime boundaries', async () => {
     class FakeEventSource {
+      static instances = new Map<string, FakeEventSource>();
       onopen: (() => void) | null = null;
       onerror: (() => void) | null = null;
-      constructor(readonly url: string) {}
-      addEventListener() {}
+      private listeners = new Map<string, EventListener>();
+      constructor(readonly url: string) {
+        FakeEventSource.instances.set(url, this);
+      }
+      addEventListener(type: string, listener: EventListenerOrEventListenerObject) {
+        if (typeof listener === 'function') this.listeners.set(type, listener);
+      }
       close() {}
+      emit(type: string, value: object) {
+        this.listeners.get(type)?.(new MessageEvent(type, { data: JSON.stringify(value) }));
+      }
     }
     vi.stubGlobal('EventSource', FakeEventSource);
     vi.stubGlobal(
@@ -458,6 +467,94 @@ describe('operator dashboard', () => {
             ],
           });
         }
+        if (path === '/api/pbx-instances/dashboard-pbx/telephony-state') {
+          return response({
+            current: {
+              instanceId: 'dashboard-pbx',
+              revision: 8,
+              synchronization: 'CURRENT',
+              lastSnapshotAt: '2026-10-05T04:00:00.000Z',
+              channels: [
+                {
+                  channelId: 'channel-1',
+                  linkedId: 'call-1',
+                  state: 'Up',
+                  bridgeId: 'bridge-1',
+                  updatedAt: '2026-10-05T04:00:01.000Z',
+                },
+              ],
+              calls: [
+                {
+                  callId: 'call-1',
+                  linkedId: 'call-1',
+                  channelIds: ['channel-1'],
+                  bridgeIds: ['bridge-1'],
+                  updatedAt: '2026-10-05T04:00:01.000Z',
+                },
+              ],
+              endpointCapability: 'SUPPORTED',
+              endpointSynchronization: 'CURRENT',
+              endpoints: [
+                {
+                  endpointId: 'SIP/100',
+                  registrationState: 'REGISTERED',
+                  reachability: 'REACHABLE',
+                  updatedAt: '2026-10-05T04:00:01.000Z',
+                },
+              ],
+              trunkCapability: 'SUPPORTED',
+              trunkSynchronization: 'CURRENT',
+              trunks: [
+                {
+                  trunkId: 'SIP/trunk@example.test',
+                  kind: 'OUTBOUND_REGISTRATION',
+                  registrationState: 'REGISTERED',
+                  updatedAt: '2026-10-05T04:00:01.000Z',
+                },
+              ],
+              queueCapability: 'SUPPORTED',
+              queueSynchronization: 'CURRENT',
+              queues: [
+                {
+                  queueId: 'support',
+                  waitingCount: 1,
+                  updatedAt: '2026-10-05T04:00:01.000Z',
+                },
+              ],
+              queueMembers: [
+                {
+                  queueId: 'support',
+                  memberId: 'SIP/100',
+                  availability: 'AVAILABLE',
+                  paused: false,
+                  inCall: false,
+                  updatedAt: '2026-10-05T04:00:01.000Z',
+                },
+              ],
+              queueCallers: [
+                {
+                  queueId: 'support',
+                  callerId: 'caller-1',
+                  position: 1,
+                  waitSeconds: 12,
+                  updatedAt: '2026-10-05T04:00:01.000Z',
+                },
+              ],
+              agentCapability: 'SUPPORTED',
+              agentSynchronization: 'LIVE_ONLY',
+              agentInteractions: [
+                {
+                  queueId: 'support',
+                  callerId: 'caller-1',
+                  memberId: 'SIP/100',
+                  memberName: 'Agent 100',
+                  phase: 'RINGING',
+                  updatedAt: '2026-10-05T04:00:01.000Z',
+                },
+              ],
+            },
+          });
+        }
         throw new Error('unexpected API route: ' + path);
       }),
     );
@@ -474,5 +571,45 @@ describe('operator dashboard', () => {
     expect(container.textContent).toContain('2.0 GiB / 8.0 GiB');
     expect(container.textContent).toContain('1d 1h');
     expect(container.textContent).toContain('Current security alerts');
+    expect(container.textContent).toContain('Telephony current state');
+    expect(container.textContent).toContain('Current calls');
+    expect(container.textContent).toContain('call-1');
+    expect(container.textContent).toContain('SIP/100');
+    expect(container.textContent).toContain('support');
+    expect(container.textContent).toContain('Agent 100');
+
+    const telephonyStream = FakeEventSource.instances.get(
+      '/api/pbx-instances/dashboard-pbx/telephony-state/stream',
+    );
+    expect(telephonyStream).toBeDefined();
+    await act(async () => {
+      telephonyStream?.emit('telephony-state', {
+        current: {
+          instanceId: 'dashboard-pbx',
+          revision: 9,
+          synchronization: 'STALE',
+          lastSnapshotAt: '2026-10-05T04:00:00.000Z',
+          channels: [],
+          calls: [],
+          endpointCapability: 'SUPPORTED',
+          endpointSynchronization: 'STALE',
+          endpoints: [],
+          trunkCapability: 'SUPPORTED',
+          trunkSynchronization: 'STALE',
+          trunks: [],
+          queueCapability: 'SUPPORTED',
+          queueSynchronization: 'STALE',
+          queues: [],
+          queueMembers: [],
+          queueCallers: [],
+          agentCapability: 'SUPPORTED',
+          agentSynchronization: 'STALE',
+          agentInteractions: [],
+        },
+      });
+    });
+    expect(container.textContent).toContain('Stale');
+    expect(container.textContent).toContain('Revision: 9');
+    expect(container.textContent).not.toContain('Agent 100');
   });
 });

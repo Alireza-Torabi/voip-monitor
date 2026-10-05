@@ -15,6 +15,7 @@ REVIEWED = {
     "MPL-2.0",
     "BlueOak-1.0.0",
     "MIT-0",
+    "0BSD",
     "CC0-1.0",
     "Unlicense",
 }

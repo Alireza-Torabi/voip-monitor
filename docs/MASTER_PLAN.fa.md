@@ -1,6 +1,6 @@
 # Master Plan
 
-وضعیت: 2026-10-05. Task 39 داخل main Merge شده است. Task 40 روی feature/telephony-state-api کامل شده و Merge آن به main هنوز Pending است. TelephonyStateEngine موجود اکنون از طریق Boundaryهای Authenticated، PBX-scoped و Read-only برای Current State و SSE Realtime ارائه می‌شود، بدون ایجاد PBX Connection، Action، Permission یا Collection Source جدید.
+وضعیت: 2026-10-05. Task 40 داخل main Merge شده است. Task 41 روی feature/telephony-dashboard-ui کامل شده و Merge آن به main هنوز Pending است. Bilingual Operator Dashboard اکنون Current-state/SSE تلفنی موجود را مصرف می‌کند و با Primitiveهای Chakra UI v3 پیاده‌سازی شده است، بدون تغییر Scope فقط‌خواندنی PBX.
 
 ## Phase 0 - کشف محیط
 
@@ -78,19 +78,29 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - [x] Task 38: OS-level Systemd Service نصب و Enable شد، Runtime Node/Data/TLS از Private Toolchain Pathها جدا شد، Live HTTPS/Health/Readiness پس از Reboot واقعی Host Validate شد، Scope فعلی Read-only PBX Monitoring حفظ شد و Explicit Temporary Self-Signed TLS Exception اضافه شد؛ Firewall Host Restrictive نیست چون UFW غیرفعال است.
 - [x] Task 39: اولین Bilingual Operator Dashboard فقط با APIهای Authenticated و Read-only موجود برای PBX/Provider، System Metrics و Security Alerts اضافه شد. داشبورد شامل PBX Selection، Provider Connection Summary با Polling محدود Local Status، System-metric Summary، Realtime SSE Health، Current Security-alert Count و Navigation به مدیریت PBX/Security است. هیچ PBX Write Action، Collector جدید یا Backend Network Path جدیدی اضافه نشده است.
 - [x] Task 40: `TelephonyStateEngine` موجود از طریق APIهای Authenticated، PBX-scoped و Read-only برای Current State و SSE Realtime ارائه شد. Stream فقط Normalized Engine State را منتشر می‌کند، به 64 Stream همزمان محدود است، Heartbeat پانزده‌ثانیه‌ای دارد، پس از Profile-runtime Reset مقدار `current: null` منتشر می‌کند و هیچ PBX Connection/Action یا Collection Source جدیدی ایجاد نمی‌کند.
+- [x] Task 41: Task 40 در Bilingual Operator Dashboard با Primitiveهای Chakra UI v3 مصرف شد. PBX-scoped Telephony Synchronization و Current Call/Channel/Endpoint/Trunk/Queue/Agent Interaction نمایش داده می‌شود، Technical Identifierها داخل Surface دو‌زبانه/RTL به‌صورت LTR حفظ می‌شوند و Provider/System/Security Summaryهای موجود بدون PBX Action، Telephony History یا Collection Scope جدید reuse می‌شوند.
 
 ### وضعیت فعلی ادامه کار
 
-- Branch فعلی `feature/telephony-state-api` است که پس از تأیید Merge شدن Task 39 در `origin/main` از `main` همگام‌شده ساخته شد.
-- پیاده‌سازی و Targeted Validation مربوط به Task 40 روی این Branch کامل است؛ Merge به main هنوز Pending است.
-- `GET /api/pbx-instances/:id/telephony-state` Current Normalized Engine Snapshot یا قبل از وجود Authoritative Snapshot مقدار `null` برمی‌گرداند.
-- `GET /api/pbx-instances/:id/telephony-state/stream` Initial Snapshot و Revisionهای بعدی همان PBX را با SSE می‌فرستد؛ Profile-runtime Reset مقدار `current: null` منتشر می‌کند.
-- API Authenticated، PBX-scoped و GET-only است، حداکثر 64 Stream همزمان دارد و Heartbeat پانزده‌ثانیه‌ای می‌فرستد.
-- Browser/API Consumer فقط به Engine در حال اجرا Subscribe می‌شود و Provider Instance، AMI Connection، AMI Action، Permission جدید یا Collection Source جدید ایجاد نمی‌کند.
-- در پیاده‌سازی یا Validation Task 40 هیچ PBX واقعی Access نشد.
-- Task دقیق بعدی پس از Merge شدن Task 40: **Task 41 — مصرف Current-state/SSE مربوط به Task 40 در Bilingual Operator UI و نمایش PBX-scoped Synchronization به‌همراه Current Call/Channel/Endpoint/Trunk/Queue/Agent Interaction، بدون PBX Action، History یا Collection Scope گسترده‌تر.**
+- Branch فعلی `feature/telephony-dashboard-ui` است که پس از تأیید Merge شدن Task 40 در `origin/main` از `main` همگام‌شده ساخته شد.
+- پیاده‌سازی و Targeted Validation مربوط به Task 41 روی این Branch کامل است؛ Merge به main هنوز Pending است.
+- Operator Dashboard اکنون برای Responsive Cardها، PBX Selector، Badgeها، Navigation و Telephony Detail Panelها از Primitiveهای Chakra UI v3 استفاده می‌کند.
+- Dashboard، Telephony Current-state API موجود را Load می‌کند و در کنار Metrics/Security Streamهای موجود یک PBX-scoped Telephony SSE Stream باز می‌کند.
+- Telephony Synchronization و Current Call، Channel، Endpoint، Trunk، Queue، Queue Member/Caller Count و Agent Interaction فقط از Contract نرمال‌شده Task 40 نمایش داده می‌شوند.
+- Layout فارسی همچنان Direction سطح Application را به‌صورت RTL به ارث می‌برد؛ Technical Identifierهایی مانند Channel/Trunk/Queue/Endpoint ID در محل لازم LTR Render می‌شوند.
+- Chakra UI Dependencyها در Repository Lockfile Pin شده‌اند. License نوع Zero-Clause BSD مربوط به `tslib 2.8.1` بررسی شد و `0BSD` به License Allowlist بررسی‌شده Repo اضافه شد.
+- در پیاده‌سازی یا Validation Task 41 هیچ PBX واقعی Access نشد.
+- Task دقیق بعدی پس از Merge شدن Task 41: **Task 42 — تعریف و Persistence یک Telephony History/Retention Foundation محدود و PBX-scoped بر پایه State/Eventهای نرمال‌شده موجود، بدون PBX Action، Collection Source یا Browser History UI جدید.**
 
 ### ثبت خرابی و اشکال
+
+- **Task 41 Install Toolchain Mismatch — رفع شد:** اولین نصب Chakra با Remote Desktop Shell Node 22/npm 10 اجرا شد و چون Repository به Node 24 نیاز دارد Engine Warning داد. Lockfile Reset شد و نصب با Repository Runtime یعنی Node 24.21.0/npm 11.19.0 دوباره انجام شد.
+- **Task 41 Chakra Label Type Mismatch — رفع شد:** در Chakra v3، `Text` حتی با `as="label"` Property نوعی `htmlFor` را قبول نکرد. Fix: Semantic Native `label` حفظ شد و Chakra Typography داخل آن استفاده شد؛ Frontend Typecheck سپس PASS شد.
+- **Task 41 Formatting Drift — رفع شد:** Chakra Dashboard/API Client/CSS Cleanup جدید قبل از Targeted Validation به Prettier Normalization نیاز داشت.
+- **Task 41 License Gate Failure — رفع شد:** Chakra، `tslib 2.8.1` با SPDX Identifier `0BSD` را اضافه کرد که هنوز در Reviewed License Set نبود. Local License Text بررسی شد و با Zero-Clause BSD Grant منطبق است؛ `0BSD` به Explicit Allowlist اضافه شد و License Check PASS شد.
+- **محدودیت شناخته‌شده Task 41:** Chakra Migration عمداً فقط Operator Dashboard مربوط به Taskهای 39/41 را پوشش می‌دهد و Setup/PBX/Security Formهای نامرتبط را بازنویسی نمی‌کند.
+- **محدودیت شناخته‌شده Task 41:** Telephony فقط Current-state است و History/Retention Browser View هنوز وجود ندارد.
+- **محدودیت شناخته‌شده Task 41:** Agent Interaction همچنان `LIVE_ONLY` است و Queue/Agent Production Compatibility Verify نشده است.
 
 - **Task 40 Server-write Syntax Failure — رفع شد:** اولین Route مربوط به Telephony SSE، Heartbeat Escape Sequence را به‌صورت Physical Newline داخل TypeScript String نوشت و Targeted Typecheck با Unterminated String Literal Fail شد. Root Cause تفسیر Escape در Python Heredoc مربوط به Remote Edit Wrapper بود. Fix: Literal `\n\n` صریح نوشته شد و Backend Typecheck PASS شد.
 - **Task 40 Remote-wrapper Parse Failure — پیش از File Modification رفع شد:** اولین Command افزودن API Test شامل Nested JavaScript Template Literal بود که Outer Tool Wrapper را شکست. در آن Attempt تغییر اضافی در Repository ایجاد نشد. Fix: Template Literal با String Concatenation ساده جایگزین شد.
@@ -437,6 +447,33 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - **Known limitation:** Agent State از نوع Live-only است و Queue/Agent Real-PBX Compatibility هنوز Verify نشده است.
 - **Task دقیق بعدی:** Task 41، Task 40 را در Bilingual Operator UI مصرف می‌کند و فقط PBX-scoped Synchronization به‌همراه Current Call/Channel/Endpoint/Trunk/Queue/Agent Interaction را نمایش می‌دهد؛ بدون PBX Write، History یا Collection گسترده‌تر.
 
+## 2026-10-05 — رکورد تکمیل Task 41
+
+- **نتیجه:** Bilingual Telephony Operator Dashboard روی `feature/telephony-dashboard-ui` با Primitiveهای Chakra UI v3 و APIهای Read-only مربوط به Task 40 پیاده‌سازی شد.
+- **Design System:** `@chakra-ui/react 3.37.0` و `@emotion/react 11.14.0` اضافه شدند. Chakra فقط به Operator Dashboard Scope شده و باعث Whole-application Rewrite نشده است.
+- **Telephony API Consumption:** Frontend، `/telephony-state` را Load و `/telephony-state/stream` را برای PBX انتخاب‌شده Subscribe می‌کند.
+- **Dashboard State:** Provider Connection، Aggregate Live-stream Health، System Metrics، Security-alert Count، Telephony Synchronization/Revision، Current Call/Channel Count و Queue/Agent Count در Responsive Chakra Cardها خلاصه می‌شوند.
+- **Telephony Detail:** Current Call، Channel، Endpoint، Trunk، Queue، Queue Member/Caller Count و Live Agent Interaction فقط از Contract نرمال‌شده نمایش داده می‌شوند.
+- **Bilingual/RTL:** Persian از Application-level RTL استفاده می‌کند و Technical IDها برای جلوگیری از Bidi Corruption به‌صورت LTR Render می‌شوند.
+- **Responsive:** Chakra Responsive Propها در Mobile از Single-column Layout استفاده می‌کنند و در Breakpointهای بزرگ‌تر Gridها گسترش پیدا می‌کنند.
+- **Realtime Validation:** Frontend Test Suite، Initial Telephony Snapshot و Synthetic SSE Transition به `STALE` Revision 9 را Validate می‌کند و حذف Agent Data قدیمی را هم بررسی می‌کند.
+- **Targeted Validation:** Frontend Typecheck و Frontend Testهای 15/15 PASS شدند؛ License Checker بعد از Explicit 0BSD Review PASS شد.
+- **Final Validation:** با Project Node 24.21.0/npm 11.19.0، Lint، Format Check، Typecheck، Backend Testهای 127/127، Frontend Testهای 15/15، Production Build، Foundation Check، License Check و Diff Check همگی PASS شدند.
+- **Build Observation:** Production Frontend JavaScript Bundle قبل از Gzip برابر 519,828 Bytes است. Vite/Rolldown برای Ark UI Warningهای Upstream مربوط به `"use client"` Module Directive می‌دهد؛ این پروژه SPA کاملاً Client-side است و Build موفق است، اما Dependency Footprint به‌عنوان Optimization Target شناخته‌شده ثبت می‌شود.
+- **PBX Scope:** هیچ PBX واقعی Contact، Probe یا Modify نشد و Permission جدیدی داده نشد.
+
+### Failure / Bug / Gapهای Task 41
+
+- **Node/npm Engine Warning — رفع شد:** Dependency Install اولیه با Shell Node 22 اجرا شد؛ Lockfile Reset و با Project Node 24.21.0/npm 11.19.0 Regenerate شد.
+- **Chakra Label Typing Mismatch — رفع شد:** Native Label Semantics حفظ شد و Chakra فقط Typography را مدیریت می‌کند.
+- **Formatting Drift — رفع شد:** Prettier فایل‌های Frontend جدید را Normalize کرد.
+- **0BSD License Review — رفع شد:** License Text مربوط به `tslib 2.8.1` بررسی و SPDX ID آن به Explicit Repository Allowlist اضافه شد.
+- **Known limitation:** Chakra در این Task عمداً فقط Operator Dashboard را پوشش می‌دهد.
+- **Known limitation:** Chakra/Ark Dependency Footprint فعلی یک Raw Production JavaScript Bundle برابر 519,828 Bytes و Rolldown Warningهای غیر Fatal مربوط به `"use client"` ایجاد می‌کند. Bundle Reduction بخشی از Task 41 نیست.
+- **Known limitation:** Telephony History/Retention پیاده‌سازی نشده است.
+- **Known limitation:** Agent Interaction از نوع Live-only است و Queue/Agent Real-PBX Compatibility هنوز Verify نشده است.
+- **Task دقیق بعدی:** Task 42 یک Bounded PBX-scoped Telephony History/Retention Foundation را فقط از State/Eventهای Normalized موجود تعریف و Persist می‌کند؛ بدون PBX Action، Collection Source یا Browser History UI جدید.
+
 ### پروتکل ادامه مداوم
 
 برای هر کار/جلسه آینده:
@@ -463,7 +500,7 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - [ ] Phase 11: سخت شدن، تهیه نسخه پشتیبان، بازیابی آزمایش شده، و یک دفترچه راه اندازی تولید.
 - [ ] Phase 12: اعتبار سنجی انتشار، از جمله رویه استقرار تازه خنثی برای سازمان که می تواند بدون حمل مقادیر خصوصی از استقرار دیگر، روی یک سرویس جدید نصب شود.
 
-Phase 1 بسته است. بخش تعریف‌شده Security Monitoring در Phase 7 همچنان تا Task 34 کامل است. Taskهای 35-36 Notification Storage/Configuration را بدون Delivery اضافه کرده‌اند، Task 37 Live Same-Origin HTTPS Application را فراهم کرده، Task 38 OS-level Reboot Persistence را اثبات کرده، Task 39 اولین Bilingual Operator Dashboard را اضافه کرده و Task 40 Normalized Telephony Current State را از طریق Authenticated PBX-scoped Read-only HTTP/SSE ارائه کرده است. Task دقیق بعدی پس از Merge شدن Task 40، **Task 41 — مصرف Telephony State API/SSE در Bilingual Operator UI بدون PBX Action، History یا Collection Scope گسترده‌تر.**
+Phase 1 بسته است. بخش تعریف‌شده Security Monitoring در Phase 7 همچنان تا Task 34 کامل است. Taskهای 35-36 Notification Storage/Configuration را بدون Delivery اضافه کرده‌اند، Task 37 Live Same-Origin HTTPS Application را فراهم کرده، Task 38 OS-level Reboot Persistence را اثبات کرده، Task 39 اولین Bilingual Operator Dashboard را اضافه کرده، Task 40 Normalized Telephony Current State را با Authenticated PBX-scoped Read-only HTTP/SSE ارائه کرده و Task 41 همان Boundary را در Bilingual Chakra UI v3 Operator Surface مصرف می‌کند. Task دقیق بعدی پس از Merge شدن Task 41، **Task 42 — Bounded Telephony History/Retention Persistence بر پایه State/Eventهای Normalized موجود، بدون PBX Action یا Collection Source جدید.**
 
 ## 26-09-2026 - رکورد تکمیل Task 28
 
