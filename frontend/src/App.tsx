@@ -1,19 +1,85 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import {
+  Badge,
+  Box,
+  Button,
+  Card,
+  Checkbox,
+  Container,
+  Flex,
+  Heading,
+  HStack,
+  Input,
+  NativeSelect,
+  SimpleGrid,
+  Spinner,
+  Stack,
+  Text,
+} from '@chakra-ui/react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { api, ApiError, type PbxConnectionState, type PbxProfile, type Principal } from './api.js';
 import { messages, type Language } from './i18n.js';
 import { SecurityWorkspace } from './SecurityWorkspace.js';
 import { OperatorDashboard } from './OperatorDashboard.js';
 
-type Text = (typeof messages)[Language];
+type TextMap = (typeof messages)[Language];
 type Phase = 'loading' | 'setup' | 'login' | 'ready' | 'error';
 
-export function FirstAdminForm({ text, onCreated }: { text: Text; onCreated: () => void }) {
+function FormField({
+  label,
+  children,
+  hint,
+}: {
+  label: string;
+  children: ReactNode;
+  hint?: ReactNode;
+}) {
+  return (
+    <Stack gap="1.5">
+      <Text fontSize="sm" fontWeight="semibold" color="fg">
+        {label}
+      </Text>
+      {children}
+      {hint ? (
+        <Text fontSize="xs" color="fg.muted">
+          {hint}
+        </Text>
+      ) : null}
+    </Stack>
+  );
+}
+
+function InlineMessage({
+  children,
+  tone = 'error',
+}: {
+  children: ReactNode;
+  tone?: 'error' | 'status';
+}) {
+  return (
+    <Box
+      role={tone === 'error' ? 'alert' : 'status'}
+      borderWidth="1px"
+      borderColor={tone === 'error' ? 'red.200' : 'blue.200'}
+      bg={tone === 'error' ? 'red.50' : 'blue.50'}
+      color={tone === 'error' ? 'red.800' : 'blue.800'}
+      borderRadius="lg"
+      px="3"
+      py="2"
+      fontSize="sm"
+    >
+      {children}
+    </Box>
+  );
+}
+
+export function FirstAdminForm({ text, onCreated }: { text: TextMap; onCreated: () => void }) {
   const [bootstrapToken, setBootstrapToken] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (password !== confirmation) {
@@ -38,65 +104,75 @@ export function FirstAdminForm({ text, onCreated }: { text: Text; onCreated: () 
       setPending(false);
     }
   }
+
   return (
-    <section aria-labelledby="setup-title">
-      <h2 id="setup-title">{text.setupTitle}</h2>
-      <p>{text.setupHint}</p>
-      <form
-        onSubmit={(event) => {
-          void submit(event);
-        }}
-        autoComplete="off"
-      >
-        <label>
-          {text.token}
-          <input
-            name="bootstrap-token"
-            value={bootstrapToken}
-            onChange={(event) => setBootstrapToken(event.target.value)}
-            required
-            autoComplete="off"
-          />
-        </label>
-        <label>
-          {text.username}
-          <input
-            name="username"
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            required
-            autoComplete="username"
-          />
-        </label>
-        <label>
-          {text.password}
-          <input
-            name="new-password"
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-            minLength={12}
-            autoComplete="new-password"
-          />
-        </label>
-        <label>
-          {text.confirmPassword}
-          <input
-            name="confirm-password"
-            type="password"
-            value={confirmation}
-            onChange={(event) => setConfirmation(event.target.value)}
-            required
-            autoComplete="new-password"
-          />
-        </label>
-        {error && <p role="alert">{error}</p>}
-        <button disabled={pending} type="submit">
-          {text.createAdmin}
-        </button>
-      </form>
-    </section>
+    <Card.Root variant="outline" maxW="lg" w="full" shadow="sm">
+      <Card.Header>
+        <Card.Title id="setup-title" fontSize="xl">
+          {text.setupTitle}
+        </Card.Title>
+        <Card.Description>{text.setupHint}</Card.Description>
+      </Card.Header>
+      <Card.Body>
+        <form
+          onSubmit={(event) => {
+            void submit(event);
+          }}
+          autoComplete="off"
+          aria-labelledby="setup-title"
+        >
+          <Stack gap="4">
+            <FormField label={text.token}>
+              <Input
+                name="bootstrap-token"
+                value={bootstrapToken}
+                onChange={(event) => setBootstrapToken(event.target.value)}
+                required
+                autoComplete="off"
+                dir="ltr"
+              />
+            </FormField>
+            <FormField label={text.username}>
+              <Input
+                name="username"
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                required
+                autoComplete="username"
+                dir="ltr"
+              />
+            </FormField>
+            <FormField label={text.password}>
+              <Input
+                name="new-password"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+                minLength={12}
+                autoComplete="new-password"
+                dir="ltr"
+              />
+            </FormField>
+            <FormField label={text.confirmPassword}>
+              <Input
+                name="confirm-password"
+                type="password"
+                value={confirmation}
+                onChange={(event) => setConfirmation(event.target.value)}
+                required
+                autoComplete="new-password"
+                dir="ltr"
+              />
+            </FormField>
+            {error ? <InlineMessage>{error}</InlineMessage> : null}
+            <Button disabled={pending} type="submit" colorPalette="blue">
+              {text.createAdmin}
+            </Button>
+          </Stack>
+        </form>
+      </Card.Body>
+    </Card.Root>
   );
 }
 
@@ -104,13 +180,14 @@ export function LoginForm({
   text,
   onLoggedIn,
 }: {
-  text: Text;
+  text: TextMap;
   onLoggedIn: (principal: Principal) => Promise<void>;
 }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
@@ -127,41 +204,51 @@ export function LoginForm({
       setPending(false);
     }
   }
+
   return (
-    <section aria-labelledby="login-title">
-      <h2 id="login-title">{text.loginTitle}</h2>
-      <form
-        onSubmit={(event) => {
-          void submit(event);
-        }}
-      >
-        <label>
-          {text.username}
-          <input
-            name="username"
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            required
-            autoComplete="username"
-          />
-        </label>
-        <label>
-          {text.password}
-          <input
-            name="password"
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-            autoComplete="current-password"
-          />
-        </label>
-        {error && <p role="alert">{error}</p>}
-        <button disabled={pending} type="submit">
-          {text.login}
-        </button>
-      </form>
-    </section>
+    <Card.Root variant="outline" maxW="md" w="full" shadow="md">
+      <Card.Header>
+        <Card.Title id="login-title" fontSize="2xl">
+          {text.loginTitle}
+        </Card.Title>
+      </Card.Header>
+      <Card.Body>
+        <form
+          onSubmit={(event) => {
+            void submit(event);
+          }}
+          aria-labelledby="login-title"
+        >
+          <Stack gap="4">
+            <FormField label={text.username}>
+              <Input
+                name="username"
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                required
+                autoComplete="username"
+                dir="ltr"
+              />
+            </FormField>
+            <FormField label={text.password}>
+              <Input
+                name="password"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+                autoComplete="current-password"
+                dir="ltr"
+              />
+            </FormField>
+            {error ? <InlineMessage>{error}</InlineMessage> : null}
+            <Button disabled={pending} type="submit" colorPalette="blue">
+              {text.login}
+            </Button>
+          </Stack>
+        </form>
+      </Card.Body>
+    </Card.Root>
   );
 }
 
@@ -173,6 +260,7 @@ interface PbxFormState {
   amiPassword: string;
   enabled: boolean;
 }
+
 const emptyForm = (): PbxFormState => ({
   displayName: '',
   amiHost: '',
@@ -181,13 +269,21 @@ const emptyForm = (): PbxFormState => ({
   amiPassword: '',
   enabled: false,
 });
+
+function connectionPalette(state: PbxConnectionState) {
+  if (state === 'CONNECTED') return 'green';
+  if (state === 'ERROR') return 'red';
+  if (state === 'DEGRADED') return 'orange';
+  return 'gray';
+}
+
 export function PbxWorkspace({
   text,
   profiles,
   onRefresh,
   onUnauthorized,
 }: {
-  text: Text;
+  text: TextMap;
   profiles: PbxProfile[];
   onRefresh: () => Promise<void>;
   onUnauthorized: () => void;
@@ -198,12 +294,14 @@ export function PbxWorkspace({
   const [error, setError] = useState('');
   const [testResult, setTestResult] = useState<Record<string, string>>({});
   const [pending, setPending] = useState(false);
+
   function handleFailure(failure: unknown, message: string) {
     if (failure instanceof ApiError && failure.status === 401) {
       setForm(emptyForm());
       onUnauthorized();
     } else setError(message);
   }
+
   function edit(profile: PbxProfile) {
     setEditingId(profile.id);
     setForm({
@@ -217,12 +315,14 @@ export function PbxWorkspace({
     setError('');
     setShowForm(true);
   }
+
   function resetForm() {
     setForm(emptyForm());
     setEditingId(undefined);
     setShowForm(false);
     setError('');
   }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editingId && !form.amiPassword) {
@@ -252,6 +352,7 @@ export function PbxWorkspace({
       setPending(false);
     }
   }
+
   async function change(id: string, value: object) {
     setPending(true);
     setError('');
@@ -264,6 +365,7 @@ export function PbxWorkspace({
       setPending(false);
     }
   }
+
   async function remove(id: string) {
     setPending(true);
     setError('');
@@ -282,6 +384,7 @@ export function PbxWorkspace({
       setPending(false);
     }
   }
+
   function connectionLabel(state: PbxConnectionState) {
     if (state === 'CONNECTED') return text.connected;
     if (state === 'CONNECTING') return text.connecting;
@@ -290,6 +393,7 @@ export function PbxWorkspace({
     if (state === 'ERROR') return text.connectionError;
     return text.unverified;
   }
+
   async function testConnection(profile: PbxProfile) {
     setPending(true);
     setError('');
@@ -316,185 +420,250 @@ export function PbxWorkspace({
       setPending(false);
     }
   }
+
   return (
-    <section aria-labelledby="pbx-title">
-      <h2 id="pbx-title">{text.pbxTitle}</h2>
-      <p>{text.connectionHint}</p>
-      {profiles.length > 0 && (
-        <ul className="profiles">
-          {profiles.map((profile) => (
-            <li key={profile.id}>
-              <h3>{profile.displayName}</h3>
-              <p>
-                {text.asterisk} · {profile.amiHost}:{profile.amiPort} · {profile.amiUsername}
-              </p>
-              <p>
-                {connectionLabel(profile.connectionStatus)} ·{' '}
-                {profile.enabled ? text.enabled : text.disabled} ·{' '}
-                {profile.hasAmiPassword ? text.passwordConfigured : text.passwordMissing}
-              </p>
-              {profile.lastVerifiedAt && (
-                <p>
-                  {text.lastVerified}: <span dir="ltr">{profile.lastVerifiedAt}</span>
-                </p>
-              )}
-              {testResult[profile.id] && <p role="status">{testResult[profile.id]}</p>}
-              <div className="actions">
-                {profile.hasAmiPassword && (
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => {
-                      void testConnection(profile);
-                    }}
-                  >
-                    {text.testConnection}
-                  </button>
-                )}
-                <button type="button" disabled={pending} onClick={() => edit(profile)}>
-                  {text.editPbx}
-                </button>
-                <button
-                  type="button"
-                  disabled={pending}
-                  onClick={() => {
-                    void change(profile.id, { enabled: !profile.enabled });
-                  }}
-                >
-                  {profile.enabled ? text.disable : text.enable}
-                </button>
-                {profile.hasAmiPassword && (
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => {
-                      void change(profile.id, { removeAmiPassword: true });
-                    }}
-                  >
-                    {text.removePassword}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  disabled={pending}
-                  onClick={() => {
-                    void remove(profile.id);
-                  }}
-                >
-                  {text.deletePbx}
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-      {!showForm && (
-        <button
-          type="button"
-          onClick={() => {
-            setForm(emptyForm());
-            setEditingId(undefined);
-            setShowForm(true);
-          }}
+    <Box as="section" aria-labelledby="pbx-title">
+      <Stack gap="5">
+        <Flex
+          justify="space-between"
+          align={{ base: 'stretch', md: 'center' }}
+          gap="3"
+          direction={{ base: 'column', md: 'row' }}
         >
-          {text.addPbx}
-        </button>
-      )}
-      {showForm && (
-        <form
-          onSubmit={(event) => {
-            void submit(event);
-          }}
-          autoComplete="off"
-        >
-          <h3>{editingId ? text.editPbx : profiles.length === 0 ? text.firstPbx : text.addPbx}</h3>
-          <label>
-            {text.provider}
-            <select name="provider" defaultValue="ASTERISK">
-              <option value="ASTERISK">{text.asterisk}</option>
-            </select>
-          </label>
-          <label>
-            {text.displayName}
-            <input
-              name="display-name"
-              value={form.displayName}
-              onChange={(event) => setForm({ ...form, displayName: event.target.value })}
-              required
-              maxLength={100}
-            />
-          </label>
-          <label>
-            {text.amiHost}
-            <input
-              name="ami-host"
-              value={form.amiHost}
-              onChange={(event) => setForm({ ...form, amiHost: event.target.value })}
-              required
-              maxLength={253}
-              dir="ltr"
-            />
-          </label>
-          <label>
-            {text.amiPort}
-            <input
-              name="ami-port"
-              type="number"
-              min={1}
-              max={65535}
-              value={form.amiPort}
-              onChange={(event) => setForm({ ...form, amiPort: event.target.value })}
-              required
-            />
-          </label>
-          <label>
-            {text.amiUsername}
-            <input
-              name="ami-username"
-              value={form.amiUsername}
-              onChange={(event) => setForm({ ...form, amiUsername: event.target.value })}
-              required
-              maxLength={128}
-              autoComplete="off"
-            />
-          </label>
-          <label>
-            {text.amiPassword}
-            <input
-              name="ami-password"
-              type="password"
-              value={form.amiPassword}
-              onChange={(event) => setForm({ ...form, amiPassword: event.target.value })}
-              required={!editingId}
-              maxLength={1024}
-              autoComplete="off"
-            />
-          </label>
-          {editingId && <p>{text.passwordOptional}</p>}
-          <label className="check">
-            <input
-              name="enabled"
-              type="checkbox"
-              checked={form.enabled}
-              onChange={(event) => setForm({ ...form, enabled: event.target.checked })}
-            />
-            {text.enabled}
-          </label>
-          {error && <p role="alert">{error}</p>}
-          <div className="actions">
-            <button disabled={pending} type="submit">
-              {text.savePbx}
-            </button>
-            {profiles.length > 0 && (
-              <button type="button" onClick={resetForm}>
-                {text.cancel}
-              </button>
-            )}
-          </div>
-        </form>
-      )}
-      {!showForm && error && <p role="alert">{error}</p>}
-    </section>
+          <Box>
+            <Heading id="pbx-title" size="lg">
+              {text.pbxTitle}
+            </Heading>
+            <Text color="fg.muted" mt="1">
+              {text.connectionHint}
+            </Text>
+          </Box>
+          {!showForm ? (
+            <Button
+              colorPalette="blue"
+              onClick={() => {
+                setForm(emptyForm());
+                setEditingId(undefined);
+                setShowForm(true);
+              }}
+            >
+              {text.addPbx}
+            </Button>
+          ) : null}
+        </Flex>
+
+        {profiles.length > 0 ? (
+          <SimpleGrid columns={{ base: 1, lg: 2 }} gap="4">
+            {profiles.map((profile) => (
+              <Card.Root key={profile.id} variant="outline">
+                <Card.Header>
+                  <Flex justify="space-between" align="start" gap="3">
+                    <Box minW="0">
+                      <Card.Title>{profile.displayName}</Card.Title>
+                      <Card.Description dir="ltr" overflowWrap="anywhere">
+                        {profile.amiHost}:{profile.amiPort} · {profile.amiUsername}
+                      </Card.Description>
+                    </Box>
+                    <Badge colorPalette={connectionPalette(profile.connectionStatus)}>
+                      {connectionLabel(profile.connectionStatus)}
+                    </Badge>
+                  </Flex>
+                </Card.Header>
+                <Card.Body gap="3">
+                  <HStack gap="2" flexWrap="wrap">
+                    <Badge variant="subtle">{text.asterisk}</Badge>
+                    <Badge colorPalette={profile.enabled ? 'green' : 'gray'}>
+                      {profile.enabled ? text.enabled : text.disabled}
+                    </Badge>
+                    <Badge colorPalette={profile.hasAmiPassword ? 'blue' : 'red'}>
+                      {profile.hasAmiPassword ? text.passwordConfigured : text.passwordMissing}
+                    </Badge>
+                  </HStack>
+                  {profile.lastVerifiedAt ? (
+                    <Text fontSize="sm" color="fg.muted">
+                      {text.lastVerified}: <span dir="ltr">{profile.lastVerifiedAt}</span>
+                    </Text>
+                  ) : null}
+                  {testResult[profile.id] ? (
+                    <InlineMessage tone="status">{testResult[profile.id]}</InlineMessage>
+                  ) : null}
+                </Card.Body>
+                <Card.Footer>
+                  <HStack gap="2" flexWrap="wrap">
+                    {profile.hasAmiPassword ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={pending}
+                        onClick={() => {
+                          void testConnection(profile);
+                        }}
+                      >
+                        {text.testConnection}
+                      </Button>
+                    ) : null}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={pending}
+                      onClick={() => edit(profile)}
+                    >
+                      {text.editPbx}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={pending}
+                      onClick={() => {
+                        void change(profile.id, { enabled: !profile.enabled });
+                      }}
+                    >
+                      {profile.enabled ? text.disable : text.enable}
+                    </Button>
+                    {profile.hasAmiPassword ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={pending}
+                        onClick={() => {
+                          void change(profile.id, { removeAmiPassword: true });
+                        }}
+                      >
+                        {text.removePassword}
+                      </Button>
+                    ) : null}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      colorPalette="red"
+                      disabled={pending}
+                      onClick={() => {
+                        void remove(profile.id);
+                      }}
+                    >
+                      {text.deletePbx}
+                    </Button>
+                  </HStack>
+                </Card.Footer>
+              </Card.Root>
+            ))}
+          </SimpleGrid>
+        ) : null}
+
+        {showForm ? (
+          <Card.Root variant="outline">
+            <Card.Header>
+              <Card.Title>
+                {editingId ? text.editPbx : profiles.length === 0 ? text.firstPbx : text.addPbx}
+              </Card.Title>
+            </Card.Header>
+            <Card.Body>
+              <form
+                onSubmit={(event) => {
+                  void submit(event);
+                }}
+                autoComplete="off"
+              >
+                <Stack gap="4">
+                  <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
+                    <FormField label={text.provider}>
+                      <NativeSelect.Root>
+                        <NativeSelect.Field name="provider" defaultValue="ASTERISK">
+                          <option value="ASTERISK">{text.asterisk}</option>
+                        </NativeSelect.Field>
+                        <NativeSelect.Indicator />
+                      </NativeSelect.Root>
+                    </FormField>
+                    <FormField label={text.displayName}>
+                      <Input
+                        name="display-name"
+                        value={form.displayName}
+                        onChange={(event) => setForm({ ...form, displayName: event.target.value })}
+                        required
+                        maxLength={100}
+                      />
+                    </FormField>
+                    <FormField label={text.amiHost}>
+                      <Input
+                        name="ami-host"
+                        value={form.amiHost}
+                        onChange={(event) => setForm({ ...form, amiHost: event.target.value })}
+                        required
+                        maxLength={253}
+                        dir="ltr"
+                      />
+                    </FormField>
+                    <FormField label={text.amiPort}>
+                      <Input
+                        name="ami-port"
+                        type="number"
+                        min={1}
+                        max={65535}
+                        value={form.amiPort}
+                        onChange={(event) => setForm({ ...form, amiPort: event.target.value })}
+                        required
+                        dir="ltr"
+                      />
+                    </FormField>
+                    <FormField label={text.amiUsername}>
+                      <Input
+                        name="ami-username"
+                        value={form.amiUsername}
+                        onChange={(event) => setForm({ ...form, amiUsername: event.target.value })}
+                        required
+                        maxLength={128}
+                        autoComplete="off"
+                        dir="ltr"
+                      />
+                    </FormField>
+                    <FormField
+                      label={text.amiPassword}
+                      hint={editingId ? text.passwordOptional : undefined}
+                    >
+                      <Input
+                        name="ami-password"
+                        type="password"
+                        value={form.amiPassword}
+                        onChange={(event) => setForm({ ...form, amiPassword: event.target.value })}
+                        required={!editingId}
+                        maxLength={1024}
+                        autoComplete="off"
+                        dir="ltr"
+                      />
+                    </FormField>
+                  </SimpleGrid>
+                  <Checkbox.Root
+                    checked={form.enabled}
+                    onCheckedChange={(details) =>
+                      setForm({ ...form, enabled: details.checked === true })
+                    }
+                  >
+                    <Checkbox.HiddenInput name="enabled" />
+                    <Checkbox.Control>
+                      <Checkbox.Indicator />
+                    </Checkbox.Control>
+                    <Checkbox.Label>{text.enabled}</Checkbox.Label>
+                  </Checkbox.Root>
+                  {error ? <InlineMessage>{error}</InlineMessage> : null}
+                  <HStack gap="2" flexWrap="wrap">
+                    <Button disabled={pending} type="submit" colorPalette="blue">
+                      {text.savePbx}
+                    </Button>
+                    {profiles.length > 0 ? (
+                      <Button type="button" variant="outline" onClick={resetForm}>
+                        {text.cancel}
+                      </Button>
+                    ) : null}
+                  </HStack>
+                </Stack>
+              </form>
+            </Card.Body>
+          </Card.Root>
+        ) : null}
+
+        {!showForm && error ? <InlineMessage>{error}</InlineMessage> : null}
+      </Stack>
+    </Box>
   );
 }
 
@@ -520,10 +689,12 @@ export function App({
   const [shellError, setShellError] = useState('');
   const direction = language === 'fa' ? 'rtl' : 'ltr';
   const text = messages[language];
+
   async function refreshProfiles() {
     const result = await api.listPbx();
     setProfiles(result.items);
   }
+
   async function load() {
     setPhase('loading');
     try {
@@ -545,6 +716,7 @@ export function App({
       setPhase('error');
     }
   }
+
   useEffect(() => {
     document.documentElement.lang = language;
     document.documentElement.dir = direction;
@@ -554,19 +726,23 @@ export function App({
       /* preference storage is optional */
     }
   }, [language, direction]);
+
   useEffect(() => {
     if (!initialView) void load();
   }, []);
+
   async function loggedIn(user: Principal) {
     setPrincipal(user);
     await refreshProfiles();
     setPhase('ready');
   }
+
   function unauthorized() {
     setPrincipal(undefined);
     setProfiles([]);
     setPhase('login');
   }
+
   async function logout() {
     setShellError('');
     try {
@@ -576,60 +752,99 @@ export function App({
       setShellError(text.unavailable);
     }
   }
+
+  const authPhase =
+    phase === 'setup' || phase === 'login' || phase === 'loading' || phase === 'error';
+
   return (
-    <main dir={direction} lang={language}>
-      <header>
-        <h1>{text.title}</h1>
-        <button
-          type="button"
-          onClick={() => setLanguage(language === 'en' ? 'fa' : 'en')}
-          aria-label={text.switchLanguageLabel}
-        >
-          {text.switchLanguage}
-        </button>
-      </header>
-      {phase === 'loading' && <p>{text.loading}</p>}
-      {phase === 'error' && (
-        <section>
-          <p role="alert">{text.unavailable}</p>
-          <button
-            type="button"
-            onClick={() => {
-              void load();
-            }}
-          >
-            {text.retry}
-          </button>
-        </section>
-      )}
-      {phase === 'setup' && <FirstAdminForm text={text} onCreated={() => setPhase('login')} />}
-      {phase === 'login' && <LoginForm text={text} onLoggedIn={loggedIn} />}
-      {phase === 'ready' && (
-        <>
-          <div className="session">
-            <span>
-              {text.signedIn} {principal?.username}
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                void logout();
-              }}
-            >
-              {text.logout}
-            </button>
-          </div>
-          {shellError && <p role="alert">{shellError}</p>}
-          <OperatorDashboard text={text} profiles={profiles} onUnauthorized={unauthorized} />
-          <PbxWorkspace
-            text={text}
-            profiles={profiles}
-            onRefresh={refreshProfiles}
-            onUnauthorized={unauthorized}
-          />
-          <SecurityWorkspace text={text} profiles={profiles} onUnauthorized={unauthorized} />
-        </>
-      )}
-    </main>
+    <Box minH="100vh" bg="gray.50" dir={direction} lang={language}>
+      <Box as="header" bg="white" borderBottomWidth="1px" position="sticky" top="0" zIndex="10">
+        <Container maxW="7xl" py="3">
+          <Flex align="center" justify="space-between" gap="4">
+            <Box>
+              <Heading size="lg">{text.title}</Heading>
+              {phase === 'ready' && principal ? (
+                <Text fontSize="sm" color="fg.muted">
+                  {text.signedIn}{' '}
+                  <Box as="span" dir="ltr">
+                    {principal.username}
+                  </Box>
+                </Text>
+              ) : null}
+            </Box>
+            <HStack gap="2">
+              <Button
+                size="sm"
+                variant="outline"
+                type="button"
+                onClick={() => setLanguage(language === 'en' ? 'fa' : 'en')}
+                aria-label={text.switchLanguageLabel}
+              >
+                {text.switchLanguage}
+              </Button>
+              {phase === 'ready' ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  colorPalette="red"
+                  type="button"
+                  onClick={() => {
+                    void logout();
+                  }}
+                >
+                  {text.logout}
+                </Button>
+              ) : null}
+            </HStack>
+          </Flex>
+        </Container>
+      </Box>
+
+      <Container maxW="7xl" py={{ base: '5', md: '8' }}>
+        {authPhase ? (
+          <Flex minH="65vh" align="center" justify="center">
+            {phase === 'loading' ? (
+              <Stack align="center" gap="3">
+                <Spinner size="lg" />
+                <Text color="fg.muted">{text.loading}</Text>
+              </Stack>
+            ) : null}
+            {phase === 'error' ? (
+              <Card.Root variant="outline" maxW="md" w="full">
+                <Card.Body gap="4">
+                  <InlineMessage>{text.unavailable}</InlineMessage>
+                  <Button
+                    colorPalette="blue"
+                    onClick={() => {
+                      void load();
+                    }}
+                  >
+                    {text.retry}
+                  </Button>
+                </Card.Body>
+              </Card.Root>
+            ) : null}
+            {phase === 'setup' ? (
+              <FirstAdminForm text={text} onCreated={() => setPhase('login')} />
+            ) : null}
+            {phase === 'login' ? <LoginForm text={text} onLoggedIn={loggedIn} /> : null}
+          </Flex>
+        ) : null}
+
+        {phase === 'ready' ? (
+          <Stack gap={{ base: '6', md: '8' }}>
+            {shellError ? <InlineMessage>{shellError}</InlineMessage> : null}
+            <OperatorDashboard text={text} profiles={profiles} onUnauthorized={unauthorized} />
+            <PbxWorkspace
+              text={text}
+              profiles={profiles}
+              onRefresh={refreshProfiles}
+              onUnauthorized={unauthorized}
+            />
+            <SecurityWorkspace text={text} profiles={profiles} onUnauthorized={unauthorized} />
+          </Stack>
+        ) : null}
+      </Container>
+    </Box>
   );
 }

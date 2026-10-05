@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-05. Task 40 is merged into main. Task 41 is complete on feature/telephony-dashboard-ui and merge into main is pending. The bilingual operator dashboard now consumes the existing telephony current-state/SSE boundary and is implemented with Chakra UI v3 primitives while preserving the existing read-only PBX scope.
+Status: 2026-10-05. Task 41 is merged into main. A corrective UI consistency pass is complete on fix/chakra-ui-shell and merge into main is pending. The previous Task 41 implementation applied Chakra UI only to the operator dashboard, leaving setup/login/PBX/security surfaces on legacy raw HTML/CSS. This correction moves the complete operator-facing shell and all forms/workspaces onto the same Chakra UI v3 design system while preserving the existing read-only PBX scope.
 
 ## Phase 0 — environment discovery
 
@@ -82,23 +82,28 @@ These later checks do not change the historical Phase 1 validation record. Docke
 
 ### Current execution handoff
 
-- Current branch: `feature/telephony-dashboard-ui`, created from synchronized `main` after confirming Task 40 is contained in `origin/main`.
-- Task 41 implementation and targeted validation are complete on this branch; merge into main remains pending.
-- The operator dashboard now uses Chakra UI v3 primitives for its responsive cards, PBX selector, badges, navigation, and telephony detail panels.
-- The dashboard loads the existing telephony current-state API and opens one PBX-scoped telephony SSE stream alongside the existing metrics/security streams.
-- Telephony synchronization and current Calls, Channels, Endpoints, Trunks, Queues, Queue membership/caller counts, and Agent interactions are presented from the normalized Task 40 contract only.
-- Persian layout continues to inherit the application RTL direction; technical identifiers such as channel, trunk, queue, and endpoint IDs are explicitly rendered LTR where needed.
-- Chakra UI dependencies are pinned through the repository lockfile. The new transitive `tslib 2.8.1` Zero-Clause BSD license text was reviewed and `0BSD` was added to the repository license allowlist.
-- No real PBX was contacted as part of Task 41 implementation or validation.
-- Exact next task after Task 41 merge: **Task 42 — define and persist a bounded PBX-scoped telephony history/retention foundation from existing normalized telephony state/events, without adding PBX actions, new collection sources, or browser history UI.**
+- Current branch: fix/chakra-ui-shell, created from synchronized main after Task 41 merged through PR #44.
+- The Task 41 UI consistency correction is complete locally; full validation passes under project Node 24.21.0/npm 11.19.0: lint, format check, typecheck, backend 127/127 tests, frontend 15/15 tests, production build, foundation check, license check, and diff check. Merge into main remains pending.
+- Root cause of the reported broken/inconsistent UI: Task 41 scoped Chakra UI to OperatorDashboard only while the application shell, first-admin setup, login, PBX management, and security workspace still used legacy global CSS and raw controls.
+- Fix: Chakra UI v3 is now provided globally and the shell, authentication screens, PBX cards/forms, security alerts/rules, and operator dashboard share the same responsive Card/Button/Input/Select/Checkbox/Grid/Stack primitives.
+- Legacy visual CSS has been removed; styles.css now contains only minimal browser-level reset/font/background rules.
+- Persian remains application-level RTL; technical identifiers and addresses retain explicit LTR islands.
+- Existing UI behavior and API boundaries are preserved. No backend route, PBX action, collector, permission, credential behavior, or network scope changed.
+- No real PBX was contacted during this correction.
+- Exact next task after this correction is merged: **Task 42 — define and persist bounded PBX-scoped telephony history/retention using existing normalized state/events only, without new PBX actions, collection sources, or browser history UI.**
 
 ### Failure and bug log
+
+- **Task 41 scope/design-system error — corrected:** the merged Task 41 implementation interpreted the user-selected Chakra UI design system as dashboard-only. This left setup/login/PBX/security surfaces on legacy raw HTML/CSS and produced an inconsistent application. That scope decision was wrong. Fix: migrate the complete operator-facing shell and forms/workspaces to Chakra UI v3 under one global provider and remove legacy visual CSS.
+- **Chakra polymorphic form typing failure — resolved:** using Stack as form leaves Chakra v3 typed as HTMLDivElement, so FormEvent<HTMLFormElement> and form-only properties failed typecheck. Fix: retain semantic native form elements and place Chakra Stack inside them.
+- **Legacy-selector test failure — resolved:** one security realtime test asserted a legacy CSS selector removed by the migration. Fix: add a semantic data-security-alert hook and assert behavior rather than CSS implementation details.
+- **Design-system completeness check:** raw legacy button/select controls and visual className styling are removed from frontend source; remaining input elements are Chakra HiddenInput internals for checkbox semantics.
 
 - **Task 41 install toolchain mismatch — resolved:** the first Chakra dependency install ran under the Remote Desktop shell Node 22/npm 10 and emitted an engine warning because the repository requires Node 24. The lockfile was reset and the install was rerun with the repository runtime Node 24.21.0/npm 11.19.0 before validation.
 - **Task 41 Chakra label type mismatch — resolved:** Chakra v3 `Text` typed as a paragraph did not accept `htmlFor` even with `as="label"`. Fix: keep the semantic native `label` and use Chakra typography inside it. Frontend typecheck then passed.
 - **Task 41 formatting drift — resolved:** the new Chakra dashboard/API client/CSS cleanup required Prettier normalization before targeted validation.
 - **Task 41 license gate failure — resolved:** Chakra pulled `tslib 2.8.1` with SPDX identifier `0BSD`, which was not yet in the repository-reviewed license set. The package's local license text was reviewed and matches the Zero-Clause BSD grant; `0BSD` was added to the explicit allowlist, after which the license check passed.
-- **Task 41 known limitation:** the Chakra migration intentionally covers the operator dashboard introduced by Tasks 39/41, not every setup/PBX/security form in the application. Rewriting unrelated screens would exceed the task scope.
+- **Task 41 correction:** the earlier dashboard-only Chakra limitation was invalidated by operator feedback. The full operator-facing shell, setup/login, PBX management, security workspace, and dashboard now use Chakra UI v3 consistently.
 - **Task 41 known limitation:** telephony data is current-state only; no history/retention browser view exists yet.
 - **Task 41 known limitation:** Agent interactions remain `LIVE_ONLY` and Queue/Agent production compatibility remains unverified.
 

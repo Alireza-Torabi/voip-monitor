@@ -1,12 +1,18 @@
+import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
+import type { ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { App, PbxWorkspace } from '../src/App.js';
 import { SecurityWorkspace } from '../src/SecurityWorkspace.js';
 import { messages } from '../src/i18n.js';
 
+function renderUi(node: ReactNode) {
+  return renderToStaticMarkup(<ChakraProvider value={defaultSystem}>{node}</ChakraProvider>);
+}
+
 describe('bilingual onboarding shell', () => {
   it('renders first administrator setup in English left to right', () => {
-    const html = renderToStaticMarkup(<App initialLanguage="en" initialView="setup" />);
+    const html = renderUi(<App initialLanguage="en" initialView="setup" />);
     expect(html).toContain('dir="ltr"');
     expect(html).toContain('Create first administrator');
     expect(html).toContain('name="bootstrap-token"');
@@ -14,20 +20,20 @@ describe('bilingual onboarding shell', () => {
     expect(html).toContain('name="bootstrap-token" value=""');
   });
   it('renders login in Persian right to left', () => {
-    const html = renderToStaticMarkup(<App initialLanguage="fa" initialView="login" />);
+    const html = renderUi(<App initialLanguage="fa" initialView="login" />);
     expect(html).toContain('dir="rtl"');
     expect(html).toContain('ورود مدیر');
     expect(html).toContain('type="password"');
   });
   it('renders an authenticated first PBX form before a connection test is available', () => {
-    const html = renderToStaticMarkup(<App initialLanguage="en" initialView="ready" />);
+    const html = renderUi(<App initialLanguage="en" initialView="ready" />);
     expect(html).toContain('Add the first PBX profile');
     expect(html).toContain('Asterisk / FreePBX');
     expect(html).toContain('name="ami-password"');
     expect(html).not.toContain('Test Connection');
   });
   it('shows only credential presence and unverified status for a saved profile', () => {
-    const html = renderToStaticMarkup(
+    const html = renderUi(
       <PbxWorkspace
         text={messages.en}
         profiles={[
@@ -58,7 +64,7 @@ describe('bilingual onboarding shell', () => {
   });
 
   it('renders bounded security monitoring controls for a configured PBX', () => {
-    const html = renderToStaticMarkup(
+    const html = renderUi(
       <SecurityWorkspace
         text={messages.en}
         profiles={[

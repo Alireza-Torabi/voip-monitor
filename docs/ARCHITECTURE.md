@@ -1,6 +1,6 @@
 # Proposed architecture
 
-Status: Task 41 consumes the authenticated PBX-scoped telephony current-state/SSE boundary in the bilingual operator dashboard using Chakra UI v3 responsive primitives. The browser displays normalized current calls/channels/endpoints/trunks/queues/agent interactions and synchronization only; it creates no PBX work. Telephony history remains unimplemented. PBX networking remains disabled by default outside explicit runtime opt-in.
+Status: Task 41 is merged, and the follow-up UI consistency correction migrates the complete operator-facing React surface to one global Chakra UI v3 design system: shell, setup/login, PBX management, security workspace, and telephony dashboard. RTL remains document-level with explicit LTR technical islands. This is presentation-only and creates no PBX work. Telephony history remains unimplemented.
 
 ```text
 PBX (Asterisk / FreePBX)

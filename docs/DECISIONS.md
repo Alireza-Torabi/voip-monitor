@@ -388,3 +388,12 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 250. **Dependency/license boundary:** pin `@chakra-ui/react 3.37.0` and `@emotion/react 11.14.0` through the lockfile. Review the transitive `tslib 2.8.1` Zero-Clause BSD license text and add SPDX `0BSD` to the explicit reviewed-license set.
 251. **Task 42 boundary:** next define and persist bounded PBX-scoped telephony history/retention using only existing normalized telephony state/events; no new PBX action, collection source, or browser history UI.
 252. **Chakra bundle tradeoff is explicit:** Task 41 accepts the current 519,828-byte raw production JavaScript bundle and non-fatal Ark UI `"use client"` Rolldown warnings because the user explicitly selected Chakra UI and the SPA build passes. Future bundle optimization must be measured separately rather than silently replacing the selected design system.
+
+
+## 2026-10-05 — Task 41 Chakra full-shell correction
+
+253. **Dashboard-only Chakra scope was incorrect:** Decision 246 is superseded. The user-selected Chakra UI design system applies to the complete operator-facing UI, not only the telephony dashboard. Setup/login, application shell, PBX management, security workspace, and operator dashboard must share the same Chakra UI v3 primitives and visual language.
+254. **One global Chakra provider:** the production root owns the Chakra provider. Feature components consume that provider rather than creating isolated design-system islands.
+255. **Native semantics inside Chakra layout:** when Chakra polymorphic typing does not preserve native form element types, retain native semantic form elements and compose Chakra layout/components inside them rather than weakening TypeScript types.
+256. **Minimal global CSS:** global CSS is limited to browser-level reset, minimum viewport, font stack, and page background. Component styling belongs to Chakra primitives/tokens instead of legacy selectors/classes.
+257. **RTL boundary remains global:** Persian application direction is RTL at the document/shell boundary; technical identifiers remain explicit LTR islands.

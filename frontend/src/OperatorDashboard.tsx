@@ -2,7 +2,6 @@ import {
   Badge,
   Box,
   Card,
-  ChakraProvider,
   Flex,
   Heading,
   HStack,
@@ -11,7 +10,6 @@ import {
   SimpleGrid,
   Stack,
   Text,
-  defaultSystem,
 } from '@chakra-ui/react';
 import { useEffect, useState, type ReactNode } from 'react';
 import {
@@ -300,16 +298,14 @@ export function OperatorDashboard({
 
   if (profiles.length === 0) {
     return (
-      <ChakraProvider value={defaultSystem}>
-        <Card.Root variant="outline">
-          <Card.Body>
-            <Heading id="dashboard-title" size="lg">
-              {text.dashboardTitle}
-            </Heading>
-            <Text color="fg.muted">{text.dashboardNoPbx}</Text>
-          </Card.Body>
-        </Card.Root>
-      </ChakraProvider>
+      <Card.Root variant="outline">
+        <Card.Body>
+          <Heading id="dashboard-title" size="lg">
+            {text.dashboardTitle}
+          </Heading>
+          <Text color="fg.muted">{text.dashboardNoPbx}</Text>
+        </Card.Body>
+      </Card.Root>
     );
   }
 
@@ -323,341 +319,339 @@ export function OperatorDashboard({
   const liveDisconnected = allLive.some((value) => value === 'disconnected');
 
   return (
-    <ChakraProvider value={defaultSystem}>
-      <Box
-        as="section"
-        aria-labelledby="dashboard-title"
-        bg="bg.subtle"
-        borderRadius="xl"
-        p={{ base: '4', md: '6' }}
-      >
-        <Stack gap="6">
-          <Flex
-            align={{ base: 'stretch', md: 'end' }}
-            justify="space-between"
-            direction={{ base: 'column', md: 'row' }}
-            gap="4"
-          >
-            <Box>
-              <Heading id="dashboard-title" size="xl">
-                {text.dashboardTitle}
-              </Heading>
-              <Text color="fg.muted" mt="1">
-                {text.dashboardHint}
-              </Text>
-            </Box>
-            <Box minW={{ base: '100%', md: '260px' }}>
-              <label htmlFor="dashboard-pbx">
-                <Text fontSize="sm" fontWeight="semibold">
-                  {text.dashboardPbx}
-                </Text>
-              </label>
-              <NativeSelect.Root mt="2">
-                <NativeSelect.Field
-                  id="dashboard-pbx"
-                  value={selected?.id ?? ''}
-                  onChange={(event) => setSelectedId(event.target.value)}
-                >
-                  {profiles.map((profile) => (
-                    <option key={profile.id} value={profile.id}>
-                      {profile.displayName}
-                    </option>
-                  ))}
-                </NativeSelect.Field>
-                <NativeSelect.Indicator />
-              </NativeSelect.Root>
-            </Box>
-          </Flex>
-
-          <SimpleGrid columns={{ base: 1, sm: 2, xl: 3 }} gap="4">
-            <SummaryCard
-              label={text.providerConnection}
-              value={connectionLabel(text, connection)}
-              detail={selected?.enabled ? text.enabled : text.disabled}
-              badge={
-                <Badge
-                  colorPalette={
-                    connection === 'CONNECTED' ? 'green' : connection === 'ERROR' ? 'red' : 'gray'
-                  }
-                >
-                  {connection}
-                </Badge>
-              }
-            />
-            <SummaryCard
-              label={text.liveState}
-              value={
-                liveConnected
-                  ? text.liveConnected
-                  : liveDisconnected
-                    ? text.liveDisconnectedShort
-                    : text.liveConnecting
-              }
-              detail={metrics?.source?.health.freshness ?? text.noMetrics}
-              badge={
-                <Badge
-                  colorPalette={livePalette(
-                    liveConnected ? 'connected' : liveDisconnected ? 'disconnected' : 'connecting',
-                  )}
-                >
-                  {liveConnected ? 'LIVE' : liveDisconnected ? 'DEGRADED' : 'CONNECTING'}
-                </Badge>
-              }
-            />
-            <SummaryCard
-              label={text.telephonySynchronization}
-              value={
-                telephony
-                  ? synchronizationLabel(text, telephony.synchronization)
-                  : text.telephonyNoState
-              }
-              detail={
-                telephony
-                  ? `${text.telephonyRevision}: ${telephony.revision}`
-                  : text.telephonyNoSnapshot
-              }
-              badge={
-                telephony ? (
-                  <Badge colorPalette={syncPalette(telephony.synchronization)}>
-                    {telephony.synchronization}
-                  </Badge>
-                ) : (
-                  <Badge colorPalette="gray">NO STATE</Badge>
-                )
-              }
-            />
-            <SummaryCard
-              label={text.cpuUsage}
-              value={sample?.cpu ? `${sample.cpu.utilizationPercent.toFixed(1)}%` : '—'}
-              detail={sample?.observedAt ?? text.noMetrics}
-            />
-            <SummaryCard
-              label={text.memoryUsage}
-              value={
-                memoryUsed === undefined || sample?.memory === undefined
-                  ? '—'
-                  : `${formatBytes(memoryUsed)} / ${formatBytes(sample.memory.totalBytes)}`
-              }
-              detail={`${text.available}: ${formatBytes(sample?.memory?.availableBytes)}`}
-            />
-            <SummaryCard
-              label={text.uptime}
-              value={formatUptime(sample?.uptime?.uptimeSeconds)}
-              detail={sample?.source ?? text.noMetrics}
-            />
-            <SummaryCard
-              label={text.securityAlertsSummary}
-              value={alerts.length}
-              detail={alerts.length === 0 ? text.noAlerts : text.currentAlerts}
-            />
-            <SummaryCard
-              label={text.telephonyCalls}
-              value={telephony?.calls.length ?? 0}
-              detail={`${text.telephonyChannels}: ${telephony?.channels.length ?? 0}`}
-            />
-            <SummaryCard
-              label={text.telephonyQueues}
-              value={telephony?.queues.length ?? 0}
-              detail={`${text.telephonyAgents}: ${telephony?.agentInteractions.length ?? 0}`}
-            />
-          </SimpleGrid>
-
+    <Box
+      as="section"
+      aria-labelledby="dashboard-title"
+      bg="bg.subtle"
+      borderRadius="xl"
+      p={{ base: '4', md: '6' }}
+    >
+      <Stack gap="6">
+        <Flex
+          align={{ base: 'stretch', md: 'end' }}
+          justify="space-between"
+          direction={{ base: 'column', md: 'row' }}
+          gap="4"
+        >
           <Box>
-            <Heading size="lg">{text.telephonyTitle}</Heading>
+            <Heading id="dashboard-title" size="xl">
+              {text.dashboardTitle}
+            </Heading>
             <Text color="fg.muted" mt="1">
-              {text.telephonyHint}
+              {text.dashboardHint}
             </Text>
           </Box>
+          <Box minW={{ base: '100%', md: '260px' }}>
+            <label htmlFor="dashboard-pbx">
+              <Text fontSize="sm" fontWeight="semibold">
+                {text.dashboardPbx}
+              </Text>
+            </label>
+            <NativeSelect.Root mt="2">
+              <NativeSelect.Field
+                id="dashboard-pbx"
+                value={selected?.id ?? ''}
+                onChange={(event) => setSelectedId(event.target.value)}
+              >
+                {profiles.map((profile) => (
+                  <option key={profile.id} value={profile.id}>
+                    {profile.displayName}
+                  </option>
+                ))}
+              </NativeSelect.Field>
+              <NativeSelect.Indicator />
+            </NativeSelect.Root>
+          </Box>
+        </Flex>
 
-          <SimpleGrid columns={{ base: 1, lg: 2 }} gap="4">
-            <TelephonyListCard
-              title={text.telephonyCalls}
-              empty={!telephony || telephony.calls.length === 0}
-            >
-              {telephony?.calls.map((call) => (
-                <Box
-                  key={call.callId}
-                  borderBottomWidth="1px"
-                  pb="2"
-                  _last={{ borderBottomWidth: '0', pb: '0' }}
-                >
-                  <Text fontWeight="semibold" dir="ltr">
-                    {call.callId}
+        <SimpleGrid columns={{ base: 1, sm: 2, xl: 3 }} gap="4">
+          <SummaryCard
+            label={text.providerConnection}
+            value={connectionLabel(text, connection)}
+            detail={selected?.enabled ? text.enabled : text.disabled}
+            badge={
+              <Badge
+                colorPalette={
+                  connection === 'CONNECTED' ? 'green' : connection === 'ERROR' ? 'red' : 'gray'
+                }
+              >
+                {connection}
+              </Badge>
+            }
+          />
+          <SummaryCard
+            label={text.liveState}
+            value={
+              liveConnected
+                ? text.liveConnected
+                : liveDisconnected
+                  ? text.liveDisconnectedShort
+                  : text.liveConnecting
+            }
+            detail={metrics?.source?.health.freshness ?? text.noMetrics}
+            badge={
+              <Badge
+                colorPalette={livePalette(
+                  liveConnected ? 'connected' : liveDisconnected ? 'disconnected' : 'connecting',
+                )}
+              >
+                {liveConnected ? 'LIVE' : liveDisconnected ? 'DEGRADED' : 'CONNECTING'}
+              </Badge>
+            }
+          />
+          <SummaryCard
+            label={text.telephonySynchronization}
+            value={
+              telephony
+                ? synchronizationLabel(text, telephony.synchronization)
+                : text.telephonyNoState
+            }
+            detail={
+              telephony
+                ? `${text.telephonyRevision}: ${telephony.revision}`
+                : text.telephonyNoSnapshot
+            }
+            badge={
+              telephony ? (
+                <Badge colorPalette={syncPalette(telephony.synchronization)}>
+                  {telephony.synchronization}
+                </Badge>
+              ) : (
+                <Badge colorPalette="gray">NO STATE</Badge>
+              )
+            }
+          />
+          <SummaryCard
+            label={text.cpuUsage}
+            value={sample?.cpu ? `${sample.cpu.utilizationPercent.toFixed(1)}%` : '—'}
+            detail={sample?.observedAt ?? text.noMetrics}
+          />
+          <SummaryCard
+            label={text.memoryUsage}
+            value={
+              memoryUsed === undefined || sample?.memory === undefined
+                ? '—'
+                : `${formatBytes(memoryUsed)} / ${formatBytes(sample.memory.totalBytes)}`
+            }
+            detail={`${text.available}: ${formatBytes(sample?.memory?.availableBytes)}`}
+          />
+          <SummaryCard
+            label={text.uptime}
+            value={formatUptime(sample?.uptime?.uptimeSeconds)}
+            detail={sample?.source ?? text.noMetrics}
+          />
+          <SummaryCard
+            label={text.securityAlertsSummary}
+            value={alerts.length}
+            detail={alerts.length === 0 ? text.noAlerts : text.currentAlerts}
+          />
+          <SummaryCard
+            label={text.telephonyCalls}
+            value={telephony?.calls.length ?? 0}
+            detail={`${text.telephonyChannels}: ${telephony?.channels.length ?? 0}`}
+          />
+          <SummaryCard
+            label={text.telephonyQueues}
+            value={telephony?.queues.length ?? 0}
+            detail={`${text.telephonyAgents}: ${telephony?.agentInteractions.length ?? 0}`}
+          />
+        </SimpleGrid>
+
+        <Box>
+          <Heading size="lg">{text.telephonyTitle}</Heading>
+          <Text color="fg.muted" mt="1">
+            {text.telephonyHint}
+          </Text>
+        </Box>
+
+        <SimpleGrid columns={{ base: 1, lg: 2 }} gap="4">
+          <TelephonyListCard
+            title={text.telephonyCalls}
+            empty={!telephony || telephony.calls.length === 0}
+          >
+            {telephony?.calls.map((call) => (
+              <Box
+                key={call.callId}
+                borderBottomWidth="1px"
+                pb="2"
+                _last={{ borderBottomWidth: '0', pb: '0' }}
+              >
+                <Text fontWeight="semibold" dir="ltr">
+                  {call.callId}
+                </Text>
+                <Text fontSize="sm" color="fg.muted">
+                  {text.telephonyChannels}: {call.channelIds.length} · {text.telephonyBridges}:{' '}
+                  {call.bridgeIds.length}
+                </Text>
+              </Box>
+            ))}
+          </TelephonyListCard>
+
+          <TelephonyListCard
+            title={text.telephonyChannels}
+            empty={!telephony || telephony.channels.length === 0}
+          >
+            {telephony?.channels.map((channel) => (
+              <Flex
+                key={channel.channelId}
+                justify="space-between"
+                gap="3"
+                borderBottomWidth="1px"
+                pb="2"
+                _last={{ borderBottomWidth: '0', pb: '0' }}
+              >
+                <Box minW="0">
+                  <Text fontWeight="semibold" dir="ltr" overflowWrap="anywhere">
+                    {channel.channelId}
                   </Text>
                   <Text fontSize="sm" color="fg.muted">
-                    {text.telephonyChannels}: {call.channelIds.length} · {text.telephonyBridges}:{' '}
-                    {call.bridgeIds.length}
+                    {channel.bridgeId ?? text.telephonyNoBridge}
                   </Text>
                 </Box>
-              ))}
-            </TelephonyListCard>
+                <Badge colorPalette={channel.state === 'Up' ? 'green' : 'gray'}>
+                  {channel.state ?? 'UNKNOWN'}
+                </Badge>
+              </Flex>
+            ))}
+          </TelephonyListCard>
 
-            <TelephonyListCard
-              title={text.telephonyChannels}
-              empty={!telephony || telephony.channels.length === 0}
-            >
-              {telephony?.channels.map((channel) => (
-                <Flex
-                  key={channel.channelId}
-                  justify="space-between"
-                  gap="3"
-                  borderBottomWidth="1px"
-                  pb="2"
-                  _last={{ borderBottomWidth: '0', pb: '0' }}
-                >
-                  <Box minW="0">
-                    <Text fontWeight="semibold" dir="ltr" overflowWrap="anywhere">
-                      {channel.channelId}
-                    </Text>
-                    <Text fontSize="sm" color="fg.muted">
-                      {channel.bridgeId ?? text.telephonyNoBridge}
-                    </Text>
-                  </Box>
-                  <Badge colorPalette={channel.state === 'Up' ? 'green' : 'gray'}>
-                    {channel.state ?? 'UNKNOWN'}
-                  </Badge>
-                </Flex>
-              ))}
-            </TelephonyListCard>
+          <TelephonyListCard
+            title={text.telephonyEndpoints}
+            empty={!telephony || telephony.endpoints.length === 0}
+          >
+            {telephony?.endpoints.map((endpoint) => (
+              <Flex
+                key={endpoint.endpointId}
+                justify="space-between"
+                gap="3"
+                borderBottomWidth="1px"
+                pb="2"
+                _last={{ borderBottomWidth: '0', pb: '0' }}
+              >
+                <Text fontWeight="semibold" dir="ltr">
+                  {endpoint.endpointId}
+                </Text>
+                <HStack gap="2">
+                  <Badge>{endpoint.registrationState}</Badge>
+                  <Badge variant="outline">{endpoint.reachability}</Badge>
+                </HStack>
+              </Flex>
+            ))}
+          </TelephonyListCard>
 
-            <TelephonyListCard
-              title={text.telephonyEndpoints}
-              empty={!telephony || telephony.endpoints.length === 0}
-            >
-              {telephony?.endpoints.map((endpoint) => (
-                <Flex
-                  key={endpoint.endpointId}
-                  justify="space-between"
-                  gap="3"
-                  borderBottomWidth="1px"
-                  pb="2"
-                  _last={{ borderBottomWidth: '0', pb: '0' }}
-                >
+          <TelephonyListCard
+            title={text.telephonyTrunks}
+            empty={!telephony || telephony.trunks.length === 0}
+          >
+            {telephony?.trunks.map((trunk) => (
+              <Flex
+                key={trunk.trunkId}
+                justify="space-between"
+                gap="3"
+                borderBottomWidth="1px"
+                pb="2"
+                _last={{ borderBottomWidth: '0', pb: '0' }}
+              >
+                <Box>
                   <Text fontWeight="semibold" dir="ltr">
-                    {endpoint.endpointId}
+                    {trunk.trunkId}
                   </Text>
-                  <HStack gap="2">
-                    <Badge>{endpoint.registrationState}</Badge>
-                    <Badge variant="outline">{endpoint.reachability}</Badge>
-                  </HStack>
-                </Flex>
-              ))}
-            </TelephonyListCard>
+                  <Text fontSize="sm" color="fg.muted">
+                    {trunk.kind}
+                  </Text>
+                </Box>
+                <Badge>{trunk.registrationState}</Badge>
+              </Flex>
+            ))}
+          </TelephonyListCard>
 
-            <TelephonyListCard
-              title={text.telephonyTrunks}
-              empty={!telephony || telephony.trunks.length === 0}
-            >
-              {telephony?.trunks.map((trunk) => (
-                <Flex
-                  key={trunk.trunkId}
-                  justify="space-between"
-                  gap="3"
+          <TelephonyListCard
+            title={text.telephonyQueues}
+            empty={!telephony || telephony.queues.length === 0}
+          >
+            {telephony?.queues.map((queue) => {
+              const members = telephony.queueMembers.filter(
+                (member) => member.queueId === queue.queueId,
+              );
+              const callers = telephony.queueCallers.filter(
+                (caller) => caller.queueId === queue.queueId,
+              );
+              return (
+                <Box
+                  key={queue.queueId}
                   borderBottomWidth="1px"
                   pb="2"
                   _last={{ borderBottomWidth: '0', pb: '0' }}
                 >
-                  <Box>
+                  <Flex justify="space-between" gap="3">
                     <Text fontWeight="semibold" dir="ltr">
-                      {trunk.trunkId}
+                      {queue.queueId}
                     </Text>
-                    <Text fontSize="sm" color="fg.muted">
-                      {trunk.kind}
-                    </Text>
-                  </Box>
-                  <Badge>{trunk.registrationState}</Badge>
-                </Flex>
-              ))}
-            </TelephonyListCard>
+                    <Badge colorPalette={queue.waitingCount > 0 ? 'orange' : 'gray'}>
+                      {text.telephonyWaiting}: {queue.waitingCount}
+                    </Badge>
+                  </Flex>
+                  <Text fontSize="sm" color="fg.muted">
+                    {text.telephonyMembers}: {members.length} · {text.telephonyCallers}:{' '}
+                    {callers.length}
+                  </Text>
+                </Box>
+              );
+            })}
+          </TelephonyListCard>
 
-            <TelephonyListCard
-              title={text.telephonyQueues}
-              empty={!telephony || telephony.queues.length === 0}
-            >
-              {telephony?.queues.map((queue) => {
-                const members = telephony.queueMembers.filter(
-                  (member) => member.queueId === queue.queueId,
-                );
-                const callers = telephony.queueCallers.filter(
-                  (caller) => caller.queueId === queue.queueId,
-                );
-                return (
-                  <Box
-                    key={queue.queueId}
-                    borderBottomWidth="1px"
-                    pb="2"
-                    _last={{ borderBottomWidth: '0', pb: '0' }}
-                  >
-                    <Flex justify="space-between" gap="3">
-                      <Text fontWeight="semibold" dir="ltr">
-                        {queue.queueId}
-                      </Text>
-                      <Badge colorPalette={queue.waitingCount > 0 ? 'orange' : 'gray'}>
-                        {text.telephonyWaiting}: {queue.waitingCount}
-                      </Badge>
-                    </Flex>
-                    <Text fontSize="sm" color="fg.muted">
-                      {text.telephonyMembers}: {members.length} · {text.telephonyCallers}:{' '}
-                      {callers.length}
-                    </Text>
-                  </Box>
-                );
-              })}
-            </TelephonyListCard>
+          <TelephonyListCard
+            title={text.telephonyAgents}
+            empty={!telephony || telephony.agentInteractions.length === 0}
+          >
+            {telephony?.agentInteractions.map((interaction) => (
+              <Flex
+                key={`${interaction.queueId}:${interaction.callerId}:${interaction.memberId}`}
+                justify="space-between"
+                gap="3"
+                borderBottomWidth="1px"
+                pb="2"
+                _last={{ borderBottomWidth: '0', pb: '0' }}
+              >
+                <Box minW="0">
+                  <Text fontWeight="semibold" dir="ltr" overflowWrap="anywhere">
+                    {interaction.memberName ?? interaction.memberId}
+                  </Text>
+                  <Text fontSize="sm" color="fg.muted" dir="ltr">
+                    {interaction.queueId}
+                  </Text>
+                </Box>
+                <Badge colorPalette={interaction.phase === 'CONNECTED' ? 'green' : 'blue'}>
+                  {interaction.phase}
+                </Badge>
+              </Flex>
+            ))}
+          </TelephonyListCard>
+        </SimpleGrid>
 
-            <TelephonyListCard
-              title={text.telephonyAgents}
-              empty={!telephony || telephony.agentInteractions.length === 0}
-            >
-              {telephony?.agentInteractions.map((interaction) => (
-                <Flex
-                  key={`${interaction.queueId}:${interaction.callerId}:${interaction.memberId}`}
-                  justify="space-between"
-                  gap="3"
-                  borderBottomWidth="1px"
-                  pb="2"
-                  _last={{ borderBottomWidth: '0', pb: '0' }}
-                >
-                  <Box minW="0">
-                    <Text fontWeight="semibold" dir="ltr" overflowWrap="anywhere">
-                      {interaction.memberName ?? interaction.memberId}
-                    </Text>
-                    <Text fontSize="sm" color="fg.muted" dir="ltr">
-                      {interaction.queueId}
-                    </Text>
-                  </Box>
-                  <Badge colorPalette={interaction.phase === 'CONNECTED' ? 'green' : 'blue'}>
-                    {interaction.phase}
-                  </Badge>
-                </Flex>
-              ))}
-            </TelephonyListCard>
-          </SimpleGrid>
+        <HStack gap="4" flexWrap="wrap" aria-label={text.dashboardNavigation}>
+          <Link href="#pbx-title" colorPalette="blue" fontWeight="semibold">
+            {text.managePbx}
+          </Link>
+          <Link href="#security-title" colorPalette="blue" fontWeight="semibold">
+            {text.openSecurity}
+          </Link>
+        </HStack>
 
-          <HStack gap="4" flexWrap="wrap" aria-label={text.dashboardNavigation}>
-            <Link href="#pbx-title" colorPalette="blue" fontWeight="semibold">
-              {text.managePbx}
-            </Link>
-            <Link href="#security-title" colorPalette="blue" fontWeight="semibold">
-              {text.openSecurity}
-            </Link>
-          </HStack>
-
-          {error ? (
-            <Box
-              role="alert"
-              borderWidth="1px"
-              borderColor="red.200"
-              bg="red.50"
-              color="red.800"
-              borderRadius="md"
-              p="3"
-            >
-              {error}
-            </Box>
-          ) : null}
-        </Stack>
-      </Box>
-    </ChakraProvider>
+        {error ? (
+          <Box
+            role="alert"
+            borderWidth="1px"
+            borderColor="red.200"
+            bg="red.50"
+            color="red.800"
+            borderRadius="md"
+            p="3"
+          >
+            {error}
+          </Box>
+        ) : null}
+      </Stack>
+    </Box>
   );
 }

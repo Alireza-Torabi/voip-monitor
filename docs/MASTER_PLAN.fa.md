@@ -1,6 +1,6 @@
 # Master Plan
 
-وضعیت: 2026-10-05. Task 40 داخل main Merge شده است. Task 41 روی feature/telephony-dashboard-ui کامل شده و Merge آن به main هنوز Pending است. Bilingual Operator Dashboard اکنون Current-state/SSE تلفنی موجود را مصرف می‌کند و با Primitiveهای Chakra UI v3 پیاده‌سازی شده است، بدون تغییر Scope فقط‌خواندنی PBX.
+وضعیت: 2026-10-05. Task 41 داخل main Merge شده است. یک UI Consistency Correction روی fix/chakra-ui-shell کامل شده و Merge آن به main هنوز Pending است. پیاده‌سازی قبلی Chakra را فقط روی Operator Dashboard اعمال کرده بود و Setup/Login/PBX/Security همچنان روی Raw HTML/CSS قدیمی بودند؛ این اصلاح کل Application Shell و همه Form/Workspaceهای Operator-facing را روی Chakra UI v3 یکپارچه می‌کند و Scope فقط‌خواندنی PBX را تغییر نمی‌دهد.
 
 ## Phase 0 - کشف محیط
 
@@ -82,23 +82,28 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 
 ### وضعیت فعلی ادامه کار
 
-- Branch فعلی `feature/telephony-dashboard-ui` است که پس از تأیید Merge شدن Task 40 در `origin/main` از `main` همگام‌شده ساخته شد.
-- پیاده‌سازی و Targeted Validation مربوط به Task 41 روی این Branch کامل است؛ Merge به main هنوز Pending است.
-- Operator Dashboard اکنون برای Responsive Cardها، PBX Selector، Badgeها، Navigation و Telephony Detail Panelها از Primitiveهای Chakra UI v3 استفاده می‌کند.
-- Dashboard، Telephony Current-state API موجود را Load می‌کند و در کنار Metrics/Security Streamهای موجود یک PBX-scoped Telephony SSE Stream باز می‌کند.
-- Telephony Synchronization و Current Call، Channel، Endpoint، Trunk، Queue، Queue Member/Caller Count و Agent Interaction فقط از Contract نرمال‌شده Task 40 نمایش داده می‌شوند.
-- Layout فارسی همچنان Direction سطح Application را به‌صورت RTL به ارث می‌برد؛ Technical Identifierهایی مانند Channel/Trunk/Queue/Endpoint ID در محل لازم LTR Render می‌شوند.
-- Chakra UI Dependencyها در Repository Lockfile Pin شده‌اند. License نوع Zero-Clause BSD مربوط به `tslib 2.8.1` بررسی شد و `0BSD` به License Allowlist بررسی‌شده Repo اضافه شد.
-- در پیاده‌سازی یا Validation Task 41 هیچ PBX واقعی Access نشد.
-- Task دقیق بعدی پس از Merge شدن Task 41: **Task 42 — تعریف و Persistence یک Telephony History/Retention Foundation محدود و PBX-scoped بر پایه State/Eventهای نرمال‌شده موجود، بدون PBX Action، Collection Source یا Browser History UI جدید.**
+- Branch فعلی fix/chakra-ui-shell است که پس از Merge شدن Task 41 از main همگام‌شده ساخته شد.
+- UI Consistency Correction مربوط به Task 41 به‌صورت Local کامل است؛ Full Validation با Project Node 24.21.0/npm 11.19.0 شامل Lint، Format Check، Typecheck، Backend 127/127، Frontend 15/15، Production Build، Foundation Check، License Check و Diff Check همگی PASS است. Merge به main هنوز Pending است.
+- Root Cause UI به‌هم‌ریخته: Task 41 فقط OperatorDashboard را با Chakra UI پیاده‌سازی کرده بود، در حالی که Application Shell، First-admin Setup، Login، PBX Management و Security Workspace همچنان Raw HTML/CSS قدیمی بودند.
+- Fix: Chakra UI v3 اکنون Global Provider دارد و Shell، Authentication Screenها، PBX Card/Formها، Security Alert/Ruleها و Operator Dashboard همگی از Primitiveهای Responsive یکسان استفاده می‌کنند.
+- Legacy Visual CSS حذف شده و styles.css فقط Browser-level Reset/Font/Background حداقلی دارد.
+- Persian همچنان Application-level RTL است و Technical Identifier/Addressها Explicit LTR باقی می‌مانند.
+- Behavior و API Boundaryهای موجود حفظ شده‌اند. هیچ Backend Route، PBX Action، Collector، Permission، Credential Behavior یا Network Scope تغییر نکرد.
+- در این اصلاح هیچ PBX واقعی Access نشد.
+- Task دقیق بعدی پس از Merge این Correction: **Task 42 — تعریف و Persistence یک Bounded PBX-scoped Telephony History/Retention فقط بر پایه State/Eventهای Normalized موجود، بدون PBX Action، Collection Source یا Browser History UI جدید.**
 
 ### ثبت خرابی و اشکال
+
+- **Task 41 Scope/Design-system Error — اصلاح شد:** پیاده‌سازی Merge‌شده Task 41، Chakra UI را اشتباهاً Dashboard-only تفسیر کرد. Setup/Login/PBX/Security روی Raw HTML/CSS قدیمی ماندند و UI ناسازگار شد. Fix: کل Operator-facing Shell و Form/Workspaceها زیر یک Global Chakra Provider به Chakra UI v3 مهاجرت کردند و Legacy Visual CSS حذف شد.
+- **Chakra Polymorphic Form Typing Failure — رفع شد:** Stack as form در Chakra v3 همچنان HTMLDivElement Type می‌شود. Fix: Semantic Native form حفظ شد و Chakra Stack داخل آن قرار گرفت.
+- **Legacy-selector Test Failure — رفع شد:** یک Security Realtime Test به CSS Selector قدیمی وابسته بود. Fix: Semantic data-security-alert Hook اضافه شد و Test رفتار را به‌جای Class Implementation Detail بررسی می‌کند.
+- **Design-system Completeness Check:** Raw Legacy Button/Select و Visual className Styling از Frontend Source حذف شده‌اند؛ Inputهای باقی‌مانده فقط Chakra HiddenInput داخلی برای Checkbox Semantics هستند.
 
 - **Task 41 Install Toolchain Mismatch — رفع شد:** اولین نصب Chakra با Remote Desktop Shell Node 22/npm 10 اجرا شد و چون Repository به Node 24 نیاز دارد Engine Warning داد. Lockfile Reset شد و نصب با Repository Runtime یعنی Node 24.21.0/npm 11.19.0 دوباره انجام شد.
 - **Task 41 Chakra Label Type Mismatch — رفع شد:** در Chakra v3، `Text` حتی با `as="label"` Property نوعی `htmlFor` را قبول نکرد. Fix: Semantic Native `label` حفظ شد و Chakra Typography داخل آن استفاده شد؛ Frontend Typecheck سپس PASS شد.
 - **Task 41 Formatting Drift — رفع شد:** Chakra Dashboard/API Client/CSS Cleanup جدید قبل از Targeted Validation به Prettier Normalization نیاز داشت.
 - **Task 41 License Gate Failure — رفع شد:** Chakra، `tslib 2.8.1` با SPDX Identifier `0BSD` را اضافه کرد که هنوز در Reviewed License Set نبود. Local License Text بررسی شد و با Zero-Clause BSD Grant منطبق است؛ `0BSD` به Explicit Allowlist اضافه شد و License Check PASS شد.
-- **محدودیت شناخته‌شده Task 41:** Chakra Migration عمداً فقط Operator Dashboard مربوط به Taskهای 39/41 را پوشش می‌دهد و Setup/PBX/Security Formهای نامرتبط را بازنویسی نمی‌کند.
+- **Task 41 Correction:** محدودیت قبلی Dashboard-only Chakra بر اساس Feedback اپراتور نامعتبر شد. اکنون Full Operator-facing Shell، Setup/Login، PBX Management، Security Workspace و Dashboard به‌صورت Consistent از Chakra UI v3 استفاده می‌کنند.
 - **محدودیت شناخته‌شده Task 41:** Telephony فقط Current-state است و History/Retention Browser View هنوز وجود ندارد.
 - **محدودیت شناخته‌شده Task 41:** Agent Interaction همچنان `LIVE_ONLY` است و Queue/Agent Production Compatibility Verify نشده است.
 

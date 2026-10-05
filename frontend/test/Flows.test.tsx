@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -38,7 +39,15 @@ beforeEach(() => {
   window.localStorage.clear();
   container = document.createElement('div');
   document.body.append(container);
-  root = createRoot(container);
+  const reactRoot = createRoot(container);
+  root = {
+    render(children) {
+      reactRoot.render(<ChakraProvider value={defaultSystem}>{children}</ChakraProvider>);
+    },
+    unmount() {
+      reactRoot.unmount();
+    },
+  } as Root;
 });
 
 afterEach(async () => {
@@ -391,7 +400,7 @@ describe('security monitoring workspace', () => {
       FakeEventSource.latest?.emit('security-alert', { alert });
     });
     expect(container.textContent).toContain('Matched events: 4');
-    expect(container.querySelectorAll('.security-alerts li')).toHaveLength(2);
+    expect(container.querySelectorAll('[data-security-alert]')).toHaveLength(2);
   });
 });
 
