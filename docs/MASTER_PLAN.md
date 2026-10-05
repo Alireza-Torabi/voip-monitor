@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-05. PR #50 is merged. A runtime-resilience correction is complete locally on fix/runtime-sse-resilience and merge is pending. Task 44 has not started.
+Status: 2026-10-05. PR #51 is merged. A user-requested fullscreen dashboard presentation correction is complete locally on fix/dashboard-fullscreen-controls and merge is pending. Task 44 has not started.
 
 ## Phase 0 — environment discovery
 
@@ -85,17 +85,21 @@ These later checks do not change the historical Phase 1 validation record. Docke
 
 ### Current execution handoff
 
-- Current branch: fix/runtime-sse-resilience, created from synchronized main after PR #50 merged Task 43. Task 44 has not started.
-- The live UI outage reported during work was traced to the backend Node process exiting with a V8 heap OOM while the HTTPS gateway process remained alive. The gateway therefore kept serving the frontend shell while API calls failed, producing the visible Application unavailable state.
-- The exact allocation producer cannot be proven after the crashed process exited, but the server had a concrete unbounded-memory risk: all SSE writers ignored response backpressure and could continue buffering serialized state for a slow or stalled client. The correction bounds each SSE response writable buffer to 256 KiB and destroys that stream if the bound is exceeded; EventSource clients may reconnect normally.
-- SSE stream cleanup is now idempotent and attached to both request and response close events, ensuring listener, heartbeat, stream-set, and reset-subscription cleanup when either side terminates.
-- The production launcher previously ran the backend in the background and the HTTPS gateway in the foreground; backend death therefore did not terminate the systemd main process. The launcher now supervises both children with wait -n and returns failure if either exits unexpectedly, allowing the existing systemd Restart=on-failure policy to recover the whole stack.
-- The current deployed service was restarted after diagnosis and health/readiness returned to OK. The source correction is not deployed until this branch is merged.
-- Final validation passes under project Node 24.21.0/npm 11.19.0: lint, format check, typecheck, backend 136/136 tests, frontend 23/23 tests, production build, foundation check, license check, launcher bash syntax, and diff check. The slow-SSE bounded-buffer regression test is included in the backend total.
-- This correction changes no PBX action, collection source, credential behavior, or telephony semantics and requires no real-PBX probe.
-- After this correction merges, recreate feature/telephony-history from main and execute Task 44.
+- Current branch: fix/dashboard-fullscreen-controls, created from synchronized main after PR #51 merged the runtime SSE/backpressure resilience correction.
+- This correction does not start Task 44 and changes no backend/PBX behavior.
+- Fullscreen dashboard mode is now presentation-only: the normal dashboard management toolbar is not rendered at all while fullscreen is active. Dashboard selection, New dashboard, Edit dashboard, Full screen/Exit full screen in the normal toolbar, Dashboard PBX label, and PBX selector therefore consume zero layout space in fullscreen.
+- Entering fullscreen exits dashboard edit mode. Edit-card controls, widget resize/delete overlays, drag handles, dashed borders, and edit padding/cursor behavior are suppressed while fullscreen is active.
+- A small floating Exit full screen control is rendered as an overlay only in fullscreen. It appears on pointer movement, does not participate in dashboard layout, and auto-hides using the existing three-second fullscreen control timer. Browser Esc remains available as the native exit path.
+- The dashboard root remains the browser Fullscreen API target, so the application-level header/navigation continues to stay outside fullscreen.
+- Frontend regression coverage now asserts that fullscreen removes the management toolbar and edit controls while retaining the floating exit affordance. Final validation passes under project Node 24.21.0/npm 11.19.0: lint, format check, typecheck, backend 136/136 tests, frontend 23/23 tests, production build, foundation check, license check, and diff check.
+- No real PBX/AMI/SSH access is required for this UI-only correction.
+- After this correction merges, sync main, validate the merged UI with Selenium, then create feature/telephony-history and execute Task 44.
 
 ### Failure and bug log
+
+- **Fullscreen dashboard still reserved a large management-toolbar area — resolved:** the previous implementation only faded the toolbar after a timeout, so it initially occupied the full top row and could reappear over a TV/NOC view. The normal management toolbar is now not rendered in fullscreen at all.
+- **Fullscreen could expose edit UI — prevented:** entering fullscreen now disables edit mode, and widget drag/resize/delete styling and controls are explicitly gated out of fullscreen.
+- **Fullscreen exit affordance without layout cost — resolved:** a small fixed overlay Exit full screen control appears on pointer movement and auto-hides; it does not reserve grid/layout space.
 
 - **UI showed Application unavailable while systemd still reported the service active — root cause identified and correction implemented:** the backend Node child had terminated with "Reached heap limit / JavaScript heap out of memory", but the launcher kept the HTTPS gateway foreground process alive. The frontend shell therefore remained reachable while API requests could not reach port 3000. The launcher now treats backend or gateway death as whole-stack failure so systemd can restart it.
 - **SSE backpressure could grow server memory without a hard bound — corrected defensively:** server SSE writes did not check buffered writable bytes. Because the crashed heap is no longer available, this cannot be claimed as the uniquely proven OOM allocation source; however, it was a real unbounded-memory path. Each stream now has a 256 KiB write-buffer ceiling and is disconnected when exceeded.

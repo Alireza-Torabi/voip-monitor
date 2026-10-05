@@ -1140,6 +1140,23 @@ describe('dashboard builder', () => {
     );
     await act(async () => remove?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
     expect(container.querySelectorAll('[data-dashboard-widget]')).toHaveLength(2);
+
+    const dashboardRoot = container.querySelector('[data-dashboard-root]');
+    expect(dashboardRoot).not.toBeNull();
+    Object.defineProperty(document, 'fullscreenElement', {
+      configurable: true,
+      get: () => dashboardRoot,
+    });
+    await act(async () => document.dispatchEvent(new Event('fullscreenchange')));
+
+    expect(container.querySelector('[data-dashboard-toolbar]')).toBeNull();
+    expect(container.querySelector('[data-dashboard-fullscreen-exit]')).not.toBeNull();
+    expect(container.textContent).not.toContain('New dashboard');
+    expect(container.textContent).not.toContain('Edit dashboard');
+    expect(container.textContent).not.toContain('Dashboard PBX');
+    expect(container.textContent).not.toContain('Drag widgets to reorder them.');
+
+    delete (document as unknown as Record<string, unknown>).fullscreenElement;
   });
 });
 

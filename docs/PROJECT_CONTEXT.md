@@ -1,6 +1,6 @@
 # Project context
 
-Status: PR #50 is merged. The current unmerged fix/runtime-sse-resilience correction addresses an observed backend JavaScript heap OOM and the launcher behavior that left the HTTPS gateway alive after backend death. SSE output is now bounded under slow-client backpressure, SSE cleanup is idempotent on request/response close, and the production launcher exits if either backend or gateway exits so systemd Restart=on-failure can recover the full stack. Task 44 remains next after this correction merges. License: Apache-2.0.
+Status: PR #51 is merged. The current unmerged fix/dashboard-fullscreen-controls branch removes the dashboard management toolbar and all edit affordances from fullscreen presentation mode, retaining only a small auto-hiding overlay exit control while browser Esc remains available. This is UI-only and does not change PBX/backend behavior. After merge, validate with Selenium and continue with Task 44. License: Apache-2.0.
 
 ## Repository state
 
