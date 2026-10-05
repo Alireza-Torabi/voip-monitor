@@ -1,10 +1,10 @@
 # Project context
 
-Status: Task 37 is merged through PR #40. Task 38 is implemented locally on feature/os-persistence-tls-recovery as of 2026-09-26: the deployment is installed as an enabled dedicated-user systemd service, runtime Node/data/TLS boundaries are productionized, and a real host reboot proved automatic service/UI recovery. The operator explicitly accepts temporary self-signed TLS; UFW is inactive, so reachability exists without restrictive host firewall enforcement. The approved PBX scope remains bounded read-only monitoring. Exact next task is Task 39, the first bilingual operator dashboard using existing safe APIs only. License: Apache-2.0.
+Status: Task 38 is merged into main. Task 39 is complete on feature/operator-dashboard as of 2026-10-05 and merge into main is pending. The bilingual operator dashboard consumes only existing authenticated read-only provider-status, system-metrics, and security-alert APIs/SSE streams. No new PBX action, collector, credential exposure, or backend network path was added. Exact next task after Task 39 merge is Task 40: authenticated bounded read-only current-state/realtime exposure for the existing TelephonyStateEngine. License: Apache-2.0.
 
 ## Repository state
 
-The public repository tracks origin/main; Task 34 is merged through PR #36. The current branch is storage/contracts only: notification channel metadata references an opaque secret name, queue rows contain only bounded SecurityAlertRecord data and PENDING/CANCELLED state, deterministic channel+alert deduplication prevents duplicate queued work, and no delivery network path exists.
+The public repository tracks origin/main. Task 38 is merged. The current feature branch is feature/operator-dashboard for Task 39; it changes frontend dashboard/API-client/test/documentation surfaces only and introduces no new backend route or PBX network behavior.
 
 ## Product constraints
 

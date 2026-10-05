@@ -356,3 +356,12 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 230. **Firewall truth over appearance:** operator-reported UFW is inactive. Reachability is validated, but restrictive host-firewall hardening is not claimed.
 231. **PBX scope unchanged:** OS persistence/reboot work does not expand the already-approved read-only PBX monitoring scope.
 232. **Task 39 boundary:** next build the first bilingual operator dashboard from existing safe PBX/provider, system-metric, and security-alert APIs only; no new PBX actions or collection scope.
+
+
+## 2026-10-05 — Task 39 operator-dashboard decisions
+
+233. **Existing-boundary-only dashboard:** consume only existing authenticated provider-status, system-metrics, and security-alert APIs/SSE streams; add no backend route, PBX action, collector, credential surface, or external target.
+234. **Provider-status freshness:** refresh the existing local status endpoint every 15 seconds. This observes local runtime state and is not a PBX connection test or probe.
+235. **Realtime scope:** system metrics and security alerts reuse existing SSE streams; dashboard stream failure does not affect PBX monitoring or application readiness.
+236. **Telephony state remains internal:** Task 39 does not expose TelephonyStateEngine snapshots. Calls/channels/endpoints/trunks/queues/agent interactions remain unavailable until a bounded API exists.
+237. **Task 40 boundary:** expose the existing TelephonyStateEngine through authenticated PBX-scoped bounded read-only current-state and realtime APIs only; no new PBX connection, write action, permission expansion, or collection source.
