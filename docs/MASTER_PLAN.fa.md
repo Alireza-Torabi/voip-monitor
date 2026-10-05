@@ -1,6 +1,6 @@
 # Master Plan
 
-وضعیت: 2026-10-05. PR #48 داخل main Merge شده است. Correction مربوط به مدیریت Local Account روی feature/account-management به‌صورت Local کامل است و Merge آن Pending است. Task 43 هنوز شروع نشده است.
+وضعیت: 2026-10-05. PR #49 داخل main Merge شده است. Task 43 روی feature/trunk-discovery به‌صورت Local کامل است و Merge آن Pending است. هیچ Real-PBX Verification برای Task 43 انجام نشده است. پس از Merge، Task 44 مرحله بعد است.
 
 ## Phase 0 - کشف محیط
 
@@ -80,25 +80,35 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - [x] Task 40: `TelephonyStateEngine` موجود از طریق APIهای Authenticated، PBX-scoped و Read-only برای Current State و SSE Realtime ارائه شد. Stream فقط Normalized Engine State را منتشر می‌کند، به 64 Stream همزمان محدود است، Heartbeat پانزده‌ثانیه‌ای دارد، پس از Profile-runtime Reset مقدار `current: null` منتشر می‌کند و هیچ PBX Connection/Action یا Collection Source جدیدی ایجاد نمی‌کند.
 - [x] Task 41: Task 40 در Bilingual Operator Dashboard با Primitiveهای Chakra UI v3 مصرف شد. PBX-scoped Telephony Synchronization و Current Call/Channel/Endpoint/Trunk/Queue/Agent Interaction نمایش داده می‌شود، Technical Identifierها داخل Surface دو‌زبانه/RTL به‌صورت LTR حفظ می‌شوند و Provider/System/Security Summaryهای موجود بدون PBX Action، Telephony History یا Collection Scope جدید reuse می‌شوند.
 - [x] Task 42: Surface احراز هویت‌شده و PBX-scoped برای مدیریت SSH System Metrics Configuration/Credential اضافه شد. GET فقط Safe Metadata را برمی‌گرداند؛ PUT/DELETE با Same-origin Write Protection محافظت می‌شوند، Credentialها رمزنگاری‌شده و Write-only هستند، Pinned SHA-256 Host-key Trust اجباری باقی مانده و هر Mutation، SystemMetricsRuntime.syncProfile(instanceId) را فراخوانی می‌کند. Bilingual Chakra UI یک Workspace مستقل System metrics SSH دارد. هیچ Real SSH Connection/Test Endpoint اضافه نشد و Validation فقط Synthetic/Mock است.
-- [ ] Task 43: گسترش Provider-neutral Trunk Inventory فراتر از Outbound SIP Registration برای Discovery محدود و Read-only سازگار با chan_sip/PJSIP، ابتدا با Synthetic/Mock Compatibility Test و بدون Real-PBX Verification تا Approval جداگانه.
+- [x] Task 43: گسترش Provider-neutral Trunk Inventory فراتر از Outbound SIP Registration برای Discovery محدود و Read-only سازگار با chan_sip/PJSIP، ابتدا با Synthetic/Mock Compatibility Test و بدون Real-PBX Verification تا Approval جداگانه.
 - [ ] Task 44: تعریف و Persistence تاریخچه/Retention محدود و PBX-scoped تلفنی فقط از State/Eventهای Normalized موجود، بدون PBX Action یا Collection Source جدید.
 
 ### وضعیت فعلی ادامه کار
 
-- Branch فعلی feature/account-management است که پس از Merge شدن PR #48 از main همگام‌شده ساخته شد.
-- این Correction، Task 43 را شروع نمی‌کند و رفتار Collection مربوط به PBX/Provider را تغییر نمی‌دهد.
-- Settings اکنون Users & accounts دارد و روی Local Authentication Model موجود کار می‌کند. مدل فعلی عمداً Single-role است: تمام Local Accountهای مدیریت‌شده Administrator هستند و UI هیچ RBAC/Permission غیرواقعی نشان نمی‌دهد.
-- Administrator احراز هویت‌شده می‌تواند Safe Account Metadata را ببیند، Administrator جدید بسازد، Username را Rename کند، Account غیرجاری را Enable/Disable کند، Password را Reset کند و Account غیرجاری را Delete کند.
-- Response امن Account فقط ID، Username Normalize‌شده، Enabled State، Role ثابت ADMINISTRATOR، Created/Updated Timestamp و Last-login اختیاری را برمی‌گرداند. Password Hash و Session Token هرگز از Backend خارج نمی‌شوند.
-- Username Validation از Boundary موجود Auth استفاده می‌کند و Password Create/Reset همان Scrypt Policy و validPassword موجود را reuse می‌کند.
-- Disable کردن Account تمام Sessionهای آن را Revoke می‌کند. Password Reset نیز تمام Sessionهای Account را Revoke می‌کند. Delete با Foreign-key موجود Sessionها را Cascade می‌کند.
-- Account جاری نمی‌تواند خودش را Disable یا Delete کند. آخرین Administrator فعال نیز قابل Disable/Delete نیست تا Lockout کامل رخ ندهد.
-- تمام Mutationهای Account با Same-origin Protection محافظت می‌شوند و GET فقط Authenticated/Read-only است.
-- UI وضعیت Current Account، Role ثابت Administrator، Enabled/Disabled، Created Time، Last Login، Username Editing، Password Reset و Delete را نشان می‌دهد.
-- Account مخصوص Selenium/UI Test باید بعد از Deployment فقط Local Provision شود و Credential آن در .local یا Secret Boundary خصوصی Deployment بماند و هرگز Commit نشود. Final Validation با Project Node 24.21.0/npm 11.19.0 PASS است: Lint، Format Check، Typecheck، Backend 134/134، Frontend 22/22، Production Build، Foundation Check، License Check و Diff Check.
-- Task دقیق بعدی پس از Merge این Correction همچنان Task 43 است: Provider-neutral Trunk Discovery گسترده‌تر، ابتدا Synthetic/Mock و Real-PBX Verification فقط با Approval جداگانه.
+- Branch فعلی feature/trunk-discovery است که بعد از Merge شدن PR #49 از main همگام‌شده ساخته شد.
+- Task 43 ابتدا با Synthetic/Mock پیاده‌سازی شده و هیچ Real-PBX Verification انجام نداده است.
+- مدل Provider-neutral مربوط به Trunk اکنون OUTBOUND_REGISTRATION را از PEER جدا می‌کند، Technology را CHAN_SIP یا PJSIP ثبت می‌کند و Confidence را CONFIRMED یا CANDIDATE نشان می‌دهد.
+- CONFIRMED فقط برای Outbound Registration صریح استفاده می‌شود. SIPshowregistry برای chan_sip حفظ شده و PJSIP Outbound Registration با PJSIPShowRegistrationsOutbound جمع‌آوری می‌شود.
+- Static chan_sip Peer با Dynamic=no/false/0 به‌صورت PEER + CHAN_SIP + CANDIDATE نمایش داده می‌شود. Registration State آن NOT_APPLICABLE است و Reachability از Normalizer موجود Peer Status گرفته می‌شود.
+- در PJSIP، PJSIPShowEndpoints استفاده می‌شود و فقط Endpointهایی که OutboundAuths معنادار دارند به‌صورت PEER + PJSIP + CANDIDATE وارد Inventory می‌شوند. مقدارهای Empty/none-like نادیده گرفته می‌شوند.
+- استفاده از CANDIDATE عمدی است؛ AMI یک Flag عمومی و Provider-independent ندارد که ثابت کند هر Peer/Endpoint حتماً Trunk است. UI بنابراین Candidate را به‌اشتباه Confirmed Trunk معرفی نمی‌کند.
+- Action موجود SIPpeers در هر Reconcile فقط یک‌بار خوانده می‌شود و همان Snapshot هم Endpoint State و هم Static chan_sip Candidateها را می‌سازد تا Peer List بزرگ دوباره دریافت نشود.
+- هر Trunk Source حداکثر 4096 Item دارد و کاملاً Read-only است. Address، Contact، Auth Username، ServerUri و Provider-specific Payload وارد Normalized State نمی‌شوند.
+- Sourceها بر اساس Trunk ID پایدار Merge می‌شوند. اگر یک ID هم Candidate و هم Registration صریح باشد، CONFIRMED برنده است.
+- اگر حداقل یک Trunk Source قابل استفاده باشد Capability برابر SUPPORTED است؛ Denied/Unsupported بودن Source دیگر اطلاعات معتبر Sourceهای دیگر را حذف نمی‌کند.
+- Live Event موجود chan_sip از نوع Registry همچنان Registration Update را با CONFIRMED تولید می‌کند. PJSIP و Static Peerها فعلاً از Reconciliation Snapshot به‌روز می‌شوند و هیچ Qualify/Write Action جدیدی اضافه نشده است.
+- صفحه Trunks اکنون ستون‌های Technology، Kind، Classification، Registration، Reachability و Updated را نشان می‌دهد و تفاوت CONFIRMED و CANDIDATE را توضیح می‌دهد.
+- Final Validation با Project Node 24.21.0/npm 11.19.0 PASS است: Lint، Format Check، Typecheck، Backend 135/135، Frontend 23/23، Production Build، Foundation Check، License Check و Diff Check. Targeted Testهای Provider/Event/State Engine برابر 34/34 PASS هستند.
+- قبل از Task 43، Selenium با Account محلی مخصوص Selenium Login واقعی را Verify کرد: Dashboard/Settings، Edit/Resize، Fullscreen روی Dashboard بدون Header اصلی، Users & accounts و RTL واقعی فارسی PASS شدند.
+- هیچ PBX Write یا Config Change اضافه نشده و برای Task 43 هیچ Real PBX/AMI Probe اجرا نشده است.
+- Task دقیق بعدی بعد از Merge، Task 44 است: Persistence و Retention محدود Telephony History از Normalized State/Event موجود، بدون PBX Action یا Collection Source جدید.
 
 ### ثبت خرابی و اشکال
+
+- **Foundation Gate نهایی ابتدا به Git safe-directory Ownership Protection برخورد کرد — رفع شد:** Remote Command Session با OS User متفاوت از Repository Owner اجرا می‌شود و Git Enumeration داخلی Foundation Script را به‌عنوان Dubious Ownership رد کرد. این مورد Defect کد/Repository نبود. Gate با Process-scoped Git `safe.directory` برای `/opt/voip-monitor` دوباره اجرا شد و Foundation، License و Diff بدون تغییر Ownership یا Tracked Configuration PASS شدند.
+- **یکی دانستن Trunk Inventory با Outbound Registration — در Task 43 رفع شد:** مدل قبلی فقط SIPshowregistry را مصرف می‌کرد و Static/IP-auth chan_sip Peer و PJSIP Definition ممکن بود دیده نشوند. اکنون Registrationهای صریح با Peer Candidateهای محافظه‌کارانه Merge می‌شوند و Confidence صریح نمایش داده می‌شود.
+- **ریسک دوباره‌خواندن SIP Peer List — جلوگیری شد:** Endpoint State و Static chan_sip Candidateها از همان یک Snapshot مربوط به SIPpeers در هر Reconcile ساخته می‌شوند.
+- **ریسک انتشار Provider-private Trunk Detail — جلوگیری شد:** PJSIP Auth/Contact/URI و chan_sip IP Address فقط برای Classification/Status محدود استفاده می‌شوند و وارد Normalized State نمی‌شوند.
 
 - **نبود Account Management بعد از Bootstrap — اصلاح شد:** Schema از قبل چند Administrator Row را پشتیبانی می‌کرد اما Application فقط First Admin را ایجاد می‌کرد. اکنون Repository/Service/API/UI محدود برای مدیریت Account روی همان Schema اضافه شده است.
 - **ریسک Lockout — محدود شد:** Self-disable/Self-delete رد می‌شود و آخرین Administrator فعال نیز قابل Disable/Delete نیست.

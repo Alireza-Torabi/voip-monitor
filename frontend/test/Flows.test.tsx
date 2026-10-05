@@ -564,6 +564,8 @@ describe('operator dashboard', () => {
                 {
                   trunkId: 'SIP/trunk@example.test',
                   kind: 'OUTBOUND_REGISTRATION',
+                  technology: 'CHAN_SIP',
+                  confidence: 'CONFIRMED',
                   registrationState: 'REGISTERED',
                   updatedAt: '2026-10-05T04:00:01.000Z',
                 },
@@ -781,6 +783,88 @@ describe('telephony entity workspace', () => {
     expect(container.textContent).toContain('Results: 1');
     expect(container.textContent).toContain('active-03');
     expect(container.textContent).not.toContain('active-25');
+  });
+
+  it('renders confirmed registrations separately from candidate peer trunks', async () => {
+    class FakeEventSource {
+      onopen: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      addEventListener() {}
+      close() {}
+      constructor(readonly url: string) {}
+    }
+    vi.stubGlobal('EventSource', FakeEventSource);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string) => {
+        if (path === '/api/pbx-instances/entity-pbx/telephony-state') {
+          return response({
+            current: {
+              instanceId: 'entity-pbx',
+              revision: 2,
+              synchronization: 'CURRENT',
+              lastSnapshotAt: '2026-10-05T04:00:00.000Z',
+              channels: [],
+              calls: [],
+              endpointCapability: 'SUPPORTED',
+              endpointSynchronization: 'CURRENT',
+              endpoints: [],
+              trunkCapability: 'SUPPORTED',
+              trunkSynchronization: 'CURRENT',
+              trunks: [
+                {
+                  trunkId: 'PJSIP/carrier-east',
+                  technology: 'PJSIP',
+                  kind: 'OUTBOUND_REGISTRATION',
+                  confidence: 'CONFIRMED',
+                  registrationState: 'REGISTERED',
+                  updatedAt: '2026-10-05T04:00:01.000Z',
+                },
+                {
+                  trunkId: 'SIP/static-carrier',
+                  technology: 'CHAN_SIP',
+                  kind: 'PEER',
+                  confidence: 'CANDIDATE',
+                  registrationState: 'NOT_APPLICABLE',
+                  reachability: 'REACHABLE',
+                  updatedAt: '2026-10-05T04:00:01.000Z',
+                },
+              ],
+              queueCapability: 'SUPPORTED',
+              queueSynchronization: 'CURRENT',
+              queues: [],
+              queueMembers: [],
+              queueCallers: [],
+              agentCapability: 'SUPPORTED',
+              agentSynchronization: 'LIVE_ONLY',
+              agentInteractions: [],
+            },
+          });
+        }
+        throw new Error('unexpected API route: ' + path);
+      }),
+    );
+
+    await act(async () =>
+      root.render(
+        <TelephonyWorkspace
+          text={messages.en}
+          profiles={[profile]}
+          page="trunks"
+          onUnauthorized={() => {}}
+        />,
+      ),
+    );
+
+    expect(container.textContent).toContain('Technology');
+    expect(container.textContent).toContain('Classification');
+    expect(container.textContent).toContain('PJSIP');
+    expect(container.textContent).toContain('CONFIRMED');
+    expect(container.textContent).toContain('CHAN_SIP');
+    expect(container.textContent).toContain('CANDIDATE');
+    expect(container.textContent).toContain('NOT_APPLICABLE');
+    expect(container.textContent).toContain('REACHABLE');
+    expect(container.textContent).toContain('Trunk discovery uses explicit confidence');
   });
 });
 

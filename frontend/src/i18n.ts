@@ -224,6 +224,8 @@ export const messages = {
     registrationState: 'Registration',
     reachability: 'Reachability',
     trunkKind: 'Kind',
+    trunkTechnology: 'Technology',
+    trunkConfidence: 'Classification',
     queueStrategy: 'Strategy',
     agentName: 'Agent',
     agentId: 'Agent ID',
@@ -257,9 +259,9 @@ export const messages = {
     sshSaveFailed:
       'SSH configuration could not be saved. Check host, username, credential and SHA-256 fingerprint.',
     sshRemoveFailed: 'SSH configuration could not be removed.',
-    trunkDiscoveryLimited: 'Trunk discovery is currently registration-based',
+    trunkDiscoveryLimited: 'Trunk discovery uses explicit confidence',
     trunkDiscoveryLimitedHint:
-      'Current provider discovery uses SIPshowregistry. Static SIP peers, inbound-only definitions and PJSIP trunks may exist on the PBX but are not represented by this snapshot yet.',
+      'Outbound registrations are CONFIRMED. Static chan_sip peers and PJSIP endpoints with outbound authentication are shown as CANDIDATE because AMI does not provide a universal trunk-role flag.',
     securityTitle: 'Security monitoring',
     securityHint: 'Current persisted alerts and the two bounded authentication-failure rules.',
     securityPbx: 'Security PBX',
@@ -508,6 +510,8 @@ export const messages = {
     registrationState: 'Registration',
     reachability: 'دسترس‌پذیری',
     trunkKind: 'نوع',
+    trunkTechnology: 'Technology',
+    trunkConfidence: 'Classification',
     queueStrategy: 'Strategy',
     agentName: 'Agent',
     agentId: 'Agent ID',
@@ -541,9 +545,9 @@ export const messages = {
     sshSaveFailed:
       'پیکربندی SSH ذخیره نشد. Host، Username، Credential و SHA-256 Fingerprint را بررسی کنید.',
     sshRemoveFailed: 'پیکربندی SSH حذف نشد.',
-    trunkDiscoveryLimited: 'Discovery فعلی Trunk بر پایه Registration است',
+    trunkDiscoveryLimited: 'Trunk Discovery با Confidence صریح انجام می‌شود',
     trunkDiscoveryLimitedHint:
-      'Provider فعلی از SIPshowregistry استفاده می‌کند. Static SIP Peer، تعریف Inbound-only و PJSIP Trunk ممکن است روی PBX وجود داشته باشند ولی هنوز در این Snapshot نمایش داده نشوند.',
+      'Outbound Registrationها با CONFIRMED نمایش داده می‌شوند. Static chan_sip Peerها و PJSIP Endpointهای دارای Outbound Authentication به‌صورت CANDIDATE نمایش داده می‌شوند، چون AMI یک Trunk-role عمومی و قطعی ارائه نمی‌کند.',
     securityTitle: 'پایش امنیت',
     securityHint: 'هشدارهای فعلی ذخیره‌شده و دو Rule محدود مربوط به خطاهای احراز هویت.',
     securityPbx: 'PBX امنیتی',

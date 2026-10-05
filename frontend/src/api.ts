@@ -202,7 +202,10 @@ export interface TelephonyEndpointState {
 export interface TelephonyTrunkState {
   trunkId: string;
   kind: string;
+  technology: string;
+  confidence: string;
   registrationState: string;
+  reachability?: string;
   updatedAt: string;
 }
 

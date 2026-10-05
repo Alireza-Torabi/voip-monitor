@@ -556,6 +556,8 @@ test('trunk snapshot establishes outbound registration state and replays only ne
     baseEvent('TRUNK_REGISTRATION_CHANGED', {
       trunkId: 'SIP/a@sip-a.example.test',
       kind: 'OUTBOUND_REGISTRATION',
+      technology: 'CHAN_SIP',
+      confidence: 'CONFIRMED',
       registrationState: 'FAILED',
       streamSequence: 3,
     }),
@@ -564,6 +566,8 @@ test('trunk snapshot establishes outbound registration state and replays only ne
     baseEvent('TRUNK_REGISTRATION_CHANGED', {
       trunkId: 'SIP/b@sip-b.example.test',
       kind: 'OUTBOUND_REGISTRATION',
+      technology: 'CHAN_SIP',
+      confidence: 'CONFIRMED',
       registrationState: 'REGISTERED',
       streamSequence: 8,
       observedAt: '2026-09-25T12:00:00.800Z',
@@ -583,6 +587,8 @@ test('trunk snapshot establishes outbound registration state and replays only ne
           {
             trunkId: 'SIP/a@sip-a.example.test',
             kind: 'OUTBOUND_REGISTRATION',
+            technology: 'CHAN_SIP',
+            confidence: 'CONFIRMED',
             registrationState: 'REGISTERED',
             streamSequence: 4,
           },
@@ -595,20 +601,26 @@ test('trunk snapshot establishes outbound registration state and replays only ne
   assert.equal(current.trunkCapability, 'SUPPORTED');
   assert.equal(current.trunkSynchronization, 'CURRENT');
   assert.deepEqual(
-    current.trunks.map(({ trunkId, kind, registrationState }) => ({
+    current.trunks.map(({ trunkId, kind, technology, confidence, registrationState }) => ({
       trunkId,
       kind,
+      technology,
+      confidence,
       registrationState,
     })),
     [
       {
         trunkId: 'SIP/a@sip-a.example.test',
         kind: 'OUTBOUND_REGISTRATION',
+        technology: 'CHAN_SIP',
+        confidence: 'CONFIRMED',
         registrationState: 'REGISTERED',
       },
       {
         trunkId: 'SIP/b@sip-b.example.test',
         kind: 'OUTBOUND_REGISTRATION',
+        technology: 'CHAN_SIP',
+        confidence: 'CONFIRMED',
         registrationState: 'REGISTERED',
       },
     ],
@@ -618,6 +630,8 @@ test('trunk snapshot establishes outbound registration state and replays only ne
     baseEvent('TRUNK_REGISTRATION_CHANGED', {
       trunkId: 'SIP/a@sip-a.example.test',
       kind: 'OUTBOUND_REGISTRATION',
+      technology: 'CHAN_SIP',
+      confidence: 'CONFIRMED',
       registrationState: 'REJECTED',
       streamSequence: 9,
       observedAt: '2026-09-25T12:00:02.000Z',
@@ -647,6 +661,8 @@ test('unavailable trunk capability never manufactures trunk state from live Regi
     baseEvent('TRUNK_REGISTRATION_CHANGED', {
       trunkId: 'SIP/a@sip-a.example.test',
       kind: 'OUTBOUND_REGISTRATION',
+      technology: 'CHAN_SIP',
+      confidence: 'CONFIRMED',
       registrationState: 'REGISTERED',
       streamSequence: 3,
       observedAt: '2026-09-25T12:00:02.000Z',
@@ -671,6 +687,8 @@ test('buffer overflow waits for independent trunk snapshot boundary before claim
       baseEvent('TRUNK_REGISTRATION_CHANGED', {
         trunkId: `SIP/${sequence}@sip.example.test`,
         kind: 'OUTBOUND_REGISTRATION',
+        technology: 'CHAN_SIP',
+        confidence: 'CONFIRMED',
         registrationState: 'REGISTERED',
         streamSequence: sequence,
         observedAt: `2026-09-25T12:00:00.00${sequence}Z`,

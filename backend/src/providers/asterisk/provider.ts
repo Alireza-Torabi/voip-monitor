@@ -26,6 +26,7 @@ import { NetworkBoundaryError } from './network-policy.js';
 import { AmiTransportError, amiField, type AmiResponse, type AmiTransport } from './transport.js';
 
 const UNKNOWN: CapabilityState = 'UNKNOWN';
+const MAX_TRUNK_SOURCE_ITEMS = 4096;
 
 function unknownCapabilities(): PbxCapabilities {
   return {
@@ -107,6 +108,18 @@ export class AsteriskProviderError extends Error {
     super(`Asterisk provider ${code.toLowerCase().replaceAll('_', ' ')}`);
     this.name = 'AsteriskProviderError';
   }
+}
+
+interface TrunkSourceResult {
+  capability: CapabilityState;
+  trunks: ProviderTrunkStateSnapshot['trunks'];
+  streamGeneration?: number;
+  streamStartedSequence?: number;
+}
+
+interface ChanSipInventory {
+  endpointState: ProviderEndpointStateSnapshot;
+  trunkSource: TrunkSourceResult;
 }
 
 export interface AsteriskProviderOptions {
@@ -331,8 +344,9 @@ export class AsteriskProvider implements PbxProvider {
       this.requireListCount(result.completion.fields, channels.length);
 
       this.capabilities.telephony.channels = 'SUPPORTED';
-      const endpointState = await this.getEndpointState();
-      const trunkState = await this.getTrunkState();
+      const chanSipInventory = await this.getChanSipInventory();
+      const endpointState = chanSipInventory.endpointState;
+      const trunkState = await this.getTrunkState(chanSipInventory.trunkSource);
       const queueState = await this.getQueueState();
       const observedAt = this.now();
       this.setConnectionState('CONNECTED');
@@ -365,7 +379,7 @@ export class AsteriskProvider implements PbxProvider {
     }
   }
 
-  private async getEndpointState(): Promise<ProviderEndpointStateSnapshot> {
+  private async getChanSipInventory(): Promise<ChanSipInventory> {
     const startedAt = this.now();
     try {
       const result = await this.options.transport.requestEventList(
@@ -373,11 +387,15 @@ export class AsteriskProvider implements PbxProvider {
         { itemEvent: 'PeerEntry', completeEvent: 'PeerlistComplete' },
       );
       requireSuccess(result.response);
-      const endpoints = result.events.map((event) => {
+      if (result.events.length > MAX_TRUNK_SOURCE_ITEMS) throw new AsteriskProviderError('UNKNOWN');
+
+      const endpoints: ProviderEndpointStateSnapshot['endpoints'] = [];
+      const staticTrunks: ProviderTrunkStateSnapshot['trunks'] = [];
+      for (const event of result.events) {
         const objectName = amiField(event.fields, 'ObjectName')?.trim();
         if (!objectName) throw new AsteriskProviderError('UNKNOWN');
         const channelType = amiField(event.fields, 'Channeltype')?.trim();
-        const endpointId = channelType ? `${channelType}/${objectName}` : objectName;
+        const endpointId = channelType ? channelType + '/' + objectName : objectName;
         const dynamic = amiField(event.fields, 'Dynamic')?.trim().toLowerCase();
         const address = amiField(event.fields, 'IPaddress')?.trim().toLowerCase();
         const status = amiField(event.fields, 'Status')?.trim() ?? '';
@@ -393,17 +411,29 @@ export class AsteriskProvider implements PbxProvider {
               ? 'REGISTERED'
               : 'UNREGISTERED';
         }
-        return {
+        endpoints.push({
           endpointId,
           registrationState,
           reachability: normalized.reachability,
           ...(event.streamSequence === undefined ? {} : { streamSequence: event.streamSequence }),
-        };
-      });
-      this.requireListCount(result.completion.fields, endpoints.length);
+        });
+
+        if (dynamic === 'no' || dynamic === 'false' || dynamic === '0') {
+          staticTrunks.push({
+            trunkId: 'SIP/' + objectName,
+            kind: 'PEER',
+            technology: 'CHAN_SIP',
+            confidence: 'CANDIDATE',
+            registrationState: 'NOT_APPLICABLE',
+            reachability: normalized.reachability,
+            ...(event.streamSequence === undefined ? {} : { streamSequence: event.streamSequence }),
+          });
+        }
+      }
+
+      this.requireListCount(result.completion.fields, result.events.length);
       this.capabilities.telephony.endpoints = 'SUPPORTED';
-      return {
-        capability: 'SUPPORTED',
+      const common = {
         startedAt,
         observedAt: this.now(),
         ...(result.streamGeneration === undefined
@@ -412,7 +442,23 @@ export class AsteriskProvider implements PbxProvider {
         ...(result.streamStartedSequence === undefined
           ? {}
           : { streamStartedSequence: result.streamStartedSequence }),
-        endpoints,
+      };
+      return {
+        endpointState: {
+          capability: 'SUPPORTED',
+          ...common,
+          endpoints,
+        },
+        trunkSource: {
+          capability: 'SUPPORTED',
+          trunks: staticTrunks,
+          ...(result.streamGeneration === undefined
+            ? {}
+            : { streamGeneration: result.streamGeneration }),
+          ...(result.streamStartedSequence === undefined
+            ? {}
+            : { streamStartedSequence: result.streamStartedSequence }),
+        },
       };
     } catch (error) {
       const code = providerCode(error);
@@ -420,52 +466,177 @@ export class AsteriskProvider implements PbxProvider {
       const capability = code === 'PERMISSION_DENIED' ? 'PERMISSION_DENIED' : 'UNSUPPORTED';
       this.capabilities.telephony.endpoints = capability;
       return {
-        capability,
-        startedAt,
-        observedAt: this.now(),
-        endpoints: [],
+        endpointState: {
+          capability,
+          startedAt,
+          observedAt: this.now(),
+          endpoints: [],
+        },
+        trunkSource: {
+          capability,
+          trunks: [],
+        },
       };
     }
   }
 
-  private async getTrunkState(): Promise<ProviderTrunkStateSnapshot> {
+  private async getTrunkState(
+    chanSipPeerSource: TrunkSourceResult,
+  ): Promise<ProviderTrunkStateSnapshot> {
     const startedAt = this.now();
-    try {
-      const result = await this.options.transport.requestEventList(
-        { action: 'SIPshowregistry' },
-        { itemEvent: 'RegistryEntry', completeEvent: 'RegistrationsComplete' },
-      );
-      requireSuccess(result.response);
-      const trunks = result.events.map((event) => {
-        const username = amiField(event.fields, 'Username')?.trim();
-        const domain = amiField(event.fields, 'Domain')?.trim();
-        const state = amiField(event.fields, 'State')?.trim();
-        if (!username || !domain || !state) throw new AsteriskProviderError('UNKNOWN');
-        return {
-          trunkId: `SIP/${username}@${domain}`,
-          kind: 'OUTBOUND_REGISTRATION' as const,
-          registrationState: normalizeTrunkRegistrationState(state),
-          ...(event.streamSequence === undefined ? {} : { streamSequence: event.streamSequence }),
-        };
-      });
-      this.requireListCount(result.completion.fields, trunks.length);
-      this.capabilities.telephony.trunks = 'SUPPORTED';
-      return {
-        capability: 'SUPPORTED',
-        startedAt,
-        observedAt: this.now(),
-        ...(result.streamGeneration === undefined
-          ? {}
-          : { streamGeneration: result.streamGeneration }),
-        ...(result.streamStartedSequence === undefined
-          ? {}
-          : { streamStartedSequence: result.streamStartedSequence }),
-        trunks,
-      };
-    } catch (error) {
+
+    const unavailable = (error: unknown): TrunkSourceResult => {
       const code = providerCode(error);
       if (code !== 'PERMISSION_DENIED' && code !== 'UNSUPPORTED') throw error;
-      const capability = code === 'PERMISSION_DENIED' ? 'PERMISSION_DENIED' : 'UNSUPPORTED';
+      return {
+        capability: code === 'PERMISSION_DENIED' ? 'PERMISSION_DENIED' : 'UNSUPPORTED',
+        trunks: [],
+      };
+    };
+
+    const chanSipRegistrations = async (): Promise<TrunkSourceResult> => {
+      try {
+        const result = await this.options.transport.requestEventList(
+          { action: 'SIPshowregistry' },
+          { itemEvent: 'RegistryEntry', completeEvent: 'RegistrationsComplete' },
+        );
+        requireSuccess(result.response);
+        if (result.events.length > MAX_TRUNK_SOURCE_ITEMS)
+          throw new AsteriskProviderError('UNKNOWN');
+        const trunks = result.events.map((event) => {
+          const username = amiField(event.fields, 'Username')?.trim();
+          const domain = amiField(event.fields, 'Domain')?.trim();
+          const state = amiField(event.fields, 'State')?.trim();
+          if (!username || !domain || !state) throw new AsteriskProviderError('UNKNOWN');
+          return {
+            trunkId: 'SIP/' + username + '@' + domain,
+            kind: 'OUTBOUND_REGISTRATION' as const,
+            technology: 'CHAN_SIP' as const,
+            confidence: 'CONFIRMED' as const,
+            registrationState: normalizeTrunkRegistrationState(state),
+            ...(event.streamSequence === undefined ? {} : { streamSequence: event.streamSequence }),
+          };
+        });
+        this.requireListCount(result.completion.fields, trunks.length);
+        return {
+          capability: 'SUPPORTED',
+          trunks,
+          ...(result.streamGeneration === undefined
+            ? {}
+            : { streamGeneration: result.streamGeneration }),
+          ...(result.streamStartedSequence === undefined
+            ? {}
+            : { streamStartedSequence: result.streamStartedSequence }),
+        };
+      } catch (error) {
+        return unavailable(error);
+      }
+    };
+
+    const pjsipRegistrations = async (): Promise<TrunkSourceResult> => {
+      try {
+        const result = await this.options.transport.requestEventList(
+          { action: 'PJSIPShowRegistrationsOutbound' },
+          {
+            itemEvents: ['OutboundRegistrationDetail', 'AuthDetail'],
+            completeEvent: 'OutboundRegistrationDetailComplete',
+          },
+        );
+        requireSuccess(result.response);
+        if (result.events.length > MAX_TRUNK_SOURCE_ITEMS)
+          throw new AsteriskProviderError('UNKNOWN');
+        const trunks: ProviderTrunkStateSnapshot['trunks'] = [];
+        for (const event of result.events) {
+          if (event.event.toLowerCase() !== 'outboundregistrationdetail') continue;
+          const objectName = amiField(event.fields, 'ObjectName')?.trim();
+          const status = amiField(event.fields, 'Status')?.trim();
+          if (!objectName || !status) throw new AsteriskProviderError('UNKNOWN');
+          const endpoint = amiField(event.fields, 'Endpoint')?.trim();
+          trunks.push({
+            trunkId: endpoint ? 'PJSIP/' + endpoint : 'PJSIP/registration:' + objectName,
+            kind: 'OUTBOUND_REGISTRATION',
+            technology: 'PJSIP',
+            confidence: 'CONFIRMED',
+            registrationState: normalizeTrunkRegistrationState(status),
+            ...(event.streamSequence === undefined ? {} : { streamSequence: event.streamSequence }),
+          });
+        }
+        return {
+          capability: 'SUPPORTED',
+          trunks,
+          ...(result.streamGeneration === undefined
+            ? {}
+            : { streamGeneration: result.streamGeneration }),
+          ...(result.streamStartedSequence === undefined
+            ? {}
+            : { streamStartedSequence: result.streamStartedSequence }),
+        };
+      } catch (error) {
+        return unavailable(error);
+      }
+    };
+
+    const pjsipOutboundAuthPeers = async (): Promise<TrunkSourceResult> => {
+      try {
+        const result = await this.options.transport.requestEventList(
+          { action: 'PJSIPShowEndpoints' },
+          { itemEvent: 'EndpointList', completeEvent: 'EndpointListComplete' },
+        );
+        requireSuccess(result.response);
+        if (result.events.length > MAX_TRUNK_SOURCE_ITEMS)
+          throw new AsteriskProviderError('UNKNOWN');
+        const trunks: ProviderTrunkStateSnapshot['trunks'] = [];
+        for (const event of result.events) {
+          const objectName = amiField(event.fields, 'ObjectName')?.trim();
+          if (!objectName) throw new AsteriskProviderError('UNKNOWN');
+          const outboundAuths = amiField(event.fields, 'OutboundAuths')?.trim();
+          const normalizedOutboundAuths = outboundAuths?.toLowerCase();
+          if (
+            !outboundAuths ||
+            normalizedOutboundAuths === '[]' ||
+            normalizedOutboundAuths === 'none' ||
+            normalizedOutboundAuths === '<none>' ||
+            normalizedOutboundAuths === '(none)'
+          )
+            continue;
+          trunks.push({
+            trunkId: 'PJSIP/' + objectName,
+            kind: 'PEER',
+            technology: 'PJSIP',
+            confidence: 'CANDIDATE',
+            registrationState: 'NOT_APPLICABLE',
+            reachability: 'UNKNOWN',
+            ...(event.streamSequence === undefined ? {} : { streamSequence: event.streamSequence }),
+          });
+        }
+        this.requireListCount(result.completion.fields, result.events.length);
+        return {
+          capability: 'SUPPORTED',
+          trunks,
+          ...(result.streamGeneration === undefined
+            ? {}
+            : { streamGeneration: result.streamGeneration }),
+          ...(result.streamStartedSequence === undefined
+            ? {}
+            : { streamStartedSequence: result.streamStartedSequence }),
+        };
+      } catch (error) {
+        return unavailable(error);
+      }
+    };
+
+    const sources: TrunkSourceResult[] = [chanSipPeerSource];
+    sources.push(await chanSipRegistrations());
+    sources.push(await pjsipRegistrations());
+    sources.push(await pjsipOutboundAuthPeers());
+
+    const supported = sources.filter((source) => source.capability === 'SUPPORTED');
+    if (supported.length === 0) {
+      const capability: CapabilityState = sources.some(
+        (source) => source.capability === 'PERMISSION_DENIED',
+      )
+        ? 'PERMISSION_DENIED'
+        : 'UNSUPPORTED';
       this.capabilities.telephony.trunks = capability;
       return {
         capability,
@@ -474,6 +645,51 @@ export class AsteriskProvider implements PbxProvider {
         trunks: [],
       };
     }
+
+    const rank = (trunk: ProviderTrunkStateSnapshot['trunks'][number]) =>
+      trunk.confidence === 'CONFIRMED' ? 2 : 1;
+    const merged = new Map<string, ProviderTrunkStateSnapshot['trunks'][number]>();
+    for (const source of supported) {
+      for (const trunk of source.trunks) {
+        const current = merged.get(trunk.trunkId);
+        if (!current || rank(trunk) > rank(current)) {
+          merged.set(trunk.trunkId, trunk);
+          continue;
+        }
+        if (
+          current.reachability === 'UNKNOWN' &&
+          trunk.reachability !== undefined &&
+          trunk.reachability !== 'UNKNOWN'
+        ) {
+          merged.set(trunk.trunkId, { ...current, reachability: trunk.reachability });
+        }
+      }
+    }
+
+    const generations = supported
+      .map((source) => source.streamGeneration)
+      .filter((value): value is number => value !== undefined);
+    const sequences = supported
+      .map((source) => source.streamStartedSequence)
+      .filter((value): value is number => value !== undefined);
+    const streamGeneration =
+      generations.length > 0 && generations.every((value) => value === generations[0])
+        ? generations[0]
+        : undefined;
+    const streamStartedSequence = sequences.length > 0 ? Math.min(...sequences) : undefined;
+
+    const trunks = [...merged.values()].sort((left, right) =>
+      left.trunkId.localeCompare(right.trunkId),
+    );
+    this.capabilities.telephony.trunks = 'SUPPORTED';
+    return {
+      capability: 'SUPPORTED',
+      startedAt,
+      observedAt: this.now(),
+      ...(streamGeneration === undefined ? {} : { streamGeneration }),
+      ...(streamStartedSequence === undefined ? {} : { streamStartedSequence }),
+      trunks,
+    };
   }
 
   private async getQueueState(): Promise<ProviderQueueStateSnapshot> {
