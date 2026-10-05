@@ -21,6 +21,7 @@ import type {
 } from './collectors/system/runtime.js';
 import type { SecurityEvent } from '@voip-monitor/shared';
 import type { ProviderRuntimeSecurityEventListener } from './providers/runtime/index.js';
+import type { TelephonyInstanceState, TelephonyStateEngine } from './telephony/state-engine.js';
 
 function send(response: ServerResponse, status: number, data: object, cookie?: string): void {
   response.writeHead(status, {
@@ -151,11 +152,13 @@ export function createApp(
   auth?: AuthService,
   runtime?: ProviderRuntimeManager,
   systemMetrics?: SystemMetricsRuntime,
+  telephonyState?: TelephonyStateEngine,
 ): Server {
   const limiter = new AttemptLimiter();
   const metricsStreams = new Set<ServerResponse>();
   const securityStreams = new Set<ServerResponse>();
   const securityAlertStreams = new Set<ServerResponse>();
+  const telephonyStateStreams = new Set<ServerResponse>();
   const onboarding =
     storage && secrets
       ? new PbxOnboardingService(
@@ -223,6 +226,51 @@ export function createApp(
           ? send(response, 200, result.principal, auth.cookie(result.token))
           : send(response, 401, { error: 'invalid_credentials' });
       }
+      const telephonyStateAction = path.match(
+        /^\/api\/pbx-instances\/([^/]+)\/telephony-state(\/stream)?$/,
+      );
+      if (telephonyStateAction) {
+        if (!auth || !auth.principal(sessionToken(request)))
+          return send(response, 401, { error: 'unauthorized' });
+        const id = telephonyStateAction[1]!;
+        const action = telephonyStateAction[2] ?? '';
+        if (!onboarding?.get(id)) return send(response, 404, { error: 'not_found' });
+        if (!telephonyState) return send(response, 409, { error: 'telephony_state_unavailable' });
+        if (request.method !== 'GET') return send(response, 404, { error: 'not_found' });
+        if (action === '') {
+          return send(response, 200, { current: telephonyState.current(id) ?? null });
+        }
+        if (telephonyStateStreams.size >= 64)
+          return send(response, 429, { error: 'too_many_requests' });
+        response.writeHead(200, {
+          'content-type': 'text/event-stream; charset=utf-8',
+          'cache-control': 'no-cache, no-store',
+          connection: 'keep-alive',
+        });
+        writeSse(response, 'telephony-state', { current: telephonyState.current(id) ?? null });
+        const onState = (state: TelephonyInstanceState) => {
+          if (state.instanceId === id && !response.destroyed)
+            writeSse(response, 'telephony-state', { current: state });
+        };
+        telephonyStateStreams.add(response);
+        const unsubscribeState = telephonyState.subscribe(onState);
+        const unsubscribeReset = runtime?.subscribeInstanceResets((instanceId) => {
+          if (instanceId === id && !response.destroyed)
+            writeSse(response, 'telephony-state', { current: null });
+        });
+        const heartbeat = setInterval(() => {
+          if (response.destroyed) clearInterval(heartbeat);
+          else response.write(': heartbeat\n\n');
+        }, 15_000);
+        request.on('close', () => {
+          clearInterval(heartbeat);
+          telephonyStateStreams.delete(response);
+          unsubscribeState();
+          unsubscribeReset?.();
+        });
+        return;
+      }
+
       const metricsAction = path.match(
         /^\/api\/pbx-instances\/([^/]+)\/system-metrics(\/history|\/stream)?$/,
       );

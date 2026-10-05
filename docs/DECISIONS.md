@@ -365,3 +365,15 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 235. **Realtime scope:** system metrics and security alerts reuse existing SSE streams; dashboard stream failure does not affect PBX monitoring or application readiness.
 236. **Telephony state remains internal:** Task 39 does not expose TelephonyStateEngine snapshots. Calls/channels/endpoints/trunks/queues/agent interactions remain unavailable until a bounded API exists.
 237. **Task 40 boundary:** expose the existing TelephonyStateEngine through authenticated PBX-scoped bounded read-only current-state and realtime APIs only; no new PBX connection, write action, permission expansion, or collection source.
+
+
+## 2026-10-05 — Task 40 telephony state API/realtime decisions
+
+238. **Engine-owned current state:** the API exposes only the already-normalized `TelephonyInstanceState` produced by the existing engine. The API layer does not replay AMI events, query the provider, or reconstruct additional identity fields.
+239. **Authenticated PBX-scoped snapshot:** `GET /api/pbx-instances/:id/telephony-state` requires a valid administrator session and an existing PBX profile and returns the current state or `null` before an authoritative snapshot exists.
+240. **Bounded SSE realtime:** `GET /api/pbx-instances/:id/telephony-state/stream` sends one initial current snapshot followed by engine revisions for that PBX only, caps concurrent telephony streams at 64, and uses a 15-second heartbeat.
+241. **Reset publication:** provider profile/runtime reset removes engine state and the telephony SSE publishes `current: null` so clients fail closed instead of retaining stale state.
+242. **Read-only browser compatibility:** telephony current/SSE routes are GET-only. The read-only SSE route follows the existing browser-compatible policy and does not require a mutation-style Origin check; authentication and PBX scoping remain mandatory.
+243. **No new PBX work:** Task 40 creates no provider instance, AMI connection, AMI action, credential read, permission expansion, SSH collection, storage query for telephony history, or PBX mutation.
+244. **Current-state limitation:** telephony state remains in memory only. Agent interactions remain `LIVE_ONLY` and Queue/Agent production compatibility is still unverified.
+245. **Task 41 boundary:** next consume these telephony current-state/SSE boundaries in the bilingual operator UI only; no PBX write action, telephony history, or broader collection scope.
