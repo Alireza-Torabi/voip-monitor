@@ -468,3 +468,15 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 304. **Collector factory owns service injection:** production RestrictedSshSystemMetricsCollectorFactory reads the PBX service-monitoring repository and passes those IDs into RestrictedSshSystemMetricsCollector. This corrects the previous permanent NOT_CONFIGURED behavior.
 305. **Schema migrations 13-14:** migration 13 stores service-monitoring IDs with PBX cascade; migration 14 stores named operator dashboards with PBX cascade and JSON validity.
 306. **Task 43 remains next:** dashboard-builder/service-monitoring work is an operator-requested correction and does not consume the trunk-discovery roadmap task.
+
+
+## 2026-10-05 — Local administrator account management
+
+307. **Reuse the existing administrator schema:** account management uses the current administrator/auth_session tables; no migration is required merely to expose safe CRUD.
+308. **Single role stays explicit:** all local accounts are ADMINISTRATOR. Do not invent viewer/operator roles until a real authorization model is designed and enforced end-to-end.
+309. **Safe account metadata only:** list/update responses expose id, username, enabled, fixed role, created/updated, and last-login metadata; never password hashes or session tokens.
+310. **Existing auth validation is authoritative:** usernames reuse normalizeUsername and passwords reuse validPassword/hashPassword.
+311. **Session revocation on sensitive change:** disabling an account or resetting its password revokes all sessions for that account.
+312. **Lockout prevention:** reject self-disable, self-delete, and disable/delete of the last enabled administrator.
+313. **Mutation protection:** create/update/password-reset/delete require authenticated same-origin writes.
+314. **UI-test account is deployment-local:** Selenium credentials are not repository configuration. Provision them only into the target deployment and keep them under the local/private secret boundary.

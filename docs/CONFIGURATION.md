@@ -53,3 +53,12 @@ No service ID is a repository default. Deployments choose their own relevant ser
 ## Operator dashboards
 
 Dashboards are PBX-scoped server-persisted layouts. A PBX can have multiple named dashboards. Widgets come only from the fixed application catalog and can be added, deleted, reordered, and resized within bounded dimensions. Fullscreen mode targets the dashboard root so application navigation is excluded and controls auto-hide for TV/NOC use.
+
+
+## Local administrator accounts
+
+After bootstrap, authenticated administrators manage local accounts under **Settings -> Users & accounts**. The current authentication/authorization model has one role only: ADMINISTRATOR.
+
+Supported operations are create, rename, enable/disable, password reset, and delete. Self-disable/self-delete are blocked, and the last enabled administrator cannot be disabled/deleted. Disabling or password-resetting an account revokes its current sessions.
+
+Automation/Selenium test accounts are deployment-local operational credentials. Do not place their username/password pair in tracked configuration or documentation.

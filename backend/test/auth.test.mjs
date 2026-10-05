@@ -356,3 +356,152 @@ test('disabled administrator uses generic login failure and cannot use existing 
       await app.close();
     }
   }));
+
+test('account management is authenticated, same-origin protected, safe, and revokes disabled/password-reset sessions', async () =>
+  fixture(async ({ config, storage, secrets, auth }) => {
+    const token = (
+      await readFile(join(config.secretDirectory, 'bootstrap-admin.token'), 'utf8')
+    ).trim();
+    await auth.createFirst('admin', 'correct synthetic passphrase', token);
+    const app = await serve(storage, secrets, auth);
+    try {
+      const login = await post(app.base, '/auth/login', {
+        username: 'admin',
+        ['password']: 'correct synthetic passphrase',
+      });
+      const adminSession = login.headers.get('set-cookie').split(';')[0];
+
+      assert.equal((await fetch(app.base + '/api/admin/accounts')).status, 401);
+      assert.equal(
+        (
+          await fetch(app.base + '/api/admin/accounts', {
+            method: 'POST',
+            headers: {
+              cookie: adminSession,
+              origin: 'https://evil.example',
+              'content-type': 'application/json',
+            },
+            body: JSON.stringify({
+              username: 'ui-test',
+              ['password']: 'synthetic ui test passphrase',
+            }),
+          })
+        ).status,
+        403,
+      );
+
+      const createdResponse = await fetch(app.base + '/api/admin/accounts', {
+        method: 'POST',
+        headers: {
+          cookie: adminSession,
+          origin: app.base,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: 'UI-Test',
+          ['password']: 'synthetic ui test passphrase',
+        }),
+      });
+      assert.equal(createdResponse.status, 201);
+      const created = await createdResponse.json();
+      assert.equal(created.username, 'ui-test');
+      assert.equal(created.enabled, true);
+      assert.equal(created.role, 'ADMINISTRATOR');
+      assert.ok(!JSON.stringify(created).includes('synthetic ui test passphrase'));
+      assert.ok(!JSON.stringify(created).includes('passwordHash'));
+
+      const listed = await (
+        await fetch(app.base + '/api/admin/accounts', { headers: { cookie: adminSession } })
+      ).json();
+      assert.deepEqual(
+        listed.items.map((item) => item.username),
+        ['admin', 'ui-test'],
+      );
+      assert.ok(!JSON.stringify(listed).includes('password_hash'));
+
+      const uiLogin = await post(app.base, '/auth/login', {
+        username: 'ui-test',
+        ['password']: 'synthetic ui test passphrase',
+      });
+      assert.equal(uiLogin.status, 200);
+      const uiSession = uiLogin.headers.get('set-cookie').split(';')[0];
+
+      const adminId = listed.items.find((item) => item.username === 'admin').id;
+      const selfDisable = await fetch(app.base + '/api/admin/accounts/' + adminId, {
+        method: 'PUT',
+        headers: {
+          cookie: adminSession,
+          origin: app.base,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ username: 'admin', enabled: false }),
+      });
+      assert.equal(selfDisable.status, 409);
+
+      const renamed = await fetch(app.base + '/api/admin/accounts/' + created.id, {
+        method: 'PUT',
+        headers: {
+          cookie: adminSession,
+          origin: app.base,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ username: 'ui-automation', enabled: true }),
+      });
+      assert.equal(renamed.status, 200);
+      assert.equal((await renamed.json()).username, 'ui-automation');
+
+      const reset = await fetch(app.base + '/api/admin/accounts/' + created.id + '/password', {
+        method: 'PUT',
+        headers: {
+          cookie: adminSession,
+          origin: app.base,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ ['password']: 'replacement synthetic passphrase' }),
+      });
+      assert.equal(reset.status, 200);
+      assert.equal(
+        (await fetch(app.base + '/auth/me', { headers: { cookie: uiSession } })).status,
+        401,
+      );
+      assert.equal(
+        (
+          await post(app.base, '/auth/login', {
+            username: 'ui-automation',
+            ['password']: 'synthetic ui test passphrase',
+          })
+        ).status,
+        401,
+      );
+      const replacementLogin = await post(app.base, '/auth/login', {
+        username: 'ui-automation',
+        ['password']: 'replacement synthetic passphrase',
+      });
+      assert.equal(replacementLogin.status, 200);
+      const replacementSession = replacementLogin.headers.get('set-cookie').split(';')[0];
+
+      const disabled = await fetch(app.base + '/api/admin/accounts/' + created.id, {
+        method: 'PUT',
+        headers: {
+          cookie: adminSession,
+          origin: app.base,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ username: 'ui-automation', enabled: false }),
+      });
+      assert.equal(disabled.status, 200);
+      assert.equal(
+        (await fetch(app.base + '/auth/me', { headers: { cookie: replacementSession } })).status,
+        401,
+      );
+
+      const removed = await fetch(app.base + '/api/admin/accounts/' + created.id, {
+        method: 'DELETE',
+        headers: { cookie: adminSession, origin: app.base },
+      });
+      assert.equal(removed.status, 200);
+      assert.equal(storage.auth.findAdministrator('ui-automation'), undefined);
+    } finally {
+      await app.close();
+    }
+  }));

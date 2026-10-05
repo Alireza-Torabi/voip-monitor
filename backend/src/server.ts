@@ -357,6 +357,66 @@ export function createApp(
           ? send(response, 200, result.principal, auth.cookie(result.token))
           : send(response, 401, { error: 'invalid_credentials' });
       }
+      if (path === '/api/admin/accounts' && auth) {
+        const principal = auth.principal(sessionToken(request));
+        if (!principal) return send(response, 401, { error: 'unauthorized' });
+        if (request.method === 'GET') return send(response, 200, { items: auth.listAccounts() });
+        if (request.method !== 'POST') return send(response, 404, { error: 'not_found' });
+        if (!sameOrigin(request, auth.requiresSecureOrigin))
+          return send(response, 403, { error: 'forbidden' });
+        const input = await body(request);
+        if (!input || Object.keys(input).some((key) => !['username', 'password'].includes(key)))
+          return send(response, 400, { error: 'invalid_request' });
+        const created = await auth.createAccount(input.username, input.password);
+        return created
+          ? send(response, 201, created)
+          : send(response, 400, { error: 'invalid_account' });
+      }
+
+      const adminPasswordAction = path.match(/^\/api\/admin\/accounts\/([^/]+)\/password$/);
+      if (adminPasswordAction && auth) {
+        const principal = auth.principal(sessionToken(request));
+        if (!principal) return send(response, 401, { error: 'unauthorized' });
+        if (request.method !== 'PUT') return send(response, 404, { error: 'not_found' });
+        if (!sameOrigin(request, auth.requiresSecureOrigin))
+          return send(response, 403, { error: 'forbidden' });
+        const input = await body(request);
+        if (!input || Object.keys(input).length !== 1 || !('password' in input))
+          return send(response, 400, { error: 'invalid_request' });
+        const updated = await auth.resetAccountPassword(adminPasswordAction[1]!, input.password);
+        return updated
+          ? send(response, 200, { status: 'password_updated' })
+          : send(response, 400, { error: 'invalid_account_or_password' });
+      }
+
+      const adminAccountAction = path.match(/^\/api\/admin\/accounts\/([^/]+)$/);
+      if (adminAccountAction && auth) {
+        const principal = auth.principal(sessionToken(request));
+        if (!principal) return send(response, 401, { error: 'unauthorized' });
+        const accountId = adminAccountAction[1]!;
+        if (!['PUT', 'DELETE'].includes(request.method ?? ''))
+          return send(response, 404, { error: 'not_found' });
+        if (!sameOrigin(request, auth.requiresSecureOrigin))
+          return send(response, 403, { error: 'forbidden' });
+        if (request.method === 'DELETE') {
+          return auth.deleteAccount(principal.id, accountId)
+            ? send(response, 200, { status: 'deleted' })
+            : send(response, 409, { error: 'account_delete_rejected' });
+        }
+        const input = await body(request);
+        if (
+          !input ||
+          Object.keys(input).some((key) => !['username', 'enabled'].includes(key)) ||
+          !('username' in input) ||
+          !('enabled' in input)
+        )
+          return send(response, 400, { error: 'invalid_request' });
+        const updated = auth.updateAccount(principal.id, accountId, input.username, input.enabled);
+        return updated
+          ? send(response, 200, updated)
+          : send(response, 409, { error: 'account_update_rejected' });
+      }
+
       const telephonyStateAction = path.match(
         /^\/api\/pbx-instances\/([^/]+)\/telephony-state(\/stream)?$/,
       );

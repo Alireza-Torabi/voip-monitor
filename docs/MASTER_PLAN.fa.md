@@ -1,6 +1,6 @@
 # Master Plan
 
-وضعیت: 2026-10-05. PR #47 داخل main Merge شده است. Correction مربوط به Dashboard Builder و Service Monitoring روی feature/dashboard-builder به‌صورت Local کامل است و Merge آن Pending است. Task 43 هنوز شروع نشده است.
+وضعیت: 2026-10-05. PR #48 داخل main Merge شده است. Correction مربوط به مدیریت Local Account روی feature/account-management به‌صورت Local کامل است و Merge آن Pending است. Task 43 هنوز شروع نشده است.
 
 ## Phase 0 - کشف محیط
 
@@ -85,21 +85,25 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 
 ### وضعیت فعلی ادامه کار
 
-- Branch فعلی feature/dashboard-builder است که پس از Merge شدن PR #47 از main همگام‌شده ساخته شد.
-- این Correction، Task 43 را شروع نمی‌کند و هیچ PBX Write Action یا Arbitrary SSH Command Surface جدیدی اضافه نمی‌کند.
-- Dashboard اکنون به‌جای یک صفحه ثابت، Builder ذخیره‌شده و PBX-scoped است. هر Dashboard نام و Ordered Widget List محدود دارد و چند Dashboard مستقل قابل Create، Select، Rename، Save و Delete هستند.
-- Widgetها فقط از Catalog ثابت و Allowlist‌شده اضافه می‌شوند، قابل Delete و Drag برای Reorder هستند و Width/Height محدود قابل Resize دارند. Persistence فقط Type/ID/Size/Order را ذخیره می‌کند و هیچ Executable Code یا Query/Config دلخواه ذخیره نمی‌شود.
-- وقتی برای یک PBX هیچ Dashboard ذخیره‌شده‌ای وجود نداشته باشد، Default Dashboard Generic به‌صورت خودکار ساخته می‌شود؛ هیچ Host/Path/Service مخصوص Deployment داخل آن نیست.
-- Fullscreen روی خود Dashboard Root با Browser Fullscreen API اجرا می‌شود، بنابراین Header/Navigation اصلی خارج Fullscreen است. Controlهای Dashboard بعد از سه ثانیه Auto-hide می‌شوند و با Pointer Movement دوباره ظاهر می‌شوند؛ مناسب TV/NOC.
-- Dashboard Definitionها در Migration 14 ذخیره می‌شوند و APIهای PBX-scoped و Authenticated/Same-origin برای List/Create/Update/Delete دارند. Payload حداکثر 64 Widget، Type ثابت، ID یکتا و Safe، Width بین 1 تا 12، Height بین 1 تا 4 و Name حداکثر 80 Character است.
-- Root Cause مربوط به Service Health رفع شد: Production Factory قبلاً Collector را بدون serviceIds می‌ساخت و Services Capability همیشه NOT_CONFIGURED می‌ماند. اکنون Config ذخیره‌شده همان PBX خوانده و Service IDها به Collector تزریق می‌شوند.
-- Settings اکنون Service monitoring دارد. Administrator حداکثر 32 Systemd Service ID یکتا و Safe را برای هر PBX تعریف می‌کند. PUT/DELETE بلافاصله SystemMetricsRuntime.syncProfile(id) را اجرا می‌کند و Restart برنامه یا PBX لازم نیست.
-- هیچ Service مربوط به محیط تست به‌عنوان Default Hardcode نشده است. Restricted SSH Allowlist تغییر نکرده و systemctl فقط IDهای Validateشده را بعد از Fixed Command Boundary دریافت می‌کند.
-- Final Validation با Project Node 24.21.0/npm 11.19.0 PASS است: Lint، Format Check، Typecheck، Backend 133/133، Frontend 21/21، Production Build، Foundation Check، License Check و Diff Check. Targeted Testهای Service Monitoring/Dashboard برابر 23/23 و Coverage مربوط به Builder/Service Settings برابر 21/21 PASS است.
-- در این Correction هیچ PBX/SSH Host واقعی Contact یا Probe نشد.
+- Branch فعلی feature/account-management است که پس از Merge شدن PR #48 از main همگام‌شده ساخته شد.
+- این Correction، Task 43 را شروع نمی‌کند و رفتار Collection مربوط به PBX/Provider را تغییر نمی‌دهد.
+- Settings اکنون Users & accounts دارد و روی Local Authentication Model موجود کار می‌کند. مدل فعلی عمداً Single-role است: تمام Local Accountهای مدیریت‌شده Administrator هستند و UI هیچ RBAC/Permission غیرواقعی نشان نمی‌دهد.
+- Administrator احراز هویت‌شده می‌تواند Safe Account Metadata را ببیند، Administrator جدید بسازد، Username را Rename کند، Account غیرجاری را Enable/Disable کند، Password را Reset کند و Account غیرجاری را Delete کند.
+- Response امن Account فقط ID، Username Normalize‌شده، Enabled State، Role ثابت ADMINISTRATOR، Created/Updated Timestamp و Last-login اختیاری را برمی‌گرداند. Password Hash و Session Token هرگز از Backend خارج نمی‌شوند.
+- Username Validation از Boundary موجود Auth استفاده می‌کند و Password Create/Reset همان Scrypt Policy و validPassword موجود را reuse می‌کند.
+- Disable کردن Account تمام Sessionهای آن را Revoke می‌کند. Password Reset نیز تمام Sessionهای Account را Revoke می‌کند. Delete با Foreign-key موجود Sessionها را Cascade می‌کند.
+- Account جاری نمی‌تواند خودش را Disable یا Delete کند. آخرین Administrator فعال نیز قابل Disable/Delete نیست تا Lockout کامل رخ ندهد.
+- تمام Mutationهای Account با Same-origin Protection محافظت می‌شوند و GET فقط Authenticated/Read-only است.
+- UI وضعیت Current Account، Role ثابت Administrator، Enabled/Disabled، Created Time، Last Login، Username Editing، Password Reset و Delete را نشان می‌دهد.
+- Account مخصوص Selenium/UI Test باید بعد از Deployment فقط Local Provision شود و Credential آن در .local یا Secret Boundary خصوصی Deployment بماند و هرگز Commit نشود. Final Validation با Project Node 24.21.0/npm 11.19.0 PASS است: Lint، Format Check، Typecheck، Backend 134/134، Frontend 22/22، Production Build، Foundation Check، License Check و Diff Check.
 - Task دقیق بعدی پس از Merge این Correction همچنان Task 43 است: Provider-neutral Trunk Discovery گسترده‌تر، ابتدا Synthetic/Mock و Real-PBX Verification فقط با Approval جداگانه.
 
 ### ثبت خرابی و اشکال
+
+- **نبود Account Management بعد از Bootstrap — اصلاح شد:** Schema از قبل چند Administrator Row را پشتیبانی می‌کرد اما Application فقط First Admin را ایجاد می‌کرد. اکنون Repository/Service/API/UI محدود برای مدیریت Account روی همان Schema اضافه شده است.
+- **ریسک Lockout — محدود شد:** Self-disable/Self-delete رد می‌شود و آخرین Administrator فعال نیز قابل Disable/Delete نیست.
+- **Session بعد از تغییر امنیتی Account — اصلاح شد:** Disable یا Password Reset تمام Sessionهای همان Account را Revoke می‌کند.
+- **ابهام Role Model — مستند شد:** مدل فعلی فقط Administrator دارد و UI هیچ RBAC غیرواقعی نمایش نمی‌دهد.
 
 - **Service Health همیشه NOT_CONFIGURED — رفع شد:** Production Collector Factory هیچ Service ID پیکربندی‌شده‌ای به Collector نمی‌داد. اکنون Service Monitoring Config به‌صورت PBX-scoped ذخیره و هنگام ساخت Collector تزریق می‌شود و Mutation فوری Metrics Runtime را Sync می‌کند.
 - **Fixed Dashboard برای TV/NOC مناسب نبود — رفع شد:** Layout چندگانه، Reorder، Resize و حذف Widget وجود نداشت. اکنون Dashboard Definition ذخیره‌شده، Widget Catalog، Drag Reorder، Resize محدود و CRUD چند Dashboard وجود دارد.

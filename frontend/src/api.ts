@@ -2,6 +2,16 @@ export interface Principal {
   id: string;
   username: string;
 }
+
+export interface AdministratorAccount {
+  id: string;
+  username: string;
+  enabled: boolean;
+  role: 'ADMINISTRATOR';
+  createdAt: string;
+  updatedAt: string;
+  lastLoginAt?: string;
+}
 export type PbxConnectionState =
   'UNVERIFIED' | 'DISCONNECTED' | 'CONNECTING' | 'CONNECTED' | 'DEGRADED' | 'ERROR';
 
@@ -293,6 +303,14 @@ export const api = {
   login: (username: string, password: string) =>
     request<Principal>('/auth/login', 'POST', { username, password }),
   me: () => request<Principal>('/auth/me'),
+  listAccounts: () => request<{ items: AdministratorAccount[] }>('/api/admin/accounts'),
+  createAccount: (username: string, password: string) =>
+    request<AdministratorAccount>('/api/admin/accounts', 'POST', { username, password }),
+  updateAccount: (id: string, username: string, enabled: boolean) =>
+    request<AdministratorAccount>(`/api/admin/accounts/${id}`, 'PUT', { username, enabled }),
+  resetAccountPassword: (id: string, password: string) =>
+    request<{ status: string }>(`/api/admin/accounts/${id}/password`, 'PUT', { password }),
+  deleteAccount: (id: string) => request<{ status: string }>(`/api/admin/accounts/${id}`, 'DELETE'),
   logout: () => request<{ status: string }>('/auth/logout', 'POST'),
   listPbx: () => request<{ items: PbxProfile[] }>('/api/pbx-instances'),
   providerStatus: (id: string) =>
