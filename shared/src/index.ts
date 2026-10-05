@@ -8,9 +8,17 @@ export type CapabilityState =
   'SUPPORTED' | 'UNSUPPORTED' | 'NOT_CONFIGURED' | 'PERMISSION_DENIED' | 'UNKNOWN';
 export type EndpointRegistrationState = 'REGISTERED' | 'UNREGISTERED' | 'UNKNOWN';
 export type EndpointReachability = 'REACHABLE' | 'UNREACHABLE' | 'UNKNOWN';
-export type TrunkKind = 'OUTBOUND_REGISTRATION';
+export type TrunkKind = 'OUTBOUND_REGISTRATION' | 'PEER';
+export type TrunkTechnology = 'CHAN_SIP' | 'PJSIP';
+export type TrunkDiscoveryConfidence = 'CONFIRMED' | 'CANDIDATE';
 export type TrunkRegistrationState =
-  'REGISTERED' | 'UNREGISTERED' | 'REGISTERING' | 'REJECTED' | 'FAILED' | 'UNKNOWN';
+  | 'REGISTERED'
+  | 'UNREGISTERED'
+  | 'REGISTERING'
+  | 'REJECTED'
+  | 'FAILED'
+  | 'NOT_APPLICABLE'
+  | 'UNKNOWN';
 export type QueueMemberAvailability =
   | 'UNKNOWN'
   | 'AVAILABLE'
@@ -224,6 +232,8 @@ export type ProviderEvent =
       type: 'TRUNK_REGISTRATION_CHANGED';
       trunkId: string;
       kind: TrunkKind;
+      technology: TrunkTechnology;
+      confidence: TrunkDiscoveryConfidence;
       registrationState: TrunkRegistrationState;
     })
   | (ProviderEventBase & {
@@ -321,7 +331,10 @@ export interface ProviderEndpointStateSnapshot {
 export interface ProviderTrunkSnapshot {
   trunkId: string;
   kind: TrunkKind;
+  technology: TrunkTechnology;
+  confidence: TrunkDiscoveryConfidence;
   registrationState: TrunkRegistrationState;
+  reachability?: EndpointReachability;
   /** Sequence of the source snapshot item within the provider connection. */
   streamSequence?: number;
 }

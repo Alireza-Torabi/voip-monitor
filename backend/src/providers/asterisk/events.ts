@@ -42,6 +42,7 @@ export function normalizeTrunkRegistrationState(
     case 'registered':
       return 'REGISTERED';
     case 'unregistered':
+    case 'stopped':
       return 'UNREGISTERED';
     case 'request sent':
     case 'auth. sent':
@@ -342,6 +343,8 @@ export function normalizeAmiEvent(
       ...streamOrder(event),
       trunkId: `${channelType}/${username}@${domain}`,
       kind: 'OUTBOUND_REGISTRATION',
+      technology: channelType.trim().toUpperCase() === 'PJSIP' ? 'PJSIP' : 'CHAN_SIP',
+      confidence: 'CONFIRMED',
       registrationState: normalizeTrunkRegistrationState(status),
     };
   }

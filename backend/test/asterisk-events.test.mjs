@@ -163,6 +163,8 @@ test('AMI normalizer maps core channel, dial, bridge, and peer events without ra
         observedAt,
         trunkId: 'SIP/synthetic-user@sip.example.test',
         kind: 'OUTBOUND_REGISTRATION',
+        technology: 'CHAN_SIP',
+        confidence: 'CONFIRMED',
         registrationState: 'REGISTERED',
       },
     ],

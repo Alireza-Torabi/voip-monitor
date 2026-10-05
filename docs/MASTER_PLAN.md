@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-05. PR #48 is merged. A user-requested local-account management correction is complete locally on feature/account-management and merge is pending. Task 43 has not started.
+Status: 2026-10-05. PR #49 is merged. Task 43 is complete locally on feature/trunk-discovery and merge is pending. No real PBX verification was performed. Task 44 is next after merge.
 
 ## Phase 0 — environment discovery
 
@@ -80,25 +80,35 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 40: expose the existing `TelephonyStateEngine` through authenticated PBX-scoped read-only current-state and SSE realtime APIs. The stream publishes only normalized engine state, is capped at 64 concurrent streams with 15-second heartbeats, publishes `current: null` after a profile-runtime reset, and creates no PBX connection/action or new collection source.
 - [x] Task 41: consume Task 40 in the bilingual operator dashboard using Chakra UI v3 primitives. Present PBX-scoped telephony synchronization, current calls/channels/endpoints/trunks/queues/agent interactions, keep technical identifiers LTR inside the bilingual/RTL surface, and reuse existing provider/system/security summaries without adding PBX actions, telephony history, or broader collection.
 - [x] Task 42: added authenticated PBX-scoped SSH system-metrics configuration/credential management. GET returns safe metadata only; PUT/DELETE are same-origin protected, credentials are encrypted/write-only, pinned SHA-256 host-key trust remains mandatory, and every mutation calls SystemMetricsRuntime.syncProfile(instanceId). The bilingual Chakra UI now exposes a dedicated System metrics SSH workspace. No real SSH connection/test endpoint was added; validation is synthetic/mock only.
-- [ ] Task 43: broaden provider-neutral trunk inventory beyond outbound SIP registrations, covering bounded chan_sip/PJSIP-compatible read-only discovery with synthetic/mock compatibility tests before any separately approved real-PBX verification.
+- [x] Task 43: broaden provider-neutral trunk inventory beyond outbound SIP registrations with bounded chan_sip/PJSIP-compatible read-only discovery, explicit confirmed-vs-candidate classification, synthetic/mock compatibility coverage, and no real-PBX verification.
 - [ ] Task 44: define and persist bounded PBX-scoped telephony history/retention from existing normalized telephony state/events only, without new PBX actions or collection sources.
 
 ### Current execution handoff
 
-- Current branch: feature/account-management, created from synchronized main after PR #48 merged the dashboard-builder/service-monitoring correction.
-- This correction does not start Task 43 and does not change PBX/provider collection behavior.
-- Settings now includes Users & accounts for the existing local authentication model. The current model remains intentionally single-role: every managed local account is an Administrator; no fake RBAC/permission model is presented in the UI.
-- Authenticated administrators can list safe account metadata, create additional local administrators, rename accounts, enable/disable non-current accounts, reset passwords, and delete non-current accounts.
-- Safe account responses contain id, normalized username, enabled state, fixed ADMINISTRATOR role, created/updated timestamps, and optional last-login timestamp only. Password hashes and session tokens never leave the backend.
-- Username validation reuses the existing normalized lowercase auth boundary. Password creation/reset reuses the existing scrypt password policy and validPassword boundary.
-- Disabling an account revokes all of its sessions. Password reset also revokes all sessions for that account. Deleting an account cascades its sessions through the existing foreign key.
-- The currently authenticated account cannot disable or delete itself through the management API. The last enabled administrator cannot be disabled or deleted, preventing accidental total lockout.
-- Account mutation APIs are same-origin protected. GET list remains authenticated/read-only.
-- The UI exposes current-account status, fixed Administrator role, enabled/disabled state, created timestamp, last login timestamp, username editing, password reset, and account deletion controls.
-- A dedicated Selenium/UI-test account is intended to be provisioned locally only after deployment; its credential must remain under .local or another deployment-private secret boundary and must never be committed. Final validation passes under project Node 24.21.0/npm 11.19.0: lint, format check, typecheck, backend 134/134 tests, frontend 22/22 tests, production build, foundation check, license check, and diff check.
-- Exact next roadmap task after this correction merges remains Task 43: broaden provider-neutral trunk inventory beyond outbound registrations, synthetic/mock first and real-PBX verification only with separate approval.
+- Current branch: feature/trunk-discovery, created from synchronized main after PR #49 merged local account management.
+- Task 43 is implemented synthetic/mock first and does not perform any real-PBX verification.
+- The provider-neutral trunk model now distinguishes OUTBOUND_REGISTRATION from PEER, records technology as CHAN_SIP or PJSIP, and records discovery confidence as CONFIRMED or CANDIDATE.
+- CONFIRMED is reserved for explicit outbound registration objects. Existing chan_sip SIPshowregistry remains supported, and PJSIP outbound registrations are collected with PJSIPShowRegistrationsOutbound.
+- Static chan_sip peers (Dynamic=no/false/0) are represented as PEER + CHAN_SIP + CANDIDATE. Their registration state is explicitly NOT_APPLICABLE; bounded reachability is derived from the existing peer status normalizer.
+- PJSIP endpoints are listed with PJSIPShowEndpoints; only endpoints with a meaningful OutboundAuths value are represented as PEER + PJSIP + CANDIDATE. Empty/none-style outbound-auth fields are ignored.
+- Candidate semantics are intentional: AMI does not expose one provider-independent boolean that proves every peer/endpoint is a trunk. The UI therefore does not mislabel candidates as confirmed trunks.
+- The existing SIPpeers action is reused once per reconcile to build both endpoint state and static chan_sip trunk candidates, avoiding a duplicate large peer-list request.
+- Trunk source collection is bounded to 4096 items per source and remains read-only. Raw SIP/PJSIP addresses, contacts, auth usernames, ServerUri values, and other provider-specific payload fields are not forwarded into normalized state.
+- Multiple trunk sources are merged by stable normalized trunk ID. If the same ID appears as both a candidate peer and an explicit registration, the CONFIRMED registration wins.
+- Trunk capability is SUPPORTED when at least one read-only trunk source is available, even if another source is unsupported or permission denied. If no source is supported, permission denial takes precedence over unsupported.
+- Existing chan_sip live Registry events remain normalized as CONFIRMED registration updates. PJSIP/static-peer additions are reconciliation snapshot based; no new write or qualify action was introduced.
+- The Trunks workspace now shows Technology, Kind, Classification, Registration, Reachability, and Updated columns, and explains CONFIRMED versus CANDIDATE.
+- Final validation under project Node 24.21.0/npm 11.19.0 passes: lint, format check, typecheck, backend 135/135 tests, frontend 23/23 tests, production build, foundation check, license check, and diff check. Targeted provider/event/state-engine coverage passes 34/34.
+- Selenium UI validation before Task 43 passed with the deployment-local Selenium test account: authenticated Dashboard/Settings access, dashboard edit controls, resize click, dashboard-root fullscreen excluding the application header, Users & accounts, and Persian RTL direction.
+- No PBX configuration/write operation was added. No real PBX/AMI compatibility probe was run for Task 43.
+- Exact next roadmap task after merge is Task 44: define and persist bounded PBX-scoped telephony history/retention from existing normalized state/events only, without new PBX actions or collection sources.
 
 ### Failure and bug log
+
+- **Final foundation gate initially hit Git safe-directory ownership protection — resolved:** the remote command session runs as a different OS user than the repository owner, so the foundation script's internal Git enumeration was rejected as dubious ownership. No repository/content defect existed. The gate was rerun with a process-scoped Git `safe.directory` configuration for `/opt/voip-monitor`; foundation, license, and diff checks then passed without changing repository ownership or tracked configuration.
+- **Trunk inventory falsely equated trunks with outbound registrations — resolved for Task 43:** the previous model only consumed SIPshowregistry, so static/IP-auth chan_sip peers and PJSIP definitions could be absent. Fix: merge explicit chan_sip/PJSIP outbound registrations with conservatively classified peer candidates and expose confidence instead of claiming every peer is a confirmed trunk.
+- **Potential duplicate SIP peer listing during broader trunk discovery — prevented:** endpoint state and static chan_sip trunk candidates are derived from the same single SIPpeers snapshot per reconcile.
+- **Provider-private trunk details leaking into normalized state — prevented:** PJSIP auth/contact/URI fields and chan_sip IP address fields are used only for bounded classification/status decisions and are never forwarded.
 
 - **No post-bootstrap account-management surface — corrected:** the local auth schema already supported multiple administrator rows, but only the first administrator could be created through the application. Fix: add bounded authenticated account-management repository/service/API/UI operations over the existing schema.
 - **Account lockout risk — bounded:** self-disable/self-delete are rejected, and the last enabled administrator cannot be disabled/deleted.

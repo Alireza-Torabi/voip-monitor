@@ -19,6 +19,26 @@ function parseHeaders(raw) {
   );
 }
 
+function addUnsupportedPjsip(transport) {
+  return transport
+    .onEventList('PJSIPShowRegistrationsOutbound', () => ({
+      response: { response: 'Error', message: 'Invalid action', fields: {} },
+      events: [],
+      completion: {
+        event: 'OutboundRegistrationDetailComplete',
+        fields: { EventList: 'Complete' },
+      },
+    }))
+    .onEventList('PJSIPShowEndpoints', () => ({
+      response: { response: 'Error', message: 'Invalid action', fields: {} },
+      events: [],
+      completion: {
+        event: 'EndpointListComplete',
+        fields: { EventList: 'Complete', ListItems: '0' },
+      },
+    }));
+}
+
 async function syntheticAmi(handler, run) {
   const sockets = new Set();
   const server = createServer((socket) => {
@@ -368,6 +388,7 @@ test('Asterisk provider logs in, discovers version, reconciles, and wipes passwo
     })
     .on('Logoff', () => ({ response: 'Goodbye', fields: {} }));
 
+  addUnsupportedPjsip(transport);
   const provider = new AsteriskProvider({
     instanceId: 'synthetic-pbx',
     displayName: 'Synthetic PBX',
@@ -436,6 +457,8 @@ test('Asterisk provider logs in, discovers version, reconciles, and wipes passwo
       {
         trunkId: 'SIP/synthetic-user@sip.example.test',
         kind: 'OUTBOUND_REGISTRATION',
+        technology: 'CHAN_SIP',
+        confidence: 'CONFIRMED',
         registrationState: 'REGISTERED',
       },
     ],
@@ -480,6 +503,176 @@ test('Asterisk provider logs in, discovers version, reconciles, and wipes passwo
   assert.equal(disconnected.sources.AMI.freshness, 'UNAVAILABLE');
 });
 
+test('Asterisk provider merges chan_sip static peers and PJSIP registrations/endpoints into bounded trunk inventory', async () => {
+  const transport = new MockAmiTransport()
+    .on('Login', () => ({ response: 'Success', fields: {} }))
+    .onEventList('CoreShowChannels', () => ({
+      response: { response: 'Success', fields: { EventList: 'start' } },
+      events: [],
+      completion: {
+        event: 'CoreShowChannelsComplete',
+        fields: { EventList: 'Complete', ListItems: '0' },
+      },
+    }))
+    .onEventList('SIPpeers', (_action, spec) => {
+      assert.deepEqual(spec, {
+        itemEvent: 'PeerEntry',
+        completeEvent: 'PeerlistComplete',
+      });
+      return {
+        response: { response: 'Success', fields: { EventList: 'start' } },
+        events: [
+          {
+            event: 'PeerEntry',
+            fields: {
+              Channeltype: 'SIP',
+              ObjectName: 'static-carrier',
+              Dynamic: 'no',
+              IPaddress: '192.0.2.44',
+              Status: 'OK (8 ms)',
+            },
+          },
+          {
+            event: 'PeerEntry',
+            fields: {
+              Channeltype: 'SIP',
+              ObjectName: 'dynamic-phone',
+              Dynamic: 'yes',
+              IPaddress: '192.0.2.55',
+              Status: 'OK (14 ms)',
+            },
+          },
+        ],
+        completion: {
+          event: 'PeerlistComplete',
+          fields: { EventList: 'Complete', ListItems: '2' },
+        },
+      };
+    })
+    .onEventList('SIPshowregistry', () => ({
+      response: { response: 'Success', fields: { EventList: 'start' } },
+      events: [],
+      completion: {
+        event: 'RegistrationsComplete',
+        fields: { EventList: 'Complete', ListItems: '0' },
+      },
+    }))
+    .onEventList('PJSIPShowRegistrationsOutbound', (_action, spec) => {
+      assert.deepEqual(spec, {
+        itemEvents: ['OutboundRegistrationDetail', 'AuthDetail'],
+        completeEvent: 'OutboundRegistrationDetailComplete',
+      });
+      return {
+        response: { response: 'Success', fields: { EventList: 'start' } },
+        events: [
+          {
+            event: 'OutboundRegistrationDetail',
+            fields: {
+              ObjectName: 'carrier-registration',
+              Endpoint: 'carrier-east',
+              Status: 'Registered',
+              ServerUri: 'sip:carrier.example.test',
+            },
+          },
+          {
+            event: 'AuthDetail',
+            fields: {
+              ObjectName: 'carrier-auth',
+              Username: 'private-synthetic-user',
+            },
+          },
+        ],
+        completion: {
+          event: 'OutboundRegistrationDetailComplete',
+          fields: { EventList: 'Complete', Registered: '1', NotRegistered: '0' },
+        },
+      };
+    })
+    .onEventList('PJSIPShowEndpoints', (_action, spec) => {
+      assert.deepEqual(spec, {
+        itemEvent: 'EndpointList',
+        completeEvent: 'EndpointListComplete',
+      });
+      return {
+        response: { response: 'Success', fields: { EventList: 'start' } },
+        events: [
+          {
+            event: 'EndpointList',
+            fields: {
+              ObjectName: 'carrier-east',
+              OutboundAuths: 'carrier-auth',
+              DeviceState: 'Not in use',
+              Contacts: 'sip:private-carrier-address',
+            },
+          },
+          {
+            event: 'EndpointList',
+            fields: {
+              ObjectName: 'phone-100',
+              OutboundAuths: '',
+              DeviceState: 'Not in use',
+              Contacts: 'sip:private-phone-address',
+            },
+          },
+        ],
+        completion: {
+          event: 'EndpointListComplete',
+          fields: { EventList: 'Complete', ListItems: '2' },
+        },
+      };
+    })
+    .onEventList('QueueStatus', () => ({
+      response: { response: 'Success', fields: { EventList: 'start' } },
+      events: [],
+      completion: {
+        event: 'QueueStatusComplete',
+        fields: { EventList: 'Complete', ListItems: '0' },
+      },
+    }))
+    .on('Logoff', () => ({ response: 'Goodbye', fields: {} }));
+
+  const provider = new AsteriskProvider({
+    instanceId: 'synthetic-pbx',
+    displayName: 'Synthetic PBX',
+    host: 'pbx.example.test',
+    port: 5038,
+    amiUsername: 'synthetic-admin',
+    readAmiPassword: () => Buffer.from('synthetic-secret'),
+    resolver: {
+      async resolve() {
+        return ['192.0.2.20'];
+      },
+    },
+    transport,
+  });
+
+  await provider.connect();
+  const state = await provider.getCurrentState();
+  assert.equal(state.trunkState.capability, 'SUPPORTED');
+  assert.deepEqual(state.trunkState.trunks, [
+    {
+      trunkId: 'PJSIP/carrier-east',
+      kind: 'OUTBOUND_REGISTRATION',
+      technology: 'PJSIP',
+      confidence: 'CONFIRMED',
+      registrationState: 'REGISTERED',
+    },
+    {
+      trunkId: 'SIP/static-carrier',
+      kind: 'PEER',
+      technology: 'CHAN_SIP',
+      confidence: 'CANDIDATE',
+      registrationState: 'NOT_APPLICABLE',
+      reachability: 'REACHABLE',
+    },
+  ]);
+  assert.ok(!JSON.stringify(state.trunkState).includes('192.0.2.44'));
+  assert.ok(!JSON.stringify(state.trunkState).includes('private-carrier-address'));
+  assert.ok(!JSON.stringify(state.trunkState).includes('private-synthetic-user'));
+  assert.ok(!JSON.stringify(state.trunkState).includes('phone-100'));
+  await provider.disconnect();
+});
+
 test('Asterisk provider keeps channel snapshots usable when SIP peer listing is denied', async () => {
   const transport = new MockAmiTransport()
     .on('Login', () => ({ response: 'Success', fields: {} }))
@@ -513,6 +706,7 @@ test('Asterisk provider keeps channel snapshots usable when SIP peer listing is 
       },
     }))
     .on('Logoff', () => ({ response: 'Goodbye', fields: {} }));
+  addUnsupportedPjsip(transport);
   const provider = new AsteriskProvider({
     instanceId: 'synthetic-pbx',
     displayName: 'Synthetic PBX',
@@ -575,6 +769,7 @@ test('Asterisk provider keeps channel and endpoint snapshots usable when SIP reg
       },
     }))
     .on('Logoff', () => ({ response: 'Goodbye', fields: {} }));
+  addUnsupportedPjsip(transport);
   const provider = new AsteriskProvider({
     instanceId: 'synthetic-pbx',
     displayName: 'Synthetic PBX',
@@ -593,11 +788,11 @@ test('Asterisk provider keeps channel and endpoint snapshots usable when SIP reg
   await provider.connect();
   const state = await provider.getCurrentState();
   assert.equal(state.endpointState.capability, 'SUPPORTED');
-  assert.equal(state.trunkState.capability, 'PERMISSION_DENIED');
+  assert.equal(state.trunkState.capability, 'SUPPORTED');
   assert.deepEqual(state.trunkState.trunks, []);
   const capabilities = await provider.getCapabilities();
   assert.equal(capabilities.telephony.endpoints, 'SUPPORTED');
-  assert.equal(capabilities.telephony.trunks, 'PERMISSION_DENIED');
+  assert.equal(capabilities.telephony.trunks, 'SUPPORTED');
   assert.equal(capabilities.telephony.queues, 'SUPPORTED');
   assert.equal((await provider.getHealth()).connection.state, 'CONNECTED');
   await provider.disconnect();
@@ -636,6 +831,7 @@ test('Asterisk provider keeps channel, endpoint, and trunk snapshots usable when
       },
     }))
     .on('Logoff', () => ({ response: 'Goodbye', fields: {} }));
+  addUnsupportedPjsip(transport);
   const provider = new AsteriskProvider({
     instanceId: 'synthetic-pbx',
     displayName: 'Synthetic PBX',
@@ -681,6 +877,7 @@ test('Asterisk provider rejects an inconsistent channel-list count as degraded s
       },
     }))
     .on('Logoff', () => ({ response: 'Goodbye', fields: {} }));
+  addUnsupportedPjsip(transport);
   const provider = new AsteriskProvider({
     instanceId: 'synthetic-pbx',
     displayName: 'Synthetic PBX',
@@ -704,6 +901,7 @@ test('Asterisk provider rejects an inconsistent channel-list count as degraded s
 
 test('Asterisk provider maps a blocked network target to safe connection failure', async () => {
   const transport = new MockAmiTransport();
+  addUnsupportedPjsip(transport);
   const provider = new AsteriskProvider({
     instanceId: 'synthetic-pbx',
     displayName: 'Synthetic PBX',
@@ -733,6 +931,7 @@ test('Asterisk provider maps denied discovery action to safe permission failure'
       fields: {},
     }))
     .on('Logoff', () => ({ response: 'Goodbye', fields: {} }));
+  addUnsupportedPjsip(transport);
   const provider = new AsteriskProvider({
     instanceId: 'synthetic-pbx',
     displayName: 'Synthetic PBX',
@@ -760,6 +959,7 @@ test('Asterisk provider maps rejected login to safe authentication failure healt
     message: 'Authentication failed',
     fields: {},
   }));
+  addUnsupportedPjsip(transport);
   const provider = new AsteriskProvider({
     instanceId: 'synthetic-pbx',
     displayName: 'Synthetic PBX',

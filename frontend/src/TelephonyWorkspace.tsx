@@ -201,10 +201,28 @@ export function TelephonyWorkspace({
     }
     if (page === 'trunks') {
       return state.trunks
-        .filter((item) => matches(query, item.trunkId, item.kind, item.registrationState))
+        .filter((item) =>
+          matches(
+            query,
+            item.trunkId,
+            item.kind,
+            item.technology,
+            item.confidence,
+            item.registrationState,
+            item.reachability,
+          ),
+        )
         .map((item) => ({
           key: item.trunkId,
-          cells: [item.trunkId, item.kind, item.registrationState, item.updatedAt],
+          cells: [
+            item.trunkId,
+            item.technology,
+            item.kind,
+            item.confidence,
+            item.registrationState,
+            item.reachability ?? '—',
+            item.updatedAt,
+          ],
         }));
     }
     if (page === 'queues') {
@@ -264,7 +282,15 @@ export function TelephonyWorkspace({
         : page === 'endpoints'
           ? [text.entityId, text.registrationState, text.reachability, text.updatedAt]
           : page === 'trunks'
-            ? [text.entityId, text.trunkKind, text.registrationState, text.updatedAt]
+            ? [
+                text.entityId,
+                text.trunkTechnology,
+                text.trunkKind,
+                text.trunkConfidence,
+                text.registrationState,
+                text.reachability,
+                text.updatedAt,
+              ]
             : page === 'queues'
               ? [
                   text.entityId,
@@ -360,7 +386,7 @@ export function TelephonyWorkspace({
         </Box>
       </SimpleGrid>
 
-      {page === 'trunks' && rows.length === 0 ? (
+      {page === 'trunks' ? (
         <Card.Root variant="outline" bg="orange.50" borderColor="orange.200">
           <Card.Body gap="1">
             <Text fontWeight="semibold">{text.trunkDiscoveryLimited}</Text>

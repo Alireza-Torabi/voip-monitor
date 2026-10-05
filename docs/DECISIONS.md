@@ -480,3 +480,22 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 312. **Lockout prevention:** reject self-disable, self-delete, and disable/delete of the last enabled administrator.
 313. **Mutation protection:** create/update/password-reset/delete require authenticated same-origin writes.
 314. **UI-test account is deployment-local:** Selenium credentials are not repository configuration. Provision them only into the target deployment and keep them under the local/private secret boundary.
+
+
+## 2026-10-05 — Task 43 broader trunk discovery
+
+315. **Trunk role confidence is explicit:** CONFIRMED means the provider exposed an explicit outbound registration object. Peer/endpoint heuristics are CANDIDATE; the monitor must not claim they are certainly trunks.
+316. **Provider-neutral trunk dimensions:** normalized trunk state carries kind (OUTBOUND_REGISTRATION or PEER), technology (CHAN_SIP or PJSIP), confidence, registration state, and optional bounded reachability.
+317. **Non-registration peers use NOT_APPLICABLE:** registration state for a peer candidate is NOT_APPLICABLE, never a fabricated REGISTERED/UNREGISTERED value.
+318. **chan_sip candidate boundary:** only static SIPpeers entries (Dynamic=no/false/0) become trunk candidates. Dynamic peers remain endpoints only.
+319. **PJSIP candidate boundary:** PJSIPShowEndpoints entries become candidates only when OutboundAuths is meaningfully configured. Empty and none-style values are ignored.
+320. **PJSIP registrations are confirmed:** PJSIPShowRegistrationsOutbound OutboundRegistrationDetail items become confirmed trunks; associated AuthDetail fields are not forwarded.
+321. **Reuse one SIPpeers snapshot:** endpoint inventory and static chan_sip trunk candidates share one SIPpeers request per reconcile.
+322. **Bounded source size:** each trunk source is capped at 4096 received items and fails closed when exceeded.
+323. **Merge policy:** normalized trunk IDs deduplicate sources; confirmed entries outrank candidates.
+324. **Partial source capability:** trunk capability is supported when any trunk source is supported. If none are supported, permission denial takes precedence over unsupported.
+325. **No provider-private addressing/auth details:** normalized trunk state does not expose chan_sip IP addresses, PJSIP Contacts, ServerUri/ClientUri, auth object content, or raw AMI payloads.
+326. **No new active PBX operation:** Task 43 adds only read-only list actions. No qualify/register/unregister/originate/configuration action is used.
+327. **PJSIP/static peer refresh model:** only the existing chan_sip Registry event is live-normalized; PJSIP registrations and peer candidates refresh on normal reconciliation.
+328. **Real-PBX verification remains separately gated:** Task 43 completion is based on synthetic/mock compatibility. No production PBX probe is required to merge the implementation.
+329. **Task 44 remains next:** after Task 43 merges, implement bounded PBX-scoped telephony history/retention from normalized data only.

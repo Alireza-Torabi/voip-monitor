@@ -15,8 +15,10 @@ import type {
   ProviderStateSnapshotListener,
   ProviderTrunkSnapshot,
   QueueMemberAvailability,
+  TrunkDiscoveryConfidence,
   TrunkKind,
   TrunkRegistrationState,
+  TrunkTechnology,
 } from '@voip-monitor/shared';
 
 export type TelephonySynchronization = 'CURRENT' | 'AWAITING_SNAPSHOT' | 'STALE';
@@ -41,7 +43,10 @@ export interface TelephonyEndpointState {
 export interface TelephonyTrunkState {
   trunkId: string;
   kind: TrunkKind;
+  technology: TrunkTechnology;
+  confidence: TrunkDiscoveryConfidence;
   registrationState: TrunkRegistrationState;
+  reachability?: EndpointReachability;
   updatedAt: string;
 }
 
@@ -321,7 +326,10 @@ function publicState(entry: EngineEntry): TelephonyInstanceState | undefined {
     .map((trunk) => ({
       trunkId: trunk.trunkId,
       kind: trunk.kind,
+      technology: trunk.technology,
+      confidence: trunk.confidence,
       registrationState: trunk.registrationState,
+      ...(trunk.reachability === undefined ? {} : { reachability: trunk.reachability }),
       updatedAt: trunk.updatedAt,
     }));
   const queueMembers = [...entry.queueMembers.values()]
@@ -733,16 +741,21 @@ function mergeTrunk(
   const next: MutableTrunk = {
     trunkId: event.trunkId,
     kind: event.kind,
+    technology: event.technology,
+    confidence: event.confidence,
     registrationState:
       event.registrationState === 'UNKNOWN'
         ? (existing?.registrationState ?? 'UNKNOWN')
         : event.registrationState,
+    ...(existing?.reachability === undefined ? {} : { reachability: existing.reachability }),
     updatedAt: event.observedAt,
     order,
   };
   const changed =
     !existing ||
     existing.kind !== next.kind ||
+    existing.technology !== next.technology ||
+    existing.confidence !== next.confidence ||
     existing.registrationState !== next.registrationState;
   entry.trunks.set(event.trunkId, next);
   return changed;
@@ -1343,7 +1356,10 @@ export class TelephonyStateEngine {
         trunks.set(trunk.trunkId, {
           trunkId: trunk.trunkId,
           kind: trunk.kind,
+          technology: trunk.technology,
+          confidence: trunk.confidence,
           registrationState: trunk.registrationState,
+          ...(trunk.reachability === undefined ? {} : { reachability: trunk.reachability }),
           updatedAt: trunkState.observedAt,
           order: trunkSnapshotOrder(snapshot, trunk),
         });

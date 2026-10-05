@@ -1,6 +1,6 @@
 # Project context
 
-Status: PR #48 is merged. The current unmerged feature/account-management branch adds Settings -> Users & accounts over the existing local Administrator model: safe list/create/rename/enable-disable/password-reset/delete, session revocation on sensitive changes, and lockout guards. No password hashes/tokens are exposed and no RBAC is implied. A Selenium UI-test account is deployment-local only and its credential must never enter Git. Task 43 remains next. License: Apache-2.0.
+Status: PR #49 is merged. Task 43 is complete locally on the unmerged feature/trunk-discovery branch: provider-neutral trunk state now covers confirmed chan_sip/PJSIP outbound registrations plus conservative static-peer/PJSIP outbound-auth candidates with explicit technology/confidence, bounded source sizes, safe deduplication, and no provider-private addresses/auth details. Selenium validation with the deployment-local Selenium test account passed before the task. No real PBX verification occurred. Task 44 is next after merge. License: Apache-2.0.
 
 ## Repository state
 
