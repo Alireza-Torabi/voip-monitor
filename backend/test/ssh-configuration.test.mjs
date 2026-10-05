@@ -360,3 +360,49 @@ test('SSH configuration API is authenticated, write-only for credentials, same-o
       await app.close();
     }
   }));
+
+test('dashboard storage API is authenticated, PBX-scoped, same-origin protected, and supports reset-to-all', async () =>
+  fixture(async ({ config, storage, secrets, auth }) => {
+    const app = await serveSshApi(storage, secrets, auth, undefined, undefined);
+    try {
+      const path = '/api/pbx-instances/' + PBX_ID + '/dashboard-storage';
+      assert.equal((await fetch(app.base + path)).status, 401);
+      const cookie = await loginForSshApi(app.base, config);
+      const initial = await (await fetch(app.base + path, { headers: { cookie } })).json();
+      assert.equal(initial.selectedFilesystemIds, null);
+
+      const crossOrigin = await fetch(app.base + path, {
+        method: 'PUT',
+        headers: { cookie, origin: 'https://evil.example', 'content-type': 'application/json' },
+        body: JSON.stringify({ selectedFilesystemIds: ['/dev/root'] }),
+      });
+      assert.equal(crossOrigin.status, 403);
+
+      const savedResponse = await fetch(app.base + path, {
+        method: 'PUT',
+        headers: { cookie, origin: app.base, 'content-type': 'application/json' },
+        body: JSON.stringify({ selectedFilesystemIds: ['/dev/root', '/dev/recording'] }),
+      });
+      assert.equal(savedResponse.status, 200);
+      assert.deepEqual((await savedResponse.json()).selectedFilesystemIds, [
+        '/dev/root',
+        '/dev/recording',
+      ]);
+
+      const duplicate = await fetch(app.base + path, {
+        method: 'PUT',
+        headers: { cookie, origin: app.base, 'content-type': 'application/json' },
+        body: JSON.stringify({ selectedFilesystemIds: ['/dev/root', '/dev/root'] }),
+      });
+      assert.equal(duplicate.status, 400);
+
+      const resetResponse = await fetch(app.base + path, {
+        method: 'DELETE',
+        headers: { cookie, origin: app.base },
+      });
+      assert.equal(resetResponse.status, 200);
+      assert.equal((await resetResponse.json()).selectedFilesystemIds, null);
+    } finally {
+      await app.close();
+    }
+  }));

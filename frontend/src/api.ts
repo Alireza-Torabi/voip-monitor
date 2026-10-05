@@ -64,7 +64,17 @@ export interface SystemMetricsSample {
   observedAt: string;
   cpu?: { utilizationPercent: number };
   memory?: { totalBytes: number; availableBytes: number };
+  filesystems?: Array<{
+    filesystemId: string;
+    mountPoint: string;
+    totalBytes: number;
+    availableBytes: number;
+  }>;
   uptime?: { uptimeSeconds: number };
+  services?: Array<{
+    serviceId: string;
+    state: 'ACTIVE' | 'INACTIVE' | 'FAILED' | 'UNKNOWN';
+  }>;
 }
 
 export interface SystemMetricsSourceStatus {
@@ -76,6 +86,10 @@ export interface SystemMetricsSourceStatus {
 export interface SystemMetricsResponse {
   current: SystemMetricsSample | null;
   source?: SystemMetricsSourceStatus;
+}
+
+export interface DashboardStorageConfig {
+  selectedFilesystemIds: string[] | null;
 }
 
 export interface ProviderStatus {
@@ -237,6 +251,18 @@ export const api = {
     request<ProviderStatus>(`/api/pbx-instances/${id}/provider-status`),
   systemMetrics: (id: string) =>
     request<SystemMetricsResponse>(`/api/pbx-instances/${id}/system-metrics`),
+  dashboardStorage: (id: string) =>
+    request<DashboardStorageConfig>(`/api/pbx-instances/${id}/dashboard-storage`),
+  putDashboardStorage: (id: string, selectedFilesystemIds: string[]) =>
+    request<DashboardStorageConfig>(`/api/pbx-instances/${id}/dashboard-storage`, 'PUT', {
+      selectedFilesystemIds,
+    }),
+  resetDashboardStorage: (id: string) =>
+    request<DashboardStorageConfig>(`/api/pbx-instances/${id}/dashboard-storage`, 'DELETE'),
+  systemMetricsHistory: (id: string, from: string, to: string, limit = 120) =>
+    request<{ items: SystemMetricsSample[] }>(
+      `/api/pbx-instances/${id}/system-metrics/history?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&limit=${limit}`,
+    ),
   sshConfiguration: (id: string) =>
     request<SafeSshConfiguration>(`/api/pbx-instances/${id}/ssh-configuration`),
   putSshConfiguration: (id: string, value: object) =>

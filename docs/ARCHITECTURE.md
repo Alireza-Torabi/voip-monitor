@@ -1,6 +1,6 @@
 # Proposed architecture
 
-Status: Task 42 adds authenticated PBX-scoped SSH system-metrics configuration management. Safe metadata is exposed through GET, write-only encrypted credential mutation through same-origin PUT/DELETE, and every successful mutation synchronizes SystemMetricsRuntime immediately. The bilingual Chakra UI includes a System metrics SSH workspace. No SSH connection/test operation is exposed, so real-host access remains approval-gated. Current trunk inventory is still outbound-registration based; Task 43 is next.
+Status: Task 42 is merged. The current fix/dashboard-storage-jalali correction now groups the authenticated UI into Dashboard, Telephony, and Settings; Telephony and Settings own horizontal submenus. Dashboard filesystem visibility is PBX-scoped persisted configuration through migration 12 and authenticated same-origin API. The preference filters presentation only and never changes restricted SSH collection or executes user-provided paths. No real PBX action or new collector is introduced. Task 43 remains next.
 
 ```text
 PBX (Asterisk / FreePBX)

@@ -1,6 +1,6 @@
 # Master Plan
 
-وضعیت: 2026-10-05. Task 41 داخل main Merge شده است. یک UI Consistency Correction روی fix/chakra-ui-shell کامل شده و Merge آن به main هنوز Pending است. پیاده‌سازی قبلی Chakra را فقط روی Operator Dashboard اعمال کرده بود و Setup/Login/PBX/Security همچنان روی Raw HTML/CSS قدیمی بودند؛ این اصلاح کل Application Shell و همه Form/Workspaceهای Operator-facing را روی Chakra UI v3 یکپارچه می‌کند و Scope فقط‌خواندنی PBX را تغییر نمی‌دهد.
+وضعیت: 2026-10-05. Task 42 از طریق PR #46 داخل main Merge شده است. Correction درخواستی Dashboard/Deployment روی fix/dashboard-storage-jalali به‌صورت Local کامل است و Merge آن Pending است. Task 43 هنوز شروع نشده است.
 
 ## Phase 0 - کشف محیط
 
@@ -85,18 +85,32 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 
 ### وضعیت فعلی ادامه کار
 
-- Branch فعلی feature/ssh-metrics-management است که پس از Merge شدن PR #45 از main همگام‌شده ساخته شد.
-- پیاده‌سازی Task 42 به‌صورت Local کامل است و Commit/Push/Merge آن Pending است.
-- Backend اکنون GET/PUT/DELETE /api/pbx-instances/:id/ssh-configuration احراز هویت‌شده و PBX-scoped دارد.
-- GET فقط Safe Metadata و Flagهای hasCredential / hasPrivateKeyPassphrase را برمی‌گرداند؛ Password، Private Key، Passphrase، Ciphertext، Nonce یا Secret Material دیگری Return نمی‌شود.
-- PUT و DELETE به Administrator احراز هویت‌شده و Same-origin Write Protection نیاز دارند. Input همچنان از Schema سخت‌گیرانه SshConfigurationService استفاده می‌کند: Host syntax-safe، Port/Username محدود، Auth Method، Credential فقط Write-only و Pinned SHA-256 Host-key Fingerprint اجباری.
-- پس از هر PUT/DELETE موفق، SystemMetricsRuntime.syncProfile(id) فوری اجرا می‌شود تا Source جدید فعال/جایگزین یا Source حذف‌شده Stop شود؛ Service Restart لازم نیست.
-- Frontend یک Workspace دو‌زبانه Chakra با عنوان System metrics SSH دارد: PBX Selector، Password/Private-key mode، Credential Write-only، Fingerprint Pinning، Remove Action و Notice صریح اینکه Save، Host واقعی را Probe/Test نمی‌کند.
-- هیچ SSH Test Endpoint اضافه نشده و هیچ PBX/SSH Host واقعی Contact نشده است. Task 42 فقط Synthetic/Mock Validation دارد.
-- Final Validation با Project Node 24.21.0/npm 11.19.0 PASS است: Lint، Format Check، Typecheck، Backend 128/128، Frontend 18/18، Production Build، Foundation Check، License Check و Diff Check. SSH Configuration Testهای Targeted نیز بعد از اصلاح Synthetic Fixture برای Secret Scan دوباره 8/8 PASS شدند.
-- Task دقیق بعدی پس از Merge شدن Task 42: **Task 43 — گسترش Provider-neutral Trunk Inventory فراتر از Outbound SIP Registration با Discovery محدود و Read-only سازگار با chan_sip/PJSIP؛ ابتدا Synthetic/Mock و بدون Real-PBX Verification تا Approval جداگانه.**
+- Branch فعلی fix/dashboard-storage-jalali است که پس از Merge شدن Task 42 ساخته شد. Dashboard Visualization Correction قبلی روی همین Branch Push شده و Correction جدید Navigation/Storage Preference قبل از Merge روی آن اضافه شده است.
+- Task 43 هنوز شروع نشده است. هیچ PBX Action، Collector یا Real-host Probe جدیدی اضافه نشده است.
+- Main Navigation احراز هویت‌شده عمداً فقط سه بخش دارد: Dashboard، Telephony و Settings.
+- Telephony یک Horizontal Submenu برای Calls، Channels، Endpoints، Trunks، Queues و Agents دارد و فقط Workspace انتخاب‌شده Render می‌شود.
+- Settings یک Horizontal Submenu برای PBX profiles، System metrics SSH، Dashboard storage و Security monitoring دارد. Settingهای آینده نیز به‌جای شلوغ‌کردن Header در همین ساختار قرار می‌گیرند.
+- Visibility مربوط به Storage داشبورد اکنون PBX-scoped و Persisted است. Migration جدید یک JSON Array محدود از Selected Filesystem IDها را ذخیره می‌کند و هیچ Mount Path محیطی Hardcode نشده است.
+- اگر Preference وجود نداشته باشد، Dashboard همه Filesystemهای Current را نشان می‌دهد. Empty Selection ذخیره‌شده یعنی هیچ Filesystem نمایش داده نشود. Reset رکورد Preference را حذف و Default-all را برمی‌گرداند.
+- صفحه Dashboard storage، Filesystemهای واقعی را از Current System Metrics همان PBX Discover می‌کند، امکان انتخاب می‌دهد و از API احراز هویت‌شده و Same-origin برای GET/PUT/DELETE استفاده می‌کند.
+- مسیرهایی مثل Root یا Recording فقط Observation محیط Deployment هستند و Default Repository نیستند. هر Deployment هر Subset دلخواه از Filesystemهای واقعی خودش را انتخاب می‌کند.
+- Storage همچنان Filesystem/Mount بر پایه df است و Physical-disk Inventory ادعا نمی‌کند.
+- تاریخ/ساعت شمسی، CPU/Memory Trend، Service-health، Gaugeها، Queue Pressure و Dynamic Storage Cardهای Responsive حفظ شده‌اند.
+- Final Validation با Project Node 24.21.0/npm 11.19.0 PASS است: Lint، Format Check، Typecheck، Backend 130/130، Frontend 19/19، Production Build، Foundation Check، License Check و Diff Check. Coverage مربوط به Storage/API نیز Persistence، Auth، Same-origin Write، Reset/Cascade، Dashboard Filtering و Interactive Selection را پوشش می‌دهد.
+- Feature به هیچ Path، PBX Name، IP، Credential یا Topology محیط Validation فعلی وابسته نیست.
+- Task دقیق بعدی پس از Merge این Correction همچنان Task 43 است: Provider-neutral Trunk Discovery گسترده‌تر، ابتدا Synthetic/Mock و Real-PBX Verification فقط با Approval جداگانه.
 
 ### ثبت خرابی و اشکال
+
+- **Top-level Navigation شلوغ — اصلاح شد:** Configuration و Entity Workspaceها مستقیم در Header جمع شده بودند. اکنون فقط Dashboard، Telephony و Settings Top-level هستند و Telephony/Settings Submenu افقی محدود خودشان را دارند.
+- **نبود کنترل روی Filesystemهای کم‌اهمیت — اصلاح شد:** Dashboard قبلاً تمام خروجی df را نمایش می‌داد. اکنون Selection ذخیره‌شده و PBX-scoped مشخص می‌کند کدام Filesystem IDها نمایش داده شوند، بدون تغییر Collection.
+- **ریسک Hardcode مسیرهای پیشنهادی — جلوگیری شد:** Root، Recording، Dev، Run یا مسیر دیگر هیچ‌کدام Default Repository نیستند. UI Sample واقعی Host را Discover و فقط انتخاب Administrator را ذخیره می‌کند.
+- **Lifecycle Preference — مشخص شد:** نبود Record یعنی نمایش همه؛ Empty Array ذخیره‌شده یعنی نمایش هیچ‌کدام؛ DELETE/Reset یعنی بازگشت به Default-all.
+
+- **Filesystem Visibility Gap — اصلاح شد:** System Metrics از قبل Filesystem Array با طول متغیر داشت اما Dashboard آن را نمایش نمی‌داد. اکنون تمام Filesystem/Mountهای Current با Used/Free/Total و درصد مصرف Dynamic Render می‌شوند و هیچ تعداد ثابتی فرض نشده است.
+- **Physical-disk Ambiguity — مستند شد:** Source فعلی POSIX df است؛ بنابراین Storage Dashboard نماینده Mounted Filesystem است، نه Physical-drive Inventory قطعی. اگر Physical Disk لازم باشد Task/Source جدا نیاز است.
+- **Dashboard History Underuse — اصلاح شد:** History API موجود System Metrics قبلاً در Dashboard استفاده نمی‌شد. اکنون Trend CPU/Memory از Window محدود History رسم می‌شود، بدون Dependency نموداری یا Backend Route جدید.
+- **Legacy OpenSSH Fingerprint Command — مستند شد:** بعضی ssh-keygenهای قدیمی Option -E sha256 ندارند. Deployment Guide یک Fallback مبتنی بر OpenSSL برای محاسبه همان SHA-256 Fingerprint از Host Public Key قابل اعتماد دارد.
 
 - **Task 42 نبود Runtime-sync API — رفع شد:** Service موجود SSH Configuration می‌توانست Credential رمزنگاری‌شده Persist کند اما Public Caller Mutation Boundary امن برای Activate/Stop کردن Runtime نداشت. Fix: PUT/DELETE احراز هویت‌شده و Same-origin بعد از Mutation موفق، SystemMetricsRuntime.syncProfile(id) را فوری اجرا می‌کنند.
 - **Task 42 ریسک Credential Exposure — جلوگیری شد:** API از SafeSshConfiguration استفاده می‌کند و Response فقط Metadata + Credential-presence Flagها را دارد. Test صریحاً نبود Plaintext Credential و Ciphertext را Verify می‌کند.

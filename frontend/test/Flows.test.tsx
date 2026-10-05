@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App, FirstAdminForm, LoginForm, PbxWorkspace } from '../src/App.js';
 import { SecurityWorkspace } from '../src/SecurityWorkspace.js';
 import { SshMetricsWorkspace } from '../src/SshMetricsWorkspace.js';
+import { DashboardStorageWorkspace } from '../src/DashboardStorageWorkspace.js';
 import { OperatorDashboard } from '../src/OperatorDashboard.js';
 import { TelephonyWorkspace } from '../src/TelephonyWorkspace.js';
 import { messages } from '../src/i18n.js';
@@ -449,6 +450,9 @@ describe('operator dashboard', () => {
             networkEnabled: true,
           });
         }
+        if (path === '/api/pbx-instances/dashboard-pbx/dashboard-storage') {
+          return response({ selectedFilesystemIds: ['/data'] });
+        }
         if (path === '/api/pbx-instances/dashboard-pbx/system-metrics') {
           return response({
             current: {
@@ -457,13 +461,51 @@ describe('operator dashboard', () => {
               observedAt: '2026-10-05T04:00:00.000Z',
               cpu: { utilizationPercent: 12.5 },
               memory: { totalBytes: 8589934592, availableBytes: 6442450944 },
+              filesystems: [
+                {
+                  filesystemId: '/',
+                  mountPoint: '/',
+                  totalBytes: 107374182400,
+                  availableBytes: 64424509440,
+                },
+                {
+                  filesystemId: '/data',
+                  mountPoint: '/data',
+                  totalBytes: 214748364800,
+                  availableBytes: 107374182400,
+                },
+              ],
               uptime: { uptimeSeconds: 90000 },
+              services: [
+                { serviceId: 'asterisk.service', state: 'ACTIVE' },
+                { serviceId: 'helper.service', state: 'INACTIVE' },
+              ],
             },
             source: {
               instanceId: 'dashboard-pbx',
               health: { source: 'SSH', freshness: 'CURRENT' },
               consecutiveFailures: 0,
             },
+          });
+        }
+        if (path.startsWith('/api/pbx-instances/dashboard-pbx/system-metrics/history?')) {
+          return response({
+            items: [
+              {
+                instanceId: 'dashboard-pbx',
+                source: 'SSH',
+                observedAt: '2026-10-05T03:00:00.000Z',
+                cpu: { utilizationPercent: 20 },
+                memory: { totalBytes: 8589934592, availableBytes: 5368709120 },
+              },
+              {
+                instanceId: 'dashboard-pbx',
+                source: 'SSH',
+                observedAt: '2026-10-05T04:00:00.000Z',
+                cpu: { utilizationPercent: 12.5 },
+                memory: { totalBytes: 8589934592, availableBytes: 6442450944 },
+              },
+            ],
           });
         }
         if (path === '/api/pbx-instances/dashboard-pbx/security-alerts') {
@@ -586,6 +628,13 @@ describe('operator dashboard', () => {
     expect(container.textContent).toContain('Current calls');
     expect(container.textContent).toContain('Endpoint reachability');
     expect(container.textContent).toContain('Queue pressure');
+    expect(container.textContent).toContain('Persian date & time');
+    expect(container.textContent).toContain('System performance trend');
+    expect(container.textContent).toContain('Storage / filesystems');
+    expect(container.querySelectorAll('[data-storage-filesystem]')).toHaveLength(1);
+    expect(container.textContent).toContain('/data');
+    expect(container.textContent).toContain('Service health');
+    expect(container.textContent).toContain('asterisk.service');
     expect(container.textContent).not.toContain('call-1');
     expect(container.textContent).toContain('Agent interactions1');
 
@@ -751,10 +800,7 @@ describe('SSH metrics management workspace', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (path: string, init?: RequestInit) => {
-        if (
-          path === '/api/pbx-instances/ssh-pbx/ssh-configuration' &&
-          (!init || init.method === undefined)
-        )
+        if (path === '/api/pbx-instances/ssh-pbx/ssh-configuration' && init?.method === 'GET')
           return response({}, 404);
         if (path === '/api/pbx-instances/ssh-pbx/ssh-configuration' && init?.method === 'PUT') {
           const body = JSON.parse(String(init.body)) as { credential?: string };
@@ -792,5 +838,101 @@ describe('SSH metrics management workspace', () => {
     expect(container.textContent).toContain('SSH configuration saved and runtime synchronized.');
     expect(input('ssh-credential').value).toBe('');
     expect(container.textContent).not.toContain('synthetic-ssh-password');
+  });
+});
+
+describe('dashboard storage settings', () => {
+  it('lets an administrator persist only the filesystems chosen for the dashboard', async () => {
+    const profile = {
+      id: 'storage-pbx',
+      displayName: 'Storage PBX',
+      providerType: 'ASTERISK',
+      enabled: true,
+      amiHost: 'pbx.example.test',
+      amiPort: 5038,
+      amiUsername: 'synthetic-user',
+      hasAmiPassword: true,
+      connectionStatus: 'CONNECTED',
+      createdAt: '',
+      updatedAt: '',
+    } as const;
+    const putBodies: unknown[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string, init?: RequestInit) => {
+        if (path === '/api/pbx-instances/storage-pbx/system-metrics') {
+          return response({
+            current: {
+              instanceId: 'storage-pbx',
+              source: 'SSH',
+              observedAt: '2026-10-05T04:00:00.000Z',
+              filesystems: [
+                {
+                  filesystemId: '/dev/root',
+                  mountPoint: '/',
+                  totalBytes: 1000,
+                  availableBytes: 400,
+                },
+                {
+                  filesystemId: '/dev/recording',
+                  mountPoint: '/recording',
+                  totalBytes: 2000,
+                  availableBytes: 1000,
+                },
+                {
+                  filesystemId: 'tmpfs-dev',
+                  mountPoint: '/dev',
+                  totalBytes: 100,
+                  availableBytes: 90,
+                },
+                {
+                  filesystemId: 'tmpfs-run',
+                  mountPoint: '/run',
+                  totalBytes: 100,
+                  availableBytes: 80,
+                },
+              ],
+            },
+          });
+        }
+        if (path === '/api/pbx-instances/storage-pbx/dashboard-storage' && init?.method === 'GET') {
+          return response({ selectedFilesystemIds: null });
+        }
+        if (path === '/api/pbx-instances/storage-pbx/dashboard-storage' && init?.method === 'PUT') {
+          putBodies.push(JSON.parse(String(init.body)));
+          return response({ selectedFilesystemIds: ['/dev/root', '/dev/recording'] });
+        }
+        throw new Error('unexpected API route: ' + path);
+      }),
+    );
+
+    await act(async () =>
+      root.render(
+        <DashboardStorageWorkspace
+          text={messages.en}
+          profiles={[profile]}
+          onUnauthorized={() => {}}
+        />,
+      ),
+    );
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(container.textContent).toContain('/recording');
+    expect(container.textContent).toContain('/dev');
+    expect(container.textContent).toContain('/run');
+    const filesystemCheckboxes = [
+      ...container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'),
+    ];
+    expect(filesystemCheckboxes).toHaveLength(4);
+    for (const option of filesystemCheckboxes.slice(2)) {
+      await act(async () => option.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    }
+    const save = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent === 'Save dashboard storage',
+    );
+    await act(async () => save?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    expect(putBodies).toEqual([{ selectedFilesystemIds: ['/dev/root', '/dev/recording'] }]);
   });
 });

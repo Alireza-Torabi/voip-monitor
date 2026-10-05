@@ -1,10 +1,10 @@
 # Project context
 
-Status: PR #45 is merged. Task 42 is complete on feature/ssh-metrics-management and merge is pending. The application now has authenticated PBX-scoped SSH configuration management with write-only encrypted credentials, mandatory pinned SHA-256 host-key trust, same-origin writes, immediate SystemMetricsRuntime sync, and a bilingual Chakra management workspace. No real SSH/PBX host was contacted or probed. Exact next task after Task 42 merge is Task 43 broader provider-neutral trunk discovery; Task 44 remains telephony history/retention. License: Apache-2.0.
+Status: Task 42 is merged. The unmerged fix/dashboard-storage-jalali branch now includes dashboard visual enhancements plus a three-area navigation hierarchy and PBX-scoped persisted dashboard-storage selection. Telephony and Settings use horizontal submenus; storage preferences are server-persisted through migration 12 and filter presentation only. No deployment-specific path is hardcoded and no real PBX action/collector change was added. Task 43 remains next. License: Apache-2.0.
 
 ## Repository state
 
-The public repository tracks origin/main. The current feature branch is feature/ssh-metrics-management for Task 42; changes are SSH configuration API/UI/runtime-sync/tests/docs only and do not add a real-host probe or new PBX action.
+The public repository tracks origin/main. The current correction branch is fix/dashboard-storage-jalali; changes are frontend current/history presentation, bilingual deployment/configuration documentation, tests, and project records only.
 
 ## Product constraints
 

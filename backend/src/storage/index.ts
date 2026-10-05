@@ -158,6 +158,12 @@ export interface NotificationDeliveryQueueRepository {
   cancel(deliveryKey: string): boolean;
 }
 export type SecurityAlertListener = (alert: SecurityAlertRecord) => void;
+export interface DashboardStorageConfigRepository {
+  get(instanceId: string): string[] | undefined;
+  put(instanceId: string, selectedFilesystemIds: string[]): void;
+  delete(instanceId: string): boolean;
+}
+
 export interface SecurityAlertRepository {
   save(alert: SecurityAlertRecord, retentionCutoff: string): void;
   subscribe(listener: SecurityAlertListener): () => void;
@@ -175,6 +181,7 @@ export interface AppStorage {
   readonly pbxProfiles: PbxProfileRepository;
   readonly sshConfigs: SshConfigRepository;
   readonly systemMetrics: SystemMetricsRepository;
+  readonly dashboardStorageConfig: DashboardStorageConfigRepository;
   readonly securityEvents: SecurityEventRepository;
   readonly securityAlertRules: SecurityAlertRuleConfigRepository;
   readonly securityAlerts: SecurityAlertRepository;
@@ -291,6 +298,7 @@ export class SqliteStorage implements AppStorage {
   readonly pbxProfiles: PbxProfileRepository;
   readonly sshConfigs: SshConfigRepository;
   readonly systemMetrics: SystemMetricsRepository;
+  readonly dashboardStorageConfig: DashboardStorageConfigRepository;
   readonly securityEvents: SecurityEventRepository;
   readonly securityAlertRules: SecurityAlertRuleConfigRepository;
   readonly securityAlerts: SecurityAlertRepository;
@@ -584,6 +592,40 @@ export class SqliteStorage implements AppStorage {
           this.db.prepare('DELETE FROM system_metric_history WHERE observed_at < ?').run(cutoff)
             .changes,
         ),
+    };
+    this.dashboardStorageConfig = {
+      get: (instanceId) => {
+        const row = this.db
+          .prepare(
+            'SELECT selected_filesystem_ids_json FROM dashboard_storage_config WHERE pbx_instance_id = ?',
+          )
+          .get(instanceId) as { selected_filesystem_ids_json: string } | undefined;
+        if (!row) return undefined;
+        try {
+          const parsed = JSON.parse(row.selected_filesystem_ids_json) as unknown;
+          if (!Array.isArray(parsed) || !parsed.every((value) => typeof value === 'string'))
+            throw new StorageError();
+          return parsed;
+        } catch {
+          throw new StorageError();
+        }
+      },
+      put: (instanceId, selectedFilesystemIds) => {
+        this.db
+          .prepare(
+            `INSERT INTO dashboard_storage_config
+             (pbx_instance_id, selected_filesystem_ids_json, updated_at)
+             VALUES (?, ?, ?)
+             ON CONFLICT(pbx_instance_id) DO UPDATE SET
+             selected_filesystem_ids_json=excluded.selected_filesystem_ids_json,
+             updated_at=excluded.updated_at`,
+          )
+          .run(instanceId, JSON.stringify(selectedFilesystemIds), new Date().toISOString());
+      },
+      delete: (instanceId) =>
+        this.db
+          .prepare('DELETE FROM dashboard_storage_config WHERE pbx_instance_id = ?')
+          .run(instanceId).changes > 0,
     };
     this.securityEvents = {
       save: (event, retentionCutoff) => {

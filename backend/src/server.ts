@@ -147,6 +147,24 @@ function parseSecurityAlertRuleApiInput(
   } as SecurityAlertRuleConfig;
 }
 
+function parseDashboardStorageSelection(
+  input: Record<string, unknown> | undefined,
+): string[] | undefined {
+  if (!input || Object.keys(input).length !== 1 || !Array.isArray(input.selectedFilesystemIds))
+    return undefined;
+  if (input.selectedFilesystemIds.length > 128) return undefined;
+  const values: string[] = [];
+  const seen = new Set<string>();
+  for (const item of input.selectedFilesystemIds) {
+    if (typeof item !== 'string') return undefined;
+    const value = item.trim();
+    if (!value || value.length > 512 || seen.has(value)) return undefined;
+    seen.add(value);
+    values.push(value);
+  }
+  return values;
+}
+
 export function createApp(
   storage?: AppStorage,
   secrets?: SecretStore,
@@ -271,6 +289,33 @@ export function createApp(
           unsubscribeReset?.();
         });
         return;
+      }
+
+      const dashboardStorageAction = path.match(
+        /^\/api\/pbx-instances\/([^/]+)\/dashboard-storage$/,
+      );
+      if (dashboardStorageAction) {
+        if (!auth || !storage || !auth.principal(sessionToken(request)))
+          return send(response, 401, { error: 'unauthorized' });
+        const id = dashboardStorageAction[1]!;
+        if (!onboarding?.get(id)) return send(response, 404, { error: 'not_found' });
+        if (request.method === 'GET') {
+          return send(response, 200, {
+            selectedFilesystemIds: storage.dashboardStorageConfig.get(id) ?? null,
+          });
+        }
+        if (!['PUT', 'DELETE'].includes(request.method ?? ''))
+          return send(response, 404, { error: 'not_found' });
+        if (!sameOrigin(request, auth.requiresSecureOrigin))
+          return send(response, 403, { error: 'forbidden' });
+        if (request.method === 'DELETE') {
+          storage.dashboardStorageConfig.delete(id);
+          return send(response, 200, { selectedFilesystemIds: null });
+        }
+        const input = parseDashboardStorageSelection(await body(request));
+        if (!input) return send(response, 400, { error: 'invalid_request' });
+        storage.dashboardStorageConfig.put(id, input);
+        return send(response, 200, { selectedFilesystemIds: input });
       }
 
       const metricsAction = path.match(

@@ -102,6 +102,33 @@ The collector executes only the fixed read-only allowlist implemented by the rep
 
 Authenticated administrators can now manage PBX-scoped SSH metadata and write-only credentials through the System metrics SSH workspace/API. Every successful mutation synchronizes the metrics runtime immediately. Saving configuration does not test or probe the host. Never place SSH values in Git.
 
+### Obtain the pinned SSH host-key fingerprint
+
+Read the fingerprint from a trusted local console on the PBX/monitored host. Prefer the active ED25519 host key when available:
+
+```sh
+PUB=/etc/ssh/ssh_host_ed25519_key.pub
+ssh-keygen -lf "$PUB" -E sha256
+```
+
+Copy only the `SHA256:...` fingerprint into the System metrics SSH workspace. Do not use a user/client public key.
+
+Older OpenSSH versions may report `unknown option -- E`. In that case compute the same OpenSSH SHA-256 fingerprint from the host public key without upgrading the PBX just for this operation:
+
+```sh
+PUB=/etc/ssh/ssh_host_ed25519_key.pub
+printf 'SHA256:'
+awk '{print $2}' "$PUB" \
+  | tr -d '\n' \
+  | openssl base64 -d -A \
+  | openssl dgst -sha256 -binary \
+  | openssl base64 -A \
+  | tr -d '='
+printf '\n'
+```
+
+If ED25519 is not enabled on that server, use the public host-key file for the algorithm actually offered by `sshd` and pin the fingerprint of that exact key. Never copy a fingerprint from a different company/deployment.
+
 ## Trunk visibility limitation
 
 Current trunk discovery uses Asterisk `SIPshowregistry`, so it represents outbound SIP registrations. Static SIP peers, inbound-only definitions, and PJSIP trunks may not appear even when they exist on the PBX. An empty trunk list is not proof that the PBX has no trunks.

@@ -37,8 +37,24 @@
 
 ## پیکربندی پروفایل PBX
 
-مدیر واردشده می‌تواند پروفایل‌های Asterisk را از `/api/pbx-instances` مدیریت کند. FreePBX از همان ارائه‌دهندهٔ Asterisk استفاده می‌کند؛ فروشندگان دیگر هنوز پشتیبانی نمی‌شوند. شناسهٔ تصادفی سرور، نام نمایشی، وضعیت فعال‌بودن و میزبان، درگاه و نام کاربری AMI در دادهٔ غیرمحرمانه نگهداری می‌شوند. نام میزبان، IPv4 و IPv6 فقط از نظر نوشتاری بررسی می‌شوند و هیچ DNS lookup انجام نمی‌شود. درگاه 5038 تنها پیشنهاد رابط است. پیکربندی SSH برای System Metrics اختیاری و PBX-scoped است. Administrator احراز هویت‌شده آن را از Workspace/API اختصاصی System metrics SSH مدیریت می‌کند؛ Credentialها Write-only و رمزنگاری‌شده باقی می‌مانند. گذرواژهٔ AMI در `pbx_secret` رمزگذاری می‌شود و هرگز در پاسخ JSON نیست. نبودن فیلد گذرواژه در PATCH آن را نگه می‌دارد، مقدار غیرخالی جایگزین می‌کند و `removeAmiPassword: true` آن را حذف می‌کند. تغییر خالی یا متناقض رد می‌شود. گزینهٔ فعال‌بودن خواستهٔ مدیر برای پایش است و مقدار اولیهٔ آن غیرفعال است. فقط وقتی `APP_PBX_NETWORK_MODE=plain_tcp` صریحاً فعال شده باشد، این گزینه می‌تواند اتصال مدیریت‌شده را برقرار کند.
+مدیر واردشده می‌تواند پروفایل‌های Asterisk را از `/api/pbx-instances` مدیریت کند. FreePBX از همان ارائه‌دهندهٔ Asterisk استفاده می‌کند؛ فروشندگان دیگر هنوز پشتیبانی نمی‌شوند. شناسهٔ تصادفی سرور، نام نمایشی، وضعیت فعال‌بودن و میزبان، درگاه و نام کاربری AMI در دادهٔ غیرمحرمانه نگهداری می‌شوند. نام میزبان، IPv4 و IPv6 فقط از نظر نوشتاری بررسی می‌شوند و هیچ DNS lookup انجام نمی‌شود. درگاه 5038 تنها پیشنهاد رابط است. پیکربندی SSH برای System Metrics اختیاری و PBX-scoped است. Administrator احراز هویت‌شده آن را از Workspace/API اختصاصی System metrics SSH مدیریت می‌کند؛ Credentialها Write-only و رمزنگاری‌شده باقی می‌مانند. برای گرفتن Pinned Host-key Fingerprint، شامل Fallback مربوط به OpenSSH قدیمی، از Deployment Guide استفاده کنید. گذرواژهٔ AMI در `pbx_secret` رمزگذاری می‌شود و هرگز در پاسخ JSON نیست. نبودن فیلد گذرواژه در PATCH آن را نگه می‌دارد، مقدار غیرخالی جایگزین می‌کند و `removeAmiPassword: true` آن را حذف می‌کند. تغییر خالی یا متناقض رد می‌شود. گزینهٔ فعال‌بودن خواستهٔ مدیر برای پایش است و مقدار اولیهٔ آن غیرفعال است. فقط وقتی `APP_PBX_NETWORK_MODE=plain_tcp` صریحاً فعال شده باشد، این گزینه می‌تواند اتصال مدیریت‌شده را برقرار کند.
 
 نخستین پروفایل وضعیت را به `PBX_CONFIGURED_UNVERIFIED` می‌برد و حذف آخرین پروفایل آن را به `SETUP_IN_PROGRESS` بازمی‌گرداند. در حالت پیش‌فرض `disabled` هیچ اتصال شبکه‌ای به PBX ساخته نمی‌شود و پروفایل `UNVERIFIED` می‌ماند. با فعال‌سازی صریح `plain_tcp`، هر پروفایل فعال حداکثر یک ارائه‌دهندهٔ مدیریت‌شده دارد. مدیر می‌تواند از `POST /api/pbx-instances/:id/test-connection` یا دکمهٔ مرورگر برای آزمایش اتصال استفاده کند. موفقیت، فرادادهٔ امن Asterisk و `lastVerifiedAt` را ذخیره و وضعیت راه‌اندازی را به `COMPLETE` می‌برد. تغییر میزبان، درگاه، نام کاربری یا گذرواژهٔ AMI این تأیید را باطل می‌کند. مسیر `GET /api/pbx-instances/:id/provider-status` فقط وضعیت امن اجرای ارائه‌دهنده را نشان می‌دهد و اختلال PBX روی `/ready` اثر ندارد. پراکسی توسعهٔ رابط، مسیرهای API هم‌مبدأ را به سرور محلی در درگاه 3000 می‌فرستد؛ آن سرور را با `APP_ENV=development` اجرا کنید. تولید به پراکسی HTTPS با Host کنترل‌شده نیاز دارد و بررسی Origin همچنان برقرار است.
+
+</div>
+
+
+<div dir="rtl" align="right">
+
+## Visibility مربوط به Storage داشبورد
+
+تنظیم نمایش Storage به‌صورت PBX-scoped زیر **Settings -> Dashboard storage** مدیریت می‌شود. گزینه‌ها از Current Normalized Filesystem Sample مربوط به Restricted SSH می‌آیند و هیچ Path در Repository Hardcode نمی‌شود.
+
+- نبود Preference ذخیره‌شده: نمایش همه Filesystemهای فعلی.
+- Selection ذخیره‌شده: فقط همان Filesystem IDها نمایش داده شوند.
+- Empty Selection ذخیره‌شده: هیچ Storage Card نمایش داده نشود.
+- Reset: Preference حذف و حالت Show-all برگردد.
+
+این Setting فقط Presentation را فیلتر می‌کند و SSH Collector، Command، Mount Configuration یا Filesystem خود PBX را تغییر نمی‌دهد.
 
 </div>
