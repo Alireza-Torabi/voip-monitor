@@ -43,6 +43,8 @@ Before treating a real PBX as supported, follow [Real PBX Compatibility Verifica
 
 ## Generic HTTPS deployment
 
+For a clean deployment in another organization, follow [Deployment guide for a new organization](DEPLOYMENT_GUIDE.md). It explicitly forbids reusing another deployment's runtime database, master key, credentials, topology, TLS material, or private `.local/` notes.
+
 Build the workspace before starting the deployment:
 
 ```sh

@@ -19,10 +19,12 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { api, ApiError, type PbxConnectionState, type PbxProfile, type Principal } from './api.js';
 import { messages, type Language } from './i18n.js';
 import { SecurityWorkspace } from './SecurityWorkspace.js';
-import { OperatorDashboard } from './OperatorDashboard.js';
+import { OperatorDashboard, type OperatorDestination } from './OperatorDashboard.js';
+import { TelephonyWorkspace, type TelephonyPage } from './TelephonyWorkspace.js';
 
 type TextMap = (typeof messages)[Language];
 type Phase = 'loading' | 'setup' | 'login' | 'ready' | 'error';
+type Workspace = 'dashboard' | TelephonyPage | 'pbx' | 'security';
 
 function FormField({
   label,
@@ -686,6 +688,9 @@ export function App({
   const [phase, setPhase] = useState<Phase>(initialView ?? 'loading');
   const [principal, setPrincipal] = useState<Principal>();
   const [profiles, setProfiles] = useState<PbxProfile[]>([]);
+  const [workspace, setWorkspace] = useState<Workspace>(
+    initialView === 'ready' ? 'pbx' : 'dashboard',
+  );
   const [shellError, setShellError] = useState('');
   const direction = language === 'fa' ? 'rtl' : 'ltr';
   const text = messages[language];
@@ -693,6 +698,7 @@ export function App({
   async function refreshProfiles() {
     const result = await api.listPbx();
     setProfiles(result.items);
+    return result.items;
   }
 
   async function load() {
@@ -706,7 +712,8 @@ export function App({
       try {
         const user = await api.me();
         setPrincipal(user);
-        await refreshProfiles();
+        const items = await refreshProfiles();
+        setWorkspace(items.length > 0 ? 'dashboard' : 'pbx');
         setPhase('ready');
       } catch {
         setPrincipal(undefined);
@@ -733,14 +740,20 @@ export function App({
 
   async function loggedIn(user: Principal) {
     setPrincipal(user);
-    await refreshProfiles();
+    const items = await refreshProfiles();
+    setWorkspace(items.length > 0 ? 'dashboard' : 'pbx');
     setPhase('ready');
   }
 
   function unauthorized() {
     setPrincipal(undefined);
     setProfiles([]);
+    setWorkspace('dashboard');
     setPhase('login');
+  }
+
+  function navigate(destination: OperatorDestination | 'dashboard') {
+    setWorkspace(destination);
   }
 
   async function logout() {
@@ -797,6 +810,35 @@ export function App({
               ) : null}
             </HStack>
           </Flex>
+          {phase === 'ready' ? (
+            <Box mt="3" overflowX="auto" pb="1">
+              <HStack gap="1" minW="max-content">
+                {(
+                  [
+                    ['dashboard', text.dashboardTitle],
+                    ['calls', text.telephonyCalls],
+                    ['channels', text.telephonyChannels],
+                    ['endpoints', text.telephonyEndpoints],
+                    ['trunks', text.telephonyTrunks],
+                    ['queues', text.telephonyQueues],
+                    ['agents', text.telephonyAgents],
+                    ['pbx', text.pbxTitle],
+                    ['security', text.securityTitle],
+                  ] as const
+                ).map(([value, label]) => (
+                  <Button
+                    key={value}
+                    size="xs"
+                    variant={workspace === value ? 'solid' : 'ghost'}
+                    colorPalette={workspace === value ? 'blue' : 'gray'}
+                    onClick={() => setWorkspace(value)}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </HStack>
+            </Box>
+          ) : null}
         </Container>
       </Box>
 
@@ -834,14 +876,40 @@ export function App({
         {phase === 'ready' ? (
           <Stack gap={{ base: '6', md: '8' }}>
             {shellError ? <InlineMessage>{shellError}</InlineMessage> : null}
-            <OperatorDashboard text={text} profiles={profiles} onUnauthorized={unauthorized} />
-            <PbxWorkspace
-              text={text}
-              profiles={profiles}
-              onRefresh={refreshProfiles}
-              onUnauthorized={unauthorized}
-            />
-            <SecurityWorkspace text={text} profiles={profiles} onUnauthorized={unauthorized} />
+            {workspace === 'dashboard' ? (
+              <OperatorDashboard
+                text={text}
+                profiles={profiles}
+                onUnauthorized={unauthorized}
+                onNavigate={navigate}
+              />
+            ) : null}
+            {workspace === 'calls' ||
+            workspace === 'channels' ||
+            workspace === 'endpoints' ||
+            workspace === 'trunks' ||
+            workspace === 'queues' ||
+            workspace === 'agents' ? (
+              <TelephonyWorkspace
+                text={text}
+                profiles={profiles}
+                page={workspace}
+                onUnauthorized={unauthorized}
+              />
+            ) : null}
+            {workspace === 'pbx' ? (
+              <PbxWorkspace
+                text={text}
+                profiles={profiles}
+                onRefresh={async () => {
+                  await refreshProfiles();
+                }}
+                onUnauthorized={unauthorized}
+              />
+            ) : null}
+            {workspace === 'security' ? (
+              <SecurityWorkspace text={text} profiles={profiles} onUnauthorized={unauthorized} />
+            ) : null}
           </Stack>
         ) : null}
       </Container>

@@ -14,6 +14,8 @@ Node.js 24 LTS برای توسعه پیشنهاد شده است. برای است
 
 ## الزام جابه‌جایی‌پذیری استقرار
 
+Runbook عمومی استقرار در سازمان جدید: [راهنمای استقرار](DEPLOYMENT_GUIDE.fa.md).
+
 مخزن عمومی باید بین سازمان‌ها قابل‌استفاده بماند. استقرار جدید فقط از Source و دستورالعمل عمومی شروع می‌شود و نباید پایگاه داده، Master Key، Credential، Hostname، توپولوژی یا یادداشت‌های خصوصی `.local/` استقرار دیگری را کپی کند. مقادیر اختصاصی هر سازمان هنگام همان استقرار وارد می‌شوند و فقط در Runtime/Secret Storage خارج از Git باقی می‌مانند. نسخهٔ تولیدی باید این روند را به Runbook آزموده‌شده برای نصب، Verification، Upgrade، Backup/Restore، Rollback و Uninstall تبدیل کند.
 
 برای Compatibility Gate کنترل‌شدهٔ فعلی از [راهنمای تأیید PBX واقعی](REAL_PBX_VERIFICATION.fa.md) استفاده کنید. Target، Credential و نتیجهٔ Detailدار فقط در Local Storage Ignoreشده نگهداری می‌شوند و ابزار هیچ تماس یا تغییری روی PBX ایجاد نمی‌کند.

@@ -402,3 +402,16 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 258. **CSP-compatible Chakra styling:** do not relax production CSP with unsafe-inline to accommodate Chakra/Emotion. The HTTPS gateway generates a fresh cryptographic nonce for each HTML document response, adds that nonce to style-src, injects it into the document, and the frontend passes it to a dedicated Emotion cache.
 259. **Nonce scope:** the CSP style nonce is document-scoped and generated only for served index.html documents. Static JS/CSS assets retain immutable caching and do not require the nonce.
 260. **Emotion cache ownership:** the root frontend composition owns one application Emotion cache, outside ChakraProvider, so all Chakra runtime style injection uses the gateway-provided nonce consistently.
+
+
+## 2026-10-05 — Portability and operator-workspace correction
+
+261. **Cross-organization portability is release-critical:** tracked source, tests, defaults, migrations, examples, and docs must never depend on the current lab/company environment. Real deployment facts remain outside Git, normally under the deployment manager or ignored `.local/`.
+262. **Deployment runbook is tracked and generic:** English/Persian deployment guides cover clean-clone setup, service/TLS/runtime isolation, first-admin bootstrap, PBX onboarding, optional SSH metrics, verification, backup/restore, upgrade/rollback, and uninstall without embedding organization-specific values. Foundation checks require both guides.
+263. **System metrics are explicitly optional:** AMI telephony health does not imply host metrics. `UNAVAILABLE` means no active SSH metric source; missing SSH configuration/credential must not be represented as zero and must not affect application readiness.
+264. **SSH management is reprioritized:** Task 42 becomes the authenticated PBX-scoped SSH metadata/credential management surface with pinned fingerprint trust, encrypted write-only credentials, and runtime sync. Real-host verification remains separately approval-gated.
+265. **Trunk emptiness is not absence:** current trunk discovery uses `SIPshowregistry` and therefore models outbound SIP registrations only. UI must label this limitation; Task 43 will broaden provider-neutral trunk inventory with synthetic/mock compatibility coverage before real-PBX validation.
+266. **Telephony history moves to Task 44:** operator-visible configuration/trunk completeness takes priority over history/retention. The earlier Task 42 history plan is superseded, not deleted from historical completion notes.
+267. **Dashboard is summary-first:** high-cardinality telephony entities do not render as one long dashboard list. The dashboard uses status cards, CPU/memory/endpoint dial gauges, queue-pressure bars, uptime, and clickable entity counts.
+268. **Entity workspaces are bounded:** Calls, Channels, Endpoints, Trunks, Queues, and Agents each have a separate current-state workspace with search, 20-row pagination, PBX scoping, and realtime updates. Current Channels suppress known closed/terminated states.
+269. **No chart dependency added:** dashboard gauges and queue bars use Chakra/SVG primitives to avoid adding another visualization dependency and bundle/license surface.

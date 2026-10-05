@@ -79,21 +79,30 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - [x] Task 39: اولین Bilingual Operator Dashboard فقط با APIهای Authenticated و Read-only موجود برای PBX/Provider، System Metrics و Security Alerts اضافه شد. داشبورد شامل PBX Selection، Provider Connection Summary با Polling محدود Local Status، System-metric Summary، Realtime SSE Health، Current Security-alert Count و Navigation به مدیریت PBX/Security است. هیچ PBX Write Action، Collector جدید یا Backend Network Path جدیدی اضافه نشده است.
 - [x] Task 40: `TelephonyStateEngine` موجود از طریق APIهای Authenticated، PBX-scoped و Read-only برای Current State و SSE Realtime ارائه شد. Stream فقط Normalized Engine State را منتشر می‌کند، به 64 Stream همزمان محدود است، Heartbeat پانزده‌ثانیه‌ای دارد، پس از Profile-runtime Reset مقدار `current: null` منتشر می‌کند و هیچ PBX Connection/Action یا Collection Source جدیدی ایجاد نمی‌کند.
 - [x] Task 41: Task 40 در Bilingual Operator Dashboard با Primitiveهای Chakra UI v3 مصرف شد. PBX-scoped Telephony Synchronization و Current Call/Channel/Endpoint/Trunk/Queue/Agent Interaction نمایش داده می‌شود، Technical Identifierها داخل Surface دو‌زبانه/RTL به‌صورت LTR حفظ می‌شوند و Provider/System/Security Summaryهای موجود بدون PBX Action، Telephony History یا Collection Scope جدید reuse می‌شوند.
+- [ ] Task 42: اضافه‌کردن Surface احراز هویت‌شده و PBX-scoped برای مدیریت SSH System Metrics Configuration/Credential با Pinned Host-key Trust، Credential رمزنگاری‌شده Write-only، Runtime Sync و Portability محیط؛ تا Approval جداگانه فقط Synthetic/Mock.
+- [ ] Task 43: گسترش Provider-neutral Trunk Inventory فراتر از Outbound SIP Registration برای Discovery محدود و Read-only سازگار با chan_sip/PJSIP، ابتدا با Synthetic/Mock Compatibility Test و بدون Real-PBX Verification تا Approval جداگانه.
+- [ ] Task 44: تعریف و Persistence تاریخچه/Retention محدود و PBX-scoped تلفنی فقط از State/Eventهای Normalized موجود، بدون PBX Action یا Collection Source جدید.
 
 ### وضعیت فعلی ادامه کار
 
-- Branch فعلی fix/chakra-ui-shell است که پس از Merge شدن Task 41 از main همگام‌شده ساخته شد.
-- UI Consistency Correction مربوط به Task 41 شامل CSP/Emotion Nonce Fix به‌صورت Local کامل است؛ Full Validation با Project Node 24.21.0/npm 11.19.0 شامل Lint، Format Check، Typecheck، Backend 127/127، Frontend 16/16، Production Build، Foundation Check، License Check و Diff Check همگی PASS است. Merge به main هنوز Pending است.
-- Root Cause UI به‌هم‌ریخته: Task 41 فقط OperatorDashboard را با Chakra UI پیاده‌سازی کرده بود، در حالی که Application Shell، First-admin Setup، Login، PBX Management و Security Workspace همچنان Raw HTML/CSS قدیمی بودند.
-- Fix: Chakra UI v3 اکنون Global Provider دارد و Shell، Authentication Screenها، PBX Card/Formها، Security Alert/Ruleها و Operator Dashboard همگی از Primitiveهای Responsive یکسان استفاده می‌کنند.
-- Browser Validation یک Root Cause دوم و Production-only را مشخص کرد: HTTPS Gateway فقط style-src self را مجاز می‌کرد، در حالی که Chakra v3/Emotion در Runtime عنصر style Inject می‌کند. Browser این Styleها را Block می‌کرد و Chakra فقط به‌صورت Markup بدون Style دیده می‌شد. Fix با CSP Style Nonce تصادفی برای هر HTML Response، Inject همان Nonce در HTML و تنظیم Emotion Cache با همان Nonce انجام شد. unsafe-inline فعال نشده است.
-- Legacy Visual CSS حذف شده و styles.css فقط Browser-level Reset/Font/Background حداقلی دارد.
-- Persian همچنان Application-level RTL است و Technical Identifier/Addressها Explicit LTR باقی می‌مانند.
-- Behavior و API Boundaryهای موجود حفظ شده‌اند. هیچ Backend Route، PBX Action، Collector، Permission، Credential Behavior یا Network Scope تغییر نکرد.
-- در این اصلاح هیچ PBX واقعی Access نشد.
-- Task دقیق بعدی پس از Merge این Correction: **Task 42 — تعریف و Persistence یک Bounded PBX-scoped Telephony History/Retention فقط بر پایه State/Eventهای Normalized موجود، بدون PBX Action، Collection Source یا Browser History UI جدید.**
+- Branch فعلی `fix/chakra-ui-shell` است که پس از Merge شدن Task 41 از `main` همگام‌شده ساخته شد.
+- این Correction ادغام‌نشده اکنون چهار بخش درخواستی Operator را شامل می‌شود: یکپارچگی کامل Chakra، سازگاری CSP/Emotion با Nonce، UI تلفنی Workspace-based و سخت‌گیری Portability/Deployment Runbook.
+- Dashboard اکنون Summary-first است: Provider/Security/Telephony Status، Gaugeهای CPU/Memory/Endpoint، نمودار Queue Pressure، Uptime و Entity Countهای قابل کلیک. Detailهای Calls/Channels/Endpoints/Trunks/Queues/Agents دیگر به‌صورت یک List بلند در Dashboard Render نمی‌شوند.
+- Calls، Channels، Endpoints، Trunks، Queues و Agent interactions هرکدام Workspace مستقل با PBX Selector، Search، Pagination محدود ۲۰ ردیفی، Realtime State و Table Responsive دارند. Channelهای بسته/پایان‌یافته در Channels Workspace نمایش داده نمی‌شوند.
+- تشخیص System Metrics بدون PBX Probe: Profile فعال/Connected و Network Mode فعال است، بنابراین Factory وجود دارد؛ `UNAVAILABLE` یعنی SSH Configuration همان PBX یا Encrypted SSH Credential موجود نیست. هیچ SSH Connection/Probe انجام نشد.
+- تشخیص Trunk بدون PBX Action جدید: Discovery فعلی فقط `SIPshowregistry` است، پس فقط Outbound SIP Registration نمایش داده می‌شود؛ Static SIP Peer، Inbound-only Definition و PJSIP Trunk ممکن است وجود داشته باشند ولی List فعلی خالی باشد.
+- Portability اکنون Rule صریح Repository در `AGENTS.md` است. Deployment Guideهای انگلیسی/فارسی Clean-clone Deployment، Runtime Isolation، SSH Metrics اختیاری، Backup/Restore، Upgrade/Rollback و ممنوعیت انتقال Data محیطی به Git را پوشش می‌دهند. اطلاعات محیط فعلی فقط در `.local/` Ignoreشده باقی می‌ماند.
+- Final Validation با Project Node 24.21.0/npm 11.19.0 PASS است: Lint، Format Check، Typecheck، Backend 127/127، Frontend 17/17، Production Build، Foundation Check، License Check و Diff Check. Frontend Testها Search، Pagination محدود ۲۰ ردیفی، Realtime Summary Update و Closed-channel Filtering را پوشش می‌دهند.
+- Final Public/Staged Review نیز PASS است: هیچ Private/Runtime Path، Remote Desktop Identifier، Common Secret Marker، IP محیط Validation فعلی، نام PBX یا Hostname واقعی Stage نشده و Full Tracked-tree Scan نیز هیچ Identifier متعلق به محیط Validation فعلی پیدا نکرد.
+- در این Correction هیچ PBX واقعی Contact، Probe یا Modify نشد و Permission جدیدی داده نشد.
+- Task دقیق بعدی با اولویت جدید پس از Merge این Correction: **Task 42 — مدیریت Authenticated PBX-scoped SSH Metrics Configuration/Credential با Runtime Sync و بدون Real-host Access تا Approval جداگانه.** Task 43 Trunk Discovery را گسترش می‌دهد و Task 44 Telephony History/Retention را ادامه می‌دهد.
 
 ### ثبت خرابی و اشکال
+
+- **تشخیص System-metrics UNAVAILABLE — Gap پیکربندی، نه Zero Data:** Runtime فقط وقتی Metrics Source می‌سازد که PBX Enabled، Factory موجود، SSH Metadata موجود و Encrypted SSH Credential حاضر باشد. PBX فعلی Enabled/Connected و Networking فعال است، پس Gate محلی باقی‌مانده نبود SSH Configuration یا Credential است. برای این نتیجه هیچ SSH Probe انجام نشد.
+- **Trunk Inventory Gap — محدودیت شناخته‌شده Provider:** Task 15 فعلاً Trunk را فقط از `SIPshowregistry` می‌سازد. ممکن است Static chan_sip Peer یا PJSIP Trunk وجود داشته باشد ولی Result صفر باشد. UI اکنون این محدودیت را صریح نشان می‌دهد. Task 43 Discovery گسترده‌تر است.
+- **Long Telephony Dashboard — اصلاح شد:** Render تمام Entityها در Dashboard باعث Scroll بسیار زیاد می‌شد. Fix: Summary Dashboard و Workspaceهای جدا با Search/Pagination؛ Channel بسته از Current Display فیلتر می‌شود.
+- **Operator Dashboard Test Expectation — اصلاح شد:** Test قدیمی Entity IDها را داخل خود Dashboard انتظار داشت. اکنون Summary-only Behavior و در Test جدا Search/Pagination/Closed-channel Filtering بررسی می‌شوند.
 
 - **Task 41 Scope/Design-system Error — اصلاح شد:** پیاده‌سازی Merge‌شده Task 41، Chakra UI را اشتباهاً Dashboard-only تفسیر کرد. Setup/Login/PBX/Security روی Raw HTML/CSS قدیمی ماندند و UI ناسازگار شد. Fix: کل Operator-facing Shell و Form/Workspaceها زیر یک Global Chakra Provider به Chakra UI v3 مهاجرت کردند و Legacy Visual CSS حذف شد.
 - **Chakra Polymorphic Form Typing Failure — رفع شد:** Stack as form در Chakra v3 همچنان HTMLDivElement Type می‌شود. Fix: Semantic Native form حفظ شد و Chakra Stack داخل آن قرار گرفت.
@@ -482,7 +491,7 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - **Known limitation:** Chakra/Ark Dependency Footprint فعلی یک Raw Production JavaScript Bundle برابر 519,828 Bytes و Rolldown Warningهای غیر Fatal مربوط به `"use client"` ایجاد می‌کند. Bundle Reduction بخشی از Task 41 نیست.
 - **Known limitation:** Telephony History/Retention پیاده‌سازی نشده است.
 - **Known limitation:** Agent Interaction از نوع Live-only است و Queue/Agent Real-PBX Compatibility هنوز Verify نشده است.
-- **Task دقیق بعدی:** Task 42 یک Bounded PBX-scoped Telephony History/Retention Foundation را فقط از State/Eventهای Normalized موجود تعریف و Persist می‌کند؛ بدون PBX Action، Collection Source یا Browser History UI جدید.
+- **یادداشت Task بعدی Superseded:** Feedback اپراتور SSH Metrics Onboarding و Trunk Completeness را جلوتر از Telephony History قرار داد. History به Task 44 منتقل شد؛ Task 42 فعلی SSH Configuration Management است.
 
 ### پروتکل ادامه مداوم
 
@@ -510,7 +519,7 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - [ ] Phase 11: سخت شدن، تهیه نسخه پشتیبان، بازیابی آزمایش شده، و یک دفترچه راه اندازی تولید.
 - [ ] Phase 12: اعتبار سنجی انتشار، از جمله رویه استقرار تازه خنثی برای سازمان که می تواند بدون حمل مقادیر خصوصی از استقرار دیگر، روی یک سرویس جدید نصب شود.
 
-Phase 1 بسته است. بخش تعریف‌شده Security Monitoring در Phase 7 همچنان تا Task 34 کامل است. Taskهای 35-36 Notification Storage/Configuration را بدون Delivery اضافه کرده‌اند، Task 37 Live Same-Origin HTTPS Application را فراهم کرده، Task 38 OS-level Reboot Persistence را اثبات کرده، Task 39 اولین Bilingual Operator Dashboard را اضافه کرده، Task 40 Normalized Telephony Current State را با Authenticated PBX-scoped Read-only HTTP/SSE ارائه کرده و Task 41 همان Boundary را در Bilingual Chakra UI v3 Operator Surface مصرف می‌کند. Task دقیق بعدی پس از Merge شدن Task 41، **Task 42 — Bounded Telephony History/Retention Persistence بر پایه State/Eventهای Normalized موجود، بدون PBX Action یا Collection Source جدید.**
+Phase 1 بسته است. بخش تعریف‌شده Security Monitoring در Phase 7 همچنان تا Task 34 کامل است. Taskهای 35-36 Notification Storage/Configuration را بدون Delivery اضافه کرده‌اند، Task 37 Live Same-Origin HTTPS Application را فراهم کرده، Task 38 OS-level Reboot Persistence را اثبات کرده، Task 39 اولین Bilingual Operator Dashboard را اضافه کرده، Task 40 Normalized Telephony Current State را با Authenticated PBX-scoped Read-only HTTP/SSE ارائه کرده و Task 41 همان Boundary را در Bilingual Chakra UI v3 Operator Surface مصرف می‌کند. بعد از Feedback اپراتور، Operational Configuration و Trunk Completeness قبل از History قرار گرفتند. Task دقیق بعدی پس از Correction فعلی **Task 42 — Authenticated PBX-scoped SSH Metrics Configuration/Credential Management با Runtime Sync** است؛ Task 43 Trunk Discovery و Task 44 Telephony History/Retention است.
 
 ## 26-09-2026 - رکورد تکمیل Task 28
 
