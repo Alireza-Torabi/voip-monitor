@@ -1,6 +1,6 @@
 # Project context
 
-Status: Task 42 is merged. The unmerged fix/dashboard-storage-jalali branch now includes dashboard visual enhancements plus a three-area navigation hierarchy and PBX-scoped persisted dashboard-storage selection. Telephony and Settings use horizontal submenus; storage preferences are server-persisted through migration 12 and filter presentation only. No deployment-specific path is hardcoded and no real PBX action/collector change was added. Task 43 remains next. License: Apache-2.0.
+Status: PR #47 is merged. The current unmerged feature/dashboard-builder branch adds PBX-scoped persisted multi-dashboard layouts, widget add/delete/reorder/resize, dashboard-root fullscreen with auto-hide controls, and Settings -> Service monitoring. The previous Service Health NOT_CONFIGURED issue is fixed by passing persisted safe service IDs through the production collector factory. No deployment-specific services are hardcoded and no real PBX/SSH host was contacted. Task 43 remains next. License: Apache-2.0.
 
 ## Repository state
 

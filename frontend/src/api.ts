@@ -62,6 +62,13 @@ export interface SystemMetricsSample {
   instanceId: string;
   source: 'SSH';
   observedAt: string;
+  capabilities?: {
+    cpu: string;
+    memory: string;
+    filesystems: string;
+    uptime: string;
+    services: string;
+  };
   cpu?: { utilizationPercent: number };
   memory?: { totalBytes: number; availableBytes: number };
   filesystems?: Array<{
@@ -90,6 +97,47 @@ export interface SystemMetricsResponse {
 
 export interface DashboardStorageConfig {
   selectedFilesystemIds: string[] | null;
+}
+
+export interface ServiceMonitoringConfig {
+  serviceIds: string[];
+}
+
+export type DashboardWidgetType =
+  | 'clock'
+  | 'provider'
+  | 'telephony-sync'
+  | 'security-alerts'
+  | 'live-state'
+  | 'cpu'
+  | 'memory'
+  | 'endpoint-reachability'
+  | 'uptime'
+  | 'metrics-trend'
+  | 'service-health'
+  | 'queue-pressure'
+  | 'storage'
+  | 'calls'
+  | 'channels'
+  | 'endpoints'
+  | 'trunks'
+  | 'queues'
+  | 'agents';
+
+export interface DashboardWidget {
+  id: string;
+  type: DashboardWidgetType;
+  width: number;
+  height: number;
+}
+
+export interface DashboardDefinition {
+  id: string;
+  pbxInstanceId: string;
+  name: string;
+  widgets: DashboardWidget[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ProviderStatus {
@@ -259,6 +307,25 @@ export const api = {
     }),
   resetDashboardStorage: (id: string) =>
     request<DashboardStorageConfig>(`/api/pbx-instances/${id}/dashboard-storage`, 'DELETE'),
+  serviceMonitoring: (id: string) =>
+    request<ServiceMonitoringConfig>(`/api/pbx-instances/${id}/service-monitoring`),
+  putServiceMonitoring: (id: string, serviceIds: string[]) =>
+    request<ServiceMonitoringConfig>(`/api/pbx-instances/${id}/service-monitoring`, 'PUT', {
+      serviceIds,
+    }),
+  resetServiceMonitoring: (id: string) =>
+    request<ServiceMonitoringConfig>(`/api/pbx-instances/${id}/service-monitoring`, 'DELETE'),
+  listDashboards: (id: string) =>
+    request<{ items: DashboardDefinition[] }>(`/api/pbx-instances/${id}/dashboards`),
+  createDashboard: (id: string, name: string, widgets: DashboardWidget[]) =>
+    request<DashboardDefinition>(`/api/pbx-instances/${id}/dashboards`, 'POST', { name, widgets }),
+  updateDashboard: (id: string, dashboardId: string, name: string, widgets: DashboardWidget[]) =>
+    request<DashboardDefinition>(`/api/pbx-instances/${id}/dashboards/${dashboardId}`, 'PUT', {
+      name,
+      widgets,
+    }),
+  deleteDashboard: (id: string, dashboardId: string) =>
+    request<{ status: string }>(`/api/pbx-instances/${id}/dashboards/${dashboardId}`, 'DELETE'),
   systemMetricsHistory: (id: string, from: string, to: string, limit = 120) =>
     request<{ items: SystemMetricsSample[] }>(
       `/api/pbx-instances/${id}/system-metrics/history?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&limit=${limit}`,

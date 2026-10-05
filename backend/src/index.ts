@@ -60,7 +60,7 @@ if (config) {
         const sshConfiguration = new SshConfigurationService(storage, secrets);
         const systemMetricsFactory =
           config.pbxNetworkMode === 'plain_tcp'
-            ? new RestrictedSshSystemMetricsCollectorFactory(sshConfiguration, secrets)
+            ? new RestrictedSshSystemMetricsCollectorFactory(sshConfiguration, secrets, storage)
             : undefined;
         const systemMetricsRuntime = new SystemMetricsRuntime(
           storage,

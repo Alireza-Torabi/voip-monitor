@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { AuthService } from './auth/index.js';
 import { OnboardingInputError, PbxOnboardingService } from './onboarding/index.js';
@@ -147,6 +148,116 @@ function parseSecurityAlertRuleApiInput(
   } as SecurityAlertRuleConfig;
 }
 
+const SERVICE_ID_PATTERN = /^[A-Za-z0-9_.@-]+$/;
+const DASHBOARD_WIDGET_TYPES = new Set([
+  'clock',
+  'provider',
+  'telephony-sync',
+  'security-alerts',
+  'live-state',
+  'cpu',
+  'memory',
+  'endpoint-reachability',
+  'uptime',
+  'metrics-trend',
+  'service-health',
+  'queue-pressure',
+  'storage',
+  'calls',
+  'channels',
+  'endpoints',
+  'trunks',
+  'queues',
+  'agents',
+]);
+
+function parseServiceIds(input: Record<string, unknown> | undefined): string[] | undefined {
+  if (!input || Object.keys(input).length !== 1 || !Array.isArray(input.serviceIds))
+    return undefined;
+  if (input.serviceIds.length > 32) return undefined;
+  const values: string[] = [];
+  const seen = new Set<string>();
+  for (const item of input.serviceIds) {
+    if (typeof item !== 'string') return undefined;
+    const value = item.trim();
+    if (!value || value.length > 128 || !SERVICE_ID_PATTERN.test(value) || seen.has(value))
+      return undefined;
+    seen.add(value);
+    values.push(value);
+  }
+  return values;
+}
+
+interface DashboardWidgetInput {
+  id: string;
+  type: string;
+  width: number;
+  height: number;
+}
+
+function parseDashboardWidgets(value: unknown): DashboardWidgetInput[] | undefined {
+  if (!Array.isArray(value) || value.length > 64) return undefined;
+  const ids = new Set<string>();
+  const widgets: DashboardWidgetInput[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return undefined;
+    const row = item as Record<string, unknown>;
+    if (
+      Object.keys(row).some((key) => !['id', 'type', 'width', 'height'].includes(key)) ||
+      typeof row.id !== 'string' ||
+      !/^[A-Za-z0-9_-]{1,64}$/.test(row.id) ||
+      ids.has(row.id) ||
+      typeof row.type !== 'string' ||
+      !DASHBOARD_WIDGET_TYPES.has(row.type) ||
+      !Number.isSafeInteger(row.width) ||
+      Number(row.width) < 1 ||
+      Number(row.width) > 12 ||
+      !Number.isSafeInteger(row.height) ||
+      Number(row.height) < 1 ||
+      Number(row.height) > 4
+    )
+      return undefined;
+    ids.add(row.id);
+    widgets.push({
+      id: row.id,
+      type: row.type,
+      width: Number(row.width),
+      height: Number(row.height),
+    });
+  }
+  return widgets;
+}
+
+function parseDashboardMutation(
+  input: Record<string, unknown> | undefined,
+): { name: string; widgets: DashboardWidgetInput[] } | undefined {
+  if (!input || Object.keys(input).some((key) => !['name', 'widgets'].includes(key)))
+    return undefined;
+  if (typeof input.name !== 'string') return undefined;
+  const name = input.name.trim();
+  if (!name || name.length > 80) return undefined;
+  const widgets = parseDashboardWidgets(input.widgets);
+  return widgets ? { name, widgets } : undefined;
+}
+
+function safeDashboard(record: {
+  id: string;
+  pbxInstanceId: string;
+  name: string;
+  widgetsJson: string;
+  createdAt: string;
+  updatedAt: string;
+}) {
+  return {
+    id: record.id,
+    pbxInstanceId: record.pbxInstanceId,
+    name: record.name,
+    widgets: JSON.parse(record.widgetsJson) as DashboardWidgetInput[],
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+  };
+}
+
 function parseDashboardStorageSelection(
   input: Record<string, unknown> | undefined,
 ): string[] | undefined {
@@ -289,6 +400,97 @@ export function createApp(
           unsubscribeReset?.();
         });
         return;
+      }
+
+      const serviceMonitoringAction = path.match(
+        /^\/api\/pbx-instances\/([^/]+)\/service-monitoring$/,
+      );
+      if (serviceMonitoringAction) {
+        if (!auth || !storage || !auth.principal(sessionToken(request)))
+          return send(response, 401, { error: 'unauthorized' });
+        const id = serviceMonitoringAction[1]!;
+        if (!onboarding?.get(id)) return send(response, 404, { error: 'not_found' });
+        if (request.method === 'GET') {
+          return send(response, 200, {
+            serviceIds: storage.serviceMonitoringConfig.get(id) ?? [],
+          });
+        }
+        if (!['PUT', 'DELETE'].includes(request.method ?? ''))
+          return send(response, 404, { error: 'not_found' });
+        if (!sameOrigin(request, auth.requiresSecureOrigin))
+          return send(response, 403, { error: 'forbidden' });
+        if (request.method === 'DELETE') {
+          storage.serviceMonitoringConfig.delete(id);
+          systemMetrics?.syncProfile(id);
+          return send(response, 200, { serviceIds: [] });
+        }
+        const serviceIds = parseServiceIds(await body(request));
+        if (!serviceIds) return send(response, 400, { error: 'invalid_request' });
+        storage.serviceMonitoringConfig.put(id, serviceIds);
+        systemMetrics?.syncProfile(id);
+        return send(response, 200, { serviceIds });
+      }
+
+      const dashboardCollectionAction = path.match(/^\/api\/pbx-instances\/([^/]+)\/dashboards$/);
+      if (dashboardCollectionAction) {
+        if (!auth || !storage || !auth.principal(sessionToken(request)))
+          return send(response, 401, { error: 'unauthorized' });
+        const instanceId = dashboardCollectionAction[1]!;
+        if (!onboarding?.get(instanceId)) return send(response, 404, { error: 'not_found' });
+        if (request.method === 'GET') {
+          return send(response, 200, {
+            items: storage.operatorDashboards.list(instanceId).map(safeDashboard),
+          });
+        }
+        if (request.method !== 'POST') return send(response, 404, { error: 'not_found' });
+        if (!sameOrigin(request, auth.requiresSecureOrigin))
+          return send(response, 403, { error: 'forbidden' });
+        const input = parseDashboardMutation(await body(request));
+        if (!input) return send(response, 400, { error: 'invalid_request' });
+        const now = new Date().toISOString();
+        const record = {
+          id: randomUUID(),
+          pbxInstanceId: instanceId,
+          name: input.name,
+          widgetsJson: JSON.stringify(input.widgets),
+          createdAt: now,
+          updatedAt: now,
+        };
+        storage.operatorDashboards.save(record);
+        return send(response, 201, safeDashboard(record));
+      }
+
+      const dashboardItemAction = path.match(
+        /^\/api\/pbx-instances\/([^/]+)\/dashboards\/([^/]+)$/,
+      );
+      if (dashboardItemAction) {
+        if (!auth || !storage || !auth.principal(sessionToken(request)))
+          return send(response, 401, { error: 'unauthorized' });
+        const instanceId = dashboardItemAction[1]!;
+        const dashboardId = dashboardItemAction[2]!;
+        if (!onboarding?.get(instanceId)) return send(response, 404, { error: 'not_found' });
+        const current = storage.operatorDashboards.get(dashboardId);
+        if (!current || current.pbxInstanceId !== instanceId)
+          return send(response, 404, { error: 'not_found' });
+        if (request.method === 'GET') return send(response, 200, safeDashboard(current));
+        if (!['PUT', 'DELETE'].includes(request.method ?? ''))
+          return send(response, 404, { error: 'not_found' });
+        if (!sameOrigin(request, auth.requiresSecureOrigin))
+          return send(response, 403, { error: 'forbidden' });
+        if (request.method === 'DELETE') {
+          storage.operatorDashboards.delete(dashboardId);
+          return send(response, 200, { status: 'deleted' });
+        }
+        const input = parseDashboardMutation(await body(request));
+        if (!input) return send(response, 400, { error: 'invalid_request' });
+        const record = {
+          ...current,
+          name: input.name,
+          widgetsJson: JSON.stringify(input.widgets),
+          updatedAt: new Date().toISOString(),
+        };
+        storage.operatorDashboards.save(record);
+        return send(response, 200, safeDashboard(record));
       }
 
       const dashboardStorageAction = path.match(

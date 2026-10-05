@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-05. Task 42 is merged through PR #46. A user-requested dashboard/deployment correction is complete locally on fix/dashboard-storage-jalali and merge is pending. Task 43 has not started.
+Status: 2026-10-05. PR #47 is merged. A user-requested dashboard-builder/service-monitoring correction is complete locally on feature/dashboard-builder and merge is pending. Task 43 has not started.
 
 ## Phase 0 — environment discovery
 
@@ -85,22 +85,26 @@ These later checks do not change the historical Phase 1 validation record. Docke
 
 ### Current execution handoff
 
-- Current branch: fix/dashboard-storage-jalali, created from synchronized main after PR #46 merged Task 42. The branch already contains the pushed dashboard visualization correction and now has an additional uncommitted navigation/storage-preference correction requested before merge.
-- Task 43 has not started. No new PBX action, collector, or real-host probe is introduced.
-- Main authenticated navigation is now intentionally bounded to three top-level areas: Dashboard, Telephony, and Settings.
-- Telephony uses a horizontal submenu for Calls, Channels, Endpoints, Trunks, Queues, and Agents. Only the selected telephony workspace renders.
-- Settings uses a horizontal submenu for PBX profiles, System metrics SSH, Dashboard storage, and Security monitoring. This is the extension point for future administrative/configuration surfaces instead of adding more top-level header items.
-- Dashboard storage visibility is now PBX-scoped persisted configuration. A new schema migration stores a bounded JSON array of selected filesystem IDs. No deployment-specific mount path is hardcoded.
-- If no dashboard-storage preference exists, the dashboard shows all currently reported filesystems. An explicitly saved empty selection shows none. Reset deletes the preference and returns to the default-all behavior.
-- The Dashboard storage settings page discovers current filesystems from the existing current system-metrics sample, lets the administrator select what is visible, preserves missing previously selected IDs for visibility, and persists the chosen IDs through authenticated same-origin GET/PUT/DELETE API boundaries.
-- Example paths such as root and recording are deployment observations only; they are not committed as defaults. A deployment may choose any subset of whatever filesystems its monitored PBX actually reports.
-- Storage semantics remain filesystem/mount level from df, not authoritative physical-disk inventory.
-- Existing Persian date/time, CPU/memory trend, service-health, gauges, queue-pressure, and responsive dynamic storage cards remain unchanged.
-- Final validation passes under project Node 24.21.0/npm 11.19.0: lint, format check, typecheck, backend 130/130 tests, frontend 19/19 tests, production build, foundation check, license check, and diff check. Targeted storage/API coverage also passes for persistence, auth, same-origin writes, reset/cascade, dashboard filtering, and interactive selection.
-- No current validation-environment path, PBX name, IP, credential, or topology is required by the feature.
-- Exact next task after this correction merges remains Task 43: broader provider-neutral trunk discovery beyond outbound registrations, synthetic/mock first and real-PBX verification only with separate approval.
+- Current branch: feature/dashboard-builder, created from synchronized main after PR #47 merged the dashboard navigation/storage correction.
+- This correction does not start Task 43 and adds no new PBX write action or arbitrary SSH command surface.
+- Dashboard is now a persisted PBX-scoped builder rather than one fixed page. Each dashboard has a name and an ordered bounded widget list. Multiple dashboards can be created, selected, renamed, saved, and deleted.
+- Dashboard widgets can be added from a fixed allowlisted catalog, deleted, reordered by drag-and-drop, and resized with bounded width/height controls. Widget persistence stores only type/id/size/order, not executable code or arbitrary query/config payloads.
+- The default dashboard is created automatically for a PBX only when no saved dashboard exists. It uses only generic widget types and no deployment-specific host/path/service identifier.
+- Fullscreen uses the browser Fullscreen API on the dashboard root element itself, so the application header/navigation is outside fullscreen. Dashboard controls auto-hide after three seconds in fullscreen and reappear on pointer movement, supporting TV/NOC display.
+- Dashboard definitions are stored through schema migration 14 and authenticated PBX-scoped same-origin list/create/update/delete API boundaries. Payloads are bounded to at most 64 widgets, fixed widget types, unique safe IDs, width 1-12, height 1-4, and names up to 80 characters.
+- Service Health root cause is fixed: the production RestrictedSshSystemMetricsCollectorFactory previously created collectors without serviceIds, making service capability permanently NOT_CONFIGURED. It now reads the PBX-scoped service-monitoring configuration and passes the IDs into each collector.
+- Settings now includes Service monitoring. Administrators explicitly configure up to 32 unique safe systemd service IDs for each PBX. PUT/DELETE immediately call SystemMetricsRuntime.syncProfile(id), so service monitoring changes do not require application or PBX restart.
+- Service IDs are never deployment defaults. No current test service is hardcoded. The existing restricted SSH allowlist remains unchanged and systemctl receives only validated IDs after the fixed command boundary.
+- Final validation passes under project Node 24.21.0/npm 11.19.0: lint, format check, typecheck, backend 133/133 tests, frontend 21/21 tests, production build, foundation check, license check, and diff check. Targeted service-monitoring/dashboard persistence/API tests pass 23/23 and frontend builder/service-setting coverage passes 21/21.
+- No real PBX/SSH host was contacted or probed during this correction.
+- Exact next task after this correction merges remains Task 43: broaden provider-neutral trunk inventory beyond outbound registrations, synthetic/mock first and real-PBX verification only with separate approval.
 
 ### Failure and bug log
+
+- **Service health permanently NOT_CONFIGURED — resolved:** the production collector factory never passed configured service IDs to RestrictedSshSystemMetricsCollector, so the services capability could never become SUPPORTED. Fix: add PBX-scoped persisted service-monitoring configuration and have the factory inject its validated IDs when constructing the collector; mutation immediately resyncs the metrics runtime.
+- **Fixed dashboard unsuitable for TV/NOC use — resolved:** the operator dashboard could not persist multiple layouts, reorder widgets, resize them, or remove noise. Fix: persisted bounded dashboard definitions plus widget catalog, drag reorder, bounded resize/delete/add controls, and multiple-dashboard CRUD.
+- **Fullscreen still included application chrome — prevented:** fullscreen is requested on the dashboard root instead of the full document, naturally excluding the application header/navigation. Builder controls auto-hide in fullscreen and return on pointer movement.
+- **Dashboard extensibility security risk — bounded:** widgets are fixed allowlisted types with only id/type/width/height. No arbitrary HTML, script, query, command, URL, or shell data is persisted in dashboard definitions.
 
 - **Unbounded top-level navigation — corrected:** configuration and entity workspaces had accumulated directly in the sticky header. Fix: only Dashboard, Telephony, and Settings remain top-level; Telephony and Settings own bounded horizontal submenus.
 - **No operator control over noisy filesystems — corrected:** the dashboard previously rendered every filesystem returned by df, including mounts that may be operationally irrelevant. Fix: PBX-scoped persisted selection chooses exactly which filesystem IDs appear while leaving collection untouched.

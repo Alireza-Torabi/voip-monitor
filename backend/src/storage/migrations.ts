@@ -246,4 +246,31 @@ export const migrations = [
       ) STRICT;
     `,
   },
+  {
+    version: 13,
+    name: 'service_monitoring_configuration',
+    sql: `
+      CREATE TABLE service_monitoring_config (
+        pbx_instance_id TEXT PRIMARY KEY REFERENCES pbx_instance(id) ON DELETE CASCADE,
+        service_ids_json TEXT NOT NULL CHECK (json_valid(service_ids_json)),
+        updated_at TEXT NOT NULL
+      ) STRICT;
+    `,
+  },
+  {
+    version: 14,
+    name: 'operator_dashboard_definitions',
+    sql: `
+      CREATE TABLE operator_dashboard (
+        id TEXT PRIMARY KEY,
+        pbx_instance_id TEXT NOT NULL REFERENCES pbx_instance(id) ON DELETE CASCADE,
+        name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 80),
+        widgets_json TEXT NOT NULL CHECK (json_valid(widgets_json)),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      ) STRICT;
+      CREATE INDEX operator_dashboard_pbx_updated
+        ON operator_dashboard(pbx_instance_id, updated_at DESC);
+    `,
+  },
 ] as const;

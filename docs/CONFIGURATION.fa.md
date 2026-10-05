@@ -58,3 +58,18 @@
 این Setting فقط Presentation را فیلتر می‌کند و SSH Collector، Command، Mount Configuration یا Filesystem خود PBX را تغییر نمی‌دهد.
 
 </div>
+
+
+<div dir="rtl" align="right">
+
+## مانیتورینگ سرویس‌ها
+
+Service Health برای هر PBX از مسیر **Settings -> Service monitoring** پیکربندی می‌شود. در هر خط یک Systemd Service ID دقیق وارد می‌شود. برنامه حداکثر ۳۲ ID یکتا را با همان Allowlist محدود Restricted SSH Command Resolver ذخیره می‌کند. Save یا Disable فقط System Metrics Runtime همان PBX را فوری Sync می‌کند.
+
+هیچ Service ID به‌عنوان Default داخل Repository قرار ندارد و هر Deployment سرویس‌های مرتبط خودش را انتخاب می‌کند. این قابلیت Process Listing عمومی یا Arbitrary Shell Command ایجاد نمی‌کند.
+
+## Dashboardهای اپراتوری
+
+Dashboardها Layoutهای Server-persisted و PBX-scoped هستند و هر PBX می‌تواند چند Dashboard نام‌گذاری‌شده داشته باشد. Widgetها فقط از Catalog ثابت برنامه می‌آیند و Add/Delete/Reorder/Resize محدود دارند. Fullscreen روی Dashboard Root اجرا می‌شود تا Navigation اصلی نمایش داده نشود و Controlها برای TV/NOC به‌صورت Auto-hide باشند.
+
+</div>

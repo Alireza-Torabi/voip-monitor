@@ -1,6 +1,6 @@
 # Proposed architecture
 
-Status: Task 42 is merged. The current fix/dashboard-storage-jalali correction now groups the authenticated UI into Dashboard, Telephony, and Settings; Telephony and Settings own horizontal submenus. Dashboard filesystem visibility is PBX-scoped persisted configuration through migration 12 and authenticated same-origin API. The preference filters presentation only and never changes restricted SSH collection or executes user-provided paths. No real PBX action or new collector is introduced. Task 43 remains next.
+Status: PR #47 is merged. The current feature/dashboard-builder correction adds server-persisted PBX-scoped multi-dashboard definitions, fixed allowlisted widgets with bounded drag/resize/edit controls, dashboard-root fullscreen for TV/NOC display, and PBX-scoped service-monitoring configuration. Service IDs now flow from persisted configuration through the production collector factory into the existing restricted SSH service-status command. No arbitrary SSH command, PBX write action, or new collector source is introduced. Task 43 remains next.
 
 ```text
 PBX (Asterisk / FreePBX)
