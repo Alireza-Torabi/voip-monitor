@@ -85,19 +85,27 @@ These later checks do not change the historical Phase 1 validation record. Docke
 
 ### Current execution handoff
 
-- Current branch: fix/dashboard-storage-jalali, created from synchronized main after PR #46 merged Task 42.
-- This correction does not start Task 43 and adds no PBX action or new collector.
-- Dashboard now consumes the existing system-metrics current/history boundaries more completely: CPU, memory, uptime, dynamic filesystem/mount storage, optional service-health state, and a recent CPU/memory trend chart.
-- Storage rendering is fully data-driven from SystemMetricsSample.filesystems; no disk count is hardcoded. One, two, or many mounted filesystems render responsively. The UI deliberately labels this as filesystem/storage state because the collector source is df, not physical-disk inventory.
-- The dashboard uses the existing bounded history API for a six-hour / 120-sample CPU-memory trend. Realtime system-metrics SSE samples are appended locally to the same bounded view; no new persistence or backend route was added.
-- A live Persian-calendar date/time card uses the browser-local clock via Intl.DateTimeFormat with the Persian calendar; no date/time dependency was added.
-- Optional service-health rows render dynamically when systemd service-state metrics are configured; otherwise the dashboard states that no monitored service state is configured.
-- The deployment guide now documents both modern ssh-keygen -E sha256 fingerprint extraction and a legacy OpenSSH fallback using OpenSSL for hosts where ssh-keygen reports unknown option -- E.
-- Final validation passes under project Node 24.21.0/npm 11.19.0: lint, format check, typecheck, backend 128/128 tests, frontend 18/18 tests, production build, foundation check, license check, and diff check. Frontend coverage includes two dynamic filesystem cards, the trend section, service-health rendering, and the Persian date/time label.
-- No real PBX/SSH host was contacted or probed by this correction.
+- Current branch: fix/dashboard-storage-jalali, created from synchronized main after PR #46 merged Task 42. The branch already contains the pushed dashboard visualization correction and now has an additional uncommitted navigation/storage-preference correction requested before merge.
+- Task 43 has not started. No new PBX action, collector, or real-host probe is introduced.
+- Main authenticated navigation is now intentionally bounded to three top-level areas: Dashboard, Telephony, and Settings.
+- Telephony uses a horizontal submenu for Calls, Channels, Endpoints, Trunks, Queues, and Agents. Only the selected telephony workspace renders.
+- Settings uses a horizontal submenu for PBX profiles, System metrics SSH, Dashboard storage, and Security monitoring. This is the extension point for future administrative/configuration surfaces instead of adding more top-level header items.
+- Dashboard storage visibility is now PBX-scoped persisted configuration. A new schema migration stores a bounded JSON array of selected filesystem IDs. No deployment-specific mount path is hardcoded.
+- If no dashboard-storage preference exists, the dashboard shows all currently reported filesystems. An explicitly saved empty selection shows none. Reset deletes the preference and returns to the default-all behavior.
+- The Dashboard storage settings page discovers current filesystems from the existing current system-metrics sample, lets the administrator select what is visible, preserves missing previously selected IDs for visibility, and persists the chosen IDs through authenticated same-origin GET/PUT/DELETE API boundaries.
+- Example paths such as root and recording are deployment observations only; they are not committed as defaults. A deployment may choose any subset of whatever filesystems its monitored PBX actually reports.
+- Storage semantics remain filesystem/mount level from df, not authoritative physical-disk inventory.
+- Existing Persian date/time, CPU/memory trend, service-health, gauges, queue-pressure, and responsive dynamic storage cards remain unchanged.
+- Final validation passes under project Node 24.21.0/npm 11.19.0: lint, format check, typecheck, backend 130/130 tests, frontend 19/19 tests, production build, foundation check, license check, and diff check. Targeted storage/API coverage also passes for persistence, auth, same-origin writes, reset/cascade, dashboard filtering, and interactive selection.
+- No current validation-environment path, PBX name, IP, credential, or topology is required by the feature.
 - Exact next task after this correction merges remains Task 43: broader provider-neutral trunk discovery beyond outbound registrations, synthetic/mock first and real-PBX verification only with separate approval.
 
 ### Failure and bug log
+
+- **Unbounded top-level navigation — corrected:** configuration and entity workspaces had accumulated directly in the sticky header. Fix: only Dashboard, Telephony, and Settings remain top-level; Telephony and Settings own bounded horizontal submenus.
+- **No operator control over noisy filesystems — corrected:** the dashboard previously rendered every filesystem returned by df, including mounts that may be operationally irrelevant. Fix: PBX-scoped persisted selection chooses exactly which filesystem IDs appear while leaving collection untouched.
+- **Portability risk from suggested mount paths — prevented:** root, recording, dev, run, or any other path is never a repository default. The settings UI discovers the current host sample and stores only administrator-selected IDs for that PBX.
+- **Preference lifecycle ambiguity — resolved:** no stored record means show all; stored empty array means show none; DELETE/reset removes the record and restores default-all behavior.
 
 - **Filesystem visibility gap — corrected:** system metrics already carried a variable-length filesystem array, but the dashboard ignored it. The UI now renders every current filesystem/mount dynamically with used/free/total bytes and usage percentage; there is no assumption of two disks or any fixed count.
 - **Physical-disk ambiguity — documented:** the current source is POSIX df, so dashboard storage entries represent mounted filesystems, not authoritative physical-drive inventory. A future hardware-inventory task would require a separate provider-neutral source if physical disks are needed.

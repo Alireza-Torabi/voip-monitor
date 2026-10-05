@@ -38,10 +38,10 @@ test('fresh database migrates once and persists setup and PBX metadata across re
     assert.equal(first.setup.get().state, 'SETUP_REQUIRED');
     assert.deepEqual(first.pbxInstances.list(), []);
     const history = first.migrationHistory();
-    assert.equal(history.length, 11);
+    assert.equal(history.length, 12);
     assert.deepEqual(
       history.map((row) => row.version),
-      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
     );
     assert.match(history[0].checksum, /^[a-f0-9]{64}$/);
     first.setup.set('SETUP_IN_PROGRESS');
@@ -561,4 +561,29 @@ test('database initialization failure exits without listening or leaking path', 
     assert.match(output, /storage_initialization_failed/);
     assert.doesNotMatch(output, /server_started/);
     assert.doesNotMatch(output, new RegExp(config.dataDirectory));
+  }));
+
+test('dashboard storage selection is PBX-scoped, persistent, resettable, and cascades', () =>
+  fixture(async (config) => {
+    const storage = await SqliteStorage.open(config);
+    try {
+      storage.pbxInstances.save({
+        id: 'storage-pref-pbx',
+        providerType: 'ASTERISK',
+        displayName: 'Storage preferences',
+      });
+      assert.equal(storage.dashboardStorageConfig.get('storage-pref-pbx'), undefined);
+      storage.dashboardStorageConfig.put('storage-pref-pbx', ['/dev/root', '/dev/recording']);
+      assert.deepEqual(storage.dashboardStorageConfig.get('storage-pref-pbx'), [
+        '/dev/root',
+        '/dev/recording',
+      ]);
+      assert.equal(storage.dashboardStorageConfig.delete('storage-pref-pbx'), true);
+      assert.equal(storage.dashboardStorageConfig.get('storage-pref-pbx'), undefined);
+      storage.dashboardStorageConfig.put('storage-pref-pbx', ['/dev/root']);
+      storage.pbxProfiles.delete('storage-pref-pbx');
+      assert.equal(storage.dashboardStorageConfig.get('storage-pref-pbx'), undefined);
+    } finally {
+      storage.close();
+    }
   }));

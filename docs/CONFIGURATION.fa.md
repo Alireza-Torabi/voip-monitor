@@ -42,3 +42,19 @@
 نخستین پروفایل وضعیت را به `PBX_CONFIGURED_UNVERIFIED` می‌برد و حذف آخرین پروفایل آن را به `SETUP_IN_PROGRESS` بازمی‌گرداند. در حالت پیش‌فرض `disabled` هیچ اتصال شبکه‌ای به PBX ساخته نمی‌شود و پروفایل `UNVERIFIED` می‌ماند. با فعال‌سازی صریح `plain_tcp`، هر پروفایل فعال حداکثر یک ارائه‌دهندهٔ مدیریت‌شده دارد. مدیر می‌تواند از `POST /api/pbx-instances/:id/test-connection` یا دکمهٔ مرورگر برای آزمایش اتصال استفاده کند. موفقیت، فرادادهٔ امن Asterisk و `lastVerifiedAt` را ذخیره و وضعیت راه‌اندازی را به `COMPLETE` می‌برد. تغییر میزبان، درگاه، نام کاربری یا گذرواژهٔ AMI این تأیید را باطل می‌کند. مسیر `GET /api/pbx-instances/:id/provider-status` فقط وضعیت امن اجرای ارائه‌دهنده را نشان می‌دهد و اختلال PBX روی `/ready` اثر ندارد. پراکسی توسعهٔ رابط، مسیرهای API هم‌مبدأ را به سرور محلی در درگاه 3000 می‌فرستد؛ آن سرور را با `APP_ENV=development` اجرا کنید. تولید به پراکسی HTTPS با Host کنترل‌شده نیاز دارد و بررسی Origin همچنان برقرار است.
 
 </div>
+
+
+<div dir="rtl" align="right">
+
+## Visibility مربوط به Storage داشبورد
+
+تنظیم نمایش Storage به‌صورت PBX-scoped زیر **Settings -> Dashboard storage** مدیریت می‌شود. گزینه‌ها از Current Normalized Filesystem Sample مربوط به Restricted SSH می‌آیند و هیچ Path در Repository Hardcode نمی‌شود.
+
+- نبود Preference ذخیره‌شده: نمایش همه Filesystemهای فعلی.
+- Selection ذخیره‌شده: فقط همان Filesystem IDها نمایش داده شوند.
+- Empty Selection ذخیره‌شده: هیچ Storage Card نمایش داده نشود.
+- Reset: Preference حذف و حالت Show-all برگردد.
+
+این Setting فقط Presentation را فیلتر می‌کند و SSH Collector، Command، Mount Configuration یا Filesystem خود PBX را تغییر نمی‌دهد.
+
+</div>

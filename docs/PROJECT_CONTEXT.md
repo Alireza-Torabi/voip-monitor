@@ -1,6 +1,6 @@
 # Project context
 
-Status: Task 42 is merged through PR #46. A dashboard/deployment correction is complete locally on fix/dashboard-storage-jalali and merge is pending. It adds dynamic filesystem storage cards, bounded CPU/memory history visualization, optional service-health display, browser-local Persian calendar date/time, and legacy OpenSSH SHA-256 fingerprint instructions. No new PBX action/collector or real-host probe was added. Task 43 remains the exact next task after this correction merges. License: Apache-2.0.
+Status: Task 42 is merged. The unmerged fix/dashboard-storage-jalali branch now includes dashboard visual enhancements plus a three-area navigation hierarchy and PBX-scoped persisted dashboard-storage selection. Telephony and Settings use horizontal submenus; storage preferences are server-persisted through migration 12 and filter presentation only. No deployment-specific path is hardcoded and no real PBX action/collector change was added. Task 43 remains next. License: Apache-2.0.
 
 ## Repository state
 

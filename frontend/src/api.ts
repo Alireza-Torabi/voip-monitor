@@ -88,6 +88,10 @@ export interface SystemMetricsResponse {
   source?: SystemMetricsSourceStatus;
 }
 
+export interface DashboardStorageConfig {
+  selectedFilesystemIds: string[] | null;
+}
+
 export interface ProviderStatus {
   connectionStatus: PbxConnectionState;
   managed: boolean;
@@ -247,6 +251,14 @@ export const api = {
     request<ProviderStatus>(`/api/pbx-instances/${id}/provider-status`),
   systemMetrics: (id: string) =>
     request<SystemMetricsResponse>(`/api/pbx-instances/${id}/system-metrics`),
+  dashboardStorage: (id: string) =>
+    request<DashboardStorageConfig>(`/api/pbx-instances/${id}/dashboard-storage`),
+  putDashboardStorage: (id: string, selectedFilesystemIds: string[]) =>
+    request<DashboardStorageConfig>(`/api/pbx-instances/${id}/dashboard-storage`, 'PUT', {
+      selectedFilesystemIds,
+    }),
+  resetDashboardStorage: (id: string) =>
+    request<DashboardStorageConfig>(`/api/pbx-instances/${id}/dashboard-storage`, 'DELETE'),
   systemMetricsHistory: (id: string, from: string, to: string, limit = 120) =>
     request<{ items: SystemMetricsSample[] }>(
       `/api/pbx-instances/${id}/system-metrics/history?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&limit=${limit}`,

@@ -1,6 +1,6 @@
 # Proposed architecture
 
-Status: Task 42 is merged. The current correction branch improves only dashboard presentation and deployment guidance: existing current/history system metrics now drive dynamic filesystem storage, CPU/memory trend SVGs, optional service-health rows, and browser-local Persian calendar date/time. Storage semantics remain mounted-filesystem level because the collector source is df. No new collector, PBX action, or network path is introduced. Task 43 remains next.
+Status: Task 42 is merged. The current fix/dashboard-storage-jalali correction now groups the authenticated UI into Dashboard, Telephony, and Settings; Telephony and Settings own horizontal submenus. Dashboard filesystem visibility is PBX-scoped persisted configuration through migration 12 and authenticated same-origin API. The preference filters presentation only and never changes restricted SSH collection or executes user-provided paths. No real PBX action or new collector is introduced. Task 43 remains next.
 
 ```text
 PBX (Asterisk / FreePBX)

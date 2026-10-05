@@ -125,6 +125,25 @@ export const messages = {
     serviceHealthHint:
       'Read-only systemd service states when service monitoring is configured for this deployment.',
     serviceHealthNoData: 'No monitored service state is configured yet.',
+    telephonyMenu: 'Telephony',
+    settingsTitle: 'Settings',
+    settingsHint: 'PBX, monitoring, dashboard and security configuration.',
+    dashboardStorageTitle: 'Dashboard storage',
+    dashboardStorageHint:
+      'Choose which current filesystems from this PBX are visible on the dashboard.',
+    dashboardStorageAvailable: 'Available filesystems',
+    dashboardStorageAvailableHint:
+      'The list comes from current SSH system metrics and is not hardcoded for any deployment.',
+    dashboardStorageDefaultAll: 'DEFAULT: ALL',
+    dashboardStorageCustom: 'CUSTOM',
+    dashboardStorageMissingTitle:
+      'Previously selected filesystems not present in the current sample',
+    dashboardStorageSave: 'Save dashboard storage',
+    dashboardStorageReset: 'Reset to all filesystems',
+    dashboardStorageSaved: 'Dashboard storage selection saved.',
+    dashboardStorageResetDone: 'Dashboard storage reset to show all current filesystems.',
+    dashboardStorageLoadFailed: 'Dashboard storage settings could not be loaded.',
+    dashboardStorageSaveFailed: 'Dashboard storage settings could not be saved.',
     openDetails: 'Open details',
     activeOnly: 'Active channels only',
     entityWorkspaceHint:
@@ -331,6 +350,24 @@ export const messages = {
     serviceHealthHint:
       'وضعیت Read-only سرویس‌های systemd در صورتی که Service Monitoring برای این Deployment پیکربندی شده باشد.',
     serviceHealthNoData: 'هنوز Service State مانیتورشده‌ای پیکربندی نشده است.',
+    telephonyMenu: 'تلفنی',
+    settingsTitle: 'تنظیمات',
+    settingsHint: 'تنظیمات PBX، Monitoring، Dashboard و Security.',
+    dashboardStorageTitle: 'Storage داشبورد',
+    dashboardStorageHint:
+      'انتخاب کنید کدام Filesystemهای فعلی این PBX در Dashboard نمایش داده شوند.',
+    dashboardStorageAvailable: 'Filesystemهای موجود',
+    dashboardStorageAvailableHint:
+      'این لیست از System Metrics فعلی SSH می‌آید و برای هیچ Deploymentی Hardcode نشده است.',
+    dashboardStorageDefaultAll: 'پیش‌فرض: همه',
+    dashboardStorageCustom: 'سفارشی',
+    dashboardStorageMissingTitle: 'Filesystemهای انتخاب‌شده قبلی که در Sample فعلی وجود ندارند',
+    dashboardStorageSave: 'ذخیره Storage داشبورد',
+    dashboardStorageReset: 'بازگشت به نمایش همه Filesystemها',
+    dashboardStorageSaved: 'انتخاب Storage داشبورد ذخیره شد.',
+    dashboardStorageResetDone: 'Storage داشبورد به حالت نمایش همه Filesystemهای فعلی برگشت.',
+    dashboardStorageLoadFailed: 'تنظیمات Storage داشبورد قابل Load نبود.',
+    dashboardStorageSaveFailed: 'تنظیمات Storage داشبورد قابل ذخیره نبود.',
     openDetails: 'باز کردن جزئیات',
     activeOnly: 'فقط Channelهای فعال',
     entityWorkspaceHint:

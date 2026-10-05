@@ -85,19 +85,27 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 
 ### وضعیت فعلی ادامه کار
 
-- Branch فعلی fix/dashboard-storage-jalali است که پس از Merge شدن Task 42 از main همگام‌شده ساخته شد.
-- این Correction، Task 43 را شروع نمی‌کند و هیچ PBX Action یا Collector جدیدی اضافه نمی‌کند.
-- Dashboard اکنون Current/History موجود System Metrics را کامل‌تر مصرف می‌کند: CPU، Memory، Uptime، Storage Dynamic بر پایه Filesystem/Mount، Service-health اختیاری و Trend اخیر CPU/Memory.
-- Storage کاملاً بر اساس SystemMetricsSample.filesystems Render می‌شود و تعداد Disk/Filesystem Hardcode نشده است. یک، دو یا چند Mount به‌صورت Responsive نمایش داده می‌شوند. چون Source فعلی df است، این بخش عمداً Filesystem/Storage نام‌گذاری شده و Physical Disk Inventory ادعا نمی‌کند.
-- Trend از History API موجود با Window شش‌ساعته و حداکثر 120 Sample استفاده می‌کند؛ Realtime SSE Sampleها هم به‌صورت Bounded به همان View اضافه می‌شوند و Backend Route/Persistence جدیدی ایجاد نشده است.
-- کارت زنده تاریخ/ساعت شمسی از Browser-local Clock و Intl.DateTimeFormat با Persian Calendar استفاده می‌کند و Dependency جدیدی ندارد.
-- Service-health در صورت وجود Systemd Service Metrics به‌صورت Dynamic نمایش داده می‌شود و در غیر این صورت نبود Config را صریح اعلام می‌کند.
-- Deployment Guide اکنون هم روش جدید ssh-keygen -E sha256 و هم Fallback مربوط به OpenSSH قدیمی با OpenSSL را برای خطای unknown option -- E مستند می‌کند.
-- Final Validation با Project Node 24.21.0/npm 11.19.0 PASS است: Lint، Format Check، Typecheck، Backend 128/128، Frontend 18/18، Production Build، Foundation Check، License Check و Diff Check. Frontend Testها دو Filesystem Dynamic، Trend، Service-health و Label تاریخ/ساعت شمسی را پوشش می‌دهند.
-- در این Correction هیچ PBX/SSH Host واقعی Contact یا Probe نشد.
-- Task دقیق بعدی پس از Merge این Correction همچنان Task 43 است: Trunk Discovery گسترده‌تر و Provider-neutral، ابتدا Synthetic/Mock و Real-PBX Verification فقط با Approval جداگانه.
+- Branch فعلی fix/dashboard-storage-jalali است که پس از Merge شدن Task 42 ساخته شد. Dashboard Visualization Correction قبلی روی همین Branch Push شده و Correction جدید Navigation/Storage Preference قبل از Merge روی آن اضافه شده است.
+- Task 43 هنوز شروع نشده است. هیچ PBX Action، Collector یا Real-host Probe جدیدی اضافه نشده است.
+- Main Navigation احراز هویت‌شده عمداً فقط سه بخش دارد: Dashboard، Telephony و Settings.
+- Telephony یک Horizontal Submenu برای Calls، Channels، Endpoints، Trunks، Queues و Agents دارد و فقط Workspace انتخاب‌شده Render می‌شود.
+- Settings یک Horizontal Submenu برای PBX profiles، System metrics SSH، Dashboard storage و Security monitoring دارد. Settingهای آینده نیز به‌جای شلوغ‌کردن Header در همین ساختار قرار می‌گیرند.
+- Visibility مربوط به Storage داشبورد اکنون PBX-scoped و Persisted است. Migration جدید یک JSON Array محدود از Selected Filesystem IDها را ذخیره می‌کند و هیچ Mount Path محیطی Hardcode نشده است.
+- اگر Preference وجود نداشته باشد، Dashboard همه Filesystemهای Current را نشان می‌دهد. Empty Selection ذخیره‌شده یعنی هیچ Filesystem نمایش داده نشود. Reset رکورد Preference را حذف و Default-all را برمی‌گرداند.
+- صفحه Dashboard storage، Filesystemهای واقعی را از Current System Metrics همان PBX Discover می‌کند، امکان انتخاب می‌دهد و از API احراز هویت‌شده و Same-origin برای GET/PUT/DELETE استفاده می‌کند.
+- مسیرهایی مثل Root یا Recording فقط Observation محیط Deployment هستند و Default Repository نیستند. هر Deployment هر Subset دلخواه از Filesystemهای واقعی خودش را انتخاب می‌کند.
+- Storage همچنان Filesystem/Mount بر پایه df است و Physical-disk Inventory ادعا نمی‌کند.
+- تاریخ/ساعت شمسی، CPU/Memory Trend، Service-health، Gaugeها، Queue Pressure و Dynamic Storage Cardهای Responsive حفظ شده‌اند.
+- Final Validation با Project Node 24.21.0/npm 11.19.0 PASS است: Lint، Format Check، Typecheck، Backend 130/130، Frontend 19/19، Production Build، Foundation Check، License Check و Diff Check. Coverage مربوط به Storage/API نیز Persistence، Auth، Same-origin Write، Reset/Cascade، Dashboard Filtering و Interactive Selection را پوشش می‌دهد.
+- Feature به هیچ Path، PBX Name، IP، Credential یا Topology محیط Validation فعلی وابسته نیست.
+- Task دقیق بعدی پس از Merge این Correction همچنان Task 43 است: Provider-neutral Trunk Discovery گسترده‌تر، ابتدا Synthetic/Mock و Real-PBX Verification فقط با Approval جداگانه.
 
 ### ثبت خرابی و اشکال
+
+- **Top-level Navigation شلوغ — اصلاح شد:** Configuration و Entity Workspaceها مستقیم در Header جمع شده بودند. اکنون فقط Dashboard، Telephony و Settings Top-level هستند و Telephony/Settings Submenu افقی محدود خودشان را دارند.
+- **نبود کنترل روی Filesystemهای کم‌اهمیت — اصلاح شد:** Dashboard قبلاً تمام خروجی df را نمایش می‌داد. اکنون Selection ذخیره‌شده و PBX-scoped مشخص می‌کند کدام Filesystem IDها نمایش داده شوند، بدون تغییر Collection.
+- **ریسک Hardcode مسیرهای پیشنهادی — جلوگیری شد:** Root، Recording، Dev، Run یا مسیر دیگر هیچ‌کدام Default Repository نیستند. UI Sample واقعی Host را Discover و فقط انتخاب Administrator را ذخیره می‌کند.
+- **Lifecycle Preference — مشخص شد:** نبود Record یعنی نمایش همه؛ Empty Array ذخیره‌شده یعنی نمایش هیچ‌کدام؛ DELETE/Reset یعنی بازگشت به Default-all.
 
 - **Filesystem Visibility Gap — اصلاح شد:** System Metrics از قبل Filesystem Array با طول متغیر داشت اما Dashboard آن را نمایش نمی‌داد. اکنون تمام Filesystem/Mountهای Current با Used/Free/Total و درصد مصرف Dynamic Render می‌شوند و هیچ تعداد ثابتی فرض نشده است.
 - **Physical-disk Ambiguity — مستند شد:** Source فعلی POSIX df است؛ بنابراین Storage Dashboard نماینده Mounted Filesystem است، نه Physical-drive Inventory قطعی. اگر Physical Disk لازم باشد Task/Source جدا نیاز است.

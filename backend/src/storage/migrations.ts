@@ -235,4 +235,15 @@ export const migrations = [
         ON notification_delivery_queue(pbx_instance_id, status, queued_at);
     `,
   },
+  {
+    version: 12,
+    name: 'dashboard_storage_preferences',
+    sql: `
+      CREATE TABLE dashboard_storage_config (
+        pbx_instance_id TEXT PRIMARY KEY REFERENCES pbx_instance(id) ON DELETE CASCADE,
+        selected_filesystem_ids_json TEXT NOT NULL CHECK (json_valid(selected_filesystem_ids_json)),
+        updated_at TEXT NOT NULL
+      ) STRICT;
+    `,
+  },
 ] as const;

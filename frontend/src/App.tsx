@@ -20,12 +20,14 @@ import { api, ApiError, type PbxConnectionState, type PbxProfile, type Principal
 import { messages, type Language } from './i18n.js';
 import { SecurityWorkspace } from './SecurityWorkspace.js';
 import { SshMetricsWorkspace } from './SshMetricsWorkspace.js';
+import { DashboardStorageWorkspace } from './DashboardStorageWorkspace.js';
 import { OperatorDashboard, type OperatorDestination } from './OperatorDashboard.js';
 import { TelephonyWorkspace, type TelephonyPage } from './TelephonyWorkspace.js';
 
 type TextMap = (typeof messages)[Language];
 type Phase = 'loading' | 'setup' | 'login' | 'ready' | 'error';
-type Workspace = 'dashboard' | TelephonyPage | 'pbx' | 'security' | 'ssh-metrics';
+type Workspace = 'dashboard' | 'telephony' | 'settings';
+type SettingsPage = 'pbx' | 'ssh-metrics' | 'storage' | 'security';
 
 function FormField({
   label,
@@ -690,8 +692,10 @@ export function App({
   const [principal, setPrincipal] = useState<Principal>();
   const [profiles, setProfiles] = useState<PbxProfile[]>([]);
   const [workspace, setWorkspace] = useState<Workspace>(
-    initialView === 'ready' ? 'pbx' : 'dashboard',
+    initialView === 'ready' ? 'settings' : 'dashboard',
   );
+  const [telephonyPage, setTelephonyPage] = useState<TelephonyPage>('calls');
+  const [settingsPage, setSettingsPage] = useState<SettingsPage>('pbx');
   const [shellError, setShellError] = useState('');
   const direction = language === 'fa' ? 'rtl' : 'ltr';
   const text = messages[language];
@@ -714,7 +718,8 @@ export function App({
         const user = await api.me();
         setPrincipal(user);
         const items = await refreshProfiles();
-        setWorkspace(items.length > 0 ? 'dashboard' : 'pbx');
+        setWorkspace(items.length > 0 ? 'dashboard' : 'settings');
+        if (items.length === 0) setSettingsPage('pbx');
         setPhase('ready');
       } catch {
         setPrincipal(undefined);
@@ -742,7 +747,8 @@ export function App({
   async function loggedIn(user: Principal) {
     setPrincipal(user);
     const items = await refreshProfiles();
-    setWorkspace(items.length > 0 ? 'dashboard' : 'pbx');
+    setWorkspace(items.length > 0 ? 'dashboard' : 'settings');
+    if (items.length === 0) setSettingsPage('pbx');
     setPhase('ready');
   }
 
@@ -754,7 +760,24 @@ export function App({
   }
 
   function navigate(destination: OperatorDestination | 'dashboard') {
-    setWorkspace(destination);
+    if (destination === 'dashboard') {
+      setWorkspace('dashboard');
+      return;
+    }
+    if (
+      destination === 'calls' ||
+      destination === 'channels' ||
+      destination === 'endpoints' ||
+      destination === 'trunks' ||
+      destination === 'queues' ||
+      destination === 'agents'
+    ) {
+      setTelephonyPage(destination);
+      setWorkspace('telephony');
+      return;
+    }
+    setSettingsPage(destination);
+    setWorkspace('settings');
   }
 
   async function logout() {
@@ -813,19 +836,12 @@ export function App({
           </Flex>
           {phase === 'ready' ? (
             <Box mt="3" overflowX="auto" pb="1">
-              <HStack gap="1" minW="max-content">
+              <HStack gap="1" minW="max-content" data-main-navigation>
                 {(
                   [
                     ['dashboard', text.dashboardTitle],
-                    ['calls', text.telephonyCalls],
-                    ['channels', text.telephonyChannels],
-                    ['endpoints', text.telephonyEndpoints],
-                    ['trunks', text.telephonyTrunks],
-                    ['queues', text.telephonyQueues],
-                    ['agents', text.telephonyAgents],
-                    ['ssh-metrics', text.sshMetricsTitle],
-                    ['pbx', text.pbxTitle],
-                    ['security', text.securityTitle],
+                    ['telephony', text.telephonyMenu],
+                    ['settings', text.settingsTitle],
                   ] as const
                 ).map(([value, label]) => (
                   <Button
@@ -886,34 +902,102 @@ export function App({
                 onNavigate={navigate}
               />
             ) : null}
-            {workspace === 'calls' ||
-            workspace === 'channels' ||
-            workspace === 'endpoints' ||
-            workspace === 'trunks' ||
-            workspace === 'queues' ||
-            workspace === 'agents' ? (
-              <TelephonyWorkspace
-                text={text}
-                profiles={profiles}
-                page={workspace}
-                onUnauthorized={unauthorized}
-              />
+            {workspace === 'telephony' ? (
+              <Stack gap="5">
+                <Box overflowX="auto" pb="1">
+                  <HStack gap="1" minW="max-content" data-telephony-navigation>
+                    {(
+                      [
+                        ['calls', text.telephonyCalls],
+                        ['channels', text.telephonyChannels],
+                        ['endpoints', text.telephonyEndpoints],
+                        ['trunks', text.telephonyTrunks],
+                        ['queues', text.telephonyQueues],
+                        ['agents', text.telephonyAgents],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <Button
+                        key={value}
+                        size="sm"
+                        variant={telephonyPage === value ? 'solid' : 'outline'}
+                        colorPalette={telephonyPage === value ? 'blue' : 'gray'}
+                        onClick={() => setTelephonyPage(value)}
+                      >
+                        {label}
+                      </Button>
+                    ))}
+                  </HStack>
+                </Box>
+                <TelephonyWorkspace
+                  text={text}
+                  profiles={profiles}
+                  page={telephonyPage}
+                  onUnauthorized={unauthorized}
+                />
+              </Stack>
             ) : null}
-            {workspace === 'ssh-metrics' ? (
-              <SshMetricsWorkspace text={text} profiles={profiles} onUnauthorized={unauthorized} />
-            ) : null}
-            {workspace === 'pbx' ? (
-              <PbxWorkspace
-                text={text}
-                profiles={profiles}
-                onRefresh={async () => {
-                  await refreshProfiles();
-                }}
-                onUnauthorized={unauthorized}
-              />
-            ) : null}
-            {workspace === 'security' ? (
-              <SecurityWorkspace text={text} profiles={profiles} onUnauthorized={unauthorized} />
+            {workspace === 'settings' ? (
+              <Stack gap="5">
+                <Box>
+                  <Heading size="xl">{text.settingsTitle}</Heading>
+                  <Text color="fg.muted" mt="1">
+                    {text.settingsHint}
+                  </Text>
+                </Box>
+                <Box overflowX="auto" pb="1">
+                  <HStack gap="1" minW="max-content" data-settings-navigation>
+                    {(
+                      [
+                        ['pbx', text.pbxTitle],
+                        ['ssh-metrics', text.sshMetricsTitle],
+                        ['storage', text.dashboardStorageTitle],
+                        ['security', text.securityTitle],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <Button
+                        key={value}
+                        size="sm"
+                        variant={settingsPage === value ? 'solid' : 'outline'}
+                        colorPalette={settingsPage === value ? 'blue' : 'gray'}
+                        onClick={() => setSettingsPage(value)}
+                      >
+                        {label}
+                      </Button>
+                    ))}
+                  </HStack>
+                </Box>
+                {settingsPage === 'pbx' ? (
+                  <PbxWorkspace
+                    text={text}
+                    profiles={profiles}
+                    onRefresh={async () => {
+                      await refreshProfiles();
+                    }}
+                    onUnauthorized={unauthorized}
+                  />
+                ) : null}
+                {settingsPage === 'ssh-metrics' ? (
+                  <SshMetricsWorkspace
+                    text={text}
+                    profiles={profiles}
+                    onUnauthorized={unauthorized}
+                  />
+                ) : null}
+                {settingsPage === 'storage' ? (
+                  <DashboardStorageWorkspace
+                    text={text}
+                    profiles={profiles}
+                    onUnauthorized={unauthorized}
+                  />
+                ) : null}
+                {settingsPage === 'security' ? (
+                  <SecurityWorkspace
+                    text={text}
+                    profiles={profiles}
+                    onUnauthorized={unauthorized}
+                  />
+                ) : null}
+              </Stack>
             ) : null}
           </Stack>
         ) : null}

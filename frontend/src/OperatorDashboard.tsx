@@ -538,6 +538,7 @@ export function OperatorDashboard({
   );
   const [metrics, setMetrics] = useState<SystemMetricsResponse>();
   const [metricHistory, setMetricHistory] = useState<SystemMetricsSample[]>([]);
+  const [selectedFilesystemIds, setSelectedFilesystemIds] = useState<string[] | null>(null);
   const [alerts, setAlerts] = useState<SecurityAlertRecord[]>([]);
   const [telephony, setTelephony] = useState<TelephonyInstanceState | null>(null);
   const [metricsLive, setMetricsLive] = useState<LiveState>('connecting');
@@ -561,6 +562,7 @@ export function OperatorDashboard({
     setConnection(selected.connectionStatus);
     setMetrics(undefined);
     setMetricHistory([]);
+    setSelectedFilesystemIds(null);
     setAlerts([]);
     setTelephony(null);
     setError('');
@@ -589,6 +591,12 @@ export function OperatorDashboard({
         .systemMetrics(selected.id)
         .then((value) => {
           if (!cancelled) setMetrics(value);
+        })
+        .catch(fail),
+      api
+        .dashboardStorage(selected.id)
+        .then((value) => {
+          if (!cancelled) setSelectedFilesystemIds(value.selectedFilesystemIds);
         })
         .catch(fail),
       api
@@ -873,7 +881,14 @@ export function OperatorDashboard({
         <ServiceHealthOverview text={text} services={sample?.services ?? []} />
       </SimpleGrid>
 
-      <StorageOverview text={text} filesystems={sample?.filesystems ?? []} />
+      <StorageOverview
+        text={text}
+        filesystems={(sample?.filesystems ?? []).filter(
+          (filesystem) =>
+            selectedFilesystemIds === null ||
+            selectedFilesystemIds.includes(filesystem.filesystemId),
+        )}
+      />
 
       {metricsUnavailable ? (
         <Card.Root variant="outline" bg="orange.50" borderColor="orange.200">

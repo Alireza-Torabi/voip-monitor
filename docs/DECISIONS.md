@@ -439,3 +439,16 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 283. **Service health is conditional:** render systemd service states only when the existing metrics sample contains them; absence remains an explicit not-configured/no-data state.
 284. **Legacy OpenSSH compatibility:** deployment documentation must include a SHA-256 host-key fingerprint fallback for OpenSSH versions where ssh-keygen -E is unavailable, computed from the trusted local host public-key file.
 285. **Task 43 remains next:** this correction is presentation/deployment documentation only and does not consume the trunk-discovery task.
+
+
+## 2026-10-05 — Navigation hierarchy and dashboard storage preferences
+
+286. **Three top-level work areas:** authenticated navigation is limited to Dashboard, Telephony, and Settings. Feature growth must not add every workspace directly to the global header.
+287. **Telephony submenu ownership:** Calls, Channels, Endpoints, Trunks, Queues, and Agents belong under a horizontal Telephony submenu.
+288. **Settings submenu ownership:** PBX profiles, System metrics SSH, Dashboard storage, Security monitoring, and future administrative surfaces belong under a horizontal Settings submenu.
+289. **Storage preference is PBX-scoped and server-persisted:** selection is stored in SQLite rather than browser localStorage so all administrators/browsers see the same deployment configuration.
+290. **Filesystem IDs, not hardcoded paths:** the preference stores selected IDs from the current normalized filesystem sample. Repository defaults never name deployment-specific mount paths.
+291. **Default-all semantics:** absence of a stored preference means display all current filesystems. A stored empty array means display none. Deleting/resetting the preference restores default-all.
+292. **Collection remains complete:** dashboard visibility preference filters presentation only. Restricted SSH collection continues to collect the bounded filesystem sample and does not receive user-provided shell/path arguments.
+293. **Bounded preference input:** API accepts at most 128 unique non-empty filesystem IDs, each at most 512 characters, through authenticated PBX-scoped same-origin PUT; GET is read-only and DELETE resets.
+294. **Schema migration 12:** dashboard_storage_config is append-only migration state with PBX foreign-key cascade and JSON validity enforcement.
