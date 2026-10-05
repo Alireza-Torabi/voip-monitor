@@ -1,6 +1,6 @@
 # Master Plan
 
-وضعیت: 2026-10-05. Task 38 داخل main Merge شده است. Task 39 روی feature/operator-dashboard کامل شده و Merge آن به main هنوز Pending است. اولین داشبورد دوزبانه اپراتور فقط از Boundaryهای Authenticated و Read-only موجود برای Provider Status، System Metrics و Security Alerts استفاده می‌کند؛ هیچ PBX Action یا مسیر Collection جدیدی اضافه نشده است.
+وضعیت: 2026-10-05. Task 39 داخل main Merge شده است. Task 40 روی feature/telephony-state-api کامل شده و Merge آن به main هنوز Pending است. TelephonyStateEngine موجود اکنون از طریق Boundaryهای Authenticated، PBX-scoped و Read-only برای Current State و SSE Realtime ارائه می‌شود، بدون ایجاد PBX Connection، Action، Permission یا Collection Source جدید.
 
 ## Phase 0 - کشف محیط
 
@@ -77,18 +77,28 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - [x] Task 37: Built Bilingual Frontend و Backend به‌صورت Same-Origin HTTPS Stack روی Monitoring Host با Private Local Runtime Configuration، Loopback-only Backend Exposure، Managed Local Launcher و Generic Tracked Systemd Unit Deploy شدند؛ Live UI/Health/Readiness PASS شد.
 - [x] Task 38: OS-level Systemd Service نصب و Enable شد، Runtime Node/Data/TLS از Private Toolchain Pathها جدا شد، Live HTTPS/Health/Readiness پس از Reboot واقعی Host Validate شد، Scope فعلی Read-only PBX Monitoring حفظ شد و Explicit Temporary Self-Signed TLS Exception اضافه شد؛ Firewall Host Restrictive نیست چون UFW غیرفعال است.
 - [x] Task 39: اولین Bilingual Operator Dashboard فقط با APIهای Authenticated و Read-only موجود برای PBX/Provider، System Metrics و Security Alerts اضافه شد. داشبورد شامل PBX Selection، Provider Connection Summary با Polling محدود Local Status، System-metric Summary، Realtime SSE Health، Current Security-alert Count و Navigation به مدیریت PBX/Security است. هیچ PBX Write Action، Collector جدید یا Backend Network Path جدیدی اضافه نشده است.
+- [x] Task 40: `TelephonyStateEngine` موجود از طریق APIهای Authenticated، PBX-scoped و Read-only برای Current State و SSE Realtime ارائه شد. Stream فقط Normalized Engine State را منتشر می‌کند، به 64 Stream همزمان محدود است، Heartbeat پانزده‌ثانیه‌ای دارد، پس از Profile-runtime Reset مقدار `current: null` منتشر می‌کند و هیچ PBX Connection/Action یا Collection Source جدیدی ایجاد نمی‌کند.
 
 ### وضعیت فعلی ادامه کار
 
-- Branch فعلی `feature/operator-dashboard` است که پس از تأیید وجود Task 38 در `origin/main` از `main` همگام‌شده ساخته شد.
-- پیاده‌سازی و Validation مربوط به Task 39 روی این Branch کامل است؛ Merge به main هنوز Pending است.
-- داشبورد Authenticated و دوزبانه فقط از Boundaryهای Safe موجود استفاده می‌کند: Local Provider Status، Current System Metrics به‌همراه Metrics SSE، و Current Persisted Security Alerts به‌همراه Alert SSE.
-- وضعیت اتصال Provider هر ۱۵ ثانیه از Endpoint محلی موجود `provider-status` Refresh می‌شود؛ این کار PBX Probe یا Connection جدید ایجاد نمی‌کند.
-- داشبورد هیچ Backend Route، PBX Write Action، Credential Exposure، Collector یا Data Collection Scope گسترده‌تری اضافه نمی‌کند.
-- در پیاده‌سازی یا Validation Task 39 هیچ PBX واقعی Access نشد.
-- Task دقیق بعدی پس از Merge شدن Task 39: **Task 40 — ارائه `TelephonyStateEngine` موجود از طریق APIهای Authenticated، PBX-scoped، Bounded و Read-only برای Current State و Realtime، بدون PBX Connection یا Write Action جدید.**
+- Branch فعلی `feature/telephony-state-api` است که پس از تأیید Merge شدن Task 39 در `origin/main` از `main` همگام‌شده ساخته شد.
+- پیاده‌سازی و Targeted Validation مربوط به Task 40 روی این Branch کامل است؛ Merge به main هنوز Pending است.
+- `GET /api/pbx-instances/:id/telephony-state` Current Normalized Engine Snapshot یا قبل از وجود Authoritative Snapshot مقدار `null` برمی‌گرداند.
+- `GET /api/pbx-instances/:id/telephony-state/stream` Initial Snapshot و Revisionهای بعدی همان PBX را با SSE می‌فرستد؛ Profile-runtime Reset مقدار `current: null` منتشر می‌کند.
+- API Authenticated، PBX-scoped و GET-only است، حداکثر 64 Stream همزمان دارد و Heartbeat پانزده‌ثانیه‌ای می‌فرستد.
+- Browser/API Consumer فقط به Engine در حال اجرا Subscribe می‌شود و Provider Instance، AMI Connection، AMI Action، Permission جدید یا Collection Source جدید ایجاد نمی‌کند.
+- در پیاده‌سازی یا Validation Task 40 هیچ PBX واقعی Access نشد.
+- Task دقیق بعدی پس از Merge شدن Task 40: **Task 41 — مصرف Current-state/SSE مربوط به Task 40 در Bilingual Operator UI و نمایش PBX-scoped Synchronization به‌همراه Current Call/Channel/Endpoint/Trunk/Queue/Agent Interaction، بدون PBX Action، History یا Collection Scope گسترده‌تر.**
 
 ### ثبت خرابی و اشکال
+
+- **Task 40 Server-write Syntax Failure — رفع شد:** اولین Route مربوط به Telephony SSE، Heartbeat Escape Sequence را به‌صورت Physical Newline داخل TypeScript String نوشت و Targeted Typecheck با Unterminated String Literal Fail شد. Root Cause تفسیر Escape در Python Heredoc مربوط به Remote Edit Wrapper بود. Fix: Literal `\n\n` صریح نوشته شد و Backend Typecheck PASS شد.
+- **Task 40 Remote-wrapper Parse Failure — پیش از File Modification رفع شد:** اولین Command افزودن API Test شامل Nested JavaScript Template Literal بود که Outer Tool Wrapper را شکست. در آن Attempt تغییر اضافی در Repository ایجاد نشد. Fix: Template Literal با String Concatenation ساده جایگزین شد.
+- **Task 40 Formatting Drift — رفع شد:** Server Route و Provider-runtime Test جدید به Prettier Normalization نیاز داشتند و Repository Formatter آنها را اصلاح کرد.
+- **Task 40 Full-gate Lint Failure — رفع شد:** اولین Full Gate، Synthetic API Fixture را رد کرد چون Repository ESLint، Global `structuredClone` را در Test Fileها تعریف نمی‌کند. Fixture به Clone نیاز نداشت، بنابراین اکنون همان Immutable Synthetic State Object را مستقیم برمی‌گرداند و Full Gate از Lint دوباره اجرا شد.
+- **محدودیت شناخته‌شده Task 40:** Telephony State فقط Current In-memory State است و Telephony History/Persistence API وجود ندارد.
+- **محدودیت شناخته‌شده Task 40:** Agent Interaction همچنان `LIVE_ONLY` است و Interactionهای Active پیش از Startup/Reconnect ممکن است Under-report شوند. Queue/Agent Production Compatibility هنوز Claim نشده است.
+- **محدودیت شناخته‌شده Task 40:** Browser Surface هنوز Telephony API جدید را مصرف نمی‌کند؛ این Scope دقیق Task 41 است.
 
 - **Task 39 Remote-wrapper Quoting Failure — رفع شد:** اولین Command افزودن Test به‌دلیل Nested Template Literal در Remote Wrapper Parse نشد. هیچ File ناقصی نوشته نشد؛ Command با Quoting امن بازنویسی شد.
 - **Task 39 Frontend Typecheck Failure — رفع شد:** SSE Reducer مقدار Explicit `undefined` را به Exact Optional Property می‌داد. Fix: Property غایب Omit می‌شود. Frontend Typecheck و 15/15 Test PASS شدند.
@@ -404,6 +414,29 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - **Known limitation:** Provider Connection State Poll می‌شود، Stream نمی‌شود.
 - **Task دقیق بعدی:** Task 40، Current-state و Realtime APIهای Authenticated، Bounded و Read-only برای `TelephonyStateEngine` موجود را اضافه می‌کند؛ بدون PBX Connection، Action یا Data Collection جدید.
 
+## 2026-10-05 — رکورد تکمیل Task 40
+
+- **نتیجه:** `TelephonyStateEngine` موجود روی `feature/telephony-state-api` از طریق APIهای Authenticated، PBX-scoped و Read-only برای Current State و SSE Realtime ارائه شد.
+- **Current-state API:** `GET /api/pbx-instances/:id/telephony-state` مقدار `{ current }` را از Engine در حال اجرا می‌دهد و وقتی Authoritative State هنوز وجود ندارد `null` برمی‌گرداند.
+- **Realtime API:** `GET /api/pbx-instances/:id/telephony-state/stream` Initial Current Snapshot و Revisionهای بعدی همان PBX را ارسال می‌کند.
+- **Reset Semantics:** Profile/runtime Reset مقدار `current: null` منتشر می‌کند تا Client State قدیمی را نگه ندارد.
+- **Bounds:** Stream فقط GET، Authenticated و PBX-scoped است، حداکثر 64 Client همزمان دارد و Heartbeat پانزده‌ثانیه‌ای ارسال می‌کند.
+- **Data Boundary:** Payload فقط از Normalized `TelephonyInstanceState` می‌آید؛ API Raw AMI Frame یا API-edge Identity Enrichment اضافه نمی‌کند.
+- **Runtime Isolation:** Browser/API Consumer هیچ Provider Instance، AMI Connection، AMI Action، SSH Work یا Persistence Work جدیدی ایجاد نمی‌کند.
+- **Targeted Validation:** Backend Typecheck PASS شد و Provider-runtime/API Suite برابر 15/15 PASS شد؛ Auth، PBX Scoping، GET-only Behavior، Initial Snapshot، PBX-filtered Revision و Reset-to-null پوشش داده شدند.
+- **Final Validation:** Lint، Format Check، Typecheck، Backend Testهای 127/127، Frontend Testهای 15/15، Production Build، Foundation Check، License Check و Diff Check همگی PASS شدند.
+- **PBX Scope:** هیچ PBX واقعی Contact، Probe یا Modify نشد و Permission جدیدی داده نشد.
+
+### Failure / Bug / Gapهای Task 40
+
+- **Heartbeat Escape Syntax Failure — رفع شد:** Python Heredoc Escaping باعث Physical Newline داخل TypeScript String شد؛ Literal SSE Newline Escape بازیابی شد و Typecheck PASS شد.
+- **Remote Wrapper Parse Failure — رفع شد:** Nested Template Literal اولین Test-edit Wrapper را پیش از Execution شکست؛ Test Edit با Plain Concatenation بازنویسی شد.
+- **Formatting Drift — رفع شد:** Prettier فایل‌های Server/Test تغییرکرده را Normalize کرد.
+- **Known limitation:** Telephony History/Persistence بخشی از Task 40 نیست.
+- **Known limitation:** Operator Dashboard هنوز Telephony State API/SSE جدید را مصرف نمی‌کند.
+- **Known limitation:** Agent State از نوع Live-only است و Queue/Agent Real-PBX Compatibility هنوز Verify نشده است.
+- **Task دقیق بعدی:** Task 41، Task 40 را در Bilingual Operator UI مصرف می‌کند و فقط PBX-scoped Synchronization به‌همراه Current Call/Channel/Endpoint/Trunk/Queue/Agent Interaction را نمایش می‌دهد؛ بدون PBX Write، History یا Collection گسترده‌تر.
+
 ### پروتکل ادامه مداوم
 
 برای هر کار/جلسه آینده:
@@ -424,13 +457,13 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - [x] پایه Phase 5: موتور حالت تلفن - کانال/تماس قطعی، نقطه پایانی/ثبت نام chan_sip، صندوق ثبت نام خروجی، صف/عضو/تماس گیرنده، و پایه های حالت تعامل فقط با عامل زنده اجرا می شوند. سازگاری Queue/Agent real-PBX تا زمانی که یک Gate سازگاری کنترل‌شده بعداً ارائه شود، بی ادعا باقی می‌ماند.
 - [x] پایه Phase 6: قراردادهای متریک سیستم ارائه‌دهنده خنثی، اعتبار سنجی جمع‌آوری بسته با شکست، محدودیت‌های فرمان SSH فهرست مجاز/اجرای محدودیت‌ها/ تجزیه‌کننده‌های سیستم لینوکس، پیکربندی SSH رمزگذاری‌شده به ازای هر PBX، اعتماد کلید میزبان پین شده، خط‌مشی SSRF مشترک، حمل‌ونقل منبع فعلی SSHBX محدود شده، حمل‌ونقل منبع سلامت BX در هر زمان تداوم، و جریان/تاریخچه تأیید شده به‌علاوه قرار گرفتن در معرض سنجه‌های سیستم بلادرنگ پیاده‌سازی می‌شوند.
 - [x] مرحله 7: نظارت بر امنیت - رویدادهای احراز هویت عادی AMI، Persistence/API/SSE، ارزیابی هشدار محدود/تداوم/قوانین/Runtime، APIهای احراز هویت شده، و رابط کاربری هشدار دوزبانه فعلی/تاریخ اخیر/زمان بیدرنگ برای بخش تعریف شده کامل هستند. منابع/قوانین گسترده‌تر و تحویل خارجی، کارهای آینده جداگانه باقی می‌مانند.
-- [ ] Phase 8: API تایید شده و بلادرنگ.
+- [x] پایه Phase 8: Authenticated PBX-scoped Read-only/Realtime Exposure برای System Metrics، Security State/Alerts و Normalized Telephony Current State موجود است.
 - [x] Phase 9: پایه Bilingual Operator Dashboard با Boundaryهای Safe موجود Provider/System/Security.
 - [ ] Phase 10: تاریخچه و حفظ.
 - [ ] Phase 11: سخت شدن، تهیه نسخه پشتیبان، بازیابی آزمایش شده، و یک دفترچه راه اندازی تولید.
 - [ ] Phase 12: اعتبار سنجی انتشار، از جمله رویه استقرار تازه خنثی برای سازمان که می تواند بدون حمل مقادیر خصوصی از استقرار دیگر، روی یک سرویس جدید نصب شود.
 
-Phase 1 بسته است. بخش تعریف‌شده Security Monitoring در Phase 7 همچنان تا Task 34 کامل است. Taskهای 35-36 Notification Storage/Configuration را بدون Delivery اضافه کرده‌اند، Task 37 Live Same-Origin HTTPS Application را فراهم کرده، Task 38 OS-level Reboot Persistence را اثبات کرده و Task 39 اولین Bilingual Operator Dashboard را روی Boundaryهای Safe موجود Provider/System/Security اضافه کرده است. Task دقیق بعدی پس از Merge شدن Task 39، **Task 40 — Authenticated Bounded Read-only Current-state و Realtime Exposure برای `TelephonyStateEngine` موجود، بدون PBX Connection یا Write Action جدید.**
+Phase 1 بسته است. بخش تعریف‌شده Security Monitoring در Phase 7 همچنان تا Task 34 کامل است. Taskهای 35-36 Notification Storage/Configuration را بدون Delivery اضافه کرده‌اند، Task 37 Live Same-Origin HTTPS Application را فراهم کرده، Task 38 OS-level Reboot Persistence را اثبات کرده، Task 39 اولین Bilingual Operator Dashboard را اضافه کرده و Task 40 Normalized Telephony Current State را از طریق Authenticated PBX-scoped Read-only HTTP/SSE ارائه کرده است. Task دقیق بعدی پس از Merge شدن Task 40، **Task 41 — مصرف Telephony State API/SSE در Bilingual Operator UI بدون PBX Action، History یا Collection Scope گسترده‌تر.**
 
 ## 26-09-2026 - رکورد تکمیل Task 28
 

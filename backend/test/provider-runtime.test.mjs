@@ -853,6 +853,139 @@ test('system metrics stream is authenticated and PBX-scoped', async () =>
     }
   }));
 
+test('telephony state API is authenticated, PBX-scoped, read-only, and streams engine revisions', async () =>
+  fixture(async ({ storage, secrets }) => {
+    const onboarding = new PbxOnboardingService(storage, secrets);
+    const profile = onboarding.create(profileInput(false));
+    const apiAuth = {
+      requiresSecureOrigin: false,
+      principal(token) {
+        return token === 'synthetic' ? { id: 'admin', username: 'admin' } : undefined;
+      },
+    };
+    let stateListener;
+    let resetListener;
+    const runtime = {
+      connectionState() {
+        return 'UNVERIFIED';
+      },
+      subscribeInstanceResets(listener) {
+        resetListener = listener;
+        return () => {
+          if (resetListener === listener) resetListener = undefined;
+        };
+      },
+    };
+    const currentState = {
+      instanceId: profile.id,
+      revision: 3,
+      synchronization: 'CURRENT',
+      lastSnapshotAt: '2026-10-05T05:00:00.000Z',
+      channels: [
+        {
+          channelId: 'channel-1',
+          linkedId: 'call-1',
+          state: 'Up',
+          updatedAt: '2026-10-05T05:00:01.000Z',
+        },
+      ],
+      calls: [
+        {
+          callId: 'call-1',
+          linkedId: 'call-1',
+          channelIds: ['channel-1'],
+          bridgeIds: [],
+          updatedAt: '2026-10-05T05:00:01.000Z',
+        },
+      ],
+      endpointCapability: 'SUPPORTED',
+      endpointSynchronization: 'CURRENT',
+      endpoints: [],
+      trunkCapability: 'UNSUPPORTED',
+      trunkSynchronization: 'UNAVAILABLE',
+      trunks: [],
+      queueCapability: 'SUPPORTED',
+      queueSynchronization: 'CURRENT',
+      queues: [],
+      queueMembers: [],
+      queueCallers: [],
+      agentCapability: 'UNKNOWN',
+      agentSynchronization: 'LIVE_ONLY',
+      agentInteractions: [],
+    };
+    const telephonyState = {
+      current(id) {
+        return id === profile.id ? currentState : undefined;
+      },
+      subscribe(listener) {
+        stateListener = listener;
+        return () => {
+          if (stateListener === listener) stateListener = undefined;
+        };
+      },
+    };
+
+    const app = await serve(storage, secrets, apiAuth, runtime, undefined, telephonyState);
+    try {
+      const path = '/api/pbx-instances/' + profile.id + '/telephony-state';
+      assert.equal((await fetch(app.base + path)).status, 401);
+      assert.equal(
+        (
+          await fetch(app.base + '/api/pbx-instances/not-found/telephony-state', {
+            headers: { Cookie: 'vm_session=synthetic' },
+          })
+        ).status,
+        404,
+      );
+
+      assert.equal(
+        (
+          await fetch(app.base + path, {
+            method: 'POST',
+            headers: { Cookie: 'vm_session=synthetic' },
+          })
+        ).status,
+        404,
+      );
+
+      const current = await (
+        await fetch(app.base + path, { headers: { Cookie: 'vm_session=synthetic' } })
+      ).json();
+      assert.equal(current.current.instanceId, profile.id);
+      assert.equal(current.current.revision, 3);
+      assert.equal(current.current.calls[0].callId, 'call-1');
+      assert.equal(current.current.channels[0].state, 'Up');
+      assert.equal('raw' in current.current, false);
+
+      const stream = await fetch(app.base + path + '/stream', {
+        headers: { Cookie: 'vm_session=synthetic' },
+      });
+      assert.equal(stream.status, 200);
+      assert.match(stream.headers.get('content-type') ?? '', /text\/event-stream/);
+      const reader = stream.body.getReader();
+      const decoder = new TextDecoder();
+      const initial = decoder.decode((await reader.read()).value);
+      assert.match(initial, /event: telephony-state/);
+      assert.match(initial, /"revision":3/);
+
+      stateListener({ ...currentState, instanceId: 'other-pbx', revision: 99 });
+      stateListener({ ...currentState, revision: 4 });
+      const update = decoder.decode((await reader.read()).value);
+      assert.match(update, /event: telephony-state/);
+      assert.match(update, /"revision":4/);
+      assert.doesNotMatch(update, /"revision":99/);
+
+      resetListener(profile.id);
+      const reset = decoder.decode((await reader.read()).value);
+      assert.match(reset, /event: telephony-state/);
+      assert.match(reset, /"current":null/);
+
+      await reader.cancel();
+    } finally {
+      await app.close();
+    }
+  }));
+
 test('disabled network mode rejects verification without constructing a provider', async () =>
   fixture(async ({ storage, secrets, setRuntime }) => {
     const onboarding = new PbxOnboardingService(storage, secrets);
@@ -869,8 +1002,8 @@ test('disabled network mode rejects verification without constructing a provider
     assert.equal(runtime.status(profile.id).networkEnabled, false);
   }));
 
-async function serve(storage, secrets, auth, runtime, systemMetrics) {
-  const server = createApp(storage, secrets, auth, runtime, systemMetrics);
+async function serve(storage, secrets, auth, runtime, systemMetrics, telephonyState) {
+  const server = createApp(storage, secrets, auth, runtime, systemMetrics, telephonyState);
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
   const address = server.address();

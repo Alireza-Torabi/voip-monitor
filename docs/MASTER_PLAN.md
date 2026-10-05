@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-05. Task 38 is merged into main. Task 39 is complete on feature/operator-dashboard and merge into main is pending. The first bilingual operator dashboard uses only existing authenticated read-only provider-status, system-metrics, and security-alert boundaries; no new PBX action or collection path was added.
+Status: 2026-10-05. Task 39 is merged into main. Task 40 is complete on feature/telephony-state-api and merge into main is pending. The existing TelephonyStateEngine is now exposed through authenticated PBX-scoped read-only current-state and SSE realtime boundaries without creating PBX connections, actions, permissions, or collection sources.
 
 ## Phase 0 — environment discovery
 
@@ -77,18 +77,28 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 37: deploy the built bilingual frontend and backend as a same-origin HTTPS stack on the monitoring host using private local runtime configuration, loopback-only backend exposure, a managed local launcher, and a generic tracked systemd unit; live UI/health/readiness passed.
 - [x] Task 38: install and enable the OS-level systemd service, migrate runtime Node/data/TLS boundaries out of private toolchain paths, validate live HTTPS/health/readiness after a real host reboot, preserve the approved read-only PBX monitoring scope, and support an explicit temporary self-signed TLS exception; firewall remains non-restrictive because UFW is inactive.
 - [x] Task 39: add the first bilingual operator dashboard using existing authenticated read-only PBX/provider, system-metrics, and security-alert APIs. It provides PBX selection, provider connection summary with bounded local-status polling, system-metric summary, realtime SSE health, current security-alert count, and navigation to existing PBX/security management. No PBX write action, new collector, or new backend network path was added.
+- [x] Task 40: expose the existing `TelephonyStateEngine` through authenticated PBX-scoped read-only current-state and SSE realtime APIs. The stream publishes only normalized engine state, is capped at 64 concurrent streams with 15-second heartbeats, publishes `current: null` after a profile-runtime reset, and creates no PBX connection/action or new collection source.
 
 ### Current execution handoff
 
-- Current branch: `feature/operator-dashboard`, created from synchronized `main` after confirming Task 38 is contained in `origin/main`.
-- Task 39 implementation and validation are complete on this branch; merge into main remains pending.
-- The authenticated bilingual dashboard consumes only existing safe boundaries: local provider status, current system metrics plus metrics SSE, and current persisted security alerts plus alert SSE.
-- Provider connection state is refreshed every 15 seconds through the existing local `provider-status` endpoint; this does not create a new PBX probe or connection.
-- The dashboard adds no backend route, PBX write action, credential exposure, collector, or broader data collection scope.
-- No real PBX was contacted as part of Task 39 implementation or validation.
-- Exact next task after Task 39 merge: **Task 40 — expose the existing `TelephonyStateEngine` through an authenticated, PBX-scoped, bounded read-only current-state and realtime API so calls/channels/endpoints/trunks/queues/agent interactions can later be presented without creating new PBX connections or write actions.**
+- Current branch: `feature/telephony-state-api`, created from synchronized `main` after confirming Task 39 is contained in `origin/main`.
+- Task 40 implementation and targeted validation are complete on this branch; merge into main remains pending.
+- `GET /api/pbx-instances/:id/telephony-state` returns the current normalized engine snapshot or `null` before an authoritative snapshot exists.
+- `GET /api/pbx-instances/:id/telephony-state/stream` sends an initial snapshot and subsequent PBX-scoped engine revisions through SSE; profile-runtime reset emits `current: null`.
+- The API is authenticated, PBX-scoped, GET-only, capped at 64 concurrent streams, and uses 15-second SSE heartbeats.
+- Browser/API consumers subscribe to the already-running engine only; they do not construct provider instances, open AMI connections, execute AMI actions, expand permissions, or add collection sources.
+- No real PBX was contacted as part of Task 40 implementation or validation.
+- Exact next task after Task 40 merge: **Task 41 — consume the Task 40 telephony current-state/SSE boundaries in the bilingual operator UI and present PBX-scoped synchronization plus current calls/channels/endpoints/trunks/queues/agent interactions, without adding PBX actions, history, or broader collection scope.**
 
 ### Failure and bug log
+
+- **Task 40 server-write syntax failure — resolved:** the first generated telephony SSE route wrote the heartbeat escape sequence as physical newlines inside a TypeScript string, causing an unterminated string literal during targeted typecheck. Root cause was Python heredoc escape interpretation in the remote edit wrapper. Fix: write the literal `\n\n` sequence explicitly; backend typecheck then passed.
+- **Task 40 remote-wrapper parse failure — resolved before file modification:** the first command used to append API tests contained a nested JavaScript template literal that broke the outer tool wrapper. No additional repository file change occurred in that failed attempt. Fix: replace the nested template literal with plain string concatenation and rerun.
+- **Task 40 formatting drift — resolved:** the new server route and provider-runtime test required Prettier normalization. The repository formatter corrected both before final validation.
+- **Task 40 full-gate lint failure — resolved:** the first full gate rejected the synthetic API fixture because repository ESLint does not expose global `structuredClone` in test files. The fixture did not require cloning, so it now returns the immutable synthetic state object directly. The full gate was rerun from lint.
+- **Task 40 known limitation:** telephony state remains in-memory current state only; there is no telephony history/persistence API.
+- **Task 40 known limitation:** Agent interactions remain explicitly `LIVE_ONLY` and can under-report interactions already active before startup/reconnect. Queue/Agent production compatibility remains unclaimed until a separate controlled gate.
+- **Task 40 known limitation:** no browser surface consumes the new telephony API yet; that is the exact scope of Task 41.
 
 - **Task 39 remote-wrapper quoting failure — resolved before file modification:** the first test-append command contained an unescaped JavaScript template literal inside the remote command wrapper and failed to parse. No repository file was partially written. Fix: replace the nested template literal with plain string concatenation and rerun the edit.
 - **Task 39 frontend typecheck failure — resolved:** the first dashboard SSE reducer explicitly assigned `undefined` to an optional `source` property under `exactOptionalPropertyTypes`. Fix: omit the property when no source status exists. Frontend typecheck and all 15 frontend tests then passed.
@@ -404,6 +414,29 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - **Known limitation:** provider connection state is polled rather than streamed because no provider-status SSE boundary exists.
 - **Exact next task:** Task 40 exposes the existing `TelephonyStateEngine` through authenticated bounded read-only current-state and realtime APIs only; no new PBX connection, action, or data-collection scope.
 
+## 2026-10-05 — Task 40 completion record
+
+- **Result:** exposed the existing `TelephonyStateEngine` through authenticated PBX-scoped read-only current-state and SSE realtime APIs on `feature/telephony-state-api`.
+- **Current-state API:** `GET /api/pbx-instances/:id/telephony-state` returns `{ current }` from the already-running engine, using `null` when no authoritative state exists yet.
+- **Realtime API:** `GET /api/pbx-instances/:id/telephony-state/stream` sends the initial current snapshot and subsequent engine revisions for that PBX only.
+- **Reset semantics:** profile/runtime reset publishes `current: null` so a connected client does not keep stale state after the engine removes an instance.
+- **Bounds:** the stream is GET-only, authenticated, PBX-scoped, capped at 64 concurrent clients, and sends a 15-second heartbeat.
+- **Data boundary:** payloads come only from the normalized `TelephonyInstanceState` contract; the API does not forward raw AMI frames or create API-edge identity enrichment.
+- **Runtime isolation:** browser/API consumers do not create provider instances, AMI connections, AMI actions, SSH work, or persistence work.
+- **Targeted validation:** backend typecheck passed and the provider-runtime/API suite passed 15/15, including authentication, PBX scoping, GET-only behavior, initial snapshot, PBX-filtered revisions, and reset-to-null behavior.
+- **Final validation:** lint, format check, typecheck, backend 127/127 tests, frontend 15/15 tests, production build, foundation check, license check, and diff check all passed.
+- **PBX scope:** no real PBX was contacted, probed, modified, or granted new permissions.
+
+### Task 40 failures / bugs / gaps
+
+- **Heartbeat escape syntax failure — resolved:** Python heredoc escaping wrote physical newlines into a TypeScript string. The literal SSE newline escape sequence was restored and typecheck passed.
+- **Remote wrapper parse failure — resolved:** a nested template literal broke the first test-edit wrapper before execution; the test edit was rewritten with plain concatenation.
+- **Formatting drift — resolved:** Prettier normalized the changed server/test files.
+- **Known limitation:** telephony history/persistence is not part of Task 40.
+- **Known limitation:** the operator dashboard does not yet consume the new telephony state API/SSE.
+- **Known limitation:** Agent state is live-only and queue/agent real-PBX compatibility is still unverified.
+- **Exact next task:** Task 41 consumes Task 40 in the bilingual operator UI and presents PBX-scoped synchronization plus current calls/channels/endpoints/trunks/queues/agent interactions only; no PBX writes, history, or broader collection.
+
 ### Persistent continuation protocol
 
 For every future task/session:
@@ -424,13 +457,13 @@ Tasks 7–13 implemented substantial Asterisk-provider and telephony-state found
 - [x] Phase 5 foundation: telephony state engine — deterministic channel/call, chan_sip endpoint/registration, outbound-registration trunk, queue/member/caller, and live-only agent interaction state foundations are implemented. Queue/Agent real-PBX compatibility remains unclaimed until a later controlled compatibility gate.
 - [x] Phase 6 foundation: provider-neutral system-metric contracts, fail-closed collector validation, restricted SSH command allowlisting/execution bounds/Linux-systemd parsers, encrypted per-PBX SSH configuration, pinned host-key trust, shared SSRF policy, concrete restricted SSH transport, runtime scheduling, per-PBX source health, bounded current/history persistence, and authenticated current/history plus realtime system-metrics exposure are implemented.
 - [x] Phase 7: security monitoring — normalized AMI authentication events, persistence/API/SSE, bounded alert evaluation/persistence/rules/runtime, authenticated rule APIs, and bilingual current/recent-history/realtime alert UI are complete for the defined slice; broader sources/rules and external delivery remain separate future work.
-- [ ] Phase 8: authenticated API and realtime.
+- [x] Phase 8 foundation: authenticated PBX-scoped read-only/realtime exposure exists for system metrics, security state, alerts, and normalized telephony current state.
 - [x] Phase 9: bilingual operator dashboard foundation using existing safe provider/system/security boundaries.
 - [ ] Phase 10: history and retention.
 - [ ] Phase 11: hardening, backup, tested restore, and a production deployment runbook.
 - [ ] Phase 12: release validation, including an organization-neutral fresh-deployment procedure that can onboard a new service without carrying private values from another deployment.
 
-Phase 1 is closed. Phase 7's defined security-monitoring slice remains complete through Task 34. Tasks 35-36 add notification storage/configuration without delivery, Task 37 provides the live same-origin HTTPS application, Task 38 proves OS-level reboot persistence with the operator-approved temporary self-signed TLS exception, and Task 39 adds the first bilingual operator dashboard over existing safe provider/system/security boundaries. Exact next task after Task 39 merge is **Task 40 — authenticated bounded read-only current-state and realtime exposure for the existing TelephonyStateEngine, without new PBX connections or write actions.**
+Phase 1 is closed. Phase 7's defined security-monitoring slice remains complete through Task 34. Tasks 35-36 add notification storage/configuration without delivery, Task 37 provides the live same-origin HTTPS application, Task 38 proves OS-level reboot persistence, Task 39 adds the first bilingual operator dashboard, and Task 40 exposes normalized telephony current state through authenticated PBX-scoped read-only HTTP/SSE. Exact next task after Task 40 merge is **Task 41 — consume the telephony state API/SSE in the bilingual operator UI without adding PBX actions, history, or broader collection.**
 
 ## 2026-09-26 — Task 28 completion record
 

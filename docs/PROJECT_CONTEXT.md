@@ -1,10 +1,10 @@
 # Project context
 
-Status: Task 38 is merged into main. Task 39 is complete on feature/operator-dashboard as of 2026-10-05 and merge into main is pending. The bilingual operator dashboard consumes only existing authenticated read-only provider-status, system-metrics, and security-alert APIs/SSE streams. No new PBX action, collector, credential exposure, or backend network path was added. Exact next task after Task 39 merge is Task 40: authenticated bounded read-only current-state/realtime exposure for the existing TelephonyStateEngine. License: Apache-2.0.
+Status: Task 39 is merged into main. Task 40 is complete on feature/telephony-state-api as of 2026-10-05 and merge into main is pending. The existing TelephonyStateEngine now has authenticated PBX-scoped read-only current-state and SSE realtime APIs with bounded stream count and no new PBX connection/action/permission/collection behavior. Exact next task after Task 40 merge is Task 41: consume the telephony state API/SSE in the bilingual operator UI. License: Apache-2.0.
 
 ## Repository state
 
-The public repository tracks origin/main. Task 38 is merged. The current feature branch is feature/operator-dashboard for Task 39; it changes frontend dashboard/API-client/test/documentation surfaces only and introduces no new backend route or PBX network behavior.
+The public repository tracks origin/main. Task 39 is merged. The current feature branch is feature/telephony-state-api for Task 40; it changes backend API wiring/tests/documentation only and introduces no new PBX network behavior.
 
 ## Product constraints
 

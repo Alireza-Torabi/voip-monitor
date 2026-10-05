@@ -80,7 +80,14 @@ if (config) {
         telephonyState.start();
         runtime.start();
         systemMetricsRuntime.start();
-        const server = createApp(storage, secrets, auth, runtime, systemMetricsRuntime);
+        const server = createApp(
+          storage,
+          secrets,
+          auth,
+          runtime,
+          systemMetricsRuntime,
+          telephonyState,
+        );
         server.on('error', () => {
           log('error', 'server_error');
           securityAlertRuntime.stop();
