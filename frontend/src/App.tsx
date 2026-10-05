@@ -22,6 +22,7 @@ import { SecurityWorkspace } from './SecurityWorkspace.js';
 import { SshMetricsWorkspace } from './SshMetricsWorkspace.js';
 import { DashboardStorageWorkspace } from './DashboardStorageWorkspace.js';
 import { ServiceMonitoringWorkspace } from './ServiceMonitoringWorkspace.js';
+import { AccountsWorkspace } from './AccountsWorkspace.js';
 import type { OperatorDestination } from './OperatorDashboard.js';
 import { DashboardBuilder } from './DashboardBuilder.js';
 import { TelephonyWorkspace, type TelephonyPage } from './TelephonyWorkspace.js';
@@ -29,7 +30,8 @@ import { TelephonyWorkspace, type TelephonyPage } from './TelephonyWorkspace.js'
 type TextMap = (typeof messages)[Language];
 type Phase = 'loading' | 'setup' | 'login' | 'ready' | 'error';
 type Workspace = 'dashboard' | 'telephony' | 'settings';
-type SettingsPage = 'pbx' | 'ssh-metrics' | 'service-monitoring' | 'storage' | 'security';
+type SettingsPage =
+  'pbx' | 'ssh-metrics' | 'service-monitoring' | 'storage' | 'security' | 'accounts';
 
 function FormField({
   label,
@@ -955,6 +957,7 @@ export function App({
                         ['service-monitoring', text.serviceMonitoringTitle],
                         ['storage', text.dashboardStorageTitle],
                         ['security', text.securityTitle],
+                        ['accounts', text.accountsTitle],
                       ] as const
                     ).map(([value, label]) => (
                       <Button
@@ -1004,6 +1007,13 @@ export function App({
                   <SecurityWorkspace
                     text={text}
                     profiles={profiles}
+                    onUnauthorized={unauthorized}
+                  />
+                ) : null}
+                {settingsPage === 'accounts' ? (
+                  <AccountsWorkspace
+                    text={text}
+                    principal={principal!}
                     onUnauthorized={unauthorized}
                   />
                 ) : null}

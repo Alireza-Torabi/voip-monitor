@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-05. PR #47 is merged. A user-requested dashboard-builder/service-monitoring correction is complete locally on feature/dashboard-builder and merge is pending. Task 43 has not started.
+Status: 2026-10-05. PR #48 is merged. A user-requested local-account management correction is complete locally on feature/account-management and merge is pending. Task 43 has not started.
 
 ## Phase 0 — environment discovery
 
@@ -85,21 +85,25 @@ These later checks do not change the historical Phase 1 validation record. Docke
 
 ### Current execution handoff
 
-- Current branch: feature/dashboard-builder, created from synchronized main after PR #47 merged the dashboard navigation/storage correction.
-- This correction does not start Task 43 and adds no new PBX write action or arbitrary SSH command surface.
-- Dashboard is now a persisted PBX-scoped builder rather than one fixed page. Each dashboard has a name and an ordered bounded widget list. Multiple dashboards can be created, selected, renamed, saved, and deleted.
-- Dashboard widgets can be added from a fixed allowlisted catalog, deleted, reordered by drag-and-drop, and resized with bounded width/height controls. Widget persistence stores only type/id/size/order, not executable code or arbitrary query/config payloads.
-- The default dashboard is created automatically for a PBX only when no saved dashboard exists. It uses only generic widget types and no deployment-specific host/path/service identifier.
-- Fullscreen uses the browser Fullscreen API on the dashboard root element itself, so the application header/navigation is outside fullscreen. Dashboard controls auto-hide after three seconds in fullscreen and reappear on pointer movement, supporting TV/NOC display.
-- Dashboard definitions are stored through schema migration 14 and authenticated PBX-scoped same-origin list/create/update/delete API boundaries. Payloads are bounded to at most 64 widgets, fixed widget types, unique safe IDs, width 1-12, height 1-4, and names up to 80 characters.
-- Service Health root cause is fixed: the production RestrictedSshSystemMetricsCollectorFactory previously created collectors without serviceIds, making service capability permanently NOT_CONFIGURED. It now reads the PBX-scoped service-monitoring configuration and passes the IDs into each collector.
-- Settings now includes Service monitoring. Administrators explicitly configure up to 32 unique safe systemd service IDs for each PBX. PUT/DELETE immediately call SystemMetricsRuntime.syncProfile(id), so service monitoring changes do not require application or PBX restart.
-- Service IDs are never deployment defaults. No current test service is hardcoded. The existing restricted SSH allowlist remains unchanged and systemctl receives only validated IDs after the fixed command boundary.
-- Final validation passes under project Node 24.21.0/npm 11.19.0: lint, format check, typecheck, backend 133/133 tests, frontend 21/21 tests, production build, foundation check, license check, and diff check. Targeted service-monitoring/dashboard persistence/API tests pass 23/23 and frontend builder/service-setting coverage passes 21/21.
-- No real PBX/SSH host was contacted or probed during this correction.
-- Exact next task after this correction merges remains Task 43: broaden provider-neutral trunk inventory beyond outbound registrations, synthetic/mock first and real-PBX verification only with separate approval.
+- Current branch: feature/account-management, created from synchronized main after PR #48 merged the dashboard-builder/service-monitoring correction.
+- This correction does not start Task 43 and does not change PBX/provider collection behavior.
+- Settings now includes Users & accounts for the existing local authentication model. The current model remains intentionally single-role: every managed local account is an Administrator; no fake RBAC/permission model is presented in the UI.
+- Authenticated administrators can list safe account metadata, create additional local administrators, rename accounts, enable/disable non-current accounts, reset passwords, and delete non-current accounts.
+- Safe account responses contain id, normalized username, enabled state, fixed ADMINISTRATOR role, created/updated timestamps, and optional last-login timestamp only. Password hashes and session tokens never leave the backend.
+- Username validation reuses the existing normalized lowercase auth boundary. Password creation/reset reuses the existing scrypt password policy and validPassword boundary.
+- Disabling an account revokes all of its sessions. Password reset also revokes all sessions for that account. Deleting an account cascades its sessions through the existing foreign key.
+- The currently authenticated account cannot disable or delete itself through the management API. The last enabled administrator cannot be disabled or deleted, preventing accidental total lockout.
+- Account mutation APIs are same-origin protected. GET list remains authenticated/read-only.
+- The UI exposes current-account status, fixed Administrator role, enabled/disabled state, created timestamp, last login timestamp, username editing, password reset, and account deletion controls.
+- A dedicated Selenium/UI-test account is intended to be provisioned locally only after deployment; its credential must remain under .local or another deployment-private secret boundary and must never be committed. Final validation passes under project Node 24.21.0/npm 11.19.0: lint, format check, typecheck, backend 134/134 tests, frontend 22/22 tests, production build, foundation check, license check, and diff check.
+- Exact next roadmap task after this correction merges remains Task 43: broaden provider-neutral trunk inventory beyond outbound registrations, synthetic/mock first and real-PBX verification only with separate approval.
 
 ### Failure and bug log
+
+- **No post-bootstrap account-management surface — corrected:** the local auth schema already supported multiple administrator rows, but only the first administrator could be created through the application. Fix: add bounded authenticated account-management repository/service/API/UI operations over the existing schema.
+- **Account lockout risk — bounded:** self-disable/self-delete are rejected, and the last enabled administrator cannot be disabled/deleted.
+- **Session persistence after account security changes — corrected:** disabling an account or resetting its password now revokes all existing sessions for that account.
+- **Role-model ambiguity — documented:** the current application has one local role only, Administrator. The UI shows that fixed role and does not imply RBAC exists.
 
 - **Service health permanently NOT_CONFIGURED — resolved:** the production collector factory never passed configured service IDs to RestrictedSshSystemMetricsCollector, so the services capability could never become SUPPORTED. Fix: add PBX-scoped persisted service-monitoring configuration and have the factory inject its validated IDs when constructing the collector; mutation immediately resyncs the metrics runtime.
 - **Fixed dashboard unsuitable for TV/NOC use — resolved:** the operator dashboard could not persist multiple layouts, reorder widgets, resize them, or remove noise. Fix: persisted bounded dashboard definitions plus widget catalog, drag reorder, bounded resize/delete/add controls, and multiple-dashboard CRUD.

@@ -191,6 +191,87 @@ export class AuthService {
     }
     return { id: created.id, username: created.username };
   }
+  listAccounts(): Array<{
+    id: string;
+    username: string;
+    enabled: boolean;
+    role: 'ADMINISTRATOR';
+    createdAt: string;
+    updatedAt: string;
+    lastLoginAt?: string;
+  }> {
+    return this.storage.auth.listAdministrators().map((account) => ({
+      ...account,
+      role: 'ADMINISTRATOR' as const,
+    }));
+  }
+
+  async createAccount(
+    username: unknown,
+    passphrase: unknown,
+  ): Promise<
+    | {
+        id: string;
+        username: string;
+        enabled: boolean;
+        role: 'ADMINISTRATOR';
+        createdAt: string;
+        updatedAt: string;
+        lastLoginAt?: string;
+      }
+    | undefined
+  > {
+    const normalized = normalizeUsername(username);
+    if (!normalized || !validPassword(passphrase)) return undefined;
+    const passwordHash = await hashPassword(passphrase);
+    const created = this.storage.auth.createAdministrator(normalized, passwordHash);
+    return created ? { ...created, role: 'ADMINISTRATOR' as const } : undefined;
+  }
+
+  updateAccount(
+    actorId: string,
+    accountId: string,
+    username: unknown,
+    enabled: unknown,
+  ):
+    | {
+        id: string;
+        username: string;
+        enabled: boolean;
+        role: 'ADMINISTRATOR';
+        createdAt: string;
+        updatedAt: string;
+        lastLoginAt?: string;
+      }
+    | undefined {
+    const current = this.storage.auth.findAdministratorMetadata(accountId);
+    const normalized = normalizeUsername(username);
+    if (!current || !normalized || (enabled !== true && enabled !== false)) return undefined;
+    if (!enabled && current.enabled && this.storage.auth.enabledAdministratorCount() <= 1)
+      return undefined;
+    if (!enabled && actorId === accountId) return undefined;
+    const updated = this.storage.auth.updateAdministrator(accountId, normalized, enabled);
+    if (!updated) return undefined;
+    if (!enabled) this.storage.auth.revokeAdministratorSessions(accountId);
+    return { ...updated, role: 'ADMINISTRATOR' as const };
+  }
+
+  async resetAccountPassword(accountId: string, passphrase: unknown): Promise<boolean> {
+    if (!validPassword(passphrase)) return false;
+    if (!this.storage.auth.findAdministratorMetadata(accountId)) return false;
+    const passwordHash = await hashPassword(passphrase);
+    if (!this.storage.auth.updateAdministratorPassword(accountId, passwordHash)) return false;
+    this.storage.auth.revokeAdministratorSessions(accountId);
+    return true;
+  }
+
+  deleteAccount(actorId: string, accountId: string): boolean {
+    const current = this.storage.auth.findAdministratorMetadata(accountId);
+    if (!current || actorId === accountId) return false;
+    if (current.enabled && this.storage.auth.enabledAdministratorCount() <= 1) return false;
+    return this.storage.auth.deleteAdministrator(accountId);
+  }
+
   async login(
     username: unknown,
     passphrase: unknown,

@@ -9,6 +9,7 @@ import { SshMetricsWorkspace } from '../src/SshMetricsWorkspace.js';
 import { DashboardStorageWorkspace } from '../src/DashboardStorageWorkspace.js';
 import { DashboardBuilder } from '../src/DashboardBuilder.js';
 import { ServiceMonitoringWorkspace } from '../src/ServiceMonitoringWorkspace.js';
+import { AccountsWorkspace } from '../src/AccountsWorkspace.js';
 import { OperatorDashboard } from '../src/OperatorDashboard.js';
 import { TelephonyWorkspace } from '../src/TelephonyWorkspace.js';
 import { messages } from '../src/i18n.js';
@@ -1113,5 +1114,82 @@ describe('service monitoring settings', () => {
     );
     await act(async () => save?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
     expect(writes).toEqual([{ serviceIds: ['synthetic.service', 'synthetic-helper.service'] }]);
+  });
+});
+
+describe('account management settings', () => {
+  it('shows safe account metadata and creates a local administrator without rendering the password', async () => {
+    const principal = { id: 'admin-id', username: 'admin' };
+    const createBodies: unknown[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path, init) => {
+        if (path === '/api/admin/accounts' && init?.method === 'GET') {
+          return response({
+            items: [
+              {
+                id: 'admin-id',
+                username: 'admin',
+                enabled: true,
+                role: 'ADMINISTRATOR',
+                createdAt: '2026-10-05T00:00:00.000Z',
+                updatedAt: '2026-10-05T00:00:00.000Z',
+                lastLoginAt: '2026-10-05T01:00:00.000Z',
+              },
+            ],
+          });
+        }
+        if (path === '/api/admin/accounts' && init?.method === 'POST') {
+          createBodies.push(JSON.parse(String(init.body)));
+          return response(
+            {
+              id: 'ui-test-id',
+              username: 'ui-test',
+              enabled: true,
+              role: 'ADMINISTRATOR',
+              createdAt: '2026-10-05T02:00:00.000Z',
+              updatedAt: '2026-10-05T02:00:00.000Z',
+            },
+            201,
+          );
+        }
+        throw new Error('unexpected API route: ' + path);
+      }),
+    );
+
+    await act(async () =>
+      root.render(
+        <AccountsWorkspace text={messages.en} principal={principal} onUnauthorized={() => {}} />,
+      ),
+    );
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(container.textContent).toContain('Users & accounts');
+    expect(container.textContent).toContain('Administrator');
+    expect(container.textContent).toContain('CURRENT');
+
+    const inputs = [...container.querySelectorAll('input')];
+    const usernameInput = inputs.find(
+      (item) => item.getAttribute('dir') === 'ltr' && item.type === 'text',
+    );
+    const passwordInput = inputs.find((item) => item.type === 'password');
+    const password = 'synthetic ui automation passphrase';
+    await act(async () => {
+      const inputSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+      inputSetter?.call(usernameInput, 'UI-Test');
+      usernameInput?.dispatchEvent(new Event('input', { bubbles: true }));
+      inputSetter?.call(passwordInput, password);
+      passwordInput?.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    const create = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent === 'Create account',
+    );
+    await act(async () => create?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+
+    expect(createBodies).toEqual([{ username: 'UI-Test', password }]);
+    expect(container.textContent).not.toContain(password);
   });
 });

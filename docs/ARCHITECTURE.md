@@ -1,6 +1,6 @@
 # Proposed architecture
 
-Status: PR #47 is merged. The current feature/dashboard-builder correction adds server-persisted PBX-scoped multi-dashboard definitions, fixed allowlisted widgets with bounded drag/resize/edit controls, dashboard-root fullscreen for TV/NOC display, and PBX-scoped service-monitoring configuration. Service IDs now flow from persisted configuration through the production collector factory into the existing restricted SSH service-status command. No arbitrary SSH command, PBX write action, or new collector source is introduced. Task 43 remains next.
+Status: PR #48 is merged. The current feature/account-management correction exposes safe management of the existing local administrator/auth_session model through authenticated same-origin APIs and a Settings -> Users & accounts workspace. The model remains single-role Administrator; sensitive mutations revoke sessions and lockout guards prevent self-disable/self-delete and removal of the last enabled administrator. No PBX collection behavior changes. Task 43 remains next.
 
 ```text
 PBX (Asterisk / FreePBX)

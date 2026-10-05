@@ -1,6 +1,6 @@
 # Project context
 
-Status: PR #47 is merged. The current unmerged feature/dashboard-builder branch adds PBX-scoped persisted multi-dashboard layouts, widget add/delete/reorder/resize, dashboard-root fullscreen with auto-hide controls, and Settings -> Service monitoring. The previous Service Health NOT_CONFIGURED issue is fixed by passing persisted safe service IDs through the production collector factory. No deployment-specific services are hardcoded and no real PBX/SSH host was contacted. Task 43 remains next. License: Apache-2.0.
+Status: PR #48 is merged. The current unmerged feature/account-management branch adds Settings -> Users & accounts over the existing local Administrator model: safe list/create/rename/enable-disable/password-reset/delete, session revocation on sensitive changes, and lockout guards. No password hashes/tokens are exposed and no RBAC is implied. A Selenium UI-test account is deployment-local only and its credential must never enter Git. Task 43 remains next. License: Apache-2.0.
 
 ## Repository state
 

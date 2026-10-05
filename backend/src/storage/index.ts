@@ -25,10 +25,30 @@ export interface AdministratorRecord {
   passwordHash: string;
   enabled: boolean;
 }
+export interface AdministratorMetadata {
+  id: string;
+  username: string;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+  lastLoginAt?: string;
+}
 export interface AuthRepository {
   hasAdministrator(): boolean;
   createFirst(username: string, passwordHash: string): AdministratorRecord | undefined;
+  createAdministrator(username: string, passwordHash: string): AdministratorMetadata | undefined;
   findAdministrator(username: string): AdministratorRecord | undefined;
+  findAdministratorMetadata(id: string): AdministratorMetadata | undefined;
+  listAdministrators(): AdministratorMetadata[];
+  enabledAdministratorCount(): number;
+  updateAdministrator(
+    id: string,
+    username: string,
+    enabled: boolean,
+  ): AdministratorMetadata | undefined;
+  updateAdministratorPassword(id: string, passwordHash: string): boolean;
+  deleteAdministrator(id: string): boolean;
+  revokeAdministratorSessions(id: string): number;
   createSession(administratorId: string, tokenDigest: string, expiresAt: string): void;
   sessionPrincipal(tokenDigest: string, now: string): { id: string; username: string } | undefined;
   revokeSession(tokenDigest: string): void;
@@ -377,6 +397,29 @@ export class SqliteStorage implements AppStorage {
         });
         return created;
       },
+      createAdministrator: (username, passwordHash) => {
+        if (this.auth.findAdministrator(username)) return undefined;
+        const id = randomUUID();
+        const now = new Date().toISOString();
+        try {
+          this.db
+            .prepare(
+              `INSERT INTO administrator
+               (id, username, password_hash, enabled, created_at, updated_at)
+               VALUES (?, ?, ?, 1, ?, ?)`,
+            )
+            .run(id, username, passwordHash, now, now);
+        } catch {
+          return undefined;
+        }
+        return {
+          id,
+          username,
+          enabled: true,
+          createdAt: now,
+          updatedAt: now,
+        };
+      },
       findAdministrator: (username) => {
         const row = this.db
           .prepare(
@@ -385,6 +428,54 @@ export class SqliteStorage implements AppStorage {
           .get(username);
         return row ? mapAdministrator(row) : undefined;
       },
+      findAdministratorMetadata: (id) => {
+        const row = this.db
+          .prepare(
+            'SELECT id, username, enabled, created_at, updated_at, last_login_at FROM administrator WHERE id = ?',
+          )
+          .get(id);
+        return row ? mapAdministratorMetadata(row as Record<string, unknown>) : undefined;
+      },
+      listAdministrators: () =>
+        this.db
+          .prepare(
+            'SELECT id, username, enabled, created_at, updated_at, last_login_at FROM administrator ORDER BY username ASC',
+          )
+          .all()
+          .map((row) => mapAdministratorMetadata(row as Record<string, unknown>)),
+      enabledAdministratorCount: () =>
+        Number(
+          (
+            this.db
+              .prepare('SELECT COUNT(*) AS count FROM administrator WHERE enabled = 1')
+              .get() as { count: number }
+          ).count,
+        ),
+      updateAdministrator: (id, username, enabled) => {
+        const now = new Date().toISOString();
+        try {
+          const result = this.db
+            .prepare(
+              'UPDATE administrator SET username = ?, enabled = ?, updated_at = ? WHERE id = ?',
+            )
+            .run(username, Number(enabled), now, id);
+          return result.changes > 0 ? this.auth.findAdministratorMetadata(id) : undefined;
+        } catch {
+          return undefined;
+        }
+      },
+      updateAdministratorPassword: (id, passwordHash) => {
+        const result = this.db
+          .prepare('UPDATE administrator SET password_hash = ?, updated_at = ? WHERE id = ?')
+          .run(passwordHash, new Date().toISOString(), id);
+        return result.changes > 0;
+      },
+      deleteAdministrator: (id) =>
+        this.db.prepare('DELETE FROM administrator WHERE id = ?').run(id).changes > 0,
+      revokeAdministratorSessions: (id) =>
+        Number(
+          this.db.prepare('DELETE FROM auth_session WHERE administrator_id = ?').run(id).changes,
+        ),
       createSession: (administratorId, tokenDigest, expiresAt) => {
         this.db
           .prepare('INSERT INTO auth_session VALUES (?, ?, ?, ?)')
@@ -1572,6 +1663,19 @@ function mapSecret(row: Record<string, unknown>): EncryptedSecretRecord {
     nonce: row.nonce as Uint8Array,
     authTag: row.auth_tag as Uint8Array,
     ciphertext: row.ciphertext as Uint8Array,
+  };
+}
+
+function mapAdministratorMetadata(row: Record<string, unknown>): AdministratorMetadata {
+  return {
+    id: row.id as string,
+    username: row.username as string,
+    enabled: row.enabled === 1,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+    ...(row.last_login_at === null || row.last_login_at === undefined
+      ? {}
+      : { lastLoginAt: row.last_login_at as string }),
   };
 }
 

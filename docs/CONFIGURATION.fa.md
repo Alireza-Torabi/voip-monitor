@@ -73,3 +73,16 @@ Service Health برای هر PBX از مسیر **Settings -> Service monitoring*
 Dashboardها Layoutهای Server-persisted و PBX-scoped هستند و هر PBX می‌تواند چند Dashboard نام‌گذاری‌شده داشته باشد. Widgetها فقط از Catalog ثابت برنامه می‌آیند و Add/Delete/Reorder/Resize محدود دارند. Fullscreen روی Dashboard Root اجرا می‌شود تا Navigation اصلی نمایش داده نشود و Controlها برای TV/NOC به‌صورت Auto-hide باشند.
 
 </div>
+
+
+<div dir="rtl" align="right">
+
+## حساب‌های Administrator محلی
+
+پس از Bootstrap، Administrator احراز هویت‌شده Accountهای Local را از **Settings -> Users & accounts** مدیریت می‌کند. مدل Auth/Authorization فعلی فقط یک Role دارد: ADMINISTRATOR.
+
+عملیات پشتیبانی‌شده شامل Create، Rename، Enable/Disable، Password Reset و Delete است. Self-disable و Self-delete مسدود هستند و آخرین Administrator فعال نیز قابل Disable/Delete نیست. Disable یا Password Reset همه Sessionهای همان Account را Revoke می‌کند.
+
+Account مخصوص Automation/Selenium یک Credential عملیاتی و Local هر Deployment است و Username/Password آن نباید در Config یا Documentation قابل Track قرار بگیرد.
+
+</div>
