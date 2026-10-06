@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-06. PR #53 merged Task 44. Product direction remains a non-duplicating real-time monitor with source-owned historical/reporting data. Task 45 is complete locally on feature/read-only-database-transport and merge is pending; Task 46 follows only after Task 45 is merged.
+Status: 2026-10-06. PR #54 merged Task 45. Product direction remains a non-duplicating real-time monitor with source-owned historical/reporting data. Task 46 is complete locally on feature/source-schema-adapters and merge is pending; Task 47 follows only after Task 46 is merged.
 
 ## Phase 0 — environment discovery
 
@@ -83,25 +83,29 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 43: broaden provider-neutral trunk inventory beyond outbound SIP registrations with bounded chan_sip/PJSIP-compatible read-only discovery, explicit confirmed-vs-candidate classification, synthetic/mock compatibility coverage, and no real-PBX verification.
 - [x] Task 44: adopt the source-owned history architecture and add PBX-scoped read-only external database source configuration with encrypted write-only credentials and bilingual Settings UI. This task stores configuration only, performs no database connection/query, and adds no local telephony-history persistence.
 - [x] Task 45: add a provider-neutral read-only database transport/query boundary with explicit dialect adapters, network/TLS policy, SELECT-only enforcement, query timeout, row/output bounds, and synthetic database validation only.
-- [ ] Task 46: add source-schema adapters for historical/reporting views (for example CDR/CEL/queue data when the configured source actually provides them), using normalized provider-neutral contracts and synthetic fixtures before any separately approved real-database compatibility verification.
+- [x] Task 46: add source-schema adapters for historical/reporting views (for example CDR/CEL/queue data when the configured source actually provides them), using normalized provider-neutral contracts and synthetic fixtures before any separately approved real-database compatibility verification.
 - [ ] Task 47: expose bounded source-backed historical/reporting APIs and UI views without copying source rows into the VoIP Monitor database.
 - [ ] Task 48: reconcile legacy locally persisted monitoring histories with the new non-duplication policy: prefer bounded in-memory trend/state buffers, retain only configuration and explicitly justified operational state, and provide a safe migration/cleanup plan before removing any existing persisted telemetry.
 
 ### Current execution handoff
 
-- PR #53 merged Task 44. Current branch: `feature/read-only-database-transport`, created from synchronized `main` at merge commit `de8fb1f`.
-- Task 45 adds an internal provider-neutral read-only database query boundary for `MYSQL_MARIADB` and `POSTGRESQL`; it is not exposed as a public raw-SQL endpoint and is not wired into application startup, polling, or a browser query action.
-- Migration 16 adds PBX-scoped `tls_mode` to the database-source configuration. `REQUIRED` is the safe default; `DISABLED` is an explicit trusted-network exception. There is no opportunistic downgrade.
-- Hostnames are resolved once through an injected resolver. Every returned address must pass the shared network policy before any driver is called. Dialect adapters connect to an approved numeric address and never perform a second DNS lookup.
-- TLS identity remains tied to the configured host: PostgreSQL supplies the configured hostname as TLS `servername`; MySQL/MariaDB keeps the configured hostname for SNI/certificate verification while an injected pre-resolved TCP stream connects only to the approved numeric address.
-- Query preparation accepts one bounded parameterized `SELECT` only. Comments, statement separators, CTE prefixes, write/admin keywords, `SELECT INTO`, and row-locking forms fail before network access. The transport adds an outer server-side row cap and verifies the limit again after return.
-- Each operation has one timeout covering DNS, connection, and query. MySQL/MariaDB uses `START TRANSACTION READ ONLY`; PostgreSQL uses `BEGIN READ ONLY`; both roll back/close after the operation and driver errors are reduced to bounded application error codes.
-- Normalized query output accepts only JSON-safe scalar values and is bounded by row count and encoded output bytes. Known limitation: drivers can materialize one oversized scalar before the post-driver output-byte check; cursor/streaming enforcement remains a future hardening option when real source schemas are known.
-- Exact database driver dependencies are pinned: `mysql2` 3.24.5 and `pg` 8.23.1 (MIT), plus `@types/pg` 8.23.1 for development. The dependency/license review is updated.
-- Final validation passes under project Node 24.21.0/npm 11.19.0: lint, format check, typecheck, backend 156/156 tests, frontend 24/24 tests, production build, foundation check, license check, and diff check. The database-focused synthetic coverage includes 20/20 Task 45 tests. No real PBX, source database, schema, credential, or production host was contacted. Known Ark UI/Rolldown `use client` build warnings remain non-fatal.
-- After Task 45 merges, exact next task is **Task 46 — source-schema adapters for historical/reporting views**, still synthetic first; any real-database compatibility verification remains separately approved.
+- PR #54 merged Task 45. Current branch: `feature/source-schema-adapters`, created from synchronized `main` at merge commit `5956360`.
+- Task 46 adds `AsteriskConventionalSqlHistoryAdapter`, an internal source-schema boundary over the Task 45 read-only transport. It is not wired into startup, polling, a browser action, or a public historical API.
+- Schema discovery is read-only and explicit: the adapter queries `information_schema.columns` for conventional `cdr`, `cel`, and `queue_log` table names in the configured database. Each dataset is independently classified as `SUPPORTED`, `NOT_FOUND`, `SCHEMA_MISMATCH`, or `AMBIGUOUS`; missing or ambiguous data never becomes a false empty success.
+- Supported CDR shape requires `calldate`, `src`, `dst`, `duration`, `billsec`, `disposition`, and `uniqueid`; `linkedid` is optional. Supported CEL requires `eventtime`, `eventtype`, and `uniqueid`, with optional `linkedid`, `exten`, and `cid_num`. SQL-backed queue history requires `time`, `callid`, `queuename`, `agent`, and `event`.
+- Provider-neutral shared contracts now model normalized call history, call-event history, queue-event history, and dataset capability. Known Asterisk dispositions/event names map to bounded enums; unknown event values become `OTHER`/`UNKNOWN` instead of leaking provider-specific fields.
+- Source values are selected through explicit dialect-safe casts and discovered/quoted identifiers. PostgreSQL and MySQL/MariaDB share the normalized contract while keeping dialect-specific quoting/cast syntax internal. Schema/table identifiers come only from `information_schema` rows and are escaped before query construction.
+- Historical reads are recent/bounded only: caller limit must be 1–200 and the Task 45 timeout/output limits remain in force. Task 46 adds no local historical table or cache.
+- Naive PBX database timestamps are deliberately preserved as `sourceStartedAt` / `sourceOccurredAt`; the adapter does not invent UTC or a timezone offset that the source did not provide. Timezone interpretation remains a later compatibility/UI concern.
+- Synthetic fixtures cover supported MySQL-style conventional schema, PostgreSQL schema qualification, missing/mismatched/ambiguous datasets, normalized CDR/CEL/queue records, invalid-row rejection, invalid limits, and missing configuration. Task 46 targeted coverage passes 6/6.
+- Final validation passes under project Node 24.21.0/npm 11.19.0: lint, format check, typecheck, backend 162/162 tests, frontend 24/24 tests, production build, foundation check, license check, and diff check. No real PBX, source database, schema, credential, or production host was contacted. Known Ark UI/Rolldown `use client` build warnings remain non-fatal.
+- After Task 46 merges, exact next task is **Task 47 — bounded source-backed historical/reporting APIs and UI views**, without copying source rows into the VoIP Monitor database.
 
 ### Failure and bug log
+
+- **Task 46 initial typecheck caught an exact-optional table reference — resolved:** schema matching returned `table: SourceTable | undefined` even after a length check under `noUncheckedIndexedAccess`/`exactOptionalPropertyTypes`. The selected table is now explicitly checked before constructing a supported dataset result.
+- **Task 46 targeted lint initially rejected implicit `URL` global use in the fixture loader — resolved:** the test now imports `URL` explicitly from `node:url`, matching the repository's Node lint environment.
+- **Task 46 first full build hit a root-owned generated frontend asset directory — resolved as an environment ownership issue:** `frontend/dist/assets` was generated and root-owned from an earlier root-shell build, while the tracked source was unchanged. Ownership was corrected only for that ignored generated asset directory before rerunning the full gate as the repository user.
 
 - **Task 45 final format gate initially found one unformatted i18n file — resolved:** Prettier reported `frontend/src/i18n.ts`; the file was formatted and the full gate was restarted from the beginning.
 - **Task 45 foundation gate first hit Git safe-directory ownership protection — resolved without global configuration:** the remote shell user differs from the repository owner. The foundation checker was rerun with process-scoped `safe.directory=/opt/voip-monitor`; no global Git setting was changed.

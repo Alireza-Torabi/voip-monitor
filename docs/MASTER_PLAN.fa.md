@@ -1,6 +1,6 @@
 # Master Plan
 
-وضعیت: 2026-10-06. PR #53 مربوط به Task 44 داخل main Merge شده است. جهت محصول همچنان Monitoring بلادرنگ بدون Duplicate Storage و Source-owned History/Reporting است. Task 45 روی feature/read-only-database-transport به‌صورت Local کامل است و Merge آن Pending است؛ Task 46 فقط بعد از Merge شدن Task 45 شروع می‌شود.
+وضعیت: 2026-10-06. PR #54 مربوط به Task 45 داخل main Merge شده است. جهت محصول همچنان Monitoring بلادرنگ بدون Duplicate Storage و Source-owned History/Reporting است. Task 46 روی feature/source-schema-adapters به‌صورت Local کامل است و Merge آن Pending است؛ Task 47 فقط بعد از Merge شدن Task 46 شروع می‌شود.
 
 ## Phase 0 - کشف محیط
 
@@ -83,25 +83,29 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - [x] Task 43: گسترش Provider-neutral Trunk Inventory فراتر از Outbound SIP Registration برای Discovery محدود و Read-only سازگار با chan_sip/PJSIP، ابتدا با Synthetic/Mock Compatibility Test و بدون Real-PBX Verification تا Approval جداگانه.
 - [x] Task 44: معماری Source-owned History را اعمال و Configuration مربوط به External Database Source فقط‌خواندنی و PBX-scoped را با Credential رمزنگاری‌شده/Write-only و Settings UI دو‌زبانه اضافه کند. این Task فقط Configuration را ذخیره می‌کند، هیچ Database Connection/Query انجام نمی‌دهد و Telephony History محلی جدید ایجاد نمی‌کند.
 - [x] Task 45: Boundary عمومی Read-only Database Transport/Query را با Dialect Adapter صریح، Network/TLS Policy، اجبار SELECT-only، Query Timeout و Row/Output Limit و فقط Synthetic Database Validation اضافه کند.
-- [ ] Task 46: Adapterهای Schema منبع برای Historical/Reporting Viewها مانند CDR/CEL/Queue را فقط وقتی Source پیکربندی‌شده واقعاً آن‌ها را ارائه می‌کند، با Contractهای Normalized و Fixtureهای Synthetic اضافه کند؛ هر Real-Database Compatibility Verification نیاز به Approval جدا دارد.
+- [x] Task 46: Adapterهای Schema منبع برای Historical/Reporting Viewها مانند CDR/CEL/Queue را فقط وقتی Source پیکربندی‌شده واقعاً آن‌ها را ارائه می‌کند، با Contractهای Normalized و Fixtureهای Synthetic اضافه کند؛ هر Real-Database Compatibility Verification نیاز به Approval جدا دارد.
 - [ ] Task 47: API و UI محدود برای Historical/Reporting Data مستقیم از Source ارائه کند، بدون کپی‌کردن Rowهای Source داخل Database خود VoIP Monitor.
 - [ ] Task 48: Historyهای Monitoring محلی قدیمی را با Policy جدید Non-duplication تطبیق دهد؛ Trend/State کوتاه‌مدت ترجیحاً bounded in-memory باشد، فقط Configuration و Operational State با توجیه صریح Persist شود و قبل از حذف Telemetry موجود Migration/Cleanup Plan امن تهیه شود.
 
 ### وضعیت فعلی ادامه کار
 
-- PR #53 مربوط به Task 44 Merge شده است. Branch فعلی `feature/read-only-database-transport` است که از `main` همگام‌شده روی Merge Commit `de8fb1f` ساخته شد.
-- Task 45 یک Boundary داخلی و Provider-neutral برای Read-only Database Query روی `MYSQL_MARIADB` و `POSTGRESQL` اضافه می‌کند؛ هیچ Public Raw-SQL Endpoint، Startup Connection، Polling یا Browser Query Action ایجاد نمی‌شود.
-- Migration 16 فیلد PBX-scoped مربوط به `tls_mode` را به Database Source اضافه می‌کند. `REQUIRED` Default امن است و `DISABLED` فقط یک Trusted-network Exception صریح است؛ Opportunistic Downgrade وجود ندارد.
-- Hostname فقط یک‌بار توسط Resolver تزریق‌شده Resolve می‌شود. تمام Addressهای برگشتی باید Shared Network Policy را Pass کنند و سپس Dialect Adapter فقط به Numeric Address تأییدشده متصل می‌شود؛ Driver دوباره DNS Lookup انجام نمی‌دهد.
-- TLS Identity به Host پیکربندی‌شده متصل باقی می‌ماند: PostgreSQL نام Host را به‌عنوان TLS `servername` نگه می‌دارد؛ MySQL/MariaDB نیز Host اصلی را برای SNI/Certificate Verification حفظ می‌کند ولی TCP Stream از قبل Resolve‌شده فقط به Numeric Address تأییدشده وصل می‌شود.
-- Query Preparation فقط یک `SELECT` پارامتری و محدود را می‌پذیرد. Comment، Statement Separator، CTE Prefix، Write/Admin Keyword، `SELECT INTO` و Row-locking Formها قبل از هر Network Access رد می‌شوند. Outer Row Limit روی Server اعمال و بعد از برگشت دوباره Verify می‌شود.
-- یک Timeout کل عملیات شامل DNS، Connection و Query است. MySQL/MariaDB از `START TRANSACTION READ ONLY` و PostgreSQL از `BEGIN READ ONLY` استفاده می‌کنند؛ هر دو در پایان Rollback/Close می‌شوند و Raw Driver Error وارد Boundary عمومی نمی‌شود.
-- Query Output فقط Scalarهای JSON-safe را می‌پذیرد و Row Count و Encoded Output Bytes محدود هستند. محدودیت شناخته‌شده: Driver ممکن است یک Scalar بسیار بزرگ را قبل از Output-byte Check سمت Application Materialize کند؛ Cursor/Streaming Enforcement در صورت نیاز بعد از شناخت Real Source Schema یک Hardening آینده است.
-- Dependencyهای Database Driver به نسخه دقیق Pin شده‌اند: `mysql2` 3.24.5 و `pg` 8.23.1 با License MIT و `@types/pg` 8.23.1 برای Development. Dependency/License Review به‌روزرسانی شده است.
-- Final Validation با Project Node 24.21.0/npm 11.19.0 PASS است: Lint، Format Check، Typecheck، Backend 156/156، Frontend 24/24، Production Build، Foundation Check، License Check و Diff Check. پوشش Synthetic مخصوص Database شامل 20/20 Test مربوط به Task 45 است. هیچ Real PBX، Source Database، Schema، Credential یا Production Host تماس داده نشده است. Warningهای شناخته‌شده Ark UI/Rolldown درباره `use client` Non-fatal باقی می‌مانند.
-- بعد از Merge شدن Task 45، Task دقیق بعدی **Task 46 — Source-schema Adapterهای Historical/Reporting** است و ابتدا Synthetic باقی می‌ماند؛ هر Real-database Compatibility Verification نیاز به Approval جدا دارد.
+- PR #54 مربوط به Task 45 Merge شده است. Branch فعلی `feature/source-schema-adapters` است که از `main` همگام‌شده روی Merge Commit `5956360` ساخته شد.
+- Task 46، `AsteriskConventionalSqlHistoryAdapter` را به‌عنوان Boundary داخلی Source-schema روی Read-only Transport مربوط به Task 45 اضافه می‌کند؛ هیچ Startup Wiring، Polling، Browser Action یا Public Historical API ایجاد نمی‌شود.
+- Schema Discovery فقط‌خواندنی و صریح است: Adapter برای نام‌های متعارف `cdr`، `cel` و `queue_log` از `information_schema.columns` استفاده می‌کند. هر Dataset مستقل به `SUPPORTED`، `NOT_FOUND`، `SCHEMA_MISMATCH` یا `AMBIGUOUS` طبقه‌بندی می‌شود و نبود/ابهام Schema به‌اشتباه Empty Success محسوب نمی‌شود.
+- CDR پشتیبانی‌شده به `calldate`، `src`، `dst`، `duration`، `billsec`، `disposition` و `uniqueid` نیاز دارد و `linkedid` اختیاری است. CEL به `eventtime`، `eventtype` و `uniqueid` نیاز دارد و `linkedid`، `exten` و `cid_num` اختیاری هستند. Queue History مبتنی بر SQL به `time`، `callid`، `queuename`، `agent` و `event` نیاز دارد.
+- Shared Contractهای Provider-neutral اکنون Call History، Call-event History، Queue-event History و Dataset Capability را مدل می‌کنند. Disposition/Eventهای شناخته‌شده Asterisk به Enumهای محدود Map می‌شوند و Valueهای ناشناخته به `OTHER`/`UNKNOWN` تبدیل می‌شوند؛ Raw Provider Fieldها Forward نمی‌شوند.
+- Source Valueها با Cast صریح و Identifierهای Discover‌شده/Quote‌شده خوانده می‌شوند. PostgreSQL و MySQL/MariaDB Contract یکسان دارند و Syntax مربوط به Quote/Cast داخل Adapter باقی می‌ماند. Schema/Table Identifier فقط از `information_schema` گرفته و قبل از Query Construction Escape می‌شود.
+- Historical Read فقط Recent و Bounded است: Limit فراخواننده باید بین 1 تا 200 باشد و Timeout/Output Limit مربوط به Task 45 همچنان اعمال می‌شود. Task 46 هیچ Historical Table یا Cache محلی اضافه نمی‌کند.
+- Timestampهای Naive در Database سیستم تلفنی عمداً به‌شکل `sourceStartedAt` / `sourceOccurredAt` حفظ می‌شوند؛ Adapter UTC یا Offsetای را که Source نداده جعل نمی‌کند. تفسیر Timezone به Compatibility/UI بعدی موکول است.
+- Fixtureهای Synthetic، Schema متعارف MySQL، Qualification در PostgreSQL، Datasetهای Missing/Mismatched/Ambiguous، Normalization رکوردهای CDR/CEL/Queue، Reject شدن Row نامعتبر، Limit نامعتبر و نبود Configuration را پوشش می‌دهند. Targeted Coverage مربوط به Task 46 برابر 6/6 PASS است.
+- Final Validation با Project Node 24.21.0/npm 11.19.0 PASS است: Lint، Format Check، Typecheck، Backend 162/162، Frontend 24/24، Production Build، Foundation Check، License Check و Diff Check. هیچ Real PBX، Source Database، Schema، Credential یا Production Host Contact نشده است. Warningهای شناخته‌شده Ark UI/Rolldown درباره `use client` Non-fatal باقی می‌مانند.
+- بعد از Merge شدن Task 46، Task دقیق بعدی **Task 47 — API و UI محدود Source-backed برای Historical/Reporting** است؛ بدون کپی Rowهای Source داخل Database خود VoIP Monitor.
 
 ### ثبت خرابی و اشکال
+
+- **Typecheck اولیه Task 46 یک Exact-optional Table Reference را پیدا کرد — رفع شد:** بعد از Length Check، Schema Matching همچنان زیر `noUncheckedIndexedAccess`/`exactOptionalPropertyTypes` مقدار `table: SourceTable | undefined` می‌ساخت. اکنون Table انتخاب‌شده قبل از ساخت Result مربوط به Dataset پشتیبانی‌شده صریحاً Check می‌شود.
+- **Targeted Lint مربوط به Task 46 ابتدا استفاده ضمنی از Global `URL` در Fixture Loader را رد کرد — رفع شد:** Test اکنون `URL` را صریحاً از `node:url` Import می‌کند و با Node Lint Environment پروژه هم‌راستا است.
+- **اولین Full Build مربوط به Task 46 به Generated Frontend Asset Directory با Ownership مربوط به Root برخورد کرد — به‌عنوان Environment Ownership Issue رفع شد:** مسیر Ignored یعنی `frontend/dist/assets` از Build قبلی Root Shell با مالکیت Root باقی مانده بود و Source Track‌شده تغییری نداشت. فقط Ownership همان Generated Asset Directory به Repository User برگردانده شد و Full Gate مجدداً با Repository User اجرا می‌شود.
 
 - **Final Format Gate مربوط به Task 45 ابتدا یک فایل i18n بدون Format پیدا کرد — رفع شد:** Prettier فایل `frontend/src/i18n.ts` را گزارش کرد؛ فایل Format شد و Full Gate از ابتدا Restart شد.
 - **Foundation Gate مربوط به Task 45 ابتدا به Git Safe-directory Ownership Protection برخورد کرد — بدون Global Config رفع شد:** Remote Shell User با Repository Owner متفاوت است. Foundation Checker با Process-scoped `safe.directory=/opt/voip-monitor` دوباره اجرا شد و هیچ Global Git Setting تغییر نکرد.

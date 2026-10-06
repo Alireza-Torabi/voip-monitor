@@ -1,0 +1,155 @@
+{
+  "schemaRows": [
+    {
+      "table_schema": "pbx_reporting",
+      "table_name": "cdr",
+      "column_name": "calldate"
+    },
+    {
+      "table_schema": "pbx_reporting",
+      "table_name": "cdr",
+      "column_name": "src"
+    },
+    {
+      "table_schema": "pbx_reporting",
+      "table_name": "cdr",
+      "column_name": "dst"
+    },
+    {
+      "table_schema": "pbx_reporting",
+      "table_name": "cdr",
+      "column_name": "duration"
+    },
+    {
+      "table_schema": "pbx_reporting",
+      "table_name": "cdr",
+      "column_name": "billsec"
+    },
+    {
+      "table_schema": "pbx_reporting",
+      "table_name": "cdr",
+      "column_name": "disposition"
+    },
+    {
+      "table_schema": "pbx_reporting",
+      "table_name": "cdr",
+      "column_name": "uniqueid"
+    },
+    {
+      "table_schema": "pbx_reporting",
+      "table_name": "cdr",
+      "column_name": "linkedid"
+    },
+    {
+      "table_schema": "pbx_reporting",
+      "table_name": "cel",
+      "column_name": "eventtime"
+    },
+    {
+      "table_schema": "pbx_reporting",
+      "table_name": "cel",
+      "column_name": "eventtype"
+    },
+    {
+      "table_schema": "pbx_reporting",
+      "table_name": "cel",
+      "column_name": "uniqueid"
+    },
+    {
+      "table_schema": "pbx_reporting",
+      "table_name": "cel",
+      "column_name": "linkedid"
+    },
+    {
+      "table_schema": "pbx_reporting",
+      "table_name": "cel",
+      "column_name": "exten"
+    },
+    {
+      "table_schema": "pbx_reporting",
+      "table_name": "cel",
+      "column_name": "cid_num"
+    },
+    {
+      "table_schema": "pbx_reporting",
+      "table_name": "queue_log",
+      "column_name": "time"
+    },
+    {
+      "table_schema": "pbx_reporting",
+      "table_name": "queue_log",
+      "column_name": "callid"
+    },
+    {
+      "table_schema": "pbx_reporting",
+      "table_name": "queue_log",
+      "column_name": "queuename"
+    },
+    {
+      "table_schema": "pbx_reporting",
+      "table_name": "queue_log",
+      "column_name": "agent"
+    },
+    {
+      "table_schema": "pbx_reporting",
+      "table_name": "queue_log",
+      "column_name": "event"
+    }
+  ],
+  "callRows": [
+    {
+      "record_id": "synthetic-cdr-1",
+      "correlation_id": "synthetic-call-1",
+      "source_started_at": "2026-10-06 10:00:00",
+      "source_number": "1001",
+      "destination_number": "2002",
+      "duration_seconds": "42",
+      "billable_seconds": "35",
+      "disposition": "ANSWERED"
+    },
+    {
+      "record_id": "synthetic-cdr-2",
+      "correlation_id": "synthetic-call-2",
+      "source_started_at": "2026-10-06 09:55:00",
+      "source_number": "1002",
+      "destination_number": "2003",
+      "duration_seconds": "15",
+      "billable_seconds": "0",
+      "disposition": "NO ANSWER"
+    }
+  ],
+  "celRows": [
+    {
+      "source_occurred_at": "2026-10-06 10:00:05",
+      "event_type": "ANSWER",
+      "call_id": "synthetic-cdr-1",
+      "correlation_id": "synthetic-call-1",
+      "extension": "2002",
+      "caller_number": "1001"
+    },
+    {
+      "source_occurred_at": "2026-10-06 10:00:40",
+      "event_type": "HANGUP",
+      "call_id": "synthetic-cdr-1",
+      "correlation_id": "synthetic-call-1",
+      "extension": "2002",
+      "caller_number": "1001"
+    }
+  ],
+  "queueRows": [
+    {
+      "source_occurred_at": "2026-10-06 10:05:00",
+      "event_type": "ENTERQUEUE",
+      "call_id": "synthetic-queue-call-1",
+      "queue_id": "support",
+      "agent_id": "NONE"
+    },
+    {
+      "source_occurred_at": "2026-10-06 10:05:12",
+      "event_type": "CONNECT",
+      "call_id": "synthetic-queue-call-1",
+      "queue_id": "support",
+      "agent_id": "Local/1001"
+    }
+  ]
+}
