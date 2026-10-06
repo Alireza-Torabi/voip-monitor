@@ -17,6 +17,7 @@ import {
   api,
   ApiError,
   type DatabaseDialect,
+  type DatabaseTlsMode,
   type PbxProfile,
   type SafeDatabaseSourceConfiguration,
 } from './api.js';
@@ -32,6 +33,7 @@ function emptyForm() {
     databaseName: '',
     username: '',
     credential: '',
+    tlsMode: 'REQUIRED' as DatabaseTlsMode,
   };
 }
 
@@ -76,6 +78,7 @@ export function DatabaseSourceWorkspace({
         databaseName: value.databaseName,
         username: value.username,
         credential: '',
+        tlsMode: value.tlsMode,
       });
     } catch (failure) {
       if (failure instanceof ApiError && failure.status === 401) onUnauthorized();
@@ -107,6 +110,7 @@ export function DatabaseSourceWorkspace({
         username: form.username,
         credential: form.credential,
         accessMode: 'READ_ONLY',
+        tlsMode: form.tlsMode,
       });
       setCurrent(value);
       setForm((existing) => ({ ...existing, credential: '' }));
@@ -216,6 +220,24 @@ export function DatabaseSourceWorkspace({
                     >
                       <option value="MYSQL_MARIADB">MySQL / MariaDB</option>
                       <option value="POSTGRESQL">PostgreSQL</option>
+                    </NativeSelect.Field>
+                    <NativeSelect.Indicator />
+                  </NativeSelect.Root>
+                </Box>
+                <Box>
+                  <Text fontSize="sm" fontWeight="semibold" mb="1.5">
+                    {text.databaseSourceTlsMode}
+                  </Text>
+                  <NativeSelect.Root>
+                    <NativeSelect.Field
+                      name="database-tls-mode"
+                      value={form.tlsMode}
+                      onChange={(event) =>
+                        setForm({ ...form, tlsMode: event.target.value as DatabaseTlsMode })
+                      }
+                    >
+                      <option value="REQUIRED">{text.databaseSourceTlsRequired}</option>
+                      <option value="DISABLED">{text.databaseSourceTlsDisabled}</option>
                     </NativeSelect.Field>
                     <NativeSelect.Indicator />
                   </NativeSelect.Root>

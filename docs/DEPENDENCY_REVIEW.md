@@ -1,10 +1,12 @@
 # Dependency license review
 
-Reviewed 2026-09-24 for the exact versions in the root lockfile. License identifiers below come from the published npm package metadata and were cross-checked with upstream project licenses. These direct dependencies permit public distribution and commercial use alongside Apache-2.0, subject to their notice terms.
+Reviewed through 2026-10-06 for the exact versions in the root lockfile. License identifiers below come from published npm package metadata and upstream project licenses. These direct dependencies permit public distribution and commercial use alongside Apache-2.0, subject to their notice terms.
 
 | Role | Direct package | Version | License |
 | --- | --- | --- | --- |
 | Backend runtime validation | [zod](https://registry.npmjs.org/zod/4.6.5) | 4.6.5 | MIT |
+| Backend MySQL/MariaDB transport | [mysql2](https://registry.npmjs.org/mysql2/3.24.5) | 3.24.5 | MIT |
+| Backend PostgreSQL transport | [pg](https://registry.npmjs.org/pg/8.23.1) | 8.23.1 | MIT |
 | Frontend runtime | [react](https://registry.npmjs.org/react/19.3.0) | 19.3.0 | MIT |
 | Frontend runtime | [react-dom](https://registry.npmjs.org/react-dom/19.3.0) | 19.3.0 | MIT |
 | Development | [typescript](https://registry.npmjs.org/typescript/6.0.3) | 6.0.3 | Apache-2.0 |
@@ -18,8 +20,9 @@ Reviewed 2026-09-24 for the exact versions in the root lockfile. License identif
 | Development | [@types/node](https://registry.npmjs.org/@types/node/24.13.6) | 24.13.6 | MIT |
 | Development | [@types/react](https://registry.npmjs.org/@types/react/19.3.0) | 19.3.0 | MIT |
 | Development | [@types/react-dom](https://registry.npmjs.org/@types/react-dom/19.3.0) | 19.3.0 | MIT |
+| Development | [@types/pg](https://registry.npmjs.org/@types/pg/8.23.1) | 8.23.1 | MIT |
 
-Zod is the backend's only third-party runtime dependency. Its published package metadata and [upstream license](https://github.com/colinhacks/zod/blob/main/LICENSE) identify MIT; it declares no runtime dependencies. The local development runtime is [Node.js 24.21.0](https://nodejs.org/download/release/v24.21.0/) (Node core MIT with separately licensed bundled components). npm 11.19.0 is bundled with that archive.
+The backend runtime uses reviewed third-party packages for validation and bounded transports, including Zod, ssh2, mysql2, and pg. The new Task 45 database drivers are pinned to exact versions and their published package metadata identifies MIT. The local development runtime is [Node.js 24.21.0](https://nodejs.org/download/release/v24.21.0/) (Node core MIT with separately licensed bundled components). npm 11.19.0 is bundled with that archive.
 
 ## Resolved transitive licenses
 
@@ -42,6 +45,10 @@ No crypto dependency was added. The implementation uses Node.js 24.21.0 built-in
 ## Phase 2 Task 5 authentication review
 
 No direct dependency was added. Password hashing uses Node.js 24.21.0 `node:crypto` scrypt; randomness and token digests use the same built-in module. This preserves the existing Node runtime license and avoids native addon/install-script and Docker portability work. Argon2id remains a valid future choice: the maintained [node-argon2 package](https://github.com/ranisalt/node-argon2) is MIT licensed and supports Node 24, but uses a native addon and install script, which conflicts with this project's currently verified `npm ci --ignore-scripts` workflow. [Node's crypto documentation](https://nodejs.org/download/release/v24.21.0/docs/api/crypto.html) documents scrypt and its memory settings. No lockfile or redistributable dependency changed.
+
+## Task 45 database transport review
+
+Task 45 adds exact runtime dependencies `mysql2` 3.24.5 and `pg` 8.23.1 plus development-only `@types/pg` 8.23.1. Published npm metadata identifies all three as MIT licensed. The drivers are used only behind an internal bounded read-only transport; no public raw-SQL endpoint or real-database compatibility test is introduced by this task. Installation on 2026-10-06 reported zero npm audit vulnerabilities; the repository license script remains the reproducible gate for allowed resolved license identifiers. Driver install-script warnings were limited to the already present ssh2/cpu-features path, not the new SQL drivers.
 
 ## Phase 2 Task 6 onboarding review
 

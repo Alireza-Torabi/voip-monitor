@@ -58,6 +58,7 @@ function databaseConfiguration(overrides = {}) {
     username: 'readonly_monitor',
     credential: 'synthetic-database-password',
     accessMode: 'READ_ONLY',
+    tlsMode: 'REQUIRED',
     ...overrides,
   };
 }
@@ -74,6 +75,7 @@ test('database source stores metadata separately and encrypts the write-only cre
     assert.equal(safe.databaseName, 'pbx_reporting');
     assert.equal(safe.username, 'readonly_monitor');
     assert.equal(safe.accessMode, 'READ_ONLY');
+    assert.equal(safe.tlsMode, 'REQUIRED');
     assert.equal(safe.hasCredential, true);
     assert.ok(!JSON.stringify(safe).includes('synthetic-database-password'));
     assert.equal(
@@ -91,6 +93,7 @@ test('database source stores metadata separately and encrypts the write-only cre
         .get(PBX_ID, DATABASE_SOURCE_SECRET_NAMES.passwordCredential);
       assert.ok(metadata);
       assert.equal(metadata.access_mode, 'READ_ONLY');
+      assert.equal(metadata.tls_mode, 'REQUIRED');
       assert.ok(!JSON.stringify(metadata).includes('synthetic-database-password'));
       assert.ok(!JSON.stringify(encrypted).includes('synthetic-database-password'));
     } finally {
@@ -142,6 +145,7 @@ test('database source rejects invalid or non-read-only configuration', async () 
       { username: 'bad\u0000user' },
       { credential: '' },
       { accessMode: 'READ_WRITE' },
+      { tlsMode: 'OPPORTUNISTIC' },
     ]) {
       assert.throws(
         () => service.configure(PBX_ID, databaseConfiguration(invalid)),
@@ -246,6 +250,7 @@ test('database source API is authenticated, same-origin protected and credential
       assert.ok(!savedText.includes('ciphertext'));
       const saved = JSON.parse(savedText);
       assert.equal(saved.accessMode, 'READ_ONLY');
+      assert.equal(saved.tlsMode, 'REQUIRED');
       assert.equal(saved.hasCredential, true);
 
       const readText = await (await fetch(app.base + path, { headers: { cookie } })).text();

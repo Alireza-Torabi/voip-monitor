@@ -101,6 +101,7 @@ export interface SshConfigRepository {
 
 export type DatabaseDialect = 'MYSQL_MARIADB' | 'POSTGRESQL';
 export type DatabaseAccessMode = 'READ_ONLY';
+export type DatabaseTlsMode = 'REQUIRED' | 'DISABLED';
 export interface DatabaseSourceConfigRecord {
   pbxInstanceId: string;
   dialect: DatabaseDialect;
@@ -109,6 +110,7 @@ export interface DatabaseSourceConfigRecord {
   databaseName: string;
   username: string;
   accessMode: DatabaseAccessMode;
+  tlsMode: DatabaseTlsMode;
   createdAt: string;
   updatedAt: string;
 }
@@ -684,8 +686,8 @@ export class SqliteStorage implements AppStorage {
           .prepare(
             `INSERT INTO database_source_config
              (pbx_instance_id, dialect, db_host, db_port, database_name, db_username,
-              access_mode, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+              access_mode, tls_mode, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(pbx_instance_id) DO UPDATE SET
                dialect=excluded.dialect,
                db_host=excluded.db_host,
@@ -693,6 +695,7 @@ export class SqliteStorage implements AppStorage {
                database_name=excluded.database_name,
                db_username=excluded.db_username,
                access_mode=excluded.access_mode,
+               tls_mode=excluded.tls_mode,
                updated_at=excluded.updated_at`,
           )
           .run(
@@ -703,6 +706,7 @@ export class SqliteStorage implements AppStorage {
             config.databaseName,
             config.username,
             config.accessMode,
+            config.tlsMode,
             config.createdAt,
             config.updatedAt,
           );
@@ -1722,6 +1726,7 @@ function mapDatabaseSourceConfig(row: Record<string, unknown>): DatabaseSourceCo
     databaseName: row.database_name as string,
     username: row.db_username as string,
     accessMode: row.access_mode as DatabaseAccessMode,
+    tlsMode: row.tls_mode as DatabaseTlsMode,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };

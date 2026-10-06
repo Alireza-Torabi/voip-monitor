@@ -290,4 +290,13 @@ export const migrations = [
       ) STRICT;
     `,
   },
+  {
+    version: 16,
+    name: 'database_source_tls_policy',
+    sql: `
+      ALTER TABLE database_source_config
+        ADD COLUMN tls_mode TEXT NOT NULL DEFAULT 'REQUIRED'
+        CHECK (tls_mode IN ('REQUIRED', 'DISABLED'));
+    `,
+  },
 ] as const;

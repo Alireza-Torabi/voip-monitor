@@ -48,11 +48,13 @@
 
 ## Database Source فقط‌خواندنی برای History/Reporting
 
-Administrator احراز هویت‌شده می‌تواند برای هر PBX یک Database Source اختیاری را از **Settings -> Read-only database** پیکربندی کند. Task 44 فقط Metadata معتبر Source شامل `dialect`، Host، Port، Database Name، Username و قصد دسترسی `READ_ONLY` را همراه Password رمزنگاری‌شده و Write-only داخل Secret Store موجود ذخیره می‌کند. Password هرگز از API برگردانده نمی‌شود و داخل `database_source_config` قرار نمی‌گیرد.
+Administrator احراز هویت‌شده می‌تواند برای هر PBX یک Database Source اختیاری را از **Settings -> Read-only database** پیکربندی کند. Application فقط Metadata معتبر Source شامل `dialect`، Host، Port، Database Name، Username، Access Intent ثابت `READ_ONLY` و TLS Policy را همراه Credential رمزنگاری‌شده و Write-only داخل Secret Store موجود ذخیره می‌کند. Credential هرگز از API برگردانده نمی‌شود و داخل `database_source_config` قرار نمی‌گیرد.
 
-Surface فعلی Dialectهای اعلامی `MYSQL_MARIADB` و `POSTGRESQL` را می‌پذیرد تا Adapterهای آینده Driver Behavior را حدس نزنند. این فقط Configuration Metadata است و به معنی Connectivity Verification نیست. Save کردن هیچ DNS Resolution، Socket Connection، Schema Discovery یا SQL Query انجام نمی‌دهد. دسترسی Database در Taskهای بعدی باید فقط‌خواندنی، محدود و به‌صورت صریح پیاده‌سازی شود.
+Dialectهای تعریف‌شده `MYSQL_MARIADB` و `POSTGRESQL` هستند. TLS به‌صورت Default روی `REQUIRED` است و در این حالت Certificate Chain و Server Identity به‌صورت عادی Verify می‌شوند. حالت `DISABLED` فقط یک Exception صریح برای Trusted Network است؛ هیچ Opportunistic Fallback از TLS اجباری به Plaintext وجود ندارد. Save کردن فرم Settings فقط Configuration را تغییر می‌دهد و Connectivity Test انجام نمی‌دهد.
 
-Database Source مرجع اصلی Rowهای Historical/Reporting باقی می‌ماند و VoIP Monitor نباید این Rowها را داخل Telephony History محلی جدید کپی کند.
+Task 45 یک Query Transport داخلی و محدود اضافه می‌کند اما هیچ Public Database-test یا Historical-query Endpoint ایجاد نمی‌کند. Transport برای Hostname فقط یک‌بار DNS Resolution انجام می‌دهد، اگر حتی یکی از Addressهای برگشتی Shared Network Policy را نقض کند کل Resolution را Reject می‌کند و سپس Driver را به Numeric Address تأییدشده متصل می‌کند تا Driver دوباره Hostname را Resolve نکند. در اتصال TLS به Hostname، نام اصلی Host برای Certificate Identity/SNI حفظ می‌شود. Queryها Parameterized هستند، باید فقط یک `SELECT` باشند، Comment/Multi-statement/Write/Locking Formها را Reject می‌کنند، داخل Read-only Transaction اجرا می‌شوند و Timeout، Row Count و Normalized Output Size محدود دارند. این کنترل‌ها Defense-in-depth هستند و خود Database Account نیز باید واقعاً Read-only باشد.
+
+Database Source مرجع اصلی Rowهای Historical/Reporting باقی می‌ماند و VoIP Monitor نباید این Rowها را داخل Telephony History محلی جدید کپی کند. Task 45 فقط Foundation مربوط به Transport است. Adapterهای Schema مربوط به CDR/CEL/Queue و Historical Viewهای کاربر در Taskهای بعدی ساخته می‌شوند و تا Validation جداگانه و Approved هیچ ادعای Real-database Compatibility وجود ندارد.
 
 </div>
 
