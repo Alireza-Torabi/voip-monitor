@@ -1,6 +1,6 @@
 # Proposed architecture
 
-Status: PR #52 is merged. Task 44 is complete locally and pending merge on `feature/read-only-database-source`: the source-owned history architecture now has PBX-scoped read-only database metadata, encrypted write-only credentials, authenticated configuration API, and bilingual Settings UI. No database transport/query is implemented or exercised; Task 45 is next after merge.
+Status: PR #53 merged Task 44. Task 45 is implemented locally on `feature/read-only-database-transport` and merge is pending: the source-owned history architecture now has an internal bounded read-only MySQL/MariaDB/PostgreSQL query transport with explicit network/TLS policy and synthetic validation only. It is not wired to a public historical-query API or background runtime; Task 46 remains the next consumer after merge.
 
 ```text
 PBX (Asterisk / FreePBX)
@@ -28,7 +28,9 @@ VoIP Monitor does not create a second authoritative copy of telephony history. L
 
 The monitor may persist application-owned configuration and justified operational state, including local users, PBX profiles, encrypted credentials, dashboard definitions, source configuration, and delivery/reliability state. It must not add new local telephony-history tables. Existing locally persisted metrics/security history predates this architecture decision and will be reconciled only after replacement behavior is proven; no destructive migration is implied by Task 44.
 
-Database source credentials use the existing SecretStore boundary and are write-only through the API. Task 44 stores validated metadata and encrypted credentials only. It opens no database socket, performs no schema discovery, and issues no query. Future database transport must enforce the shared network policy plus SELECT-only statements, bounded time/row/output limits, and explicit dialect/schema adapters.
+Database source credentials use the existing SecretStore boundary and are write-only through the API. Task 44 stores validated metadata and encrypted credentials only. Task 45 adds the internal transport boundary: one injected hostname resolution, shared resolved-address validation, connection to one approved numeric address, explicit TLS mode (`REQUIRED` by default or an explicit `DISABLED` trusted-network exception), parameterized single-`SELECT` validation, read-only database transactions, and bounded timeout/rows/normalized output. MySQL/MariaDB uses a pre-resolved TCP stream so the driver connects to the approved numeric address while retaining the configured hostname for SNI/certificate identity; PostgreSQL connects to the numeric address and sets the original hostname as TLS `servername`.
+
+The Task 45 transport is intentionally not a public raw-SQL feature and is not started automatically. Later source-schema adapters supply the internal queries. Row count is capped at the server with an outer limit and checked again locally. Output bytes are checked after driver materialization, so one unusually large scalar can be allocated by the driver before the application rejects it; cursor/streaming enforcement remains a possible hardening step when real source schemas are known. No real database was contacted in Task 45.
 
 ## Runtime data
 

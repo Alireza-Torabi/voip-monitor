@@ -894,10 +894,12 @@ describe('read-only database source workspace', () => {
             credential?: string;
             accessMode?: string;
             dialect?: string;
+            tlsMode?: string;
           };
           expect(body.credential).toBe('synthetic-database-password');
           expect(body.accessMode).toBe('READ_ONLY');
           expect(body.dialect).toBe('MYSQL_MARIADB');
+          expect(body.tlsMode).toBe('REQUIRED');
           return response({
             pbxInstanceId: 'database-pbx',
             dialect: 'MYSQL_MARIADB',
@@ -906,6 +908,7 @@ describe('read-only database source workspace', () => {
             databaseName: 'pbx_reporting',
             username: 'readonly_monitor',
             accessMode: 'READ_ONLY',
+            tlsMode: 'REQUIRED',
             hasCredential: true,
             createdAt: '',
             updatedAt: '',
@@ -933,7 +936,7 @@ describe('read-only database source workspace', () => {
 
     expect(container.textContent).toContain('Read-only database source configuration saved.');
     expect(input('database-credential').value).toBe('');
-    expect(container.textContent).toContain('Read-only source; no connection is attempted yet');
+    expect(container.textContent).toContain('Read-only source; saving does not test connectivity');
     expect(container.textContent).not.toContain('synthetic-database-password');
   });
 });

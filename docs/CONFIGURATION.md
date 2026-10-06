@@ -34,11 +34,13 @@ The first profile changes setup state to `PBX_CONFIGURED_UNVERIFIED`; deleting t
 
 ## Read-only historical/reporting database source
 
-An authenticated administrator can configure one optional PBX-scoped source database under **Settings -> Read-only database**. Task 44 stores only validated source metadata (`dialect`, host, port, database name, username, and `READ_ONLY` access intent) plus an encrypted write-only password in the existing secret store. The password is never returned by the API or stored in `database_source_config`.
+An authenticated administrator can configure one optional PBX-scoped source database under **Settings -> Read-only database**. The application stores validated source metadata (`dialect`, host, port, database name, username, fixed `READ_ONLY` access intent, and TLS policy) plus an encrypted write-only password in the existing secret store. The password is never returned by the API or stored in `database_source_config`.
 
-The configuration surface currently accepts declared `MYSQL_MARIADB` and `POSTGRESQL` dialects so later adapters do not guess driver behavior. This is configuration metadata only and is not a connectivity claim. Saving the configuration performs no DNS resolution, socket connection, schema discovery, or SQL query. Future database access must remain read-only, bounded, and explicitly implemented by the later transport/schema-adapter tasks.
+The declared dialects are `MYSQL_MARIADB` and `POSTGRESQL`. TLS defaults to `REQUIRED`, which requires normal certificate-chain and server-identity verification. `DISABLED` is an explicit trusted-network exception; there is no opportunistic fallback from required TLS to plaintext. Saving the Settings form changes configuration only and does not test connectivity.
 
-The source database remains authoritative for historical/reporting rows; VoIP Monitor must not copy those rows into new local telephony-history tables.
+Task 45 adds an internal bounded query transport but no public database-test or historical-query endpoint. The transport resolves a hostname once, rejects the whole resolution if any returned address violates the shared network policy, and then connects to an approved numeric address so the SQL driver does not resolve the hostname again. For TLS hostname targets, the original hostname remains the certificate identity/SNI name. Queries are parameterized, must be a single `SELECT`, reject comments/multiple statements/write/locking forms, execute inside a read-only transaction, and have bounded timeout, row count, and normalized output size. These controls are defense in depth; the configured database account must itself remain read-only.
+
+The source database remains authoritative for historical/reporting rows; VoIP Monitor must not copy those rows into new local telephony-history tables. Task 45 is a transport foundation only. Source-specific CDR/CEL/queue schema adapters and user-facing historical views remain later tasks, and no real database compatibility claim is made until a separately approved validation is performed.
 
 ## Dashboard storage visibility
 

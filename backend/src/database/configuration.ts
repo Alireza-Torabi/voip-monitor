@@ -6,10 +6,12 @@ import type {
   AppStorage,
   DatabaseAccessMode,
   DatabaseSourceConfigRecord,
+  DatabaseTlsMode,
 } from '../storage/index.js';
 
 const DATABASE_PASSWORD_SECRET = 'database-password';
 const ACCESS_MODE: DatabaseAccessMode = 'READ_ONLY';
+const DEFAULT_TLS_MODE: DatabaseTlsMode = 'REQUIRED';
 
 function boundedText(maxLength: number) {
   return z
@@ -36,6 +38,7 @@ const configurationSchema = z.strictObject({
     .min(1)
     .refine((value) => Buffer.byteLength(value, 'utf8') <= 4096),
   accessMode: z.literal(ACCESS_MODE),
+  tlsMode: z.enum(['REQUIRED', 'DISABLED']).default(DEFAULT_TLS_MODE),
 });
 
 export type SafeDatabaseSourceConfiguration = DatabaseSourceConfigRecord & {
@@ -82,6 +85,7 @@ export class DatabaseSourceConfigurationService {
       databaseName: parsed.data.databaseName,
       username: parsed.data.username,
       accessMode: ACCESS_MODE,
+      tlsMode: parsed.data.tlsMode,
       createdAt: previous?.createdAt ?? now,
       updatedAt: now,
     };

@@ -157,6 +157,7 @@ export interface ProviderStatus {
 }
 
 export type DatabaseDialect = 'MYSQL_MARIADB' | 'POSTGRESQL';
+export type DatabaseTlsMode = 'REQUIRED' | 'DISABLED';
 export interface SafeDatabaseSourceConfiguration {
   pbxInstanceId: string;
   dialect: DatabaseDialect;
@@ -165,6 +166,7 @@ export interface SafeDatabaseSourceConfiguration {
   databaseName: string;
   username: string;
   accessMode: 'READ_ONLY';
+  tlsMode: DatabaseTlsMode;
   hasCredential: boolean;
   createdAt: string;
   updatedAt: string;

@@ -1,10 +1,10 @@
 # Project context
 
-Status: PR #52 is merged. The operator has approved a source-owned, non-duplicating monitoring architecture: live state stays real-time, while historical/reporting views will query an explicitly configured read-only PBX database rather than be re-persisted by VoIP Monitor. Task 44 is complete locally on feature/read-only-database-source and merge is pending; it adds encrypted PBX-scoped database-source configuration only and performed no real database connection/query.
+Status: PR #53 merged Task 44. The operator has approved a source-owned, non-duplicating monitoring architecture: live state stays real-time, while historical/reporting views will query an explicitly configured read-only PBX database rather than be re-persisted by VoIP Monitor. Task 45 is complete locally on `feature/read-only-database-transport` and merge is pending; it adds an internal bounded read-only MySQL/MariaDB/PostgreSQL transport with synthetic validation only and no public historical-query surface.
 
 ## Repository state
 
-The public repository tracks `origin/main`. The current unmerged branch is `feature/read-only-database-source`, created from merged PR #52. It implements Task 44 configuration/credential/API/UI boundaries only and intentionally performs no real database connection or query.
+The public repository tracks `origin/main`. The current unmerged branch is `feature/read-only-database-transport`, created from merged PR #53. It implements Task 45 query validation, address/TLS policy, explicit dialect adapters, bounded timeout/rows/output, migration 16 TLS configuration, synthetic tests, and dependency review. It is not wired into application startup or a public database query endpoint, and no real database was contacted.
 
 ## Product constraints
 
