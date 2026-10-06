@@ -66,3 +66,8 @@ Task 50 proves release portability from a staged clean source snapshot rather th
 ## 2026-10-06 — Accepted post-V1 roadmap and UI/UX-first priority
 
 The user accepted the proposed V1 completion roadmap but explicitly prioritized UI/UX modernization before new monitoring features. Task 51 is therefore a design-first UI/UX Redesign Foundation and Master Mockup task. The intended visual direction is a modern NOC/operations console rather than a generic admin template: problem-first hierarchy, restrained semantic status color, fewer equal-weight cards, stronger typography/density, a persistent application shell, unified live/stale/error grammar, and stable bilingual RTL/LTR handling. Backend contracts and PBX behavior remain unchanged until the approved visual master is handed off for implementation.
+
+
+## 2026-10-06 — Task 51 visual master approved
+
+The user approved the refined dark Modern NOC / Operations Console direction. The global shell, problem-first Overview hierarchy, compact operational density, grouped panel language, semantic status treatment, and compact table/entity-row behavior are now locked as the implementation reference. Task 52 will implement this approved system incrementally without changing backend contracts or PBX behavior.
