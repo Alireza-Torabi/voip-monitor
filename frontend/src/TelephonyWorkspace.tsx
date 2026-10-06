@@ -1,21 +1,18 @@
-import {
-  Badge,
-  Box,
-  Button,
-  Card,
-  Flex,
-  Heading,
-  HStack,
-  Input,
-  NativeSelect,
-  SimpleGrid,
-  Stack,
-  Table,
-  Text,
-} from '@chakra-ui/react';
+import { Box, Button, Stack, Table, Text } from '@chakra-ui/react';
 import { useEffect, useMemo, useState } from 'react';
 import { api, ApiError, type PbxProfile, type TelephonyInstanceState } from './api.js';
+import type { OperationalTone } from './NocPrimitives.js';
 import { messages, type Language } from './i18n.js';
+import {
+  DataSurface,
+  WorkspaceField,
+  WorkspaceHeader,
+  WorkspaceSearch,
+  WorkspaceSelect,
+  WorkspaceState,
+  WorkspaceStatusPills,
+  WorkspaceToolbar,
+} from './WorkspacePrimitives.js';
 
 type TextMap = (typeof messages)[Language];
 export type TelephonyPage = 'calls' | 'channels' | 'endpoints' | 'trunks' | 'queues' | 'agents';
@@ -316,171 +313,162 @@ export function TelephonyWorkspace({
   const synchronization = syncFor(state, page);
 
   if (profiles.length === 0) {
-    return (
-      <Card.Root variant="outline">
-        <Card.Body>{text.dashboardNoPbx}</Card.Body>
-      </Card.Root>
-    );
+    return <WorkspaceState title={text.dashboardNoPbx} />;
   }
 
-  return (
-    <Stack gap="5">
-      <Flex
-        align={{ base: 'stretch', md: 'end' }}
-        justify="space-between"
-        direction={{ base: 'column', md: 'row' }}
-        gap="4"
-      >
-        <Box>
-          <Heading size="xl">{titleFor(text, page)}</Heading>
-          <Text color="fg.muted" mt="1">
-            {text.entityWorkspaceHint}
-          </Text>
-        </Box>
-        <HStack gap="2" flexWrap="wrap">
-          <Badge
-            colorPalette={live === 'connected' ? 'green' : live === 'disconnected' ? 'red' : 'gray'}
-          >
-            {live === 'connected'
-              ? text.liveConnected
-              : live === 'disconnected'
-                ? text.liveDisconnectedShort
-                : text.liveConnecting}
-          </Badge>
-          {capability ? <Badge variant="outline">{capability}</Badge> : null}
-          {synchronization ? <Badge variant="outline">{synchronization}</Badge> : null}
-        </HStack>
-      </Flex>
+  const liveTone =
+    live === 'connected' ? 'healthy' : live === 'disconnected' ? 'critical' : 'unknown';
+  const syncTone: OperationalTone =
+    synchronization === 'CURRENT' || synchronization === 'LIVE_ONLY'
+      ? 'healthy'
+      : synchronization === 'STALE'
+        ? 'warning'
+        : 'unknown';
 
-      <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
-        <Box>
-          <Text fontSize="sm" fontWeight="semibold" mb="1.5">
-            {text.dashboardPbx}
-          </Text>
-          <NativeSelect.Root>
-            <NativeSelect.Field
-              value={selected?.id ?? ''}
-              onChange={(event) => setSelectedId(event.target.value)}
-            >
-              {profiles.map((profile) => (
-                <option key={profile.id} value={profile.id}>
-                  {profile.displayName}
-                </option>
-              ))}
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-        </Box>
-        <Box>
-          <Text fontSize="sm" fontWeight="semibold" mb="1.5">
-            {text.search}
-          </Text>
-          <Input
+  return (
+    <Stack gap="4" data-workspace="telephony">
+      <WorkspaceHeader
+        title={titleFor(text, page)}
+        description={text.entityWorkspaceHint}
+        status={
+          <WorkspaceStatusPills
+            items={[
+              {
+                label:
+                  live === 'connected'
+                    ? text.liveConnected
+                    : live === 'disconnected'
+                      ? text.liveDisconnectedShort
+                      : text.liveConnecting,
+                tone: liveTone,
+              },
+              ...(capability
+                ? [
+                    {
+                      label: capability,
+                      tone:
+                        capability === 'SUPPORTED' ? ('healthy' as const) : ('unknown' as const),
+                    },
+                  ]
+                : []),
+              ...(synchronization ? [{ label: synchronization, tone: syncTone }] : []),
+            ]}
+          />
+        }
+      />
+
+      <WorkspaceToolbar>
+        <WorkspaceField label={text.dashboardPbx}>
+          <WorkspaceSelect
+            value={selected?.id ?? ''}
+            onChange={setSelectedId}
+            ariaLabel={text.dashboardPbx}
+          >
+            {profiles.map((profile) => (
+              <option key={profile.id} value={profile.id}>
+                {profile.displayName}
+              </option>
+            ))}
+          </WorkspaceSelect>
+        </WorkspaceField>
+        <WorkspaceField label={text.search}>
+          <WorkspaceSearch
             value={query}
-            onChange={(event) => {
-              setQuery(event.target.value);
+            onChange={(value) => {
+              setQuery(value);
               setPageNumber(1);
             }}
             placeholder={text.searchPlaceholder}
+            ariaLabel={text.search}
           />
-        </Box>
-      </SimpleGrid>
+        </WorkspaceField>
+      </WorkspaceToolbar>
 
       {page === 'trunks' ? (
-        <Card.Root variant="outline" bg="orange.50" borderColor="orange.200">
-          <Card.Body gap="1">
-            <Text fontWeight="semibold">{text.trunkDiscoveryLimited}</Text>
-            <Text fontSize="sm" color="fg.muted">
-              {text.trunkDiscoveryLimitedHint}
-            </Text>
-          </Card.Body>
-        </Card.Root>
+        <WorkspaceState
+          tone="warning"
+          title={text.trunkDiscoveryLimited}
+          detail={text.trunkDiscoveryLimitedHint}
+          role="status"
+        />
       ) : null}
 
-      {error ? (
-        <Box
-          role="alert"
-          borderWidth="1px"
-          borderColor="red.200"
-          bg="red.50"
-          color="red.800"
-          borderRadius="lg"
-          p="3"
-        >
-          {error}
-        </Box>
-      ) : null}
+      {error ? <WorkspaceState tone="critical" title={error} role="alert" /> : null}
 
-      <Card.Root variant="outline">
-        <Card.Header py="3">
-          <Flex justify="space-between" align="center" gap="3" flexWrap="wrap">
-            <Text fontWeight="semibold">
-              {text.results}: {rows.length}
-            </Text>
-            <Text fontSize="sm" color="fg.muted">
-              {text.page} {safePage} / {pageCount}
-            </Text>
-          </Flex>
-        </Card.Header>
-        <Card.Body p="0">
-          <Box overflowX="auto">
-            <Table.Root size="sm" variant="outline" interactive>
-              <Table.Header>
+      <DataSurface
+        title={text.results + ': ' + rows.length}
+        meta={text.page + ' ' + safePage + ' / ' + pageCount}
+        footer={
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={safePage <= 1}
+              onClick={() => setPageNumber((value) => Math.max(1, value - 1))}
+            >
+              {text.previousPage}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={safePage >= pageCount}
+              onClick={() => setPageNumber((value) => Math.min(pageCount, value + 1))}
+            >
+              {text.nextPage}
+            </Button>
+          </>
+        }
+      >
+        <Box overflowX="auto">
+          <Table.Root size="sm" interactive>
+            <Table.Header bg="noc.surface2">
+              <Table.Row>
+                {headers.map((header) => (
+                  <Table.ColumnHeader
+                    key={header}
+                    whiteSpace="nowrap"
+                    fontSize="10px"
+                    color="noc.textSubtle"
+                    letterSpacing=".04em"
+                    borderColor="noc.border"
+                  >
+                    {header}
+                  </Table.ColumnHeader>
+                ))}
+              </Table.Row>
+            </Table.Header>
+            <Table.Body>
+              {visibleRows.length === 0 ? (
                 <Table.Row>
-                  {headers.map((header) => (
-                    <Table.ColumnHeader key={header} whiteSpace="nowrap">
-                      {header}
-                    </Table.ColumnHeader>
-                  ))}
+                  <Table.Cell colSpan={headers.length} borderColor="noc.border">
+                    <Text color="noc.textSubtle" py="8" textAlign="center" fontSize="12px">
+                      {text.noResults}
+                    </Text>
+                  </Table.Cell>
                 </Table.Row>
-              </Table.Header>
-              <Table.Body>
-                {visibleRows.length === 0 ? (
-                  <Table.Row>
-                    <Table.Cell colSpan={headers.length}>
-                      <Text color="fg.muted" py="5" textAlign="center">
-                        {text.noResults}
-                      </Text>
-                    </Table.Cell>
+              ) : (
+                visibleRows.map((row) => (
+                  <Table.Row key={row.key} _hover={{ bg: 'rgba(255,255,255,.025)' }}>
+                    {row.cells.map((cell, index) => (
+                      <Table.Cell
+                        key={`${row.key}:${index}`}
+                        whiteSpace={index === 0 ? 'nowrap' : 'normal'}
+                        dir={index === 0 || page !== 'queues' ? 'ltr' : undefined}
+                        borderColor="noc.border"
+                        color={index === 0 ? 'noc.text' : 'noc.textMuted'}
+                        fontSize="12px"
+                        py="2.5"
+                      >
+                        {cell}
+                      </Table.Cell>
+                    ))}
                   </Table.Row>
-                ) : (
-                  visibleRows.map((row) => (
-                    <Table.Row key={row.key}>
-                      {row.cells.map((cell, index) => (
-                        <Table.Cell
-                          key={`${row.key}:${index}`}
-                          whiteSpace={index === 0 ? 'nowrap' : 'normal'}
-                          dir={index === 0 || page !== 'queues' ? 'ltr' : undefined}
-                        >
-                          {cell}
-                        </Table.Cell>
-                      ))}
-                    </Table.Row>
-                  ))
-                )}
-              </Table.Body>
-            </Table.Root>
-          </Box>
-        </Card.Body>
-        <Card.Footer justifyContent="space-between">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={safePage <= 1}
-            onClick={() => setPageNumber((value) => Math.max(1, value - 1))}
-          >
-            {text.previousPage}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={safePage >= pageCount}
-            onClick={() => setPageNumber((value) => Math.min(pageCount, value + 1))}
-          >
-            {text.nextPage}
-          </Button>
-        </Card.Footer>
-      </Card.Root>
+                ))
+              )}
+            </Table.Body>
+          </Table.Root>
+        </Box>
+      </DataSurface>
     </Stack>
   );
 }

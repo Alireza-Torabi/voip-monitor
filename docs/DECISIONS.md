@@ -649,3 +649,12 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 429. **Large gauges are removed from the default Overview:** infrastructure is summarized through compact metric bars, uptime, and bounded trend presentation.
 430. **Operational drill-down reuses existing workspaces:** calls, trunks, endpoints, queues, and security links do not create duplicate views or new data paths.
 431. **Customization controls do not dominate normal operation:** dashboard-definition selection and creation are visible only while editing.
+
+## 2026-10-06 — Task 54 workspace standardization
+
+432. **Workspace interaction grammar is shared:** operator pages use the same header, scope/filter toolbar, semantic state, grouped data surface, and compact status patterns.
+433. **History is dense rather than card-per-row:** source-backed normalized rows remain bounded/read-only, but presentation is optimized for operational scanning.
+434. **Settings has its own responsive sub-navigation rail:** configuration categories are visually separated from operational navigation without creating new routes or capabilities.
+435. **Credential behavior is untouched by redesign:** database/SSH/admin password inputs remain write-only or secret-safe according to existing API contracts; styling never changes persistence semantics.
+436. **SectionHeader content title is distinct from the HTML title attribute:** its props explicitly omit FlexProps.title to allow renderer-safe ReactNode headings without TypeScript intersection conflicts.
+437. **Task 54 is presentation-only:** no entity drawer, historical query expansion, unified health contract, or alert lifecycle capability is introduced.

@@ -1,19 +1,15 @@
-import {
-  Badge,
-  Box,
-  Button,
-  Card,
-  Checkbox,
-  Flex,
-  Heading,
-  NativeSelect,
-  SimpleGrid,
-  Stack,
-  Text,
-} from '@chakra-ui/react';
+import { Box, Button, Checkbox, Flex, SimpleGrid, Stack, Text } from '@chakra-ui/react';
 import { useEffect, useMemo, useState } from 'react';
 import { api, ApiError, type PbxProfile, type SystemMetricsSample } from './api.js';
 import { messages, type Language } from './i18n.js';
+import { NocInset, NocPanel, SectionHeader, StatusIndicator } from './NocPrimitives.js';
+import {
+  WorkspaceField,
+  WorkspaceHeader,
+  WorkspaceSelect,
+  WorkspaceState,
+  WorkspaceToolbar,
+} from './WorkspacePrimitives.js';
 
 type TextMap = (typeof messages)[Language];
 
@@ -124,54 +120,51 @@ export function DashboardStorageWorkspace({
   }
 
   return (
-    <Stack gap="5">
-      <Flex
-        align={{ base: 'stretch', md: 'end' }}
-        justify="space-between"
-        direction={{ base: 'column', md: 'row' }}
-        gap="4"
-      >
-        <Box>
-          <Heading size="lg">{text.dashboardStorageTitle}</Heading>
-          <Text color="fg.muted" mt="1">
-            {text.dashboardStorageHint}
-          </Text>
-        </Box>
-        <Box minW={{ base: '100%', md: '280px' }}>
-          <Text fontSize="sm" fontWeight="semibold" mb="1.5">
-            {text.dashboardPbx}
-          </Text>
-          <NativeSelect.Root>
-            <NativeSelect.Field
-              value={selected?.id ?? ''}
-              onChange={(event) => setSelectedId(event.target.value)}
-            >
-              {profiles.map((profile) => (
-                <option key={profile.id} value={profile.id}>
-                  {profile.displayName}
-                </option>
-              ))}
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-        </Box>
-      </Flex>
+    <Stack gap="4" data-workspace="dashboard-storage">
+      <WorkspaceHeader title={text.dashboardStorageTitle} description={text.dashboardStorageHint} />
 
-      <Card.Root variant="outline">
-        <Card.Header>
-          <Flex justify="space-between" align="start" gap="3" flexWrap="wrap">
-            <Box>
-              <Card.Title>{text.dashboardStorageAvailable}</Card.Title>
-              <Card.Description>{text.dashboardStorageAvailableHint}</Card.Description>
-            </Box>
-            <Badge colorPalette={selection === null ? 'gray' : 'blue'}>
-              {selection === null ? text.dashboardStorageDefaultAll : text.dashboardStorageCustom}
-            </Badge>
-          </Flex>
-        </Card.Header>
-        <Card.Body>
+      <WorkspaceToolbar>
+        <WorkspaceField label={text.dashboardPbx}>
+          <WorkspaceSelect
+            value={selected?.id ?? ''}
+            onChange={setSelectedId}
+            ariaLabel={text.dashboardPbx}
+          >
+            {profiles.map((profile) => (
+              <option key={profile.id} value={profile.id}>
+                {profile.displayName}
+              </option>
+            ))}
+          </WorkspaceSelect>
+        </WorkspaceField>
+        <Box flex="1 1 220px" minW="220px">
+          <Text
+            fontSize="10px"
+            color="noc.textSubtle"
+            fontWeight="700"
+            letterSpacing=".05em"
+            textTransform="uppercase"
+            mb="1.5"
+          >
+            {text.dashboardStorageAvailable}
+          </Text>
+          <StatusIndicator
+            tone={selection === null ? 'unknown' : 'info'}
+            label={
+              selection === null ? text.dashboardStorageDefaultAll : text.dashboardStorageCustom
+            }
+          />
+        </Box>
+      </WorkspaceToolbar>
+
+      <NocPanel p="4">
+        <SectionHeader
+          title={text.dashboardStorageAvailable}
+          description={text.dashboardStorageAvailableHint}
+        />
+        <Box mt="4">
           {filesystems.length === 0 ? (
-            <Text color="fg.muted">{text.storageNoData}</Text>
+            <WorkspaceState title={text.storageNoData} />
           ) : (
             <SimpleGrid columns={{ base: 1, md: 2 }} gap="3">
               {filesystems.map((filesystem) => {
@@ -185,9 +178,12 @@ export function DashboardStorageWorkspace({
                       toggle(filesystem.filesystemId, details.checked === true)
                     }
                     borderWidth="1px"
-                    borderRadius="lg"
+                    borderColor={checked ? 'noc.borderStrong' : 'noc.border'}
+                    bg={checked ? 'rgba(45,140,255,.08)' : 'noc.surface2'}
+                    borderRadius="nocControl"
                     p="3"
                     alignItems="start"
+                    _hover={{ borderColor: 'noc.borderStrong' }}
                   >
                     <Checkbox.HiddenInput />
                     <Checkbox.Control mt="0.5">
@@ -195,10 +191,21 @@ export function DashboardStorageWorkspace({
                     </Checkbox.Control>
                     <Checkbox.Label flex="1">
                       <Stack gap="0.5">
-                        <Text fontWeight="semibold" dir="ltr" overflowWrap="anywhere">
+                        <Text
+                          fontWeight="600"
+                          fontSize="12px"
+                          color="noc.text"
+                          dir="ltr"
+                          overflowWrap="anywhere"
+                        >
                           {filesystem.mountPoint}
                         </Text>
-                        <Text fontSize="xs" color="fg.muted" dir="ltr" overflowWrap="anywhere">
+                        <Text
+                          fontSize="10px"
+                          color="noc.textSubtle"
+                          dir="ltr"
+                          overflowWrap="anywhere"
+                        >
                           {filesystem.filesystemId}
                         </Text>
                       </Stack>
@@ -210,62 +217,38 @@ export function DashboardStorageWorkspace({
           )}
 
           {missingSelected.length > 0 ? (
-            <Box
-              mt="4"
-              borderWidth="1px"
-              borderColor="orange.200"
-              bg="orange.50"
-              borderRadius="lg"
-              p="3"
-            >
-              <Text fontSize="sm" fontWeight="semibold">
-                {text.dashboardStorageMissingTitle}
-              </Text>
-              <Text fontSize="xs" color="fg.muted" mt="1" dir="ltr">
+            <NocInset mt="4" p="3" borderColor="noc.warning">
+              <StatusIndicator tone="warning" label={text.dashboardStorageMissingTitle} />
+              <Text fontSize="10px" color="noc.textMuted" mt="2" dir="ltr">
                 {missingSelected.join(', ')}
               </Text>
-            </Box>
+            </NocInset>
           ) : null}
 
-          {status ? (
-            <Box
-              mt="4"
-              role="status"
-              borderWidth="1px"
-              borderColor="green.200"
-              bg="green.50"
-              color="green.800"
-              borderRadius="lg"
-              p="3"
-            >
-              {status}
-            </Box>
-          ) : null}
-          {error ? (
-            <Box
-              mt="4"
-              role="alert"
-              borderWidth="1px"
-              borderColor="red.200"
-              bg="red.50"
-              color="red.800"
-              borderRadius="lg"
-              p="3"
-            >
-              {error}
-            </Box>
-          ) : null}
-
-          <Flex mt="4" gap="2" flexWrap="wrap">
-            <Button colorPalette="blue" disabled={pending || !selected} onClick={() => void save()}>
-              {text.dashboardStorageSave}
-            </Button>
-            <Button variant="outline" disabled={pending || !selected} onClick={() => void reset()}>
-              {text.dashboardStorageReset}
-            </Button>
-          </Flex>
-        </Card.Body>
-      </Card.Root>
+          <Stack gap="3" mt="4">
+            {status ? <WorkspaceState tone="healthy" title={status} role="status" /> : null}
+            {error ? <WorkspaceState tone="critical" title={error} role="alert" /> : null}
+            <Flex gap="2" flexWrap="wrap">
+              <Button
+                size="sm"
+                colorPalette="blue"
+                disabled={pending || !selected}
+                onClick={() => void save()}
+              >
+                {text.dashboardStorageSave}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={pending || !selected}
+                onClick={() => void reset()}
+              >
+                {text.dashboardStorageReset}
+              </Button>
+            </Flex>
+          </Stack>
+        </Box>
+      </NocPanel>
     </Stack>
   );
 }

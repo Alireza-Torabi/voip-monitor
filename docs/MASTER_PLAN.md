@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-06. PR #62 merged Task 52. Task 53 is complete locally on feature/operator-dashboard-redesign and merge is pending. The default Operator Dashboard is now a fixed problem-first operational surface; saved widget layouts remain available only as a secondary Edit mode. Task 54 follows only after Task 53 merges.
+Status: 2026-10-06. PR #63 merged Task 53. Task 54 is complete locally on feature/workspaces-redesign and merge is pending. Telephony, History, Security, and Settings now share one Modern NOC workspace language with consistent headers, toolbars, data surfaces, states, and settings navigation. Task 55 follows only after Task 54 merges.
 
 ## Phase 0 — environment discovery
 
@@ -696,7 +696,7 @@ The product foundation is production-ready, but the monitoring product is not ye
 - [x] **Task 53 — Redesign the Operator Dashboard**
   - Turn the home screen from a widget collection into an operational decision surface.
   - Prioritize current problems, system/PBX health, active calls, trunk/endpoint/queue pressure, infrastructure state, and stale/source-health visibility.
-- [ ] **Task 54 — Redesign Telephony, History, Security, and Settings**
+- [x] **Task 54 — Redesign Telephony, History, Security, and Settings**
   - Unify search/filter/table/detail patterns and improve drill-down, density, and error/empty/loading behavior.
 - [ ] **Task 55 — NOC/Wallboard and accessibility pass**
   - Fullscreen/wallboard behavior, high-visibility severity, keyboard/focus handling, contrast, reduced-motion considerations, and tablet/mobile fallback.
@@ -844,3 +844,37 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 - git diff check PASS.
 - Existing Chakra/Ark/Rolldown module-level "use client" warnings remain non-fatal and unchanged in nature.
 - Roadmap consistency correction: Task 51 had already been merged in PR #61 but its Phase 13 checkbox remained open; it is now marked complete.
+
+## 2026-10-06 — Task 54 completion record
+
+- **Result:** Telephony, source-backed History, Security, and all current Settings surfaces now use one product-specific Modern NOC workspace language instead of independent generic-card layouts.
+- **Shared workspace primitives:** added reusable WorkspaceHeader, WorkspaceToolbar, WorkspaceField, WorkspaceSearch, WorkspaceSelect, WorkspaceState, DataSurface, and WorkspaceStatusPills primitives on top of the Task 52 NOC design system.
+- **Telephony:** replaced the prior header + two-column form + generic table card with a compact operational header, live/capability/synchronization status line, unified PBX/search toolbar, semantic warning/error states, dense table surface, and stable pagination. Existing search, filtering, active-channel behavior, paging, and SSE contracts are unchanged.
+- **History:** replaced card-per-record presentation with a dense source-backed data surface. PBX scope, dataset availability, dataset selection, schema refresh, loading/error/empty states, source timestamp notice, and normalized row details now follow the same interaction grammar. Query behavior remains explicit, bounded, read-only, and source-owned.
+- **Security:** current/recent alerts are compact list surfaces rather than isolated cards; live/current status is first-class; rule configuration uses NOC inset panels and consistent form/status treatment. Existing two-rule security model, persistence, realtime merge, and API contracts are unchanged.
+- **Settings shell:** settings now uses a responsive dedicated sub-navigation rail on desktop and horizontal overflow navigation on smaller layouts. PBX, database source, SSH metrics, service monitoring, dashboard storage, security, and accounts render inside one consistent content region.
+- **Settings workspaces:** PBX management, database source, SSH metrics, service monitoring, dashboard storage, and accounts were migrated away from legacy Card.Root layouts into NocPanel/NocInset and shared workspace states. Write-only credential and existing validation behavior remain unchanged.
+- **RTL/LTR:** Persian workspace chrome continues to inherit RTL from the application shell while technical values, host-like identifiers, service IDs, call IDs, and source timestamps retain explicit LTR treatment.
+- **Migration failures resolved:** strict TypeScript exposed a title-prop collision between FlexProps HTML title and the SectionHeader content title; SectionHeader now omits the HTML title prop before defining its ReactNode title. Missing i18n labels and an inferred status-tone widening were corrected without loosening compiler settings. A broad PBX JSX replacement temporarily closed one unrelated setup Card.Description incorrectly; it was repaired before validation. Security tests initially failed because a compact alert row removed the visible colon between label and count; the readable `Matched events: N` contract was restored.
+- **Known limitation:** Task 54 does not add entity drawers, new historical filters, unified health semantics, or new alert lifecycle capabilities. It standardizes presentation and interaction over existing product behavior only.
+- **Exact next task:** Task 55 — NOC/Wallboard and accessibility pass.
+
+### Task 54 final-gate failure
+
+- **Lint found nine migration leftovers — resolved:** unused imports remained after replacing legacy Cards/headers, and the old `connectionPalette` helper became obsolete after PBX status moved to semantic `StatusIndicator`. The dead imports/helper were removed and the full final gate was restarted from the beginning.
+- **Second lint pass:** three imports remained because Prettier had compacted their import lists and the first cleanup pattern did not match. Those imports were removed and the full gate was restarted again.
+- **Third gate pass:** `Flex` was still used by the redesigned Storage actions/layout and had been removed during lint cleanup. The required import was restored and the full gate was restarted again.
+
+### Task 54 final validation
+
+- Node v24.21.0 / npm 11.19.0.
+- lint PASS after migration cleanup.
+- format check PASS.
+- typecheck PASS.
+- backend tests 165/165 PASS.
+- frontend tests 28/28 PASS.
+- production build PASS.
+- foundation check PASS.
+- license check PASS.
+- git diff check PASS.
+- Existing Chakra/Ark/Zag/Rolldown module-level `use client` warnings remain non-fatal and unchanged in nature.

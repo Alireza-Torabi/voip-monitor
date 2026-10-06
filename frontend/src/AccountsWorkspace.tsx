@@ -2,10 +2,8 @@ import {
   Badge,
   Box,
   Button,
-  Card,
   Checkbox,
   Flex,
-  Heading,
   Input,
   SimpleGrid,
   Stack,
@@ -14,6 +12,8 @@ import {
 import { useEffect, useState, type ReactNode } from 'react';
 import { api, ApiError, type AdministratorAccount, type Principal } from './api.js';
 import { messages, type Language } from './i18n.js';
+import { NocInset, NocPanel, SectionHeader, StatusIndicator } from './NocPrimitives.js';
+import { WorkspaceField, WorkspaceHeader, WorkspaceState } from './WorkspacePrimitives.js';
 
 type TextMap = (typeof messages)[Language];
 
@@ -142,125 +142,97 @@ export function AccountsWorkspace({
   }
 
   return (
-    <Stack gap="5">
-      <Box>
-        <Heading size="lg">{text.accountsTitle}</Heading>
-        <Text color="fg.muted" mt="1">
-          {text.accountsHint}
-        </Text>
-      </Box>
+    <Stack gap="4" data-workspace="accounts">
+      <WorkspaceHeader title={text.accountsTitle} description={text.accountsHint} />
 
-      <Card.Root variant="outline">
-        <Card.Header>
-          <Card.Title>{text.accountCreateTitle}</Card.Title>
-          <Card.Description>{text.accountCreateHint}</Card.Description>
-        </Card.Header>
-        <Card.Body>
-          <SimpleGrid columns={{ base: 1, md: 2 }} gap="3">
-            <Box>
-              <Text fontSize="sm" fontWeight="semibold" mb="1.5">
-                {text.username}
-              </Text>
-              <Input
-                value={newUsername}
-                onChange={(event) => setNewUsername(event.target.value)}
-                autoComplete="off"
-                dir="ltr"
-              />
-            </Box>
-            <Box>
-              <Text fontSize="sm" fontWeight="semibold" mb="1.5">
-                {text.password}
-              </Text>
-              <Input
-                type="password"
-                value={newPassword}
-                onChange={(event) => setNewPassword(event.target.value)}
-                autoComplete="new-password"
-                dir="ltr"
-              />
-            </Box>
-          </SimpleGrid>
-          <Flex mt="4">
-            <Button colorPalette="blue" disabled={pending} onClick={() => void createAccount()}>
-              {text.accountCreate}
-            </Button>
-          </Flex>
-        </Card.Body>
-      </Card.Root>
+      <NocPanel p="4">
+        <SectionHeader title={text.accountCreateTitle} description={text.accountCreateHint} />
+        <SimpleGrid columns={{ base: 1, md: 2 }} gap="3" mt="4">
+          <WorkspaceField label={text.username}>
+            <Input
+              value={newUsername}
+              onChange={(event) => setNewUsername(event.target.value)}
+              autoComplete="off"
+              dir="ltr"
+              bg="noc.surface2"
+              borderColor="noc.border"
+            />
+          </WorkspaceField>
+          <WorkspaceField label={text.password}>
+            <Input
+              type="password"
+              value={newPassword}
+              onChange={(event) => setNewPassword(event.target.value)}
+              autoComplete="new-password"
+              dir="ltr"
+              bg="noc.surface2"
+              borderColor="noc.border"
+            />
+          </WorkspaceField>
+        </SimpleGrid>
+        <Flex mt="4">
+          <Button
+            size="sm"
+            colorPalette="blue"
+            disabled={pending}
+            onClick={() => void createAccount()}
+          >
+            {text.accountCreate}
+          </Button>
+        </Flex>
+      </NocPanel>
 
-      {status ? (
-        <Box
-          role="status"
-          borderWidth="1px"
-          borderColor="green.200"
-          bg="green.50"
-          color="green.800"
-          borderRadius="lg"
-          p="3"
-        >
-          {status}
-        </Box>
-      ) : null}
-      {error ? (
-        <Box
-          role="alert"
-          borderWidth="1px"
-          borderColor="red.200"
-          bg="red.50"
-          color="red.800"
-          borderRadius="lg"
-          p="3"
-        >
-          {error}
-        </Box>
-      ) : null}
+      {status ? <WorkspaceState tone="healthy" title={status} role="status" /> : null}
+      {error ? <WorkspaceState tone="critical" title={error} role="alert" /> : null}
 
       <Stack gap="3">
         {accounts.map((account) => {
           const self = account.id === principal.id;
           return (
-            <Card.Root key={account.id} variant="outline">
-              <Card.Header pb="2">
-                <Flex justify="space-between" align="start" gap="3" flexWrap="wrap">
-                  <Box>
-                    <HStackCompat>
-                      <Card.Title fontSize="md">{account.username}</Card.Title>
-                      {self ? <Badge colorPalette="blue">{text.currentAccount}</Badge> : null}
-                      <Badge colorPalette={account.enabled ? 'green' : 'gray'}>
-                        {account.enabled ? text.enabled : text.disabled}
-                      </Badge>
-                    </HStackCompat>
-                    <Card.Description>
-                      {text.accountRole}: {text.administratorRole}
-                    </Card.Description>
-                  </Box>
-                  <Text fontSize="xs" color="fg.muted">
-                    {text.lastLogin}: {localDate(account.lastLoginAt)}
-                  </Text>
-                </Flex>
-              </Card.Header>
-              <Card.Body gap="4">
-                <SimpleGrid columns={{ base: 1, lg: 3 }} gap="3">
-                  <Box>
-                    <Text fontSize="xs" color="fg.muted" mb="1">
-                      {text.username}
+            <NocPanel key={account.id} p="4">
+              <Flex
+                justify="space-between"
+                align={{ base: 'flex-start', md: 'center' }}
+                direction={{ base: 'column', md: 'row' }}
+                gap="3"
+              >
+                <Box minW="0">
+                  <HStackCompat>
+                    <Text fontSize="14px" fontWeight="600" color="noc.text" dir="ltr">
+                      {account.username}
                     </Text>
-                    <Input
-                      value={draftUsernames[account.id] ?? account.username}
-                      onChange={(event) =>
-                        setDraftUsernames((current) => ({
-                          ...current,
-                          [account.id]: event.target.value,
-                        }))
-                      }
-                      dir="ltr"
+                    {self ? <Badge colorPalette="blue">{text.currentAccount}</Badge> : null}
+                    <StatusIndicator
+                      tone={account.enabled ? 'healthy' : 'unknown'}
+                      label={account.enabled ? text.enabled : text.disabled}
                     />
-                  </Box>
-                  <Box>
-                    <Text fontSize="xs" color="fg.muted" mb="1">
-                      {text.accountStatus}
-                    </Text>
+                  </HStackCompat>
+                  <Text mt="1" fontSize="10px" color="noc.textSubtle">
+                    {text.accountRole}: {text.administratorRole}
+                  </Text>
+                </Box>
+                <Text fontSize="10px" color="noc.textSubtle">
+                  {text.lastLogin}: {localDate(account.lastLoginAt)}
+                </Text>
+              </Flex>
+
+              <SimpleGrid columns={{ base: 1, lg: 3 }} gap="3" mt="4">
+                <WorkspaceField label={text.username}>
+                  <Input
+                    value={draftUsernames[account.id] ?? account.username}
+                    onChange={(event) =>
+                      setDraftUsernames((current) => ({
+                        ...current,
+                        [account.id]: event.target.value,
+                      }))
+                    }
+                    dir="ltr"
+                    bg="noc.surface2"
+                    borderColor="noc.border"
+                  />
+                </WorkspaceField>
+                <WorkspaceField label={text.accountStatus}>
+                  <NocInset h="40px" px="3" display="flex" alignItems="center">
                     <Checkbox.Root
                       checked={draftEnabled[account.id] ?? account.enabled}
                       disabled={self}
@@ -277,64 +249,68 @@ export function AccountsWorkspace({
                       </Checkbox.Control>
                       <Checkbox.Label>{text.accountEnabled}</Checkbox.Label>
                     </Checkbox.Root>
-                  </Box>
-                  <Box>
-                    <Text fontSize="xs" color="fg.muted" mb="1">
-                      {text.createdAt}
+                  </NocInset>
+                </WorkspaceField>
+                <WorkspaceField label={text.createdAt}>
+                  <NocInset h="40px" px="3" display="flex" alignItems="center">
+                    <Text fontSize="12px" color="noc.textMuted">
+                      {localDate(account.createdAt)}
                     </Text>
-                    <Text fontSize="sm">{localDate(account.createdAt)}</Text>
-                  </Box>
-                </SimpleGrid>
+                  </NocInset>
+                </WorkspaceField>
+              </SimpleGrid>
 
-                <Flex gap="2" flexWrap="wrap">
+              <Flex gap="2" flexWrap="wrap" mt="4">
+                <Button
+                  size="sm"
+                  colorPalette="blue"
+                  disabled={pending}
+                  onClick={() => void saveAccount(account)}
+                >
+                  {text.accountSave}
+                </Button>
+                <Button
+                  size="sm"
+                  colorPalette="red"
+                  variant="outline"
+                  disabled={pending || self}
+                  onClick={() => void removeAccount(account)}
+                >
+                  {text.accountDelete}
+                </Button>
+              </Flex>
+
+              <Box borderTopWidth="1px" borderColor="noc.border" mt="4" pt="4">
+                <Text fontSize="11px" fontWeight="600" color="noc.text" mb="2">
+                  {text.accountPasswordReset}
+                </Text>
+                <Flex gap="2" direction={{ base: 'column', md: 'row' }}>
+                  <Input
+                    type="password"
+                    value={passwords[account.id] ?? ''}
+                    onChange={(event) =>
+                      setPasswords((current) => ({
+                        ...current,
+                        [account.id]: event.target.value,
+                      }))
+                    }
+                    placeholder={text.accountNewPassword}
+                    autoComplete="new-password"
+                    dir="ltr"
+                    bg="noc.surface2"
+                    borderColor="noc.border"
+                  />
                   <Button
                     size="sm"
-                    colorPalette="blue"
-                    disabled={pending}
-                    onClick={() => void saveAccount(account)}
-                  >
-                    {text.accountSave}
-                  </Button>
-                  <Button
-                    size="sm"
-                    colorPalette="red"
                     variant="outline"
-                    disabled={pending || self}
-                    onClick={() => void removeAccount(account)}
+                    disabled={pending}
+                    onClick={() => void resetPassword(account)}
                   >
-                    {text.accountDelete}
+                    {text.accountPasswordReset}
                   </Button>
                 </Flex>
-
-                <Box borderTopWidth="1px" pt="4">
-                  <Text fontSize="sm" fontWeight="semibold" mb="2">
-                    {text.accountPasswordReset}
-                  </Text>
-                  <Flex gap="2" direction={{ base: 'column', md: 'row' }}>
-                    <Input
-                      type="password"
-                      value={passwords[account.id] ?? ''}
-                      onChange={(event) =>
-                        setPasswords((current) => ({
-                          ...current,
-                          [account.id]: event.target.value,
-                        }))
-                      }
-                      placeholder={text.accountNewPassword}
-                      autoComplete="new-password"
-                      dir="ltr"
-                    />
-                    <Button
-                      variant="outline"
-                      disabled={pending}
-                      onClick={() => void resetPassword(account)}
-                    >
-                      {text.accountPasswordReset}
-                    </Button>
-                  </Flex>
-                </Box>
-              </Card.Body>
-            </Card.Root>
+              </Box>
+            </NocPanel>
           );
         })}
       </Stack>

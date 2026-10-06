@@ -28,6 +28,8 @@ import type { OperatorDestination } from './OperatorDashboard.js';
 import { DashboardBuilder } from './DashboardBuilder.js';
 import { TelephonyWorkspace, type TelephonyPage } from './TelephonyWorkspace.js';
 import { AppShell, type ShellDestination } from './AppShell.js';
+import { NocPanel, StatusIndicator } from './NocPrimitives.js';
+import { WorkspaceHeader } from './WorkspacePrimitives.js';
 
 type TextMap = (typeof messages)[Language];
 type Phase = 'loading' | 'setup' | 'login' | 'ready' | 'error';
@@ -287,13 +289,6 @@ const emptyForm = (): PbxFormState => ({
   enabled: false,
 });
 
-function connectionPalette(state: PbxConnectionState) {
-  if (state === 'CONNECTED') return 'green';
-  if (state === 'ERROR') return 'red';
-  if (state === 'DEGRADED') return 'orange';
-  return 'gray';
-}
-
 export function PbxWorkspace({
   text,
   profiles,
@@ -439,54 +434,67 @@ export function PbxWorkspace({
   }
 
   return (
-    <Box as="section" aria-labelledby="pbx-title">
+    <Box as="section" aria-labelledby="pbx-title" data-workspace="pbx-settings">
       <Stack gap="5">
-        <Flex
-          justify="space-between"
-          align={{ base: 'stretch', md: 'center' }}
-          gap="3"
-          direction={{ base: 'column', md: 'row' }}
-        >
-          <Box>
-            <Heading id="pbx-title" size="lg">
+        <WorkspaceHeader
+          title={
+            <Box as="span" id="pbx-title">
               {text.pbxTitle}
-            </Heading>
-            <Text color="fg.muted" mt="1">
-              {text.connectionHint}
-            </Text>
-          </Box>
-          {!showForm ? (
-            <Button
-              colorPalette="blue"
-              onClick={() => {
-                setForm(emptyForm());
-                setEditingId(undefined);
-                setShowForm(true);
-              }}
-            >
-              {text.addPbx}
-            </Button>
-          ) : null}
-        </Flex>
+            </Box>
+          }
+          description={text.connectionHint}
+          actions={
+            !showForm ? (
+              <Button
+                size="sm"
+                colorPalette="blue"
+                onClick={() => {
+                  setForm(emptyForm());
+                  setEditingId(undefined);
+                  setShowForm(true);
+                }}
+              >
+                {text.addPbx}
+              </Button>
+            ) : undefined
+          }
+        />
 
         {profiles.length > 0 ? (
           <SimpleGrid columns={{ base: 1, lg: 2 }} gap="4">
             {profiles.map((profile) => (
-              <Card.Root key={profile.id} variant="outline">
-                <Card.Header>
-                  <Flex justify="space-between" align="start" gap="3">
-                    <Box minW="0">
-                      <Card.Title>{profile.displayName}</Card.Title>
-                      <Card.Description dir="ltr" overflowWrap="anywhere">
-                        {profile.amiHost}:{profile.amiPort} · {profile.amiUsername}
-                      </Card.Description>
-                    </Box>
-                    <Badge colorPalette={connectionPalette(profile.connectionStatus)}>
-                      {connectionLabel(profile.connectionStatus)}
-                    </Badge>
-                  </Flex>
-                </Card.Header>
-                <Card.Body gap="3">
+              <NocPanel key={profile.id} p="4">
+                <Flex justify="space-between" align="start" gap="3">
+                  <Box minW="0">
+                    <Text fontSize="14px" fontWeight="600" color="noc.text">
+                      {profile.displayName}
+                    </Text>
+                    <Text
+                      mt="1"
+                      fontSize="10px"
+                      color="noc.textSubtle"
+                      dir="ltr"
+                      overflowWrap="anywhere"
+                    >
+                      {profile.amiHost}:{profile.amiPort} · {profile.amiUsername}
+                    </Text>
+                  </Box>
+                  <StatusIndicator
+                    tone={
+                      profile.connectionStatus === 'CONNECTED'
+                        ? 'healthy'
+                        : profile.connectionStatus === 'DEGRADED' ||
+                            profile.connectionStatus === 'CONNECTING'
+                          ? 'warning'
+                          : profile.connectionStatus === 'ERROR' ||
+                              profile.connectionStatus === 'DISCONNECTED'
+                            ? 'critical'
+                            : 'unknown'
+                    }
+                    label={connectionLabel(profile.connectionStatus)}
+                  />
+                </Flex>
+                <Stack gap="3" mt="3">
                   <HStack gap="2" flexWrap="wrap">
                     <Badge variant="subtle">{text.asterisk}</Badge>
                     <Badge colorPalette={profile.enabled ? 'green' : 'gray'}>
@@ -504,8 +512,8 @@ export function PbxWorkspace({
                   {testResult[profile.id] ? (
                     <InlineMessage tone="status">{testResult[profile.id]}</InlineMessage>
                   ) : null}
-                </Card.Body>
-                <Card.Footer>
+                </Stack>
+                <Box mt="3">
                   <HStack gap="2" flexWrap="wrap">
                     {profile.hasAmiPassword ? (
                       <Button
@@ -561,8 +569,8 @@ export function PbxWorkspace({
                       {text.deletePbx}
                     </Button>
                   </HStack>
-                </Card.Footer>
-              </Card.Root>
+                </Box>
+              </NocPanel>
             ))}
           </SimpleGrid>
         ) : null}
@@ -901,100 +909,128 @@ export function App({
           ) : null}
 
           {workspace === 'settings' ? (
-            <Stack gap="4">
+            <Stack gap="4" data-workspace="settings">
               <Box>
-                <Heading size="xl" color="noc.text">
+                <Heading size="xl" color="noc.text" letterSpacing="-0.02em">
                   {text.settingsTitle}
                 </Heading>
-                <Text color="noc.textMuted" mt="1" fontSize="sm">
+                <Text color="noc.textMuted" mt="1" fontSize="12px">
                   {text.settingsHint}
                 </Text>
               </Box>
 
-              <Box
-                borderWidth="1px"
-                borderColor="noc.border"
-                bg="noc.surface"
-                borderRadius="nocPanel"
-                p="2"
-                overflowX="auto"
-              >
-                <HStack gap="1" minW="max-content" data-settings-navigation>
-                  {(
-                    [
-                      ['pbx', text.pbxTitle],
-                      ['database-source', text.databaseSourceTitle],
-                      ['ssh-metrics', text.sshMetricsTitle],
-                      ['service-monitoring', text.serviceMonitoringTitle],
-                      ['storage', text.dashboardStorageTitle],
-                      ['security', text.securityTitle],
-                      ['accounts', text.accountsTitle],
-                    ] as const
-                  ).map(([value, label]) => (
-                    <Button
-                      key={value}
-                      size="sm"
-                      variant="ghost"
-                      borderRadius="nocControl"
-                      color={settingsPage === value ? 'white' : 'noc.textMuted'}
-                      bg={settingsPage === value ? 'rgba(45,140,255,.18)' : 'transparent'}
-                      _hover={{ bg: 'rgba(255,255,255,.05)', color: 'white' }}
-                      onClick={() => setSettingsPage(value)}
-                    >
-                      {label}
-                    </Button>
-                  ))}
-                </HStack>
-              </Box>
+              <Flex gap="4" align="flex-start" direction={{ base: 'column', xl: 'row' }}>
+                <Box
+                  as="nav"
+                  aria-label={text.settingsTitle}
+                  w={{ base: 'full', xl: '232px' }}
+                  flex="0 0 auto"
+                  borderWidth="1px"
+                  borderColor="noc.border"
+                  bg="noc.surface"
+                  borderRadius="nocPanel"
+                  p="2"
+                  overflowX={{ base: 'auto', xl: 'visible' }}
+                  position={{ xl: 'sticky' }}
+                  top={{ xl: '80px' }}
+                >
+                  <Stack
+                    gap="1"
+                    direction={{ base: 'row', xl: 'column' }}
+                    minW={{ base: 'max-content', xl: '0' }}
+                    data-settings-navigation
+                  >
+                    {(
+                      [
+                        ['pbx', text.pbxTitle],
+                        ['database-source', text.databaseSourceTitle],
+                        ['ssh-metrics', text.sshMetricsTitle],
+                        ['service-monitoring', text.serviceMonitoringTitle],
+                        ['storage', text.dashboardStorageTitle],
+                        ['security', text.securityTitle],
+                        ['accounts', text.accountsTitle],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <Button
+                        key={value}
+                        size="sm"
+                        variant="ghost"
+                        h="38px"
+                        px="3"
+                        justifyContent="flex-start"
+                        borderRadius="nocControl"
+                        color={settingsPage === value ? 'white' : 'noc.textMuted'}
+                        bg={settingsPage === value ? 'rgba(45,140,255,.18)' : 'transparent'}
+                        borderWidth="1px"
+                        borderColor={
+                          settingsPage === value ? 'rgba(45,140,255,.30)' : 'transparent'
+                        }
+                        _hover={{ bg: 'rgba(255,255,255,.05)', color: 'white' }}
+                        onClick={() => setSettingsPage(value)}
+                      >
+                        <Text fontSize="12px" truncate>
+                          {label}
+                        </Text>
+                      </Button>
+                    ))}
+                  </Stack>
+                </Box>
 
-              {settingsPage === 'pbx' ? (
-                <PbxWorkspace
-                  text={text}
-                  profiles={profiles}
-                  onRefresh={async () => {
-                    await refreshProfiles();
-                  }}
-                  onUnauthorized={unauthorized}
-                />
-              ) : null}
-              {settingsPage === 'database-source' ? (
-                <DatabaseSourceWorkspace
-                  text={text}
-                  profiles={profiles}
-                  onUnauthorized={unauthorized}
-                />
-              ) : null}
-              {settingsPage === 'ssh-metrics' ? (
-                <SshMetricsWorkspace
-                  text={text}
-                  profiles={profiles}
-                  onUnauthorized={unauthorized}
-                />
-              ) : null}
-              {settingsPage === 'service-monitoring' ? (
-                <ServiceMonitoringWorkspace
-                  text={text}
-                  profiles={profiles}
-                  onUnauthorized={unauthorized}
-                />
-              ) : null}
-              {settingsPage === 'storage' ? (
-                <DashboardStorageWorkspace
-                  text={text}
-                  profiles={profiles}
-                  onUnauthorized={unauthorized}
-                />
-              ) : null}
-              {settingsPage === 'security' ? (
-                <SecurityWorkspace text={text} profiles={profiles} onUnauthorized={unauthorized} />
-              ) : null}
-              {settingsPage === 'accounts' ? (
-                <AccountsWorkspace
-                  text={text}
-                  principal={principal}
-                  onUnauthorized={unauthorized}
-                />
-              ) : null}
+                <Box minW="0" flex="1" data-settings-content>
+                  {settingsPage === 'pbx' ? (
+                    <PbxWorkspace
+                      text={text}
+                      profiles={profiles}
+                      onRefresh={async () => {
+                        await refreshProfiles();
+                      }}
+                      onUnauthorized={unauthorized}
+                    />
+                  ) : null}
+                  {settingsPage === 'database-source' ? (
+                    <DatabaseSourceWorkspace
+                      text={text}
+                      profiles={profiles}
+                      onUnauthorized={unauthorized}
+                    />
+                  ) : null}
+                  {settingsPage === 'ssh-metrics' ? (
+                    <SshMetricsWorkspace
+                      text={text}
+                      profiles={profiles}
+                      onUnauthorized={unauthorized}
+                    />
+                  ) : null}
+                  {settingsPage === 'service-monitoring' ? (
+                    <ServiceMonitoringWorkspace
+                      text={text}
+                      profiles={profiles}
+                      onUnauthorized={unauthorized}
+                    />
+                  ) : null}
+                  {settingsPage === 'storage' ? (
+                    <DashboardStorageWorkspace
+                      text={text}
+                      profiles={profiles}
+                      onUnauthorized={unauthorized}
+                    />
+                  ) : null}
+                  {settingsPage === 'security' ? (
+                    <SecurityWorkspace
+                      text={text}
+                      profiles={profiles}
+                      onUnauthorized={unauthorized}
+                    />
+                  ) : null}
+                  {settingsPage === 'accounts' ? (
+                    <AccountsWorkspace
+                      text={text}
+                      principal={principal}
+                      onUnauthorized={unauthorized}
+                    />
+                  ) : null}
+                </Box>
+              </Flex>
             </Stack>
           ) : null}
         </Stack>

@@ -67,7 +67,7 @@ export function SectionHeader({
   description,
   action,
   ...props
-}: FlexProps & {
+}: Omit<FlexProps, 'title'> & {
   title: ReactNode;
   description?: ReactNode;
   action?: ReactNode;
