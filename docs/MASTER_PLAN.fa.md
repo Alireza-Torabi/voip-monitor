@@ -1,6 +1,6 @@
 # Master Plan
 
-Status: 2026-10-06. PR #58، Task 49 را Merge کرده است. Task 50 روی Branch feature/fresh-deployment-release-validation به‌صورت Local کامل شده و Merge آن Pending است. Fresh Deployment، Onboarding، Dependency Audit بدون High/Critical، Backup/Restore، Hardened Service Restart و Physical Reboot تأییدشده همگی PASS هستند. Task 51 در Roadmap فعلی تعریف نشده است؛ بعد از Merge شدن Task 50 باید متوقف شویم و منتظر Roadmap صریح بعدی بمانیم.
+Status: 2026-10-06. PR #59، Task 50 را Merge کرده است. Roadmap پذیرفته‌شده بعد از Task 50 ثبت شده و Task 51 اکنون UI/UX Redesign Foundation و Master Mockup است؛ این Task عمداً قبل از Operational Health، Call Quality و Alerting اجرا می‌شود. تا قبل از Approval شدن Visual Master، Production UI تغییر اساسی نمی‌کند.
 
 ## Phase 0 - کشف محیط
 
@@ -677,3 +677,66 @@ Phase 1 بسته است. Foundationهای Live Monitoring تا Operator Dashboar
 ### Final Validation مربوط به Task 50
 
 - **Final Repository Gateها:** با Node 24.21.0 و npm 11.19.0، `npm audit --audit-level=high` با صفر Vulnerability، Shell Syntax Check، Systemd Unit Verify، Lint، Format Check، Typecheck، Backend برابر 165/165، Frontend برابر 25/25، Production Build، Foundation Check، License Check و Staged `git diff --check` همگی PASS شدند. Warningهای موجود Chakra/Ark/Zag درباره `"use client"` همچنان Non-fatal هستند.
+
+
+<div dir="rtl" align="right">
+
+## Roadmap پذیرفته‌شده برای تکمیل V1 بعد از Task 50
+
+Foundation پروژه از نظر Production آماده است، اما محصول Monitoring هنوز Feature-complete محسوب نمی‌شود. ترتیب پذیرفته‌شده این است که ابتدا UI/UX مدرن شود و سپس Operational Health، Telephony Reliability، Call Quality، Alerting و Incident-oriented UX توسعه پیدا کنند.
+
+### Phase 13 — نوسازی UI/UX
+
+- [ ] **Task 51 — UI/UX Redesign Foundation و Master Mockup**
+  - Inventory کامل Navigation، Dashboard، Table، Form، State و Interactionهای فعلی.
+  - تعریف Design System مدرن برای Operations Console شامل Typography، Spacing، Surface، Border، Elevation، Status Color، Density، Grid، Chart، Table، Filter و Stateهای Empty/Loading/Stale/Error.
+  - بازتعریف Information Architecture برای Dashboard، Telephony، History، Alerts/Security و Settings.
+  - ساخت و Approval یک Desktop Master Mockup قبل از تغییر اساسی Production UI.
+  - هیچ تغییر در Backend Contract یا رفتار PBX انجام نمی‌شود.
+- [ ] **Task 52 — پیاده‌سازی UI Shell و Design System تأییدشده**
+- [ ] **Task 53 — بازطراحی Operator Dashboard با رویکرد Operational Decision Surface**
+- [ ] **Task 54 — بازطراحی Telephony، History، Security و Settings**
+- [ ] **Task 55 — NOC/Wallboard و Accessibility Pass**
+
+### Phase 14 — Unified Operational Health
+
+- [ ] **Task 56 — Unified Operational Health Model**
+- [ ] **Task 57 — Fleet Overview چند PBX**
+
+### Phase 15 — Telephony Reliability
+
+- [ ] **Task 58 — Trunk Reliability**
+- [ ] **Task 59 — Endpoint Reliability**
+- [ ] **Task 60 — Call Outcome Analytics با Source-owned Data**
+
+### Phase 16 — Call Quality
+
+- [ ] **Task 61 — Call Quality Source Discovery**
+- [ ] **Task 62 — Provider-neutral Call Quality Contract**
+- [ ] **Task 63 — Live Call Quality**
+- [ ] **Task 64 — Call Quality Dashboard**
+
+### Phase 17 — Operational Alerting
+
+- [ ] **Task 65 — Generic Operational Alert Model**
+- [ ] **Task 66 — Core Operational Rules**
+- [ ] **Task 67 — Alert Lifecycle**
+- [ ] **Task 68 — Notification Worker**
+- [ ] **Task 69 — Notification Integrations؛ اولویت V1: Generic Webhook و Email**
+
+### Phase 18 — Incident-oriented Operator Experience
+
+- [ ] **Task 70 — Incident-first Overview**
+- [ ] **Task 71 — Entity Drill-down**
+- [ ] **Task 72 — Historical Filtering**
+- [ ] **Task 73 — Advanced NOC/Wallboard Behavior**
+
+### موارد Deferred خارج از V1
+
+Billing، CDR Warehouse، Duplicate Telemetry Storage، Arbitrary SQL، SIP Packet Capture/PCAP، Call Recording، AI Anomaly Detection، Predictive Failure Analysis، Multi-tenant SaaS، Mobile App، Arbitrary Alert Scripting و تعداد زیاد Notification Provider فعلاً V1 Requirement نیستند.
+
+### Gate تکمیل V1
+
+V1 زمانی Product-complete محسوب می‌شود که PBX Health، Trunk Health، Endpoint Health، Queue Health، Infrastructure Health، Call Outcome Analytics، Call Quality در صورت Support، Operational Alerts، External Notifications و Fleet/Incident-first UX هم‌زمان کاربرد عملیاتی قابل اتکا داشته باشند.
+
+</div>

@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-06. PR #58 merged Task 49. Task 50 is complete locally on feature/fresh-deployment-release-validation and merge is pending. Fresh deployment, onboarding, zero-high/critical dependency audit, backup/restore, hardened service restart, and approved physical reboot recovery all passed. No Task 51 is currently defined; after Task 50 merge, stop and wait for an explicitly approved next roadmap item.
+Status: 2026-10-06. PR #59 merged Task 50. The accepted post-Task-50 roadmap is recorded below. Task 51 is now UI/UX Redesign Foundation and Master Mockup, intentionally moved ahead of the operational-health, call-quality, and alerting implementation roadmap. No production UI implementation starts until the visual master and interaction hierarchy are approved.
 
 ## Phase 0 — environment discovery
 
@@ -676,3 +676,94 @@ For every future task, retain resolved failures and bugs in this plan with: obse
 ### Task 50 final validation
 
 - **Final repository gates:** Node 24.21.0/npm 11.19.0 passed `npm audit --audit-level=high` with zero vulnerabilities, shell syntax checks, systemd unit verification, lint, format check, typecheck, backend 165/165 tests, frontend 25/25 tests, production build, foundation check, license check, and staged `git diff --check`. Existing Chakra/Ark/Zag `"use client"` bundle warnings remain non-fatal.
+
+
+## Accepted V1 completion roadmap after Task 50
+
+The product foundation is production-ready, but the monitoring product is not yet considered feature-complete. The accepted roadmap prioritizes UI/UX modernization first, then operational-health depth, telephony reliability, call quality, alerting, and incident-oriented operator workflows.
+
+### Phase 13 — UI/UX modernization
+
+- [ ] **Task 51 — UI/UX Redesign Foundation and Master Mockup**
+  - Inventory the current navigation, dashboard, table, form, state, and interaction patterns.
+  - Freeze a modern operations-console design system: typography, spacing, surfaces, elevation, borders, semantic status colors, density, grid, charts, tables, filters, empty/loading/stale/error states, and RTL/LTR behavior.
+  - Redefine information architecture for Dashboard, Telephony, History, Alerts/Security, and Settings.
+  - Produce and approve a desktop master mockup before changing production UI.
+  - Preserve existing functionality and backend contracts; no PBX behavior change.
+- [ ] **Task 52 — Implement the approved UI shell and design system**
+  - Replace the current default Chakra visual language with product-specific tokens/components.
+  - Implement the approved sidebar/topbar/navigation, page shells, cards, badges, tables, filters, dialogs, and status treatments.
+- [ ] **Task 53 — Redesign the Operator Dashboard**
+  - Turn the home screen from a widget collection into an operational decision surface.
+  - Prioritize current problems, system/PBX health, active calls, trunk/endpoint/queue pressure, infrastructure state, and stale/source-health visibility.
+- [ ] **Task 54 — Redesign Telephony, History, Security, and Settings**
+  - Unify search/filter/table/detail patterns and improve drill-down, density, and error/empty/loading behavior.
+- [ ] **Task 55 — NOC/Wallboard and accessibility pass**
+  - Fullscreen/wallboard behavior, high-visibility severity, keyboard/focus handling, contrast, reduced-motion considerations, and tablet/mobile fallback.
+
+### Phase 14 — Unified operational health
+
+- [ ] **Task 56 — Unified Operational Health Model**
+  - Normalize PBX/provider/telephony/trunk/endpoint/queue/system/security/future-call-quality health into HEALTHY, DEGRADED, CRITICAL, UNKNOWN, and STALE.
+- [ ] **Task 57 — Fleet Overview**
+  - Cross-PBX health aggregation, active calls, trunk failures, endpoint failures, queue pressure, and critical alerts.
+
+### Phase 15 — Telephony reliability
+
+- [ ] **Task 58 — Trunk Reliability**
+  - Current state, last up/down timestamps, outage duration, bounded flap/reconnect counters, and recent transitions.
+- [ ] **Task 59 — Endpoint Reliability**
+  - Reachability transitions, offline duration, bounded flap count, and problematic-endpoint ranking.
+- [ ] **Task 60 — Call Outcome Analytics**
+  - Source-owned total/answered/no-answer/busy/failed calls, answer ratio, average duration, and bounded time-range analysis.
+
+### Phase 16 — Call quality
+
+- [ ] **Task 61 — Call Quality Source Discovery**
+  - Determine which read-only RTP/RTCP metrics are actually available from supported Asterisk versions and approved source databases before any UI claim.
+- [ ] **Task 62 — Provider-neutral Call Quality Contract**
+  - Capability-aware jitter, packet loss, RTT, MOS, codec, call/leg identity, and source timestamps where available; unavailable dimensions never become false zeroes.
+- [ ] **Task 63 — Live Call Quality**
+  - Associate quality data with active normalized calls and expose bounded read-only APIs/realtime state.
+- [ ] **Task 64 — Call Quality Dashboard**
+  - Poor calls, average quality, worst calls, distributions, and affected trunk/endpoint views.
+
+### Phase 17 — Operational alerting
+
+- [ ] **Task 65 — Generic Operational Alert Model**
+- [ ] **Task 66 — Core Operational Rules**
+  - PBX disconnect, trunk down, endpoint flapping, queue pressure, CPU, memory, disk, service failure, and poor call quality when supported.
+- [ ] **Task 67 — Alert Lifecycle**
+  - ACTIVE, ACKNOWLEDGED, RESOLVED, SILENCED, cooldown, deduplication, and bounded auto-resolution.
+- [ ] **Task 68 — Notification Worker**
+  - Complete the existing delivery foundation with bounded retry/backoff, timeout, delivery state, and secret-safe HTTPS webhook delivery.
+- [ ] **Task 69 — Notification Integrations**
+  - V1 priority: generic webhook and email. Telegram/Slack/Teams remain later unless explicitly promoted.
+
+### Phase 18 — Incident-oriented operator experience
+
+- [ ] **Task 70 — Incident-first Overview**
+- [ ] **Task 71 — Entity Drill-down**
+- [ ] **Task 72 — Historical Filtering**
+  - Bounded source-backed filters for date range, caller, callee, call ID, trunk, extension, queue, and disposition.
+- [ ] **Task 73 — Advanced NOC/Wallboard behavior**
+
+### Explicitly deferred beyond this roadmap
+
+Not V1 requirements unless separately promoted: billing, CDR warehouse, durable duplicate telemetry stores, arbitrary SQL, SIP packet capture/PCAP storage, call recording, AI anomaly detection, predictive failure analysis, multi-tenant SaaS, mobile app, arbitrary alert scripting, and a large notification-provider catalog.
+
+### V1 completion gate
+
+V1 is not product-complete until PBX health, trunk health, endpoint health, queue health, infrastructure health, call outcome analytics, call-quality visibility where supported, operational alerts, external notifications, and fleet/incident-first operator UX are operationally useful together.
+
+
+### Task 51 current handoff
+
+- Branch: feature/ui-ux-redesign-foundation.
+- Task 51 is design-first. Production React/Chakra implementation is intentionally frozen until the visual master is approved.
+- Current design direction: Modern NOC / Operations Console.
+- Current product capabilities remain source-of-truth; visual modernization must not hide live telephony, system metrics, security, source-backed history, or configuration functionality.
+- Current visual debt identified: default component-library appearance, too many equal-weight outlined cards, oversized gauges, button-like navigation, weak problem-first hierarchy, inconsistent state grammar, and insufficient product identity.
+- Design specification is recorded in docs/ui-ux-redesign.md and docs/ui-ux-redesign.fa.md.
+- Local mockup state is stored only under ignored .local/ui-redesign/ and is not public repository content.
+- Exact next step: produce the first 1440px desktop Global Shell + Overview visual master candidate, run visual QA, and present it for approval before production implementation.

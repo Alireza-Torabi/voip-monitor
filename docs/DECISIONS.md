@@ -612,3 +612,14 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 406. **Installed service drift blocks release acceptance:** Task 50 detected an older installed systemd unit after the first reboot; acceptance required installing the merged hardened unit and repeating the reboot gate.
 407. **No additional PBX probe is needed for reboot evidence:** existing transport reconnection can be verified from local service/network state without sending new PBX commands.
 408. **Current approved roadmap ends at Task 50:** no Task 51 is defined; after merge, work stops until an explicit next roadmap item is approved.
+
+
+## 2026-10-06 — UI/UX-first roadmap decision
+
+409. **UI/UX modernization moves before new monitoring features:** the accepted roadmap begins with Task 51–55 design/system/workspace modernization before unified health, call quality, and operational alerting.
+410. **Task 51 is design-first:** production UI implementation is blocked until a desktop master mockup and interaction hierarchy are approved.
+411. **Visual direction is Modern NOC / Operations Console:** avoid generic admin-template styling, excessive equal-weight cards, decorative gauges, gaming/cyberpunk aesthetics, and SaaS landing-page patterns.
+412. **Overview is problem-first:** current health/problems, realtime telephony load, trunk/endpoint/queue state, infrastructure, and data freshness must drive first-glance hierarchy.
+413. **Semantic color is restrained:** healthy/warning/critical/stale colors communicate state rather than decorate the page.
+414. **Bilingual behavior is a design constraint:** Persian chrome/prose is RTL while technical identifiers remain stable LTR; charts/time axes must not be semantically mirrored.
+415. **Dashboard editing is secondary:** operator decision hierarchy takes precedence over customization in the default experience.

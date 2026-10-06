@@ -61,3 +61,8 @@ Task 49 converts deployment recovery guidance into executable, tested operations
 ## 2026-10-06 — Task 50 release validation
 
 Task 50 proves release portability from a staged clean source snapshot rather than reusing local runtime state. The validator creates a temporary seed commit from the staged index, performs a real fresh clone, blocks private/runtime artifacts, installs from the lockfile, audits high/critical dependency risk, builds, starts an isolated HTTPS deployment with PBX networking disabled, completes first-admin and synthetic PBX onboarding, then validates stopped-service backup/restore and restart recovery. A discovered transitive source-map-js advisory was resolved by lockfile update to 1.2.2. The physical reboot gate was separately approved because the live deployment uses read-only plain_tcp PBX networking; it also exposed and corrected stale installed systemd-unit drift before a second successful reboot of the actual hardened release unit.
+
+
+## 2026-10-06 — Accepted post-V1 roadmap and UI/UX-first priority
+
+The user accepted the proposed V1 completion roadmap but explicitly prioritized UI/UX modernization before new monitoring features. Task 51 is therefore a design-first UI/UX Redesign Foundation and Master Mockup task. The intended visual direction is a modern NOC/operations console rather than a generic admin template: problem-first hierarchy, restrained semantic status color, fewer equal-weight cards, stronger typography/density, a persistent application shell, unified live/stale/error grammar, and stable bilingual RTL/LTR handling. Backend contracts and PBX behavior remain unchanged until the approved visual master is handed off for implementation.
