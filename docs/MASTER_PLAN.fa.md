@@ -1,6 +1,6 @@
 # Master Plan
 
-وضعیت: 2026-10-05. PR #50 داخل main Merge شده است. یک Correction مربوط به Runtime Resilience روی fix/runtime-sse-resilience به‌صورت Local کامل است و Merge آن Pending است. Task 44 هنوز شروع نشده است.
+وضعیت: 2026-10-05. PR #51 داخل main Merge شده است. Correction مربوط به Presentation Mode داشبورد در Fullscreen روی fix/dashboard-fullscreen-controls به‌صورت Local کامل است و Merge آن Pending است. Task 44 هنوز شروع نشده است.
 
 ## Phase 0 - کشف محیط
 
@@ -85,17 +85,21 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 
 ### وضعیت فعلی ادامه کار
 
-- Branch فعلی fix/runtime-sse-resilience است که بعد از Merge شدن PR #50 و Task 43 از main همگام‌شده ساخته شد. Task 44 هنوز شروع نشده است.
-- پیام Application unavailable روی UI بررسی شد و مشخص شد Backend Node Process با V8 Heap OOM خارج شده بود، در حالی که HTTPS Gateway همچنان Alive مانده بود. بنابراین Frontend Shell نمایش داده می‌شد اما API روی Port 3000 در دسترس نبود.
-- بعد از Exit شدن Process امکان اثبات دقیق Allocation Producer وجود ندارد، اما یک Memory-risk واقعی و Unbounded وجود داشت: SSE Writerها Backpressure را بررسی نمی‌کردند و برای Client کند یا Stalled می‌توانستند Serialized State را در Memory Buffer کنند. اکنون هر SSE Response حداکثر 256 KiB Writable Buffer دارد و در صورت عبور از Limit همان Stream Disconnect می‌شود تا EventSource بتواند Reconnect کند.
-- Cleanup مربوط به SSE اکنون Idempotent است و هم روی Request Close و هم Response Close اجرا می‌شود تا Listener، Heartbeat، Stream Membership و Reset Subscription دقیقاً یک‌بار آزاد شوند.
-- Launcher قبلی Backend را Background و HTTPS Gateway را Foreground اجرا می‌کرد؛ در نتیجه مرگ Backend باعث Exit شدن systemd Main Process نمی‌شد. اکنون Launcher هر دو Child را با wait -n Supervise می‌کند و با Exit غیرمنتظره هرکدام Fail می‌شود تا Restart=on-failure کل Stack را Recover کند.
-- سرویس Live بعد از Diagnosis Restart شد و Health/Ready به حالت OK برگشت. Source Correction تا قبل از Merge این Branch Deploy نمی‌شود.
-- Final Validation با Project Node 24.21.0/npm 11.19.0 PASS است: Lint، Format Check، Typecheck، Backend 136/136، Frontend 23/23، Production Build، Foundation Check، License Check، Launcher Bash Syntax و Diff Check. Slow-SSE Bounded-buffer Regression Test داخل Backend Total قرار دارد.
-- این Correction هیچ PBX Action، Collection Source، Credential Behavior یا Telephony Semantics را تغییر نمی‌دهد و Real-PBX Probe نیاز ندارد.
-- بعد از Merge این Correction، Branch مربوط به feature/telephony-history دوباره از main ساخته می‌شود و Task 44 اجرا خواهد شد.
+- Branch فعلی fix/dashboard-fullscreen-controls است که بعد از Merge شدن PR #51 از main همگام‌شده ساخته شد.
+- این Correction، Task 44 را شروع نمی‌کند و هیچ Backend/PBX Behavior را تغییر نمی‌دهد.
+- Fullscreen Dashboard اکنون Presentation-only است: Toolbar مدیریتی عادی در Fullscreen اصلاً Render نمی‌شود. Dashboard Selector، New dashboard، Edit dashboard، Full screen/Exit full screen داخل Toolbar عادی، Dashboard PBX و PBX Selector هیچ Layout Space در Fullscreen مصرف نمی‌کنند.
+- هنگام ورود به Fullscreen، Edit Mode خاموش می‌شود. Edit Card، Resize/Delete Overlay، Drag Handle، Dashed Border و Edit Padding/Cursor همگی در Fullscreen حذف می‌شوند.
+- فقط یک Exit full screen کوچک و Floating به‌صورت Overlay در Fullscreen وجود دارد. با Pointer Movement ظاهر می‌شود، در Layout جا نمی‌گیرد و با Timer سه‌ثانیه‌ای موجود Auto-hide می‌شود. کلید Native مرورگر یعنی Esc همچنان قابل استفاده است.
+- Fullscreen همچنان روی Dashboard Root اجرا می‌شود، بنابراین Header/Navigation اصلی Application خارج Fullscreen باقی می‌ماند.
+- Regression Test اکنون صریحاً Verify می‌کند که Management Toolbar و Edit Controls در Fullscreen حذف شوند و Floating Exit Control باقی بماند. Final Validation با Project Node 24.21.0/npm 11.19.0 PASS است: Lint، Format Check، Typecheck، Backend 136/136، Frontend 23/23، Production Build، Foundation Check، License Check و Diff Check.
+- این Correction فقط UI است و Real PBX/AMI/SSH Access نیاز ندارد.
+- بعد از Merge این Correction، main همگام و UI Merge‌شده با Selenium Validate می‌شود؛ سپس feature/telephony-history برای Task 44 ساخته خواهد شد.
 
 ### ثبت خرابی و اشکال
+
+- **Fullscreen Dashboard هنوز فضای بزرگ Toolbar مدیریتی را اشغال می‌کرد — رفع شد:** Implementation قبلی Toolbar را فقط بعد از Timeout Fade می‌کرد، بنابراین ابتدای Fullscreen ردیف کامل بالا را اشغال می‌کرد و در TV/NOC View دوباره ظاهر می‌شد. اکنون Toolbar عادی در Fullscreen اصلاً Render نمی‌شود.
+- **امکان نمایش Edit UI در Fullscreen — جلوگیری شد:** ورود به Fullscreen، Edit Mode را خاموش می‌کند و Drag/Resize/Delete Styling و Controls نیز صریحاً در Fullscreen Gate می‌شوند.
+- **Exit Fullscreen بدون هزینه Layout — رفع شد:** یک Control کوچک Fixed Overlay با Pointer Movement ظاهر و Auto-hide می‌شود و هیچ فضای Grid/Layout رزرو نمی‌کند.
 
 - **UI پیام Application unavailable می‌داد در حالی که systemd سرویس را Active نشان می‌داد — Root Cause مشخص و Correction پیاده شد:** Backend Node Child با خطای Reached heap limit / JavaScript heap out of memory خارج شده بود اما Launcher، HTTPS Gateway Foreground را زنده نگه داشته بود. بنابراین Frontend Shell قابل دسترس بود ولی API به Port 3000 نمی‌رسید. Launcher اکنون مرگ Backend یا Gateway را Failure کل Stack در نظر می‌گیرد تا systemd آن را Restart کند.
 - **SSE Backpressure بدون Hard Bound می‌توانست Memory را رشد دهد — به‌صورت Defensive اصلاح شد:** Server مقدار Writable Buffer را بررسی نمی‌کرد. چون Heap Process Crash‌شده دیگر در دسترس نیست، این مسیر به‌عنوان تنها علت قطعی OOM ادعا نمی‌شود؛ اما یک Risk واقعی و Unbounded بود. هر Stream اکنون سقف 256 KiB دارد و در صورت عبور Disconnect می‌شود.

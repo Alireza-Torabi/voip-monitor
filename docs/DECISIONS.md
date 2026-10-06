@@ -510,3 +510,13 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 334. **Backend and gateway are one service failure domain:** the production launcher supervises both child processes. Unexpected exit of either child makes the launcher fail so the existing systemd Restart=on-failure policy can restart the whole stack.
 335. **No PBX scope change:** runtime-resilience changes affect HTTP/SSE transport and local process supervision only; no PBX action, collection source, credential flow, or telephony contract changes.
 336. **Task 44 waits for correction merge:** telephony-history implementation must branch from main only after this runtime-resilience correction is merged.
+
+
+## 2026-10-05 — Fullscreen dashboard presentation correction
+
+337. **Fullscreen is presentation-only:** the normal dashboard management toolbar is not rendered while the dashboard root is fullscreen.
+338. **No fullscreen edit mode:** entering fullscreen exits edit mode; drag, resize, delete, edit-border, and edit-spacing behaviors remain available only outside fullscreen.
+339. **Exit control is overlay-only:** fullscreen exposes one small fixed Exit full screen control that appears on pointer movement and auto-hides after the existing three-second timer; it never reserves dashboard layout space.
+340. **Browser-native escape remains valid:** the browser Esc path remains the zero-UI fallback for leaving fullscreen.
+341. **Fullscreen target remains dashboard root:** application-level navigation/header stays outside fullscreen; no document-level fullscreen is introduced.
+342. **Task 44 remains next:** after this UI correction merges and the merged behavior is Selenium-validated, resume the roadmap with telephony history/retention.

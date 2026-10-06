@@ -653,7 +653,8 @@ export function DashboardBuilder({
     const handler = () => {
       const isFullscreen = document.fullscreenElement === rootRef.current;
       setFullscreen(isFullscreen);
-      setControlsVisible(true);
+      setControlsVisible(isFullscreen);
+      if (isFullscreen) setEditing(false);
       if (hideTimer.current) window.clearTimeout(hideTimer.current);
       if (isFullscreen) {
         hideTimer.current = window.setTimeout(() => setControlsVisible(false), 3000);
@@ -880,6 +881,7 @@ export function DashboardBuilder({
   return (
     <Box
       ref={rootRef}
+      data-dashboard-root
       bg="gray.50"
       minH={fullscreen ? '100vh' : undefined}
       p={fullscreen ? { base: '3', md: '5' } : '0'}
@@ -887,73 +889,92 @@ export function DashboardBuilder({
       onMouseMove={showControls}
     >
       <Stack gap="4">
-        <Flex
-          align={{ base: 'stretch', lg: 'end' }}
-          justify="space-between"
-          direction={{ base: 'column', lg: 'row' }}
-          gap="3"
-          opacity={fullscreen && !controlsVisible ? 0 : 1}
-          pointerEvents={fullscreen && !controlsVisible ? 'none' : 'auto'}
-          transition="opacity 180ms ease"
-        >
-          <HStack gap="2" flexWrap="wrap">
-            <NativeSelect.Root maxW="260px">
-              <NativeSelect.Field
-                value={activeDashboardId}
-                onChange={(event) => selectDashboard(event.target.value)}
+        {!fullscreen ? (
+          <Flex
+            data-dashboard-toolbar
+            align={{ base: 'stretch', lg: 'end' }}
+            justify="space-between"
+            direction={{ base: 'column', lg: 'row' }}
+            gap="3"
+          >
+            <HStack gap="2" flexWrap="wrap">
+              <NativeSelect.Root maxW="260px">
+                <NativeSelect.Field
+                  value={activeDashboardId}
+                  onChange={(event) => selectDashboard(event.target.value)}
+                >
+                  {dashboards.map((dashboard) => (
+                    <option key={dashboard.id} value={dashboard.id}>
+                      {dashboard.name}
+                    </option>
+                  ))}
+                </NativeSelect.Field>
+                <NativeSelect.Indicator />
+              </NativeSelect.Root>
+              <Button size="sm" variant="outline" onClick={() => void createDashboard()}>
+                {text.newDashboard}
+              </Button>
+              <Button
+                size="sm"
+                variant={editing ? 'solid' : 'outline'}
+                colorPalette="blue"
+                onClick={() => setEditing((value) => !value)}
               >
-                {dashboards.map((dashboard) => (
-                  <option key={dashboard.id} value={dashboard.id}>
-                    {dashboard.name}
-                  </option>
-                ))}
-              </NativeSelect.Field>
-              <NativeSelect.Indicator />
-            </NativeSelect.Root>
-            <Button size="sm" variant="outline" onClick={() => void createDashboard()}>
-              {text.newDashboard}
-            </Button>
-            <Button
-              size="sm"
-              variant={editing ? 'solid' : 'outline'}
-              colorPalette="blue"
-              onClick={() => setEditing((value) => !value)}
-            >
-              {editing ? text.doneEditing : text.editDashboard}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                if (document.fullscreenElement) void document.exitFullscreen();
-                else if (rootRef.current?.requestFullscreen)
-                  void rootRef.current.requestFullscreen();
-              }}
-            >
-              {fullscreen ? text.exitFullscreen : text.fullscreen}
-            </Button>
-          </HStack>
-          <Box minW={{ base: '100%', md: '260px' }}>
-            <Text fontSize="xs" color="fg.muted" mb="1">
-              {text.dashboardPbx}
-            </Text>
-            <NativeSelect.Root>
-              <NativeSelect.Field
-                value={selected?.id ?? ''}
-                onChange={(event) => setSelectedId(event.target.value)}
+                {editing ? text.doneEditing : text.editDashboard}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  if (document.fullscreenElement) void document.exitFullscreen();
+                  else if (rootRef.current?.requestFullscreen)
+                    void rootRef.current.requestFullscreen();
+                }}
               >
-                {profiles.map((profile) => (
-                  <option key={profile.id} value={profile.id}>
-                    {profile.displayName}
-                  </option>
-                ))}
-              </NativeSelect.Field>
-              <NativeSelect.Indicator />
-            </NativeSelect.Root>
-          </Box>
-        </Flex>
+                {fullscreen ? text.exitFullscreen : text.fullscreen}
+              </Button>
+            </HStack>
+            <Box minW={{ base: '100%', md: '260px' }}>
+              <Text fontSize="xs" color="fg.muted" mb="1">
+                {text.dashboardPbx}
+              </Text>
+              <NativeSelect.Root>
+                <NativeSelect.Field
+                  value={selected?.id ?? ''}
+                  onChange={(event) => setSelectedId(event.target.value)}
+                >
+                  {profiles.map((profile) => (
+                    <option key={profile.id} value={profile.id}>
+                      {profile.displayName}
+                    </option>
+                  ))}
+                </NativeSelect.Field>
+                <NativeSelect.Indicator />
+              </NativeSelect.Root>
+            </Box>
+          </Flex>
+        ) : null}
 
-        {editing ? (
+        {fullscreen ? (
+          <Button
+            data-dashboard-fullscreen-exit
+            size="xs"
+            variant="solid"
+            position="fixed"
+            top="3"
+            right="3"
+            zIndex="overlay"
+            opacity={controlsVisible ? 0.9 : 0}
+            pointerEvents={controlsVisible ? 'auto' : 'none'}
+            transition="opacity 180ms ease"
+            boxShadow="sm"
+            onClick={() => void document.exitFullscreen()}
+          >
+            {text.exitFullscreen}
+          </Button>
+        ) : null}
+
+        {editing && !fullscreen ? (
           <Card.Root variant="outline">
             <Card.Body gap="3">
               <Flex gap="2" flexWrap="wrap" align="end">
@@ -1009,22 +1030,22 @@ export function DashboardBuilder({
               gridColumn={{ base: '1 / -1', md: 'span ' + widget.width }}
               minH={String(widget.height * 105) + 'px'}
               position="relative"
-              draggable={editing}
+              draggable={editing && !fullscreen}
               onDragStart={() => setDraggedId(widget.id)}
               onDragOver={(event) => {
                 if (editing) event.preventDefault();
               }}
               onDrop={() => dropWidget(widget.id)}
-              borderWidth={editing ? '1px' : '0'}
-              borderStyle={editing ? 'dashed' : undefined}
-              borderColor={editing ? 'blue.300' : undefined}
+              borderWidth={editing && !fullscreen ? '1px' : '0'}
+              borderStyle={editing && !fullscreen ? 'dashed' : undefined}
+              borderColor={editing && !fullscreen ? 'blue.300' : undefined}
               borderRadius="xl"
-              p={editing ? '1' : '0'}
-              cursor={editing ? 'grab' : 'default'}
+              p={editing && !fullscreen ? '1' : '0'}
+              cursor={editing && !fullscreen ? 'grab' : 'default'}
               onDoubleClick={() => openWidget(widget.type)}
               data-dashboard-widget={widget.type}
             >
-              {editing ? (
+              {editing && !fullscreen ? (
                 <Flex
                   position="absolute"
                   zIndex="2"

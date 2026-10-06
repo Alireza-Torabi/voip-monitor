@@ -1,6 +1,6 @@
 # Proposed architecture
 
-Status: PR #50 is merged. The current fix/runtime-sse-resilience correction bounds server-side SSE buffering and makes the production launcher supervise both backend and HTTPS gateway as one failure domain. If either process exits unexpectedly, the launcher returns failure and systemd Restart=on-failure restarts the stack. This correction changes no PBX collection behavior. Task 44 remains next after merge.
+Status: PR #51 is merged. The current fix/dashboard-fullscreen-controls correction makes dashboard fullscreen a presentation-only TV/NOC surface: management/edit controls are removed from fullscreen layout and only a small auto-hiding floating exit affordance remains. The Fullscreen API target stays the dashboard root, so application navigation remains outside fullscreen. No backend or PBX behavior changes. Task 44 remains next after merge.
 
 ```text
 PBX (Asterisk / FreePBX)
