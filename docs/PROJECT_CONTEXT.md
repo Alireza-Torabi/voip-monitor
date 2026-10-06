@@ -75,3 +75,7 @@ The user approved the refined dark Modern NOC / Operations Console direction. Th
 ## 2026-10-06 — Task 52 Modern NOC shell implementation
 
 Task 52 implements the approved application shell and centralized visual system while preserving all existing monitoring/data contracts. The previous white sticky header and button-row navigation are replaced by a persistent responsive sidebar and compact top status bar. Existing workspaces continue to operate unchanged inside the shell through semantic bg/fg/border token compatibility, allowing incremental migration. No future capability was presented as if already implemented. Task 53 will redesign only the operator dashboard content inside this shell.
+
+## 2026-10-06 — Task 53 problem-first Operator Dashboard
+
+The default dashboard now prioritizes operator decisions instead of arbitrary widget layout. Current existing read-only signals are synthesized into a compact health strip, current-problem list, infrastructure panel, active-call/trunk state, and endpoint/queue/service summaries. Persisted dashboard layouts remain supported only as an explicit secondary Edit mode, so customization no longer weakens the default first-glance hierarchy. No backend monitoring, PBX behavior, generic alert model, or fleet-health semantics changed in this task.

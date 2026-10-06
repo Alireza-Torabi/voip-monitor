@@ -6,6 +6,7 @@ import { App, PbxWorkspace } from '../src/App.js';
 import { createApplicationEmotionCache } from '../src/emotion-cache.js';
 import { SecurityWorkspace } from '../src/SecurityWorkspace.js';
 import { messages } from '../src/i18n.js';
+import { OperatorOverview } from '../src/OperatorOverview.js';
 import { nocSystem } from '../src/theme.js';
 
 function renderUi(node: ReactNode) {
@@ -126,5 +127,95 @@ describe('bilingual onboarding shell', () => {
     expect(html).toContain('max="100"');
     expect(html).toContain('name="rule-window-seconds"');
     expect(html).toContain('max="3600"');
+  });
+});
+
+describe('problem-first operator overview', () => {
+  it('promotes current operational problems ahead of secondary metrics', () => {
+    const html = renderUi(
+      <OperatorOverview
+        text={messages.en}
+        connection="CONNECTED"
+        metrics={{
+          current: {
+            instanceId: 'synthetic-id',
+            source: 'SSH',
+            observedAt: '2026-10-06T00:00:00.000Z',
+            cpu: { utilizationPercent: 92 },
+            memory: { totalBytes: 1000, availableBytes: 50 },
+            filesystems: [
+              { filesystemId: '/', mountPoint: '/', totalBytes: 1000, availableBytes: 40 },
+            ],
+            uptime: { uptimeSeconds: 90000 },
+            services: [{ serviceId: 'asterisk.service', state: 'FAILED' }],
+          },
+          source: {
+            instanceId: 'synthetic-id',
+            health: { source: 'SSH', freshness: 'CURRENT' },
+            consecutiveFailures: 0,
+          },
+        }}
+        metricHistory={[]}
+        alerts={[
+          {
+            instanceId: 'synthetic-id',
+            ruleId: 'AUTHENTICATION_FAILURE_ANY',
+            observedAt: '2026-10-06T00:00:00.000Z',
+            matchedEventCount: 1,
+          },
+        ]}
+        telephony={{
+          instanceId: 'synthetic-id',
+          revision: 1,
+          synchronization: 'CURRENT',
+          lastSnapshotAt: '2026-10-06T00:00:00.000Z',
+          channels: [],
+          calls: [],
+          endpointCapability: 'SUPPORTED',
+          endpointSynchronization: 'CURRENT',
+          endpoints: [
+            {
+              endpointId: 'SIP/100',
+              registrationState: 'REGISTERED',
+              reachability: 'UNREACHABLE',
+              updatedAt: '2026-10-06T00:00:00.000Z',
+            },
+          ],
+          trunkCapability: 'SUPPORTED',
+          trunkSynchronization: 'CURRENT',
+          trunks: [
+            {
+              trunkId: 'SIP/provider.example.test',
+              kind: 'OUTBOUND_REGISTRATION',
+              technology: 'CHAN_SIP',
+              confidence: 'CONFIRMED',
+              registrationState: 'UNREGISTERED',
+              updatedAt: '2026-10-06T00:00:00.000Z',
+            },
+          ],
+          queueCapability: 'SUPPORTED',
+          queueSynchronization: 'CURRENT',
+          queues: [{ queueId: 'support', waitingCount: 6, updatedAt: '2026-10-06T00:00:00.000Z' }],
+          queueMembers: [],
+          queueCallers: [],
+          agentCapability: 'SUPPORTED',
+          agentSynchronization: 'LIVE_ONLY',
+          agentInteractions: [],
+        }}
+        metricsLive="connected"
+        alertsLive="connected"
+        telephonyLive="connected"
+        visibleFilesystems={[
+          { filesystemId: '/', mountPoint: '/', totalBytes: 1000, availableBytes: 40 },
+        ]}
+      />,
+    );
+    expect(html).toContain('data-operator-overview="true"');
+    expect(html).toContain('Critical');
+    expect(html).toContain('Current problems');
+    expect(html).toContain('Current security alerts');
+    expect(html).toContain('Trunks');
+    expect(html).toContain('Endpoints');
+    expect(html).toContain('Infrastructure health');
   });
 });

@@ -27,6 +27,7 @@ import {
 } from './api.js';
 import { isActiveChannel, type TelephonyPage } from './TelephonyWorkspace.js';
 import { messages, type Language } from './i18n.js';
+import { OperatorOverview } from './OperatorOverview.js';
 
 type TextMap = (typeof messages)[Language];
 type LiveState = 'connecting' | 'connected' | 'disconnected';
@@ -882,7 +883,7 @@ export function DashboardBuilder({
     <Box
       ref={rootRef}
       data-dashboard-root
-      bg="gray.50"
+      bg="transparent"
       minH={fullscreen ? '100vh' : undefined}
       p={fullscreen ? { base: '3', md: '5' } : '0'}
       overflow={fullscreen ? 'auto' : undefined}
@@ -892,28 +893,57 @@ export function DashboardBuilder({
         {!fullscreen ? (
           <Flex
             data-dashboard-toolbar
-            align={{ base: 'stretch', lg: 'end' }}
+            align={{ base: 'stretch', xl: 'center' }}
             justify="space-between"
-            direction={{ base: 'column', lg: 'row' }}
-            gap="3"
+            direction={{ base: 'column', xl: 'row' }}
+            gap="4"
+            pb="1"
           >
-            <HStack gap="2" flexWrap="wrap">
-              <NativeSelect.Root maxW="260px">
-                <NativeSelect.Field
-                  value={activeDashboardId}
-                  onChange={(event) => selectDashboard(event.target.value)}
-                >
-                  {dashboards.map((dashboard) => (
-                    <option key={dashboard.id} value={dashboard.id}>
-                      {dashboard.name}
-                    </option>
-                  ))}
-                </NativeSelect.Field>
-                <NativeSelect.Indicator />
-              </NativeSelect.Root>
-              <Button size="sm" variant="outline" onClick={() => void createDashboard()}>
-                {text.newDashboard}
-              </Button>
+            <Box minW="0">
+              <Heading size="xl" color="noc.text" letterSpacing="-0.02em">
+                {text.dashboardTitle}
+              </Heading>
+              <Text color="noc.textMuted" mt="1" fontSize="12px">
+                {text.dashboardHint}
+              </Text>
+            </Box>
+            <HStack gap="2" flexWrap="wrap" justify={{ base: 'flex-start', xl: 'flex-end' }}>
+              {editing ? (
+                <>
+                  <NativeSelect.Root minW="180px" maxW="230px">
+                    <NativeSelect.Field
+                      value={activeDashboardId}
+                      onChange={(event) => selectDashboard(event.target.value)}
+                    >
+                      {dashboards.map((dashboard) => (
+                        <option key={dashboard.id} value={dashboard.id}>
+                          {dashboard.name}
+                        </option>
+                      ))}
+                    </NativeSelect.Field>
+                    <NativeSelect.Indicator />
+                  </NativeSelect.Root>
+                  <Button size="sm" variant="outline" onClick={() => void createDashboard()}>
+                    {text.newDashboard}
+                  </Button>
+                </>
+              ) : null}
+              <Box minW={{ base: '180px', md: '220px' }}>
+                <NativeSelect.Root>
+                  <NativeSelect.Field
+                    aria-label={text.dashboardPbx}
+                    value={selected?.id ?? ''}
+                    onChange={(event) => setSelectedId(event.target.value)}
+                  >
+                    {profiles.map((profile) => (
+                      <option key={profile.id} value={profile.id}>
+                        {profile.displayName}
+                      </option>
+                    ))}
+                  </NativeSelect.Field>
+                  <NativeSelect.Indicator />
+                </NativeSelect.Root>
+              </Box>
               <Button
                 size="sm"
                 variant={editing ? 'solid' : 'outline'}
@@ -934,24 +964,6 @@ export function DashboardBuilder({
                 {fullscreen ? text.exitFullscreen : text.fullscreen}
               </Button>
             </HStack>
-            <Box minW={{ base: '100%', md: '260px' }}>
-              <Text fontSize="xs" color="fg.muted" mb="1">
-                {text.dashboardPbx}
-              </Text>
-              <NativeSelect.Root>
-                <NativeSelect.Field
-                  value={selected?.id ?? ''}
-                  onChange={(event) => setSelectedId(event.target.value)}
-                >
-                  {profiles.map((profile) => (
-                    <option key={profile.id} value={profile.id}>
-                      {profile.displayName}
-                    </option>
-                  ))}
-                </NativeSelect.Field>
-                <NativeSelect.Indicator />
-              </NativeSelect.Root>
-            </Box>
           </Flex>
         ) : null}
 
@@ -1017,89 +1029,107 @@ export function DashboardBuilder({
           </Card.Root>
         ) : null}
 
-        <Box
-          display="grid"
-          gridTemplateColumns={{ base: '1fr', md: 'repeat(12, minmax(0, 1fr))' }}
-          gridAutoRows="minmax(96px, auto)"
-          gap="4"
-          data-dashboard-grid
-        >
-          {draftWidgets.map((widget) => (
-            <Box
-              key={widget.id}
-              gridColumn={{ base: '1 / -1', md: 'span ' + widget.width }}
-              minH={String(widget.height * 105) + 'px'}
-              position="relative"
-              draggable={editing && !fullscreen}
-              onDragStart={() => setDraggedId(widget.id)}
-              onDragOver={(event) => {
-                if (editing) event.preventDefault();
-              }}
-              onDrop={() => dropWidget(widget.id)}
-              borderWidth={editing && !fullscreen ? '1px' : '0'}
-              borderStyle={editing && !fullscreen ? 'dashed' : undefined}
-              borderColor={editing && !fullscreen ? 'blue.300' : undefined}
-              borderRadius="xl"
-              p={editing && !fullscreen ? '1' : '0'}
-              cursor={editing && !fullscreen ? 'grab' : 'default'}
-              onDoubleClick={() => openWidget(widget.type)}
-              data-dashboard-widget={widget.type}
-            >
-              {editing && !fullscreen ? (
-                <Flex
-                  position="absolute"
-                  zIndex="2"
-                  top="1"
-                  right="1"
-                  gap="1"
-                  bg="whiteAlpha.900"
-                  borderRadius="md"
-                  p="1"
-                >
-                  <Button
-                    size="2xs"
-                    variant="outline"
-                    onClick={() => resizeWidget(widget.id, -1, 0)}
+        {!editing ? (
+          <OperatorOverview
+            text={text}
+            connection={connection}
+            metrics={metrics}
+            metricHistory={metricHistory}
+            alerts={alerts}
+            telephony={telephony}
+            metricsLive={metricsLive}
+            alertsLive={alertsLive}
+            telephonyLive={telephonyLive}
+            visibleFilesystems={visibleFilesystems}
+            onNavigate={onNavigate}
+          />
+        ) : (
+          <Box
+            display="grid"
+            gridTemplateColumns={{ base: '1fr', md: 'repeat(12, minmax(0, 1fr))' }}
+            gridAutoRows="minmax(96px, auto)"
+            gap="4"
+            data-dashboard-grid
+          >
+            {draftWidgets.map((widget) => (
+              <Box
+                key={widget.id}
+                gridColumn={{ base: '1 / -1', md: 'span ' + widget.width }}
+                minH={String(widget.height * 105) + 'px'}
+                position="relative"
+                draggable={!fullscreen}
+                onDragStart={() => setDraggedId(widget.id)}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={() => dropWidget(widget.id)}
+                borderWidth="1px"
+                borderStyle="dashed"
+                borderColor="noc.borderStrong"
+                borderRadius="nocPanel"
+                p="1"
+                cursor="grab"
+                onDoubleClick={() => openWidget(widget.type)}
+                data-dashboard-widget={widget.type}
+              >
+                {!fullscreen ? (
+                  <Flex
+                    position="absolute"
+                    zIndex="2"
+                    top="1"
+                    right="1"
+                    gap="1"
+                    bg="noc.surface3"
+                    borderWidth="1px"
+                    borderColor="noc.border"
+                    borderRadius="md"
+                    p="1"
                   >
-                    −W
-                  </Button>
-                  <Button
-                    size="2xs"
-                    variant="outline"
-                    onClick={() => resizeWidget(widget.id, 1, 0)}
-                  >
-                    +W
-                  </Button>
-                  <Button
-                    size="2xs"
-                    variant="outline"
-                    onClick={() => resizeWidget(widget.id, 0, -1)}
-                  >
-                    −H
-                  </Button>
-                  <Button
-                    size="2xs"
-                    variant="outline"
-                    onClick={() => resizeWidget(widget.id, 0, 1)}
-                  >
-                    +H
-                  </Button>
-                  <Button
-                    size="2xs"
-                    colorPalette="red"
-                    variant="outline"
-                    onClick={() =>
-                      setDraftWidgets((current) => current.filter((item) => item.id !== widget.id))
-                    }
-                  >
-                    ×
-                  </Button>
-                </Flex>
-              ) : null}
-              <Box h="full">{renderWidget(widget.type)}</Box>
-            </Box>
-          ))}
-        </Box>
+                    <Button
+                      size="2xs"
+                      variant="outline"
+                      onClick={() => resizeWidget(widget.id, -1, 0)}
+                    >
+                      −W
+                    </Button>
+                    <Button
+                      size="2xs"
+                      variant="outline"
+                      onClick={() => resizeWidget(widget.id, 1, 0)}
+                    >
+                      +W
+                    </Button>
+                    <Button
+                      size="2xs"
+                      variant="outline"
+                      onClick={() => resizeWidget(widget.id, 0, -1)}
+                    >
+                      −H
+                    </Button>
+                    <Button
+                      size="2xs"
+                      variant="outline"
+                      onClick={() => resizeWidget(widget.id, 0, 1)}
+                    >
+                      +H
+                    </Button>
+                    <Button
+                      size="2xs"
+                      colorPalette="red"
+                      variant="outline"
+                      onClick={() =>
+                        setDraftWidgets((current) =>
+                          current.filter((item) => item.id !== widget.id),
+                        )
+                      }
+                    >
+                      ×
+                    </Button>
+                  </Flex>
+                ) : null}
+                <Box h="full">{renderWidget(widget.type)}</Box>
+              </Box>
+            ))}
+          </Box>
+        )}
 
         {error ? (
           <Box
