@@ -1,6 +1,6 @@
 # Proposed architecture
 
-Status: PR #55 merged Task 46. Task 47 is complete locally on `feature/source-backed-history-ui` and merge is pending: authenticated bounded source-backed history APIs and a bilingual operator workspace consume the internal adapter only on explicit GET requests, without raw SQL exposure or local row persistence. Task 48 follows after merge.
+Status: PR #56 merged Task 47. Task 48 is complete locally on `feature/nondup-history-reconciliation` and merge is pending. New monitoring history is process-local and bounded; current operational state remains persisted; legacy history tables are intentionally retained unused until separately approved cleanup.
 
 ```text
 PBX (Asterisk / FreePBX)

@@ -377,6 +377,9 @@ export class SqliteStorage implements AppStorage {
   readonly secretRecords: EncryptedSecretRepository;
   private closed = false;
   private readonly securityAlertListeners = new Set<SecurityAlertListener>();
+  private readonly systemMetricHistory = new Map<string, SystemMetricsSample[]>();
+  private readonly securityEventHistory = new Map<string, SecurityEvent[]>();
+  private readonly securityAlertHistory = new Map<string, SecurityAlertRecord[]>();
 
   private constructor(private readonly db: DatabaseSync) {
     this.setup = {
@@ -618,7 +621,16 @@ export class SqliteStorage implements AppStorage {
           )
           .all()
           .map(mapPbxProfile),
-      delete: (id) => this.db.prepare('DELETE FROM pbx_instance WHERE id = ?').run(id).changes > 0,
+      delete: (id) => {
+        const deleted =
+          this.db.prepare('DELETE FROM pbx_instance WHERE id = ?').run(id).changes > 0;
+        if (deleted) {
+          this.systemMetricHistory.delete(id);
+          this.securityEventHistory.delete(id);
+          this.securityAlertHistory.delete(id);
+        }
+        return deleted;
+      },
       count: () =>
         this.db.prepare('SELECT COUNT(*) AS total FROM asterisk_config').get()!.total as number,
       markVerified: (id, verifiedAt) => {
@@ -731,32 +743,27 @@ export class SqliteStorage implements AppStorage {
       save: (sample, retentionCutoff) => {
         const sampleJson = JSON.stringify(sample);
         const now = new Date().toISOString();
-        inTransaction(this.db, () => {
-          this.db
-            .prepare(
-              `INSERT INTO system_metric_history
-              (pbx_instance_id, source, observed_at, sample_json)
-              VALUES (?, ?, ?, ?)
-              ON CONFLICT(pbx_instance_id, source, observed_at) DO NOTHING`,
-            )
-            .run(sample.instanceId, sample.source, sample.observedAt, sampleJson);
-          this.db
-            .prepare(
-              `INSERT INTO system_metric_current
-              (pbx_instance_id, source, observed_at, sample_json, updated_at)
-              VALUES (?, ?, ?, ?, ?)
-              ON CONFLICT(pbx_instance_id) DO UPDATE SET
-                source=excluded.source,
-                observed_at=excluded.observed_at,
-                sample_json=excluded.sample_json,
-                updated_at=excluded.updated_at
-              WHERE excluded.observed_at > system_metric_current.observed_at`,
-            )
-            .run(sample.instanceId, sample.source, sample.observedAt, sampleJson, now);
-          this.db
-            .prepare('DELETE FROM system_metric_history WHERE observed_at < ?')
-            .run(retentionCutoff);
-        });
+        this.db
+          .prepare(
+            `INSERT INTO system_metric_current
+            (pbx_instance_id, source, observed_at, sample_json, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(pbx_instance_id) DO UPDATE SET
+              source=excluded.source,
+              observed_at=excluded.observed_at,
+              sample_json=excluded.sample_json,
+              updated_at=excluded.updated_at
+            WHERE excluded.observed_at > system_metric_current.observed_at`,
+          )
+          .run(sample.instanceId, sample.source, sample.observedAt, sampleJson, now);
+        appendBoundedHistory(
+          this.systemMetricHistory,
+          sample.instanceId,
+          sample,
+          (value) => `${value.source}:${value.observedAt}`,
+          retentionCutoff,
+          2048,
+        );
       },
       getCurrent: (instanceId) => {
         const row = this.db
@@ -764,22 +771,9 @@ export class SqliteStorage implements AppStorage {
           .get(instanceId) as { sample_json: string } | undefined;
         return row ? parseSystemMetricsSample(row.sample_json) : undefined;
       },
-      listHistory: (instanceId, from, to, limit) => {
-        if (!Number.isSafeInteger(limit) || limit <= 0) throw new StorageError();
-        const rows = this.db
-          .prepare(
-            `SELECT sample_json FROM system_metric_history
-             WHERE pbx_instance_id = ? AND observed_at >= ? AND observed_at <= ?
-             ORDER BY observed_at DESC LIMIT ?`,
-          )
-          .all(instanceId, from, to, limit) as { sample_json: string }[];
-        return rows.map((row) => parseSystemMetricsSample(row.sample_json));
-      },
-      pruneBefore: (cutoff) =>
-        Number(
-          this.db.prepare('DELETE FROM system_metric_history WHERE observed_at < ?').run(cutoff)
-            .changes,
-        ),
+      listHistory: (instanceId, from, to, limit) =>
+        listBoundedHistory(this.systemMetricHistory, instanceId, from, to, limit),
+      pruneBefore: (cutoff) => pruneBoundedHistory(this.systemMetricHistory, cutoff),
     };
     this.dashboardStorageConfig = {
       get: (instanceId) => {
@@ -912,65 +906,51 @@ export class SqliteStorage implements AppStorage {
     this.securityEvents = {
       save: (event, retentionCutoff) => {
         const eventJson = JSON.stringify(event);
-        const eventKey = securityEventKey(event);
         const now = new Date().toISOString();
-        inTransaction(this.db, () => {
+        const current = this.db
+          .prepare(
+            `SELECT observed_at, stream_generation, stream_sequence
+             FROM security_event_current WHERE pbx_instance_id = ?`,
+          )
+          .get(event.instanceId) as
+          | {
+              observed_at: string;
+              stream_generation: number | null;
+              stream_sequence: number | null;
+            }
+          | undefined;
+        if (!current || isSecurityEventNewer(event, current)) {
           this.db
             .prepare(
-              `INSERT INTO security_event_history
-              (event_key, pbx_instance_id, source, observed_at, stream_generation, stream_sequence, event_json)
+              `INSERT INTO security_event_current
+              (pbx_instance_id, source, observed_at, stream_generation, stream_sequence, event_json, updated_at)
               VALUES (?, ?, ?, ?, ?, ?, ?)
-              ON CONFLICT(event_key) DO NOTHING`,
+              ON CONFLICT(pbx_instance_id) DO UPDATE SET
+                source=excluded.source,
+                observed_at=excluded.observed_at,
+                stream_generation=excluded.stream_generation,
+                stream_sequence=excluded.stream_sequence,
+                event_json=excluded.event_json,
+                updated_at=excluded.updated_at`,
             )
             .run(
-              eventKey,
               event.instanceId,
               event.source,
               event.observedAt,
               event.streamGeneration ?? null,
               event.streamSequence ?? null,
               eventJson,
+              now,
             );
-          const current = this.db
-            .prepare(
-              `SELECT observed_at, stream_generation, stream_sequence
-               FROM security_event_current WHERE pbx_instance_id = ?`,
-            )
-            .get(event.instanceId) as
-            | {
-                observed_at: string;
-                stream_generation: number | null;
-                stream_sequence: number | null;
-              }
-            | undefined;
-          if (!current || isSecurityEventNewer(event, current)) {
-            this.db
-              .prepare(
-                `INSERT INTO security_event_current
-                (pbx_instance_id, source, observed_at, stream_generation, stream_sequence, event_json, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(pbx_instance_id) DO UPDATE SET
-                  source=excluded.source,
-                  observed_at=excluded.observed_at,
-                  stream_generation=excluded.stream_generation,
-                  stream_sequence=excluded.stream_sequence,
-                  event_json=excluded.event_json,
-                  updated_at=excluded.updated_at`,
-              )
-              .run(
-                event.instanceId,
-                event.source,
-                event.observedAt,
-                event.streamGeneration ?? null,
-                event.streamSequence ?? null,
-                eventJson,
-                now,
-              );
-          }
-          this.db
-            .prepare('DELETE FROM security_event_history WHERE observed_at < ?')
-            .run(retentionCutoff);
-        });
+        }
+        appendBoundedHistory(
+          this.securityEventHistory,
+          event.instanceId,
+          event,
+          securityEventKey,
+          retentionCutoff,
+          500,
+        );
       },
       getCurrent: (instanceId) => {
         const row = this.db
@@ -978,22 +958,9 @@ export class SqliteStorage implements AppStorage {
           .get(instanceId) as { event_json: string } | undefined;
         return row ? parseSecurityEvent(row.event_json) : undefined;
       },
-      listHistory: (instanceId, from, to, limit) => {
-        if (!Number.isSafeInteger(limit) || limit <= 0) throw new StorageError();
-        const rows = this.db
-          .prepare(
-            `SELECT event_json FROM security_event_history
-             WHERE pbx_instance_id = ? AND observed_at >= ? AND observed_at <= ?
-             ORDER BY observed_at DESC, id DESC LIMIT ?`,
-          )
-          .all(instanceId, from, to, limit) as { event_json: string }[];
-        return rows.map((row) => parseSecurityEvent(row.event_json));
-      },
-      pruneBefore: (cutoff) =>
-        Number(
-          this.db.prepare('DELETE FROM security_event_history WHERE observed_at < ?').run(cutoff)
-            .changes,
-        ),
+      listHistory: (instanceId, from, to, limit) =>
+        listBoundedHistory(this.securityEventHistory, instanceId, from, to, limit),
+      pruneBefore: (cutoff) => pruneBoundedHistory(this.securityEventHistory, cutoff),
     };
     this.securityAlertRules = {
       put: (config) => {
@@ -1141,72 +1108,56 @@ export class SqliteStorage implements AppStorage {
       save: (alert, retentionCutoff) => {
         const validated = parseSecurityAlertRecord(JSON.stringify(alert));
         const alertJson = JSON.stringify(validated);
-        const alertKey = securityAlertKey(validated);
         const now = new Date().toISOString();
-        let inserted = false;
-        inTransaction(this.db, () => {
-          inserted =
-            this.db
-              .prepare(
-                `INSERT INTO security_alert_history
-                (alert_key, pbx_instance_id, rule_id, observed_at, stream_generation, stream_sequence, alert_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(alert_key) DO NOTHING`,
-              )
-              .run(
-                alertKey,
-                validated.instanceId,
-                validated.ruleId,
-                validated.observedAt,
-                validated.streamGeneration ?? null,
-                validated.streamSequence ?? null,
-                alertJson,
-              ).changes > 0;
-          const current = this.db
-            .prepare(
-              `SELECT observed_at, stream_generation, stream_sequence
-               FROM security_alert_current WHERE pbx_instance_id = ? AND rule_id = ?`,
-            )
-            .get(validated.instanceId, validated.ruleId) as
-            | {
-                observed_at: string;
-                stream_generation: number | null;
-                stream_sequence: number | null;
-              }
-            | undefined;
-          if (!current || isSecurityAlertNewer(validated, current)) {
-            this.db
-              .prepare(
-                `INSERT INTO security_alert_current
-                (pbx_instance_id, rule_id, observed_at, stream_generation, stream_sequence, alert_json, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(pbx_instance_id, rule_id) DO UPDATE SET
-                  observed_at=excluded.observed_at,
-                  stream_generation=excluded.stream_generation,
-                  stream_sequence=excluded.stream_sequence,
-                  alert_json=excluded.alert_json,
-                  updated_at=excluded.updated_at`,
-              )
-              .run(
-                validated.instanceId,
-                validated.ruleId,
-                validated.observedAt,
-                validated.streamGeneration ?? null,
-                validated.streamSequence ?? null,
-                alertJson,
-                now,
-              );
-          }
+        const current = this.db
+          .prepare(
+            `SELECT observed_at, stream_generation, stream_sequence
+             FROM security_alert_current WHERE pbx_instance_id = ? AND rule_id = ?`,
+          )
+          .get(validated.instanceId, validated.ruleId) as
+          | {
+              observed_at: string;
+              stream_generation: number | null;
+              stream_sequence: number | null;
+            }
+          | undefined;
+        if (!current || isSecurityAlertNewer(validated, current)) {
           this.db
-            .prepare('DELETE FROM security_alert_history WHERE observed_at < ?')
-            .run(retentionCutoff);
-        });
+            .prepare(
+              `INSERT INTO security_alert_current
+              (pbx_instance_id, rule_id, observed_at, stream_generation, stream_sequence, alert_json, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(pbx_instance_id, rule_id) DO UPDATE SET
+                observed_at=excluded.observed_at,
+                stream_generation=excluded.stream_generation,
+                stream_sequence=excluded.stream_sequence,
+                alert_json=excluded.alert_json,
+                updated_at=excluded.updated_at`,
+            )
+            .run(
+              validated.instanceId,
+              validated.ruleId,
+              validated.observedAt,
+              validated.streamGeneration ?? null,
+              validated.streamSequence ?? null,
+              alertJson,
+              now,
+            );
+        }
+        const inserted = appendBoundedHistory(
+          this.securityAlertHistory,
+          validated.instanceId,
+          validated,
+          securityAlertKey,
+          retentionCutoff,
+          500,
+        );
         if (inserted) {
           for (const listener of this.securityAlertListeners) {
             try {
               listener(validated);
             } catch {
-              // Alert consumers are isolated from persistence success.
+              // Alert consumers are isolated from operational-state persistence success.
             }
           }
         }
@@ -1231,22 +1182,9 @@ export class SqliteStorage implements AppStorage {
             )
             .all(instanceId) as { alert_json: string }[]
         ).map((row) => parseSecurityAlertRecord(row.alert_json)),
-      listHistory: (instanceId, from, to, limit) => {
-        if (!Number.isSafeInteger(limit) || limit <= 0) throw new StorageError();
-        const rows = this.db
-          .prepare(
-            `SELECT alert_json FROM security_alert_history
-             WHERE pbx_instance_id = ? AND observed_at >= ? AND observed_at <= ?
-             ORDER BY observed_at DESC, id DESC LIMIT ?`,
-          )
-          .all(instanceId, from, to, limit) as { alert_json: string }[];
-        return rows.map((row) => parseSecurityAlertRecord(row.alert_json));
-      },
-      pruneBefore: (cutoff) =>
-        Number(
-          this.db.prepare('DELETE FROM security_alert_history WHERE observed_at < ?').run(cutoff)
-            .changes,
-        ),
+      listHistory: (instanceId, from, to, limit) =>
+        listBoundedHistory(this.securityAlertHistory, instanceId, from, to, limit),
+      pruneBefore: (cutoff) => pruneBoundedHistory(this.securityAlertHistory, cutoff),
     };
     this.secretRecords = {
       firstIdentity: () => {
@@ -1393,6 +1331,56 @@ function securityAlertKey(alert: SecurityAlertRecord): string {
       }),
     )
     .digest('hex');
+}
+
+type InMemoryTimedRecord = { observedAt: string };
+
+function appendBoundedHistory<T extends InMemoryTimedRecord>(
+  histories: Map<string, T[]>,
+  instanceId: string,
+  record: T,
+  identity: (value: T) => string,
+  retentionCutoff: string,
+  maxRecords: number,
+): boolean {
+  pruneBoundedHistory(histories, retentionCutoff);
+  if (record.observedAt < retentionCutoff) return false;
+  const records = histories.get(instanceId) ?? [];
+  const key = identity(record);
+  if (records.some((candidate) => identity(candidate) === key)) return false;
+  records.push(structuredClone(record));
+  records.sort((left, right) => right.observedAt.localeCompare(left.observedAt));
+  if (records.length > maxRecords) records.length = maxRecords;
+  histories.set(instanceId, records);
+  return true;
+}
+
+function listBoundedHistory<T extends InMemoryTimedRecord>(
+  histories: Map<string, T[]>,
+  instanceId: string,
+  from: string,
+  to: string,
+  limit: number,
+): T[] {
+  if (!Number.isSafeInteger(limit) || limit <= 0) throw new StorageError();
+  return (histories.get(instanceId) ?? [])
+    .filter((record) => record.observedAt >= from && record.observedAt <= to)
+    .slice(0, limit)
+    .map((record) => structuredClone(record));
+}
+
+function pruneBoundedHistory<T extends InMemoryTimedRecord>(
+  histories: Map<string, T[]>,
+  cutoff: string,
+): number {
+  let removed = 0;
+  for (const [instanceId, records] of histories) {
+    const retained = records.filter((record) => record.observedAt >= cutoff);
+    removed += records.length - retained.length;
+    if (retained.length === 0) histories.delete(instanceId);
+    else histories.set(instanceId, retained);
+  }
+  return removed;
 }
 
 function isSecurityAlertNewer(
