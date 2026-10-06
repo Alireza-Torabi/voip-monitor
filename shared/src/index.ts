@@ -34,6 +34,80 @@ export type AgentCompletionReason = 'CALLER' | 'AGENT' | 'TRANSFER' | 'UNKNOWN';
 
 export type SystemServiceState = 'ACTIVE' | 'INACTIVE' | 'FAILED' | 'UNKNOWN';
 
+export type HistoricalCallDisposition = 'ANSWERED' | 'NO_ANSWER' | 'BUSY' | 'FAILED' | 'UNKNOWN';
+export type HistoricalCallEventType =
+  | 'CHANNEL_STARTED'
+  | 'CHANNEL_ENDED'
+  | 'ANSWERED'
+  | 'HUNG_UP'
+  | 'BRIDGE_ENTERED'
+  | 'BRIDGE_LEFT'
+  | 'APPLICATION_STARTED'
+  | 'APPLICATION_ENDED'
+  | 'LINKED_ID_ENDED'
+  | 'USER_DEFINED'
+  | 'OTHER';
+export type HistoricalQueueEventType =
+  | 'ENTERED'
+  | 'CONNECTED'
+  | 'COMPLETED'
+  | 'ABANDONED'
+  | 'TIMED_OUT'
+  | 'EXITED'
+  | 'TRANSFERRED'
+  | 'RING_NO_ANSWER'
+  | 'OTHER';
+export type HistoricalDatasetAvailability =
+  'SUPPORTED' | 'NOT_FOUND' | 'SCHEMA_MISMATCH' | 'AMBIGUOUS';
+
+export interface HistoricalDatasetCapability {
+  availability: HistoricalDatasetAvailability;
+}
+
+export interface HistoricalSourceCapabilities {
+  instanceId: PbxInstanceId;
+  source: 'DATABASE';
+  adapter: 'ASTERISK_CONVENTIONAL_SQL_V1';
+  calls: HistoricalDatasetCapability;
+  callEvents: HistoricalDatasetCapability;
+  queueEvents: HistoricalDatasetCapability;
+}
+
+/** Source timestamps are preserved without inventing a timezone for naive PBX database values. */
+export interface HistoricalCallRecord {
+  instanceId: PbxInstanceId;
+  source: 'DATABASE';
+  recordId: string;
+  correlationId?: string;
+  sourceStartedAt: string;
+  sourceNumber?: string;
+  destinationNumber?: string;
+  durationSeconds: number;
+  billableSeconds: number;
+  disposition: HistoricalCallDisposition;
+}
+
+export interface HistoricalCallEventRecord {
+  instanceId: PbxInstanceId;
+  source: 'DATABASE';
+  sourceOccurredAt: string;
+  eventType: HistoricalCallEventType;
+  callId: string;
+  correlationId?: string;
+  extension?: string;
+  callerNumber?: string;
+}
+
+export interface HistoricalQueueEventRecord {
+  instanceId: PbxInstanceId;
+  source: 'DATABASE';
+  sourceOccurredAt: string;
+  eventType: HistoricalQueueEventType;
+  callId: string;
+  queueId: string;
+  agentId?: string;
+}
+
 export interface SystemCpuSample {
   utilizationPercent: number;
 }

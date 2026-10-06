@@ -1,10 +1,10 @@
 # Project context
 
-Status: PR #53 merged Task 44. The operator has approved a source-owned, non-duplicating monitoring architecture: live state stays real-time, while historical/reporting views will query an explicitly configured read-only PBX database rather than be re-persisted by VoIP Monitor. Task 45 is complete locally on `feature/read-only-database-transport` and merge is pending; it adds an internal bounded read-only MySQL/MariaDB/PostgreSQL transport with synthetic validation only and no public historical-query surface.
+Status: PR #54 merged Task 45. The operator-approved architecture remains source-owned and non-duplicating: live state stays real-time, while historical/reporting views read an explicitly configured source database without re-persisting source rows in VoIP Monitor. Task 46 is complete locally on `feature/source-schema-adapters` and merge is pending; it adds a synthetic-only conventional Asterisk SQL schema adapter and provider-neutral historical contracts, with no public history API or real-database compatibility claim.
 
 ## Repository state
 
-The public repository tracks `origin/main`. The current unmerged branch is `feature/read-only-database-transport`, created from merged PR #53. It implements Task 45 query validation, address/TLS policy, explicit dialect adapters, bounded timeout/rows/output, migration 16 TLS configuration, synthetic tests, and dependency review. It is not wired into application startup or a public database query endpoint, and no real database was contacted.
+The public repository tracks `origin/main`. The current unmerged branch is `feature/source-schema-adapters`, created from merged PR #54 at `5956360`. It implements Task 46 schema inspection over `information_schema`, independent dataset capability classification for conventional `cdr`/`cel`/`queue_log` shapes, bounded normalized history contracts, dialect-safe generated reads, and synthetic fixtures/tests. It is not wired into application startup, background polling, or a public historical endpoint, and no real database was contacted.
 
 ## Product constraints
 
