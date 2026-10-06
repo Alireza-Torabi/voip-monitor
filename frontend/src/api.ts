@@ -156,6 +156,20 @@ export interface ProviderStatus {
   networkEnabled: boolean;
 }
 
+export type DatabaseDialect = 'MYSQL_MARIADB' | 'POSTGRESQL';
+export interface SafeDatabaseSourceConfiguration {
+  pbxInstanceId: string;
+  dialect: DatabaseDialect;
+  host: string;
+  port: number;
+  databaseName: string;
+  username: string;
+  accessMode: 'READ_ONLY';
+  hasCredential: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type SshAuthMethod = 'PASSWORD' | 'PRIVATE_KEY';
 export interface SafeSshConfiguration {
   pbxInstanceId: string;
@@ -351,6 +365,16 @@ export const api = {
     request<{ items: SystemMetricsSample[] }>(
       `/api/pbx-instances/${id}/system-metrics/history?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&limit=${limit}`,
     ),
+  databaseSource: (id: string) =>
+    request<SafeDatabaseSourceConfiguration>(`/api/pbx-instances/${id}/database-source`),
+  putDatabaseSource: (id: string, value: object) =>
+    request<SafeDatabaseSourceConfiguration>(
+      `/api/pbx-instances/${id}/database-source`,
+      'PUT',
+      value,
+    ),
+  deleteDatabaseSource: (id: string) =>
+    request<{ status: string }>(`/api/pbx-instances/${id}/database-source`, 'DELETE'),
   sshConfiguration: (id: string) =>
     request<SafeSshConfiguration>(`/api/pbx-instances/${id}/ssh-configuration`),
   putSshConfiguration: (id: string, value: object) =>

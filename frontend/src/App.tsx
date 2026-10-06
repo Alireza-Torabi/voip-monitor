@@ -20,6 +20,7 @@ import { api, ApiError, type PbxConnectionState, type PbxProfile, type Principal
 import { messages, type Language } from './i18n.js';
 import { SecurityWorkspace } from './SecurityWorkspace.js';
 import { SshMetricsWorkspace } from './SshMetricsWorkspace.js';
+import { DatabaseSourceWorkspace } from './DatabaseSourceWorkspace.js';
 import { DashboardStorageWorkspace } from './DashboardStorageWorkspace.js';
 import { ServiceMonitoringWorkspace } from './ServiceMonitoringWorkspace.js';
 import { AccountsWorkspace } from './AccountsWorkspace.js';
@@ -31,7 +32,13 @@ type TextMap = (typeof messages)[Language];
 type Phase = 'loading' | 'setup' | 'login' | 'ready' | 'error';
 type Workspace = 'dashboard' | 'telephony' | 'settings';
 type SettingsPage =
-  'pbx' | 'ssh-metrics' | 'service-monitoring' | 'storage' | 'security' | 'accounts';
+  | 'pbx'
+  | 'database-source'
+  | 'ssh-metrics'
+  | 'service-monitoring'
+  | 'storage'
+  | 'security'
+  | 'accounts';
 
 function FormField({
   label,
@@ -953,6 +960,7 @@ export function App({
                     {(
                       [
                         ['pbx', text.pbxTitle],
+                        ['database-source', text.databaseSourceTitle],
                         ['ssh-metrics', text.sshMetricsTitle],
                         ['service-monitoring', text.serviceMonitoringTitle],
                         ['storage', text.dashboardStorageTitle],
@@ -979,6 +987,13 @@ export function App({
                     onRefresh={async () => {
                       await refreshProfiles();
                     }}
+                    onUnauthorized={unauthorized}
+                  />
+                ) : null}
+                {settingsPage === 'database-source' ? (
+                  <DatabaseSourceWorkspace
+                    text={text}
+                    profiles={profiles}
                     onUnauthorized={unauthorized}
                   />
                 ) : null}

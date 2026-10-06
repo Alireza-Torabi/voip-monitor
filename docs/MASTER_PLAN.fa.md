@@ -1,6 +1,6 @@
 # Master Plan
 
-وضعیت: 2026-10-05. PR #51 داخل main Merge شده است. Correction مربوط به Presentation Mode داشبورد در Fullscreen روی fix/dashboard-fullscreen-controls به‌صورت Local کامل است و Merge آن Pending است. Task 44 هنوز شروع نشده است.
+وضعیت: 2026-10-06. PR #52 داخل main Merge شده است. جهت محصول اکنون Monitoring بلادرنگ بدون Duplicate Storage است و Source System مرجع History/Reporting باقی می‌ماند. Task 44 روی feature/read-only-database-source به‌صورت Local کامل است و Merge آن Pending است؛ Task 45 بعد از Merge مرحله بعد خواهد بود.
 
 ## Phase 0 - کشف محیط
 
@@ -81,21 +81,31 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - [x] Task 41: Task 40 در Bilingual Operator Dashboard با Primitiveهای Chakra UI v3 مصرف شد. PBX-scoped Telephony Synchronization و Current Call/Channel/Endpoint/Trunk/Queue/Agent Interaction نمایش داده می‌شود، Technical Identifierها داخل Surface دو‌زبانه/RTL به‌صورت LTR حفظ می‌شوند و Provider/System/Security Summaryهای موجود بدون PBX Action، Telephony History یا Collection Scope جدید reuse می‌شوند.
 - [x] Task 42: Surface احراز هویت‌شده و PBX-scoped برای مدیریت SSH System Metrics Configuration/Credential اضافه شد. GET فقط Safe Metadata را برمی‌گرداند؛ PUT/DELETE با Same-origin Write Protection محافظت می‌شوند، Credentialها رمزنگاری‌شده و Write-only هستند، Pinned SHA-256 Host-key Trust اجباری باقی مانده و هر Mutation، SystemMetricsRuntime.syncProfile(instanceId) را فراخوانی می‌کند. Bilingual Chakra UI یک Workspace مستقل System metrics SSH دارد. هیچ Real SSH Connection/Test Endpoint اضافه نشد و Validation فقط Synthetic/Mock است.
 - [x] Task 43: گسترش Provider-neutral Trunk Inventory فراتر از Outbound SIP Registration برای Discovery محدود و Read-only سازگار با chan_sip/PJSIP، ابتدا با Synthetic/Mock Compatibility Test و بدون Real-PBX Verification تا Approval جداگانه.
-- [ ] Task 44: تعریف و Persistence تاریخچه/Retention محدود و PBX-scoped تلفنی فقط از State/Eventهای Normalized موجود، بدون PBX Action یا Collection Source جدید.
+- [x] Task 44: معماری Source-owned History را اعمال و Configuration مربوط به External Database Source فقط‌خواندنی و PBX-scoped را با Credential رمزنگاری‌شده/Write-only و Settings UI دو‌زبانه اضافه کند. این Task فقط Configuration را ذخیره می‌کند، هیچ Database Connection/Query انجام نمی‌دهد و Telephony History محلی جدید ایجاد نمی‌کند.
+- [ ] Task 45: Boundary عمومی Read-only Database Transport/Query را با Dialect Adapter صریح، Network/TLS Policy، اجبار SELECT-only، Query Timeout و Row/Output Limit و فقط Synthetic Database Validation اضافه کند.
+- [ ] Task 46: Adapterهای Schema منبع برای Historical/Reporting Viewها مانند CDR/CEL/Queue را فقط وقتی Source پیکربندی‌شده واقعاً آن‌ها را ارائه می‌کند، با Contractهای Normalized و Fixtureهای Synthetic اضافه کند؛ هر Real-Database Compatibility Verification نیاز به Approval جدا دارد.
+- [ ] Task 47: API و UI محدود برای Historical/Reporting Data مستقیم از Source ارائه کند، بدون کپی‌کردن Rowهای Source داخل Database خود VoIP Monitor.
+- [ ] Task 48: Historyهای Monitoring محلی قدیمی را با Policy جدید Non-duplication تطبیق دهد؛ Trend/State کوتاه‌مدت ترجیحاً bounded in-memory باشد، فقط Configuration و Operational State با توجیه صریح Persist شود و قبل از حذف Telemetry موجود Migration/Cleanup Plan امن تهیه شود.
 
 ### وضعیت فعلی ادامه کار
 
-- Branch فعلی fix/dashboard-fullscreen-controls است که بعد از Merge شدن PR #51 از main همگام‌شده ساخته شد.
-- این Correction، Task 44 را شروع نمی‌کند و هیچ Backend/PBX Behavior را تغییر نمی‌دهد.
-- Fullscreen Dashboard اکنون Presentation-only است: Toolbar مدیریتی عادی در Fullscreen اصلاً Render نمی‌شود. Dashboard Selector، New dashboard، Edit dashboard، Full screen/Exit full screen داخل Toolbar عادی، Dashboard PBX و PBX Selector هیچ Layout Space در Fullscreen مصرف نمی‌کنند.
-- هنگام ورود به Fullscreen، Edit Mode خاموش می‌شود. Edit Card، Resize/Delete Overlay، Drag Handle، Dashed Border و Edit Padding/Cursor همگی در Fullscreen حذف می‌شوند.
-- فقط یک Exit full screen کوچک و Floating به‌صورت Overlay در Fullscreen وجود دارد. با Pointer Movement ظاهر می‌شود، در Layout جا نمی‌گیرد و با Timer سه‌ثانیه‌ای موجود Auto-hide می‌شود. کلید Native مرورگر یعنی Esc همچنان قابل استفاده است.
-- Fullscreen همچنان روی Dashboard Root اجرا می‌شود، بنابراین Header/Navigation اصلی Application خارج Fullscreen باقی می‌ماند.
-- Regression Test اکنون صریحاً Verify می‌کند که Management Toolbar و Edit Controls در Fullscreen حذف شوند و Floating Exit Control باقی بماند. Final Validation با Project Node 24.21.0/npm 11.19.0 PASS است: Lint، Format Check، Typecheck، Backend 136/136، Frontend 23/23، Production Build، Foundation Check، License Check و Diff Check.
-- این Correction فقط UI است و Real PBX/AMI/SSH Access نیاز ندارد.
-- بعد از Merge این Correction، main همگام و UI Merge‌شده با Selenium Validate می‌شود؛ سپس feature/telephony-history برای Task 44 ساخته خواهد شد.
+- Branch فعلی `feature/read-only-database-source` است که بعد از Merge شدن PR #52 از `main` همگام‌شده ساخته شد.
+- جهت Product اکنون Source-owned History/Reporting است: VoIP Monitor یک Real-time Operational Dashboard باقی می‌ماند و نباید یک Telephony History Store مرجع دوم ایجاد کند.
+- Task 44، Migration 15 را با یک Row از `database_source_config` برای هر PBX اضافه می‌کند که فقط Metadata معتبر شامل Dialect اعلام‌شده، Host، Port، Database Name، Username، Access Intent ثابت `READ_ONLY` و Timestampها را نگه می‌دارد. حذف PBX این Metadata را Cascade می‌کند.
+- Database Password از AES-256-GCM `SecretStore` موجود با Secret Name مستقل استفاده می‌کند. Responseهای GET/PUT فقط Safe Metadata و `hasCredential` را می‌دهند و Plaintext/Ciphertext هرگز برگردانده نمی‌شود.
+- مسیر احراز هویت‌شده و Same-origin یعنی GET/PUT/DELETE روی `/api/pbx-instances/:id/database-source` Configuration را مدیریت می‌کند. Settings UI دو‌زبانه شامل PBX Selection، انتخاب `MYSQL_MARIADB`/`POSTGRESQL`، Host/Port/Database/Username/Password است و Password Input بعد از Save پاک می‌شود.
+- Task 44 عمداً هیچ Database Socket، DNS Lookup، Schema Discovery، SQL Query یا Real-database Compatibility Probe انجام نمی‌دهد. Dialect و Port پیشنهادی UI فقط Configuration Metadata هستند و Connectivity Claim محسوب نمی‌شوند.
+- Testهای Synthetic Backend، Credential Encryption، Safe API، PBX Cascade، Validation اجباری `READ_ONLY` و نبود DNS/Socket در Configuration Path را Verify می‌کنند. Frontend Test نیز Lifecycle مربوط به Write-only Password و No-connection Notice را بررسی می‌کند.
+- Historyهای فعلی System Metrics/Security در این Task حذف نمی‌شوند. آن‌ها قبل از تصمیم Non-duplication ساخته شده‌اند و Cleanup به Task 48 موکول است تا Replacement و Migration Effect قبل از هر حذف مخرب بررسی شود.
+- برای Task 44 هیچ Real PBX، SSH Host یا Database واقعی Contact نشده است.
+- Final Validation با Project Node 24.21.0/npm 11.19.0 PASS است: Lint، Format Check، Typecheck، Backend 141/141، Frontend 24/24، Production Build، Foundation Check، License Check و Diff Check. Warningهای شناخته‌شده Ark UI/Rolldown درباره `use client` Non-fatal باقی می‌مانند.
+- بعد از Merge شدن Task 44، Task 45 مرحله بعد است: Provider-neutral Read-only Database Transport/Query Boundary محدود با Dialect/Network/TLS Policy صریح و فقط Synthetic Validation.
 
 ### ثبت خرابی و اشکال
+
+- **Targeted Lint مربوط به Task 44 ابتدا Fail شد — رفع شد:** Validator اولیه Database Configuration از Control-character Regex استفاده می‌کرد که Rule مربوط به `no-control-regex` آن را رد کرد و Test اختصاصی نیز `Buffer` را بدون Import صریح Node استفاده کرده بود. Fix: Regex با Character-code Validation صریح جایگزین و `Buffer` از `node:buffer` Import شد؛ سپس Targeted Lint/Typecheck/Test PASS شدند.
+- **Full Gate مربوط به Task 44 ابتدا روی Ownership فایل Generated Fail شد — رفع شد:** یک Targeted Command که با Remote Root Shell اجرا شده بود، `backend/dist/database` را با مالکیت Root ساخته بود و Repository Owner نمی‌توانست فایل Generated را Overwrite کند. فقط Ownership همان Generated Directory به Repository User برگردانده شد؛ Ownership سورس Track‌شده یا Runtime Secret تغییر نکرد و Full Gate از ابتدا Restart شد.
+- **Foundation Secret Scan ابتدا Synthetic Test Fixture را Match کرد — رفع شد:** Object Key ساده به شکل `password:` توسط Secret-pattern Checker محافظه‌کار Repository Match می‌شود حتی وقتی Value کاملاً Synthetic باشد. Test اکنون از فرم Computed-key موجود یعنی `['password']` استفاده می‌کند؛ Semantics Test ثابت مانده و Public-source Scanner آن را با Secret Assignment پیکربندی اشتباه نمی‌گیرد.
 
 - **Fullscreen Dashboard هنوز فضای بزرگ Toolbar مدیریتی را اشغال می‌کرد — رفع شد:** Implementation قبلی Toolbar را فقط بعد از Timeout Fade می‌کرد، بنابراین ابتدای Fullscreen ردیف کامل بالا را اشغال می‌کرد و در TV/NOC View دوباره ظاهر می‌شد. اکنون Toolbar عادی در Fullscreen اصلاً Render نمی‌شود.
 - **امکان نمایش Edit UI در Fullscreen — جلوگیری شد:** ورود به Fullscreen، Edit Mode را خاموش می‌کند و Drag/Resize/Delete Styling و Controls نیز صریحاً در Fullscreen Gate می‌شوند.
@@ -552,11 +562,11 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - [x] مرحله 7: نظارت بر امنیت - رویدادهای احراز هویت عادی AMI، Persistence/API/SSE، ارزیابی هشدار محدود/تداوم/قوانین/Runtime، APIهای احراز هویت شده، و رابط کاربری هشدار دوزبانه فعلی/تاریخ اخیر/زمان بیدرنگ برای بخش تعریف شده کامل هستند. منابع/قوانین گسترده‌تر و تحویل خارجی، کارهای آینده جداگانه باقی می‌مانند.
 - [x] پایه Phase 8: Authenticated PBX-scoped Read-only/Realtime Exposure برای System Metrics، Security State/Alerts و Normalized Telephony Current State موجود است.
 - [x] Phase 9: پایه Bilingual Operator Dashboard با Boundaryهای Safe موجود Provider/System/Security.
-- [ ] Phase 10: تاریخچه و حفظ.
+- [ ] Phase 10: History/Reporting مستقیم از Source بدون Duplicate Telemetry Persistence و Migration کنترل‌شده Historyهای Monitoring قدیمی به Policy جدید.
 - [ ] Phase 11: سخت شدن، تهیه نسخه پشتیبان، بازیابی آزمایش شده، و یک دفترچه راه اندازی تولید.
 - [ ] Phase 12: اعتبار سنجی انتشار، از جمله رویه استقرار تازه خنثی برای سازمان که می تواند بدون حمل مقادیر خصوصی از استقرار دیگر، روی یک سرویس جدید نصب شود.
 
-Phase 1 بسته است. بخش تعریف‌شده Security Monitoring در Phase 7 همچنان تا Task 34 کامل است. Taskهای 35-36 Notification Storage/Configuration را بدون Delivery اضافه کرده‌اند، Task 37 Live Same-Origin HTTPS Application را فراهم کرده، Task 38 OS-level Reboot Persistence را اثبات کرده، Task 39 اولین Bilingual Operator Dashboard را اضافه کرده، Task 40 Normalized Telephony Current State را با Authenticated PBX-scoped Read-only HTTP/SSE ارائه کرده و Task 41 همان Boundary را در Bilingual Chakra UI v3 Operator Surface مصرف می‌کند. بعد از Feedback اپراتور، Operational Configuration و Trunk Completeness قبل از History قرار گرفتند. Task 42 اکنون Authenticated PBX-scoped SSH Metrics Configuration/Credential Management با Runtime Sync را فراهم می‌کند. Task دقیق بعدی پس از Merge Task 42، **Task 43 — Trunk Discovery گسترده‌تر و Provider-neutral** است؛ Task 44 Telephony History/Retention باقی می‌ماند.
+Phase 1 بسته است. Phaseهای Live Monitoring تا Operator Dashboard Foundation کامل‌اند. Task 43 Trunk Discovery گسترده‌تر را تکمیل کرد. تصمیم Product در 2026-10-06، History را Source-owned تعریف کرد: Task 44 Configuration امن Database Source فقط‌خواندنی را اضافه می‌کند، Task 45 Transport/Query Boundary محدود را می‌سازد، Task 46 Schema Adapterها را تعریف می‌کند، Task 47 Historical/Reporting Viewهای Source-backed را ارائه می‌کند و Task 48 Historyهای محلی قدیمی را با Policy Non-duplication تطبیق می‌دهد. بعد از Merge Task 44، Task دقیق بعدی **Task 45 — Read-only Database Transport/Query Boundary** است.
 
 ## 26-09-2026 - رکورد تکمیل Task 28
 

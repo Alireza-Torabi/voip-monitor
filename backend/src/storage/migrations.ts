@@ -273,4 +273,21 @@ export const migrations = [
         ON operator_dashboard(pbx_instance_id, updated_at DESC);
     `,
   },
+  {
+    version: 15,
+    name: 'read_only_database_source_configuration',
+    sql: `
+      CREATE TABLE database_source_config (
+        pbx_instance_id TEXT PRIMARY KEY REFERENCES pbx_instance(id) ON DELETE CASCADE,
+        dialect TEXT NOT NULL CHECK (dialect IN ('MYSQL_MARIADB', 'POSTGRESQL')),
+        db_host TEXT NOT NULL CHECK (length(db_host) BETWEEN 1 AND 253),
+        db_port INTEGER NOT NULL CHECK (db_port BETWEEN 1 AND 65535),
+        database_name TEXT NOT NULL CHECK (length(database_name) BETWEEN 1 AND 128),
+        db_username TEXT NOT NULL CHECK (length(db_username) BETWEEN 1 AND 128),
+        access_mode TEXT NOT NULL CHECK (access_mode = 'READ_ONLY'),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      ) STRICT;
+    `,
+  },
 ] as const;

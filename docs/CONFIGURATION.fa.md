@@ -46,6 +46,18 @@
 
 <div dir="rtl" align="right">
 
+## Database Source فقط‌خواندنی برای History/Reporting
+
+Administrator احراز هویت‌شده می‌تواند برای هر PBX یک Database Source اختیاری را از **Settings -> Read-only database** پیکربندی کند. Task 44 فقط Metadata معتبر Source شامل `dialect`، Host، Port، Database Name، Username و قصد دسترسی `READ_ONLY` را همراه Password رمزنگاری‌شده و Write-only داخل Secret Store موجود ذخیره می‌کند. Password هرگز از API برگردانده نمی‌شود و داخل `database_source_config` قرار نمی‌گیرد.
+
+Surface فعلی Dialectهای اعلامی `MYSQL_MARIADB` و `POSTGRESQL` را می‌پذیرد تا Adapterهای آینده Driver Behavior را حدس نزنند. این فقط Configuration Metadata است و به معنی Connectivity Verification نیست. Save کردن هیچ DNS Resolution، Socket Connection، Schema Discovery یا SQL Query انجام نمی‌دهد. دسترسی Database در Taskهای بعدی باید فقط‌خواندنی، محدود و به‌صورت صریح پیاده‌سازی شود.
+
+Database Source مرجع اصلی Rowهای Historical/Reporting باقی می‌ماند و VoIP Monitor نباید این Rowها را داخل Telephony History محلی جدید کپی کند.
+
+</div>
+
+<div dir="rtl" align="right">
+
 ## Visibility مربوط به Storage داشبورد
 
 تنظیم نمایش Storage به‌صورت PBX-scoped زیر **Settings -> Dashboard storage** مدیریت می‌شود. گزینه‌ها از Current Normalized Filesystem Sample مربوط به Restricted SSH می‌آیند و هیچ Path در Repository Hardcode نمی‌شود.
