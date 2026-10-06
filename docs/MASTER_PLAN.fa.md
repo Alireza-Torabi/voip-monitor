@@ -740,3 +740,29 @@ Billing، CDR Warehouse، Duplicate Telemetry Storage، Arbitrary SQL، SIP Pack
 V1 زمانی Product-complete محسوب می‌شود که PBX Health، Trunk Health، Endpoint Health، Queue Health، Infrastructure Health، Call Outcome Analytics، Call Quality در صورت Support، Operational Alerts، External Notifications و Fleet/Incident-first UX هم‌زمان کاربرد عملیاتی قابل اتکا داشته باشند.
 
 </div>
+
+<div dir="rtl" align="right">
+
+### Checkpoint تأیید Visual در Task 51
+
+اولین Concept مربوط به Overview با جهت Dark Modern NOC / Operations Console توسط کاربر به‌عنوان جهت مناسب تأیید شد.
+
+موارد Lock‌شده: Sidebar ثابت، Top Command/Status Bar، Surfaceهای Dark و Grouped، Health Summary با رویکرد Problem-first، Table/Rowهای متراکم عملیاتی، Semantic Status Color محدود و Information Density بالاتر بدون ظاهر Generic Card قبلی.
+
+مرحله دقیق بعدی طراحی: ساخت Variant فارسی RTL با حفظ همان Visual Language و Hierarchy، در حالی که Technical Identifierها LTR باقی بمانند و معنی Chart/Time Axis معکوس نشود.
+
+</div>
+
+<div dir="rtl" align="right">
+
+### Approval نهایی Master در Task 51
+
+نسخه Refinement شده Modern NOC / Operations Console توسط کاربر تأیید شد و Visual Master برای Implementation Lock شد.
+
+موارد Lock‌شده شامل Shell Geometry، Dark Surface Hierarchy، Semantic Status Treatment، Information Density فشرده، Problem-first Overview، Grouped Operational Panel، Table/Entity Rowهای Compact و استفاده محدود و معنی‌دار از Status Color است.
+
+Implementation Handoff در فایل docs/ui-ux-implementation-handoff.md ثبت شد.
+
+Task دقیق بعدی بعد از Merge شدن Task 51، **Task 52 — پیاده‌سازی UI Shell و Design System تأییدشده** است؛ بدون تغییر Monitoring Behavior یا Backend Contract.
+
+</div>

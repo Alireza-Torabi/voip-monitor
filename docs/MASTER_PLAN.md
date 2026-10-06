@@ -767,3 +767,18 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 - Design specification is recorded in docs/ui-ux-redesign.md and docs/ui-ux-redesign.fa.md.
 - Local mockup state is stored only under ignored .local/ui-redesign/ and is not public repository content.
 - Exact next step: produce the first 1440px desktop Global Shell + Overview visual master candidate, run visual QA, and present it for approval before production implementation.
+
+### Task 51 visual approval checkpoint
+
+- The first dark Modern NOC / Operations Console Overview concept was reviewed by the user and accepted as a good direction.
+- Locked visual invariants: persistent sidebar, top command/status bar, dark grouped surfaces, problem-first health summary, compact operational tables/rows, restrained semantic status colors, and higher information density without the previous generic-card appearance.
+- Exact next design validation: produce a Persian RTL variant of the same approved Overview direction while keeping technical identifiers LTR and preserving chart/time-axis meaning.
+
+
+### Task 51 master approval and handoff
+
+- The refined Modern NOC / Operations Console master direction was approved by the user.
+- Task 51 visual master is now locked for implementation.
+- Locked: shell geometry, dark surface hierarchy, semantic status treatment, compact information density, problem-first Overview hierarchy, grouped operational panels, compact tables/entity rows, and restrained use of status color.
+- Implementation handoff is recorded in docs/ui-ux-implementation-handoff.md.
+- Task 52 is the exact next task after Task 51 merge: implement the approved UI shell and design system while preserving monitoring behavior and backend contracts.

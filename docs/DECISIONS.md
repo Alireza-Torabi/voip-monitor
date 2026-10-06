@@ -623,3 +623,12 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 413. **Semantic color is restrained:** healthy/warning/critical/stale colors communicate state rather than decorate the page.
 414. **Bilingual behavior is a design constraint:** Persian chrome/prose is RTL while technical identifiers remain stable LTR; charts/time axes must not be semantically mirrored.
 415. **Dashboard editing is secondary:** operator decision hierarchy takes precedence over customization in the default experience.
+
+
+## 2026-10-06 — Task 51 master lock
+
+416. **The refined Modern NOC master is approved:** the visual direction is no longer exploratory for Task 52.
+417. **Problem-first hierarchy is locked:** health and active operational problems precede secondary analytics/customization.
+418. **Compact grouped surfaces replace generic equal-weight cards:** implementation should use grouped sections, subtle borders, compact rows, and limited elevation.
+419. **Status color is semantic and restrained:** healthy, warning, critical, informational, and stale/unknown roles are centralized and must not become decorative page color.
+420. **Task 52 must preserve behavior:** implementation changes presentation and interaction hierarchy only; monitoring contracts and PBX behavior remain unchanged.
