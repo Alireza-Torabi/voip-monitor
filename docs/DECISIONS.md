@@ -632,3 +632,11 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 418. **Compact grouped surfaces replace generic equal-weight cards:** implementation should use grouped sections, subtle borders, compact rows, and limited elevation.
 419. **Status color is semantic and restrained:** healthy, warning, critical, informational, and stale/unknown roles are centralized and must not become decorative page color.
 420. **Task 52 must preserve behavior:** implementation changes presentation and interaction hierarchy only; monitoring contracts and PBX behavior remain unchanged.
+
+## 2026-10-06 — Task 52 shell implementation
+
+421. **The application is dark-NOC-first:** the production Chakra system now centralizes canvas, surfaces, borders, text, accent, and operational status tokens.
+422. **Legacy workspaces migrate through semantic compatibility:** existing bg/fg/border semantic references map into the NOC palette instead of forcing a risky all-at-once component rewrite.
+423. **Navigation only exposes real capabilities:** approved mockup items without current functionality are not rendered as fake interactive features.
+424. **Shell and dashboard redesign remain separate tasks:** Task 52 owns shell/design-system migration; Task 53 owns the problem-first operator dashboard composition.
+425. **RTL shell behavior is regression-tested:** Persian application chrome remains RTL while technical value direction contracts remain unchanged.

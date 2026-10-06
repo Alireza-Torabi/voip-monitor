@@ -107,3 +107,7 @@ Production recovery uses a coordinated stopped-service recovery set containing t
 ## Task 50 release validation
 
 Release portability is validated from a temporary seed commit built from the staged Git index and then cloned into a new worktree. The validator rejects private/runtime artifacts, installs exactly from the lockfile, gates on high/critical dependency audit, builds the application, creates isolated TLS/data/key/environment state, starts the production launcher with PBX networking disabled, performs first-admin plus synthetic PBX onboarding, and proves backup/restore plus restart recovery. Physical host reboot remains a separate explicitly approved gate whenever boot would reconnect to a real PBX. Installed systemd-unit drift is treated as a release failure until the tracked hardened unit is installed and reboot-tested.
+
+## Task 52 frontend shell and design system
+
+The frontend now uses a product-specific Chakra system instead of the default system. Central NOC tokens define the dark canvas, grouped surfaces, structural borders, text hierarchy, accent, and semantic operational states. A persistent responsive sidebar and sticky compact top bar form the application shell, while existing workspaces remain behaviorally unchanged and inherit dark semantic bg/fg/border compatibility tokens. Reusable NOC panel/status/header primitives support incremental migration without coupling UI modernization to backend or PBX behavior.

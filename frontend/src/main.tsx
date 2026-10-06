@@ -1,8 +1,9 @@
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
+import { ChakraProvider } from '@chakra-ui/react';
 import { CacheProvider } from '@emotion/react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App.js';
 import { createApplicationEmotionCache } from './emotion-cache.js';
+import { nocSystem } from './theme.js';
 import './styles.css';
 
 const root = document.getElementById('root');
@@ -12,7 +13,7 @@ const initialLanguage = navigator.language.toLowerCase().startsWith('fa') ? 'fa'
 const emotionCache = createApplicationEmotionCache();
 createRoot(root).render(
   <CacheProvider value={emotionCache}>
-    <ChakraProvider value={defaultSystem}>
+    <ChakraProvider value={nocSystem}>
       <App initialLanguage={initialLanguage} />
     </ChakraProvider>
   </CacheProvider>,
