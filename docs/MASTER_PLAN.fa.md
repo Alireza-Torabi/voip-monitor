@@ -1,6 +1,6 @@
 # Master Plan
 
-Status: 2026-10-06. PR #57، Task 48 را Merge کرده است. Task 49 روی Branch `feature/hardening-backup-restore-runbook` به‌صورت Local کامل شده و Merge آن Pending است؛ Task 50 فقط بعد از Merge شدن Task 49 شروع می‌شود.
+Status: 2026-10-06. PR #58، Task 49 را Merge کرده است. Task 50 روی Branch feature/fresh-deployment-release-validation به‌صورت Local کامل شده و Merge آن Pending است. Fresh Deployment، Onboarding، Dependency Audit بدون High/Critical، Backup/Restore، Hardened Service Restart و Physical Reboot تأییدشده همگی PASS هستند. Task 51 در Roadmap فعلی تعریف نشده است؛ بعد از Merge شدن Task 50 باید متوقف شویم و منتظر Roadmap صریح بعدی بمانیم.
 
 ## Phase 0 - کشف محیط
 
@@ -87,7 +87,7 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - [x] Task 47: API و UI محدود برای Historical/Reporting Data مستقیم از Source ارائه شد، بدون کپی‌کردن Rowهای Source داخل Database خود VoIP Monitor.
 - [x] Task 48: Historyهای Monitoring محلی قدیمی با Policy جدید Non-duplication تطبیق داده شد؛ History جدید فقط در Bufferهای محدود In-memory نگه‌داری می‌شود، Current Operational State با توجیه صریح Persist می‌ماند و Tableهای History قدیمی تا Cleanup جداگانه دست‌نخورده باقی می‌مانند.
 - [x] Task 49: Hardening، Backup، Tested Restore و Production Deployment Runbook کامل شد؛ حذف Legacy History Tableها تا Observation واقعی Production و Migration مخرب جداگانه Deferred است.
-- [ ] Task 50: Release Validation و Fresh Deployment مستقل از سازمان از Clean Clone، با اثبات Install/Onboard/Backup/Restore/Reboot/Operation بدون انتقال Private State.
+- [x] Task 50: Release Validation و Fresh Deployment مستقل از سازمان از Clean Clone، با اثبات Install/Onboard/Backup/Restore/Reboot/Operation بدون انتقال Private State.
 
 ### وضعیت فعلی ادامه کار
 
@@ -578,7 +578,7 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - [x] Phase 9: پایه Bilingual Operator Dashboard با Boundaryهای Safe موجود Provider/System/Security.
 - [ ] Phase 10: History/Reporting مستقیم از Source بدون Duplicate Telemetry Persistence و Migration کنترل‌شده Historyهای Monitoring قدیمی به Policy جدید.
 - [x] Phase 11: Hardening، Backup در حالت Service-stopped، Restore تست‌شده با Checksum و Runbook دوزبانه عملیات Production.
-- [ ] Phase 12: اعتبار سنجی انتشار، از جمله رویه استقرار تازه خنثی برای سازمان که می تواند بدون حمل مقادیر خصوصی از استقرار دیگر، روی یک سرویس جدید نصب شود.
+- [x] Phase 12: اعتبار سنجی انتشار، از جمله رویه استقرار تازه خنثی برای سازمان که می تواند بدون حمل مقادیر خصوصی از استقرار دیگر، روی یک سرویس جدید نصب شود.
 
 Phase 1 بسته است. Foundationهای Live Monitoring تا Operator Dashboard کامل‌اند و Task 47 اکنون Historical/Reporting Viewهای Source-backed محدود را بدون Duplicate Storage محلی ارائه می‌کند. Task دقیق بعدی پس از Merge شدن Task 47، **Task 48** است: تطبیق Legacy Monitoring Historyهای Persist‌شده محلی با Non-duplication Policy و تعریف Migration/Cleanup Plan امن قبل از هر حذف مخرب.
 
@@ -654,3 +654,26 @@ Phase 1 بسته است. Foundationهای Live Monitoring تا Operator Dashboar
 - **Legacy History Cleanup:** حذف مخرب Tableها تا Production Observation، Dependency Review، Recovery Set جدید، Restore Drill موفق و Migration جداگانه Approve‌شده Deferred است.
 - **Failureهای رفع‌شده:** شرط اولیه TLS Pair در Bash Syntax اشتباه داشت و با `bash -n` گرفته شد؛ Foundation Checker نیز یک‌بار به Git safe-directory خورد و فقط با Process-scoped `safe.directory` دوباره اجرا شد.
 - **Task دقیق بعدی:** Task 50 — Release Validation و Fresh Deployment مستقل از سازمان از Clean Clone.
+
+## 2026-10-06 — ثبت تکمیل Task 50
+
+- **نتیجه:** Release Validation مستقل از سازمان به‌صورت Executable Staged-source Drill اضافه شد و End-to-end PASS شد.
+- **Fresh-source Proof:** از Staged Index یک Seed Commit موقت ساخته و Fresh Clone واقعی ایجاد می‌شود؛ Runtime/Private Artifact قبل از Dependency Install Reject می‌شود.
+- **Dependency Gate:** Clean Install، `npm audit --audit-level=high` را اجرا می‌کند. Advisory با Severity بالا برای `source-map-js` پیدا شد و Lockfile از 1.2.1 به نسخه Patch‌شده 1.2.2 ارتقا یافت؛ Audit مجدد Fresh Clone صفر Vulnerability گزارش کرد.
+- **Deployment Proof:** TLS ایزوله، Health/Readiness، First-admin Onboarding، Synthetic PBX Metadata و Secret رمزنگاری‌شده بدون PBX Networking، Backup در حالت Service-stopped، Restore با Checksum، Login/State Recovery و Restart Recovery همگی PASS شدند.
+- **Physical Reboot Proof:** با Approval صریح Operator برای Reconnect موجود `plain_tcp`، Host Reboot شد. Reboot اول نشان داد Installed systemd Unit قدیمی‌تر از Unit Harden‌شده Merge‌شده است؛ Unit جدید نصب شد و Reboot کنترل‌شده دوم، Boot واقعی Release را با enabled/active، Health/Readiness برابر 200 و Reconnect مورد انتظار AMI اثبات کرد.
+- **PBX Safety:** Task 50 هیچ PBX Command یا Probe جدیدی صادر نکرد؛ تنها فعالیت PBX واقعی همان Reconnect سرویس Read-only پس از Reboot تأییدشده بود.
+- **محدودیت شناخته‌شده:** Validator از TLS Self-signed موقت و Synthetic Onboarding Data استفاده می‌کند و PKI/Firewall/DNS یا Compatibility Schema واقعی سازمان را Certify نمی‌کند.
+- **وضعیت Roadmap:** Task 50 Roadmap فعلی Approve‌شده را می‌بندد. Task 51 تعریف نشده و بعد از Merge باید برای Roadmap بعدی متوقف شویم.
+
+### Failureها / Bugها / Gapهای Task 50
+
+- **Final Diff Check روی Trailing Whitespace متادیتای Release Validation Fail شد — رفع شد:** Spaceهای انتهایی Metadata حذف شدند و Full Gate از ابتدا Restart شد.
+- **Fresh Clone اولیه زیر User `root` به Git Dubious Ownership خورد — رفع شد:** Validator با Owner اصلی Repository یعنی `torabi` اجرا شد و هیچ Global Safe-directory Config اضافه نشد.
+- **Clean Install اولیه یک High-severity Transitive Dependency Advisory پیدا کرد — رفع شد:** `source-map-js` روی 1.2.1 Resolve شده بود؛ Lockfile اکنون نسخه Patch‌شده 1.2.2 را Resolve می‌کند و Fresh-clone Audit صفر Vulnerability گزارش می‌دهد.
+- **Physical Reboot اول Stale Installed systemd Unit را آشکار کرد — رفع شد:** Unit نصب‌شده قدیمی‌تر از Unit Harden‌شده Task 49 بود. Unit Merge‌شده نصب، Hash آن با فایل Track‌شده Match و Reboot کنترل‌شده دوم PASS شد.
+- **محدودیت شناخته‌شده:** Validator از TLS Self-signed موقت و Synthetic Onboarding Data استفاده می‌کند؛ PKI/Firewall/DNS و Compatibility واقعی PBX/Database سازمان همچنان خارج از این Gate هستند.
+
+### Final Validation مربوط به Task 50
+
+- **Final Repository Gateها:** با Node 24.21.0 و npm 11.19.0، `npm audit --audit-level=high` با صفر Vulnerability، Shell Syntax Check، Systemd Unit Verify، Lint، Format Check، Typecheck، Backend برابر 165/165، Frontend برابر 25/25، Production Build، Foundation Check، License Check و Staged `git diff --check` همگی PASS شدند. Warningهای موجود Chakra/Ark/Zag درباره `"use client"` همچنان Non-fatal هستند.

@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-06. PR #57 merged Task 48. Task 49 is complete locally on feature/hardening-backup-restore-runbook and merge is pending. Production hardening, stopped-service backup, checksum-validated tested restore, and bilingual production runbooks are implemented. Task 50 follows only after Task 49 is merged.
+Status: 2026-10-06. PR #58 merged Task 49. Task 50 is complete locally on feature/fresh-deployment-release-validation and merge is pending. Fresh deployment, onboarding, zero-high/critical dependency audit, backup/restore, hardened service restart, and approved physical reboot recovery all passed. No Task 51 is currently defined; after Task 50 merge, stop and wait for an explicitly approved next roadmap item.
 
 ## Phase 0 — environment discovery
 
@@ -87,18 +87,17 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 47: expose bounded source-backed historical/reporting APIs and UI views without copying source rows into the VoIP Monitor database.
 - [x] Task 48: reconcile legacy locally persisted monitoring histories with the new non-duplication policy: bounded in-memory trend/state buffers now replace new local history writes, explicitly justified current operational state remains persisted, and legacy history tables are retained untouched until a separately reviewed cleanup migration.
 - [x] Task 49: hardening, backup, tested restore, and production deployment runbook, with legacy monitoring-history table deletion explicitly deferred pending production observation and a separately approved destructive migration.
-- [ ] Task 50: organization-neutral fresh-deployment/release validation from a clean clone, proving install, onboarding, backup/restore, reboot recovery, and operation without importing private state.
+- [x] Task 50: organization-neutral fresh-deployment/release validation from a clean clone, proving install, onboarding, backup/restore, reboot recovery, and operation without importing private state.
 
 ### Current execution handoff
 
-- PR #57 merged Task 48. Current branch: feature/hardening-backup-restore-runbook, created from synchronized main at merge commit 3460a2b.
-- Task 49 adds fail-closed stopped-service backup/restore tooling with SQLite-format, 32-byte master-key, application-ref, checksum, and overwrite validation.
-- Automated recovery validation creates a real temporary SQLite database, backs up and restores DB/key/env/TLS fixtures, reopens restored SQLite and reads a probe, verifies overwrite refusal, and proves tampering fails closed.
-- The tracked systemd unit passes systemd-analyze verify. Offline exposure on the current Ubuntu 24.04 host improved from 5.3 MEDIUM to 2.8 OK after compatibility-safe capability, namespace, device, kernel, process, realtime/SUID, and address-family restrictions.
-- Bilingual production runbooks now define hardening review, pre-deployment gates, backup, isolated restore drill, ownership recovery, upgrade/rollback, post-deployment verification, reboot recovery, and troubleshooting.
-- Legacy history cleanup remains intentionally non-destructive: removal requires production observation, no downstream dependency, a fresh production recovery set, successful isolated restore, and a separately reviewed/approved migration.
-- No real PBX, source database, production credential, production backup, or production runtime data was accessed during Task 49.
-- Exact next task after Task 49 merge is Task 50 — organization-neutral fresh-deployment/release validation from a clean clone.
+- PR #58 merged Task 49. Current branch: feature/fresh-deployment-release-validation, created from synchronized main at merge commit c258386.
+- Task 50 is complete locally. The staged-index validator builds a temporary seed commit, performs a real fresh clone, rejects private/runtime artifacts, runs lockfile install and high-severity audit, builds the release, starts isolated HTTPS with PBX networking disabled, completes first-admin plus synthetic PBX onboarding, takes a stopped-service recovery set, restores it, and proves login/state recovery after restart.
+- The first clean install exposed a high-severity source-map-js advisory. Lockfile resolution was upgraded from 1.2.1 to patched 1.2.2; repeated clean-clone audit now reports zero vulnerabilities.
+- The physical reboot gate was explicitly approved because the live deployment uses read-only plain_tcp. The first reboot proved automatic boot plus health/readiness and reconnect, but exposed that the installed systemd unit was older than the merged hardened unit.
+- The merged hardened unit was installed and verified byte-for-byte against the tracked unit, then a second controlled reboot proved the actual release unit boots enabled/active, health and ready both return 200, the protected PBX API rejects unauthenticated access, and one established read-only AMI TCP session exists on port 5038. Task 50 issued no additional PBX command or probe.
+- No real PBX or external database was contacted by the automated fresh-deployment drill; only the separately approved reboot gate allowed the existing production service to reconnect.
+- No Task 51 is defined in the approved roadmap. After Task 50 merges, STOP and wait for an explicitly approved next roadmap item.
 
 ### Failure and bug log
 
@@ -577,7 +576,7 @@ Tasks 7–13 implemented substantial Asterisk-provider and telephony-state found
 - [x] Phase 8 foundation: authenticated PBX-scoped read-only/realtime exposure exists for system metrics, security state, alerts, and normalized telephony current state.
 - [x] Phase 9: bilingual operator dashboard foundation using existing safe provider/system/security boundaries.
 - [x] Phase 11: hardening, stopped-service backup, checksum-validated tested restore, and bilingual production operations runbook.
-- [ ] Phase 12: release validation, including an organization-neutral fresh-deployment procedure that can onboard a new service without carrying private values from another deployment.
+- [x] Phase 12: release validation, including an organization-neutral fresh-deployment procedure that can onboard a new service without carrying private values from another deployment.
 
 Phase 1 is closed. The live-monitoring foundations through the operator dashboard are complete, and Task 47 now exposes bounded source-backed historical/reporting views without local row duplication. Task 48 is the exact next task after Task 47 merges: reconcile legacy locally persisted monitoring histories with the non-duplication policy and define a safe migration/cleanup plan before any destructive removal.
 
@@ -654,3 +653,26 @@ For every future task, retain resolved failures and bugs in this plan with: obse
 - **Legacy history cleanup:** destructive table removal is explicitly deferred until production observation, dependency review, a fresh production recovery set, successful isolated restore drill, and a separately approved migration.
 - **Failures resolved:** the first backup script had an invalid Bash conditional for paired TLS arguments; `bash -n` caught it and the guard was rewritten explicitly. Foundation validation also initially hit Git safe-directory protection; it was rerun with process-scoped `safe.directory` only.
 - **Exact next task:** Task 50 — organization-neutral fresh-deployment/release validation from a clean clone.
+
+## 2026-10-06 — Task 50 completion record
+
+- **Result:** organization-neutral fresh-deployment/release validation now exists as an executable staged-source drill and passed end-to-end.
+- **Fresh-source proof:** a temporary seed commit is built from the staged index and cloned into a new worktree; runtime/private artifacts are rejected before dependency installation.
+- **Dependency gate:** clean install runs `npm audit --audit-level=high`; a discovered high-severity `source-map-js` advisory was fixed by resolving the lockfile from 1.2.1 to patched 1.2.2, after which clean-clone audit reports zero vulnerabilities.
+- **Deployment proof:** isolated TLS startup, health/readiness, first-admin onboarding, synthetic PBX metadata plus encrypted secret storage without PBX networking, stopped-service backup, checksum-validated restore, login/state recovery, and restart recovery all passed.
+- **Physical reboot proof:** with explicit operator approval for the existing read-only `plain_tcp` reconnect, the host was rebooted. A stale installed systemd unit was detected after the first reboot, replaced by the merged hardened unit, and a second controlled reboot proved the actual release unit boots enabled/active with health/readiness 200 and the expected AMI TCP reconnect.
+- **PBX safety:** Task 50 itself issued no PBX command or probe; the only real-PBX activity was the explicitly approved restart reconnect by the existing read-only service.
+- **Known limitation:** the release validator uses temporary self-signed TLS and synthetic onboarding data; it does not certify an organization's external PKI, firewall, DNS, or PBX/database schema compatibility.
+- **Roadmap state:** Task 50 closes the currently approved roadmap. No Task 51 is defined; after merge, stop for explicit roadmap approval.
+
+### Task 50 failures / bugs / gaps
+
+- **Final diff check found trailing whitespace in Release Validation metadata — resolved:** Markdown metadata lines used hard line-break spaces. They were removed and the entire final gate was restarted from the beginning.
+- **Fresh clone initially failed under root due Git dubious ownership — resolved:** the validator was rerun as the repository owner `torabi`; no global safe-directory configuration was added.
+- **First clean install exposed one high-severity transitive dependency advisory — resolved:** `source-map-js` resolved to 1.2.1 through Vite/PostCSS and jsdom/css-tree. The lockfile now resolves patched 1.2.2 and repeated fresh-clone audit reports zero vulnerabilities.
+- **First physical reboot exposed stale installed systemd unit drift — resolved:** the installed unit was older than the merged Task 49 hardened unit. The merged unit was installed, hash-matched to the tracked file, and a second controlled reboot passed.
+- **Known limitation:** the fresh-deployment validator uses temporary self-signed TLS and synthetic onboarding data; organization-specific PKI, firewall, DNS, and real PBX/database schema compatibility remain separate deployment concerns.
+
+### Task 50 final validation
+
+- **Final repository gates:** Node 24.21.0/npm 11.19.0 passed `npm audit --audit-level=high` with zero vulnerabilities, shell syntax checks, systemd unit verification, lint, format check, typecheck, backend 165/165 tests, frontend 25/25 tests, production build, foundation check, license check, and staged `git diff --check`. Existing Chakra/Ark/Zag `"use client"` bundle warnings remain non-fatal.
