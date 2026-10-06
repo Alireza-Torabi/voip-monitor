@@ -21,6 +21,7 @@ import { messages, type Language } from './i18n.js';
 import { SecurityWorkspace } from './SecurityWorkspace.js';
 import { SshMetricsWorkspace } from './SshMetricsWorkspace.js';
 import { DatabaseSourceWorkspace } from './DatabaseSourceWorkspace.js';
+import { HistoryWorkspace } from './HistoryWorkspace.js';
 import { DashboardStorageWorkspace } from './DashboardStorageWorkspace.js';
 import { ServiceMonitoringWorkspace } from './ServiceMonitoringWorkspace.js';
 import { AccountsWorkspace } from './AccountsWorkspace.js';
@@ -30,7 +31,7 @@ import { TelephonyWorkspace, type TelephonyPage } from './TelephonyWorkspace.js'
 
 type TextMap = (typeof messages)[Language];
 type Phase = 'loading' | 'setup' | 'login' | 'ready' | 'error';
-type Workspace = 'dashboard' | 'telephony' | 'settings';
+type Workspace = 'dashboard' | 'telephony' | 'history' | 'settings';
 type SettingsPage =
   | 'pbx'
   | 'database-source'
@@ -852,6 +853,7 @@ export function App({
                   [
                     ['dashboard', text.dashboardTitle],
                     ['telephony', text.telephonyMenu],
+                    ['history', text.historyMenu],
                     ['settings', text.settingsTitle],
                   ] as const
                 ).map(([value, label]) => (
@@ -946,6 +948,9 @@ export function App({
                   onUnauthorized={unauthorized}
                 />
               </Stack>
+            ) : null}
+            {workspace === 'history' ? (
+              <HistoryWorkspace text={text} profiles={profiles} onUnauthorized={unauthorized} />
             ) : null}
             {workspace === 'settings' ? (
               <Stack gap="5">

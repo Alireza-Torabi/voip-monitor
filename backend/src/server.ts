@@ -19,6 +19,11 @@ import {
   DatabaseSourceConfigurationError,
   DatabaseSourceConfigurationService,
 } from './database/configuration.js';
+import {
+  HistoricalSourceSchemaError,
+  type AsteriskConventionalSqlHistoryAdapter,
+} from './database/source-schema.js';
+import { DatabaseQueryError } from './database/query.js';
 import { ProviderRuntimeError, type ProviderRuntimeManager } from './providers/runtime/index.js';
 import type {
   SystemMetricsHealthListener,
@@ -305,6 +310,7 @@ export function createApp(
   telephonyState?: TelephonyStateEngine,
   sshConfiguration?: SshConfigurationService,
   databaseSourceConfiguration?: DatabaseSourceConfigurationService,
+  historicalSource?: AsteriskConventionalSqlHistoryAdapter,
 ): Server {
   const limiter = new AttemptLimiter();
   const metricsStreams = new Set<ServerResponse>();
@@ -741,6 +747,49 @@ export function createApp(
           if (!(error instanceof DatabaseSourceConfigurationError)) throw error;
           if (error.code === 'PBX_NOT_FOUND') return send(response, 404, { error: 'not_found' });
           return send(response, 400, { error: 'invalid_request' });
+        }
+      }
+
+      const historyAction = path.match(
+        /^\/api\/pbx-instances\/([^/]+)\/history(?:\/(calls|call-events|queue-events))?$/,
+      );
+      if (historyAction) {
+        if (!auth || !historicalSource || !auth.principal(sessionToken(request)))
+          return send(response, 401, { error: 'unauthorized' });
+        const id = historyAction[1]!;
+        const dataset = historyAction[2];
+        if (!onboarding?.get(id)) return send(response, 404, { error: 'not_found' });
+        if (request.method !== 'GET') return send(response, 404, { error: 'not_found' });
+        try {
+          if (!dataset) return send(response, 200, await historicalSource.inspect(id));
+          const url = new URL(request.url ?? '/', 'http://localhost');
+          const rawLimit = url.searchParams.get('limit') ?? '100';
+          if (!/^(?:[1-9]|[1-9]\d|1\d\d|200)$/u.test(rawLimit))
+            return send(response, 400, { error: 'invalid_request' });
+          const limit = Number(rawLimit);
+          const items =
+            dataset === 'calls'
+              ? await historicalSource.listRecentCalls(id, limit)
+              : dataset === 'call-events'
+                ? await historicalSource.listRecentCallEvents(id, limit)
+                : await historicalSource.listRecentQueueEvents(id, limit);
+          return send(response, 200, { items });
+        } catch (error) {
+          if (error instanceof HistoricalSourceSchemaError) {
+            if (error.code === 'INVALID_LIMIT')
+              return send(response, 400, { error: 'invalid_request' });
+            if (error.code === 'NOT_CONFIGURED')
+              return send(response, 409, { error: 'source_not_configured' });
+            if (error.code === 'DATASET_UNAVAILABLE')
+              return send(response, 409, { error: 'dataset_unavailable' });
+            return send(response, 502, { error: 'source_data_invalid' });
+          }
+          if (error instanceof DatabaseQueryError) {
+            if (error.code === 'NOT_CONFIGURED' || error.code === 'PERMISSION_DENIED')
+              return send(response, 409, { error: 'source_unavailable' });
+            return send(response, 502, { error: 'source_unavailable' });
+          }
+          throw error;
         }
       }
 

@@ -172,6 +172,52 @@ export interface SafeDatabaseSourceConfiguration {
   updatedAt: string;
 }
 
+export type HistoricalDatasetAvailability =
+  'SUPPORTED' | 'NOT_FOUND' | 'SCHEMA_MISMATCH' | 'AMBIGUOUS';
+
+export interface HistoricalSourceCapabilities {
+  instanceId: string;
+  source: 'DATABASE';
+  adapter: 'ASTERISK_CONVENTIONAL_SQL_V1';
+  calls: { availability: HistoricalDatasetAvailability };
+  callEvents: { availability: HistoricalDatasetAvailability };
+  queueEvents: { availability: HistoricalDatasetAvailability };
+}
+
+export interface HistoricalCallRecord {
+  instanceId: string;
+  source: 'DATABASE';
+  recordId: string;
+  correlationId?: string;
+  sourceStartedAt: string;
+  sourceNumber?: string;
+  destinationNumber?: string;
+  durationSeconds: number;
+  billableSeconds: number;
+  disposition: 'ANSWERED' | 'NO_ANSWER' | 'BUSY' | 'FAILED' | 'UNKNOWN';
+}
+
+export interface HistoricalCallEventRecord {
+  instanceId: string;
+  source: 'DATABASE';
+  sourceOccurredAt: string;
+  eventType: string;
+  callId: string;
+  correlationId?: string;
+  extension?: string;
+  callerNumber?: string;
+}
+
+export interface HistoricalQueueEventRecord {
+  instanceId: string;
+  source: 'DATABASE';
+  sourceOccurredAt: string;
+  eventType: string;
+  callId: string;
+  queueId: string;
+  agentId?: string;
+}
+
 export type SshAuthMethod = 'PASSWORD' | 'PRIVATE_KEY';
 export interface SafeSshConfiguration {
   pbxInstanceId: string;
@@ -377,6 +423,20 @@ export const api = {
     ),
   deleteDatabaseSource: (id: string) =>
     request<{ status: string }>(`/api/pbx-instances/${id}/database-source`, 'DELETE'),
+  historyCapabilities: (id: string) =>
+    request<HistoricalSourceCapabilities>(`/api/pbx-instances/${id}/history`),
+  historyCalls: (id: string, limit = 100) =>
+    request<{ items: HistoricalCallRecord[] }>(
+      `/api/pbx-instances/${id}/history/calls?limit=${limit}`,
+    ),
+  historyCallEvents: (id: string, limit = 100) =>
+    request<{ items: HistoricalCallEventRecord[] }>(
+      `/api/pbx-instances/${id}/history/call-events?limit=${limit}`,
+    ),
+  historyQueueEvents: (id: string, limit = 100) =>
+    request<{ items: HistoricalQueueEventRecord[] }>(
+      `/api/pbx-instances/${id}/history/queue-events?limit=${limit}`,
+    ),
   sshConfiguration: (id: string) =>
     request<SafeSshConfiguration>(`/api/pbx-instances/${id}/ssh-configuration`),
   putSshConfiguration: (id: string, value: object) =>

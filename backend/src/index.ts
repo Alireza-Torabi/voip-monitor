@@ -6,6 +6,9 @@ import { SecretStore } from './security/secret-store.js';
 import { AuthService } from './auth/index.js';
 import { SshConfigurationService } from './ssh/configuration.js';
 import { DatabaseSourceConfigurationService } from './database/configuration.js';
+import { ReadOnlyDatabaseTransport } from './database/transport.js';
+import { NodeDatabaseAddressResolver } from './database/resolver.js';
+import { AsteriskConventionalSqlHistoryAdapter } from './database/source-schema.js';
 import {
   RestrictedSshSystemMetricsCollectorFactory,
   SystemMetricsRuntime,
@@ -63,6 +66,15 @@ if (config) {
           storage,
           secrets,
         );
+        const databaseTransport = new ReadOnlyDatabaseTransport({
+          configuration: databaseSourceConfiguration,
+          secrets,
+          resolver: new NodeDatabaseAddressResolver(),
+        });
+        const historicalSource = new AsteriskConventionalSqlHistoryAdapter({
+          configuration: databaseSourceConfiguration,
+          transport: databaseTransport,
+        });
         const systemMetricsFactory =
           config.pbxNetworkMode === 'plain_tcp'
             ? new RestrictedSshSystemMetricsCollectorFactory(sshConfiguration, secrets, storage)
@@ -94,6 +106,7 @@ if (config) {
           telephonyState,
           sshConfiguration,
           databaseSourceConfiguration,
+          historicalSource,
         );
         server.on('error', () => {
           log('error', 'server_error');

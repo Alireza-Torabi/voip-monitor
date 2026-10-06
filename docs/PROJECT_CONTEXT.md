@@ -45,3 +45,7 @@ Task 30 exposes persisted alert state only. Current state is returned as the PBX
 ## Task 31 — persistent alert-rule configuration and runtime wiring
 
 Task 31 gives the application one explicit owner for the security event -> rule evaluation -> matched alert persistence path. Configuration is persistent, PBX scoped, bounded to the two existing rule shapes, and cascades on PBX deletion. Failures are isolated and fail closed. There is still no public rule-configuration mutation API/UI or external notification delivery.
+
+## 2026-10-06 — Task 47 source-backed history UI/API
+
+Task 47 is the first user-facing consumer of the source-owned history architecture. Authenticated PBX-scoped GET endpoints expose schema capability and bounded recent normalized calls, call events, and queue events from the configured database source through the Task 46 adapter. The bilingual History workspace performs explicit operator-triggered reads only. Returned rows are transient and are not written to SQLite, cached, or copied into a second history store. No real source database was contacted during implementation or validation; compatibility remains separately gated.
