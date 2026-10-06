@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
+import { ChakraProvider } from '@chakra-ui/react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -15,6 +15,7 @@ import { AccountsWorkspace } from '../src/AccountsWorkspace.js';
 import { OperatorDashboard } from '../src/OperatorDashboard.js';
 import { TelephonyWorkspace } from '../src/TelephonyWorkspace.js';
 import { messages } from '../src/i18n.js';
+import { nocSystem } from '../src/theme.js';
 
 type TestResponse = { ok: boolean; status: number; json: () => Promise<object> };
 let container: HTMLDivElement;
@@ -50,7 +51,7 @@ beforeEach(() => {
   const reactRoot = createRoot(container);
   root = {
     render(children) {
-      reactRoot.render(<ChakraProvider value={defaultSystem}>{children}</ChakraProvider>);
+      reactRoot.render(<ChakraProvider value={nocSystem}>{children}</ChakraProvider>);
     },
     unmount() {
       reactRoot.unmount();

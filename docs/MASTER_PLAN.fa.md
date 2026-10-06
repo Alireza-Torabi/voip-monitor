@@ -1,6 +1,6 @@
 # Master Plan
 
-Status: 2026-10-06. PR #59، Task 50 را Merge کرده است. Roadmap پذیرفته‌شده بعد از Task 50 ثبت شده و Task 51 اکنون UI/UX Redesign Foundation و Master Mockup است؛ این Task عمداً قبل از Operational Health، Call Quality و Alerting اجرا می‌شود. تا قبل از Approval شدن Visual Master، Production UI تغییر اساسی نمی‌کند.
+Status: 2026-10-06. PR #61، Task 51 را Merge کرده است. Task 52 روی Branch feature/ui-shell-design-system به‌صورت Local کامل شده و Merge آن Pending است. Modern NOC Shell، Design Tokenهای مرکزی، Semantic Compatibility Layer، Navigation سازگار با RTL، Primitiveهای reusable و Regression Testها پیاده‌سازی شده‌اند. Task 53 فقط بعد از Merge شدن Task 52 شروع می‌شود.
 
 ## Phase 0 - کشف محیط
 
@@ -693,7 +693,7 @@ Foundation پروژه از نظر Production آماده است، اما محصو
   - بازتعریف Information Architecture برای Dashboard، Telephony، History، Alerts/Security و Settings.
   - ساخت و Approval یک Desktop Master Mockup قبل از تغییر اساسی Production UI.
   - هیچ تغییر در Backend Contract یا رفتار PBX انجام نمی‌شود.
-- [ ] **Task 52 — پیاده‌سازی UI Shell و Design System تأییدشده**
+- [x] **Task 52 — پیاده‌سازی UI Shell و Design System تأییدشده**
 - [ ] **Task 53 — بازطراحی Operator Dashboard با رویکرد Operational Decision Surface**
 - [ ] **Task 54 — بازطراحی Telephony، History، Security و Settings**
 - [ ] **Task 55 — NOC/Wallboard و Accessibility Pass**
@@ -764,5 +764,31 @@ V1 زمانی Product-complete محسوب می‌شود که PBX Health، Trunk 
 Implementation Handoff در فایل docs/ui-ux-implementation-handoff.md ثبت شد.
 
 Task دقیق بعدی بعد از Merge شدن Task 51، **Task 52 — پیاده‌سازی UI Shell و Design System تأییدشده** است؛ بدون تغییر Monitoring Behavior یا Backend Contract.
+
+</div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-06 — ثبت تکمیل Task 52
+
+- **نتیجه:** Modern NOC Application Shell تأییدشده بدون تغییر Backend/API/PBX Behavior پیاده‌سازی شد.
+- **Theme:** Chakra System مرکزی با Tokenهای Canvas/Surface/Border/Text/Accent/Status و Semantic Compatibility برای Workspaceهای قدیمی اضافه شد تا مهاجرت تدریجی ظاهر یکپارچه بماند.
+- **Shell:** Header سفید و Navigation مبتنی بر Button Row با Sidebar ثابت و Responsive، Top Status Bar فشرده، PBX Connection Summary، Navigation دوزبانه و Main Content Fluid جایگزین شد.
+- **Navigation:** فقط Capabilityهای واقعی موجود expose شدند؛ هیچ Reports یا Alert Feature آینده به‌صورت جعلی ساخته نشد.
+- **Design Primitiveها:** NocPanel، NocInset، SectionHeader و StatusIndicator برای Migration بعدی اضافه شدند.
+- **RTL/LTR:** Shell فارسی RTL باقی می‌ماند و Contractهای Technical LTR حفظ شده‌اند. Regression Test برای Shell انگلیسی و فارسی اضافه شد.
+- **Frontend Testها:** از 25 به 27 تست افزایش یافتند.
+- **Failureهای رفع‌شده:** مسیر Test-only مربوط به initialView=ready بدون Principal باعث Render خالی می‌شد که با Preview Principal فقط در همان Test Hook اصلاح شد. Nesting نامعتبر div داخل p و Duplicate Import مربوط به nocSystem نیز رفع شدند.
+- **محدودیت:** محتوای Operator Dashboard در Task 52 عمداً Redesign نشده و فقط داخل Shell جدید قرار گرفته است؛ Problem-first Dashboard Composition مربوط به Task 53 است.
+- **Task دقیق بعدی:** Task 53 — Redesign Operator Dashboard طبق Master تأییدشده.
+
+</div>
+
+
+<div dir="rtl" align="right">
+
+### Final Validation مربوط به Task 52
+
+Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check، Typecheck، Backend Test برابر 165/165، Frontend Test برابر 27/27، Production Build، Foundation Check، License Check و Git Diff Check همگی PASS شدند. Warningهای موجود Chakra/Ark/Rolldown درباره module-level use client همچنان Non-fatal هستند.
 
 </div>

@@ -1,4 +1,4 @@
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
+import { ChakraProvider } from '@chakra-ui/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -6,9 +6,10 @@ import { App, PbxWorkspace } from '../src/App.js';
 import { createApplicationEmotionCache } from '../src/emotion-cache.js';
 import { SecurityWorkspace } from '../src/SecurityWorkspace.js';
 import { messages } from '../src/i18n.js';
+import { nocSystem } from '../src/theme.js';
 
 function renderUi(node: ReactNode) {
-  return renderToStaticMarkup(<ChakraProvider value={defaultSystem}>{node}</ChakraProvider>);
+  return renderToStaticMarkup(<ChakraProvider value={nocSystem}>{node}</ChakraProvider>);
 }
 
 describe('emotion CSP integration', () => {
@@ -38,6 +39,25 @@ describe('bilingual onboarding shell', () => {
     expect(html).toContain('ورود مدیر');
     expect(html).toContain('type="password"');
   });
+  it('renders the approved NOC application shell in English', () => {
+    const html = renderUi(<App initialLanguage="en" initialView="ready" />);
+    expect(html).toContain('data-app-shell="true"');
+    expect(html).toContain('data-app-sidebar="true"');
+    expect(html).toContain('data-app-topbar="true"');
+    expect(html).toContain('Overview');
+    expect(html).toContain('Live Calls');
+    expect(html).toContain('Infrastructure');
+    expect(html).toContain('Call History');
+  });
+
+  it('keeps the approved shell RTL-aware in Persian', () => {
+    const html = renderUi(<App initialLanguage="fa" initialView="ready" />);
+    expect(html).toContain('dir="rtl"');
+    expect(html).toContain('نمای کلی');
+    expect(html).toContain('تماس‌های زنده');
+    expect(html).toContain('زیرساخت');
+  });
+
   it('renders an authenticated first PBX form before a connection test is available', () => {
     const html = renderUi(<App initialLanguage="en" initialView="ready" />);
     expect(html).toContain('Add the first PBX profile');

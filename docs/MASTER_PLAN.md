@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-06. PR #59 merged Task 50. The accepted post-Task-50 roadmap is recorded below. Task 51 is now UI/UX Redesign Foundation and Master Mockup, intentionally moved ahead of the operational-health, call-quality, and alerting implementation roadmap. No production UI implementation starts until the visual master and interaction hierarchy are approved.
+Status: 2026-10-06. PR #61 merged Task 51. Task 52 is complete locally on feature/ui-shell-design-system and merge is pending. The approved Modern NOC shell, centralized design tokens, semantic compatibility layer, RTL-aware navigation, reusable primitives, and regression coverage are implemented. Task 53 follows only after Task 52 merges.
 
 ## Phase 0 — environment discovery
 
@@ -690,7 +690,7 @@ The product foundation is production-ready, but the monitoring product is not ye
   - Redefine information architecture for Dashboard, Telephony, History, Alerts/Security, and Settings.
   - Produce and approve a desktop master mockup before changing production UI.
   - Preserve existing functionality and backend contracts; no PBX behavior change.
-- [ ] **Task 52 — Implement the approved UI shell and design system**
+- [x] **Task 52 — Implement the approved UI shell and design system**
   - Replace the current default Chakra visual language with product-specific tokens/components.
   - Implement the approved sidebar/topbar/navigation, page shells, cards, badges, tables, filters, dialogs, and status treatments.
 - [ ] **Task 53 — Redesign the Operator Dashboard**
@@ -782,3 +782,31 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 - Locked: shell geometry, dark surface hierarchy, semantic status treatment, compact information density, problem-first Overview hierarchy, grouped operational panels, compact tables/entity rows, and restrained use of status color.
 - Implementation handoff is recorded in docs/ui-ux-implementation-handoff.md.
 - Task 52 is the exact next task after Task 51 merge: implement the approved UI shell and design system while preserving monitoring behavior and backend contracts.
+
+## 2026-10-06 — Task 52 completion record
+
+- **Result:** implemented the approved dark Modern NOC application shell without changing backend/API/PBX behavior.
+- **Theme:** added a centralized Chakra system with NOC canvas/surface/border/text/accent/status tokens and semantic compatibility mappings for existing bg/fg/border usage so legacy workspaces can migrate incrementally without visual fragmentation.
+- **Shell:** replaced the old white sticky header plus button-row navigation with a persistent responsive sidebar, compact top status bar, operational PBX connection summary, bilingual navigation, account/language/logout controls, and fluid main content area.
+- **Navigation mapping:** only existing capabilities are exposed. Overview, PBX Fleet, Live Calls, Trunks, Endpoints, Queues, Agents, Call History, Security, Infrastructure, and Settings route into current real workspaces; no future Reports/Alert feature was faked.
+- **Design primitives:** added reusable NocPanel, NocInset, SectionHeader, and StatusIndicator components for subsequent workspace/dashboard migration.
+- **RTL/LTR:** Persian shell remains RTL while technical identities/data keep their existing LTR contracts. Regression coverage verifies both English and Persian shell rendering.
+- **Frontend tests:** increased from 25 to 27 tests; shell/sidebar/topbar and Persian RTL coverage were added.
+- **Failures resolved:** initial ready-state tests rendered blank because the test-only initialView=ready path has no principal; a synthetic preview principal is now used only for that explicit test hook. An invalid div-inside-p footer nesting was also fixed. A duplicate nocSystem import created during migration was removed.
+- **Known limitation:** Task 52 intentionally does not redesign the Operator Dashboard content itself; the existing dashboard data/workflows now live inside the new shell. Full problem-first dashboard composition belongs to Task 53.
+- **Exact next task:** Task 53 — Redesign the Operator Dashboard according to the approved master hierarchy.
+
+
+### Task 52 final validation
+
+- Node v24.21.0 / npm 11.19.0.
+- lint PASS.
+- format check PASS.
+- typecheck PASS.
+- backend tests 165/165 PASS.
+- frontend tests 27/27 PASS.
+- production build PASS.
+- foundation check PASS.
+- license check PASS.
+- git diff check PASS.
+- Existing Chakra/Ark/Rolldown module-level "use client" warnings remain non-fatal and unchanged in nature.
