@@ -53,3 +53,7 @@ Task 47 is the first user-facing consumer of the source-owned history architectu
 ## 2026-10-06 — Task 48 non-duplication reconciliation
 
 Task 48 stops new local persistence of system-metric, security-event, and security-alert history. Existing API/UI consumers continue through bounded in-memory repository buffers, while only current operational state and application-owned configuration/reliability data remain durable. The three historical SQLite tables are deliberately left untouched for safe rollback/backup compatibility; destructive cleanup is deferred until deployment observation and tested backup/restore confirm removal is safe.
+
+## 2026-10-06 — Task 49 production hardening and recovery
+
+Task 49 converts deployment recovery guidance into executable, tested operations. Backup/restore is deliberately stopped-service and fail-closed: valid SQLite plus the exact master key are copied with manifest/checksums, restore validates before writing, and overwrite is explicit. Synthetic automation proves restored SQLite is usable and tampering is rejected. The tracked systemd unit gains additional sandbox/capability restrictions while retaining Unix/IPv4/IPv6 networking required by the HTTPS gateway and approved monitoring paths. Legacy local history tables remain untouched; production evidence and a tested real recovery set are prerequisites for any destructive cleanup.

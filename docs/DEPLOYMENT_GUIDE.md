@@ -156,3 +156,7 @@ Rollback must restore a compatible application version and, when migrations requ
 ## Uninstall
 
 Stop and disable the service, archive or securely destroy runtime data according to company policy, remove local TLS/environment/service files, and remove the checkout. Do not delete the master key before deciding whether backups must remain recoverable.
+
+## Task 49 recovery tooling
+
+The executable production backup/restore procedure is now tracked in [PRODUCTION_RUNBOOK.md](PRODUCTION_RUNBOOK.md). Use `scripts/backup-production.sh` and `scripts/restore-production.sh`; do not substitute ad-hoc copies when claiming tested recovery readiness.

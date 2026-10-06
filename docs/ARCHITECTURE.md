@@ -1,6 +1,6 @@
 # Proposed architecture
 
-Status: PR #56 merged Task 47. Task 48 is complete locally on `feature/nondup-history-reconciliation` and merge is pending. New monitoring history is process-local and bounded; current operational state remains persisted; legacy history tables are intentionally retained unused until separately approved cleanup.
+Status: PR #57 merged Task 48. Task 49 is complete locally on `feature/hardening-backup-restore-runbook` and merge is pending: production hardening, stopped-service backup, checksum-validated tested restore, and bilingual production runbooks are implemented. Task 50 follows after merge.
 
 ```text
 PBX (Asterisk / FreePBX)
@@ -99,3 +99,7 @@ Migration 3 adds `administrator` and `auth_session`. The first administrator is 
 ### Task 28 — security alert evaluation
 
 The security alert layer evaluates only normalized persisted `SecurityEvent` records. It uses a fixed rule allowlist, strict rule validation, bounded history reads, and fail-closed evaluation states. Task 29 adds PBX-scoped alert storage with one current record per rule plus duplicate-safe bounded history; source stream ordering is retained only for monotonic alert ordering. Task 30 adds authenticated current/history HTTP plus persistence-backed SSE. Alert listeners run only after successful new history persistence and are failure-isolated. Task 31 adds PBX-scoped persistent rule configuration plus one application-owned runtime that persists events before evaluating enabled rules and persisting matches. Task 32 adds authenticated PBX-scoped list/get/put/delete rule APIs with same-origin mutation protection and path-owned PBX/rule identity. Task 33 adds a bilingual browser workspace that reads current bounded alerts and manages only those two rules. Task 34 adds bounded recent-history loading plus one PBX-scoped realtime EventSource and duplicate-safe UI merging. There is still no external notification delivery or PBX mutation side effect. Task 35 only persists bounded notification channel metadata and duplicate-safe pending/cancelled queue records; it opens no external network path.
+
+## Task 49 production hardening and recovery
+
+Production recovery uses a coordinated stopped-service recovery set containing the SQLite database and matching 32-byte master key, plus private environment metadata and optional TLS material. Backup files are checksummed and permission-restricted; encryption of the recovery destination is an external deployment-policy boundary. Restore verifies the complete set before writing and refuses overwrite by default. The tracked systemd unit removes Linux capabilities, restricts namespaces/devices/kernel/control-group/clock/hostname/process visibility, prevents SUID/realtime privilege paths, and permits only Unix/IPv4/IPv6 address families. Legacy monitoring-history tables remain present but unused; deletion is a separate destructive migration gated on production observation and tested recovery.

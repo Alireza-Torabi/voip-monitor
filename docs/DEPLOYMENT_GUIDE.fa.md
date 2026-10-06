@@ -186,3 +186,11 @@ Rollback باید Application Version سازگار و در صورت نیاز Dat
 Service را Stop/Disable کنید، Runtime Data را طبق Policy آرشیو یا Secure Delete کنید، TLS/Environment/Service Fileهای محلی و Checkout را حذف کنید. قبل از تصمیم درباره Backup Recovery، Master Key را حذف نکنید.
 
 </div>
+
+<div dir="rtl" align="right">
+
+## ابزار Recovery مربوط به Task 49
+
+روش اجرایی Backup/Restore Production در [PRODUCTION_RUNBOOK.fa.md](PRODUCTION_RUNBOOK.fa.md) ثبت شده است. برای Recovery تست‌شده از `scripts/backup-production.sh` و `scripts/restore-production.sh` استفاده کنید و به‌جای آن Copy دستی Ad-hoc را مبنای Recovery Readiness قرار ندهید.
+
+</div>

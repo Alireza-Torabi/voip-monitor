@@ -1,6 +1,6 @@
 # Master Plan
 
-Status: 2026-10-06. PR #55، Task 46 را Merge کرده است. جهت محصول همچنان Real-time Monitoring بدون Duplicate Storage و با Historical/Reporting Data متعلق به Source است. Task 47 روی Branch `feature/source-backed-history-ui` به‌صورت Local کامل شده و Merge آن Pending است؛ Task 48 فقط بعد از Merge شدن Task 47 شروع می‌شود.
+Status: 2026-10-06. PR #57، Task 48 را Merge کرده است. Task 49 روی Branch `feature/hardening-backup-restore-runbook` به‌صورت Local کامل شده و Merge آن Pending است؛ Task 50 فقط بعد از Merge شدن Task 49 شروع می‌شود.
 
 ## Phase 0 - کشف محیط
 
@@ -86,7 +86,8 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - [x] Task 46: Adapterهای Schema منبع برای Historical/Reporting Viewها مانند CDR/CEL/Queue را فقط وقتی Source پیکربندی‌شده واقعاً آن‌ها را ارائه می‌کند، با Contractهای Normalized و Fixtureهای Synthetic اضافه کند؛ هر Real-Database Compatibility Verification نیاز به Approval جدا دارد.
 - [x] Task 47: API و UI محدود برای Historical/Reporting Data مستقیم از Source ارائه شد، بدون کپی‌کردن Rowهای Source داخل Database خود VoIP Monitor.
 - [x] Task 48: Historyهای Monitoring محلی قدیمی با Policy جدید Non-duplication تطبیق داده شد؛ History جدید فقط در Bufferهای محدود In-memory نگه‌داری می‌شود، Current Operational State با توجیه صریح Persist می‌ماند و Tableهای History قدیمی تا Cleanup جداگانه دست‌نخورده باقی می‌مانند.
-- [ ] Task 49: Hardening، Backup، Tested Restore و Production Deployment Runbook، همراه با تصمیم صریح درباره زمان/شرایط حذف مخرب Tableهای Legacy History.
+- [x] Task 49: Hardening، Backup، Tested Restore و Production Deployment Runbook کامل شد؛ حذف Legacy History Tableها تا Observation واقعی Production و Migration مخرب جداگانه Deferred است.
+- [ ] Task 50: Release Validation و Fresh Deployment مستقل از سازمان از Clean Clone، با اثبات Install/Onboard/Backup/Restore/Reboot/Operation بدون انتقال Private State.
 
 ### وضعیت فعلی ادامه کار
 
@@ -576,7 +577,7 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - [x] پایه Phase 8: Authenticated PBX-scoped Read-only/Realtime Exposure برای System Metrics، Security State/Alerts و Normalized Telephony Current State موجود است.
 - [x] Phase 9: پایه Bilingual Operator Dashboard با Boundaryهای Safe موجود Provider/System/Security.
 - [ ] Phase 10: History/Reporting مستقیم از Source بدون Duplicate Telemetry Persistence و Migration کنترل‌شده Historyهای Monitoring قدیمی به Policy جدید.
-- [ ] Phase 11: سخت شدن، تهیه نسخه پشتیبان، بازیابی آزمایش شده، و یک دفترچه راه اندازی تولید.
+- [x] Phase 11: Hardening، Backup در حالت Service-stopped، Restore تست‌شده با Checksum و Runbook دوزبانه عملیات Production.
 - [ ] Phase 12: اعتبار سنجی انتشار، از جمله رویه استقرار تازه خنثی برای سازمان که می تواند بدون حمل مقادیر خصوصی از استقرار دیگر، روی یک سرویس جدید نصب شود.
 
 Phase 1 بسته است. Foundationهای Live Monitoring تا Operator Dashboard کامل‌اند و Task 47 اکنون Historical/Reporting Viewهای Source-backed محدود را بدون Duplicate Storage محلی ارائه می‌کند. Task دقیق بعدی پس از Merge شدن Task 47، **Task 48** است: تطبیق Legacy Monitoring Historyهای Persist‌شده محلی با Non-duplication Policy و تعریف Migration/Cleanup Plan امن قبل از هر حذف مخرب.
@@ -640,3 +641,16 @@ Phase 1 بسته است. Foundationهای Live Monitoring تا Operator Dashboar
 ### Final Validation مربوط به Task 48
 
 - **Final Repository Gateها:** با Project Node 24.21.0 و npm 11.19.0، Lint، Format Check، Typecheck، تست‌های Backend برابر 164/164، تست‌های Frontend برابر 25/25، Production Build، Foundation Check، License Check و `git diff --check` همگی PASS شدند. Warningهای موجود Chakra/Ark/Zag درباره `"use client"` همچنان Non-fatal هستند.
+
+## 2026-10-06 — ثبت تکمیل Task 49
+
+- **نتیجه:** Hardening سرویس Production، Scriptهای Fail-closed برای Backup/Restore در حالت Service-stopped، تست خودکار Restore واقعی SQLite و Runbookهای دوزبانه Production کامل شدند.
+- **Backup Contract:** SQLite معتبر، Master Key دقیقاً ۳۲ بایتی، Environment File، Application Ref امن، تأیید صریح Stop بودن Service و TLS Pair اختیاری لازم است. Recovery Directory با Mode `0700` و Fileهای `0600` همراه Manifest و SHA-256 Checksum ساخته می‌شود.
+- **Restore Contract:** قبل از Write، Backup Format، SQLite Header، Master-key Size و همه Checksumها Validate می‌شوند؛ Target موجود بدون `--allow-overwrite` صریح Reject می‌شود.
+- **Restore Proof:** Automation Synthetic یک SQLite واقعی می‌سازد، Backup/Restore را اجرا می‌کند، Database Restore‌شده را باز و Probe را می‌خواند، Overwrite Refusal و Tamper Failure را اثبات می‌کند.
+- **Hardening:** Unit مربوط به systemd از `systemd-analyze verify` عبور می‌کند و Offline Exposure روی Ubuntu 24.04 فعلی `2.8 OK` است.
+- **محدودیت:** Exposure Score به Host/Version وابسته است و Security Certification نیست. Syscall/JIT Restriction تهاجمی تا Compatibility Test دقیق Runtime Deferred است.
+- **Encryption Boundary:** Scriptها Permission محلی را محدود می‌کنند ولی Recovery Set را Encrypt نمی‌کنند؛ Encryption مربوط به Backup Storage/Transport طبق Policy سازمان است.
+- **Legacy History Cleanup:** حذف مخرب Tableها تا Production Observation، Dependency Review، Recovery Set جدید، Restore Drill موفق و Migration جداگانه Approve‌شده Deferred است.
+- **Failureهای رفع‌شده:** شرط اولیه TLS Pair در Bash Syntax اشتباه داشت و با `bash -n` گرفته شد؛ Foundation Checker نیز یک‌بار به Git safe-directory خورد و فقط با Process-scoped `safe.directory` دوباره اجرا شد.
+- **Task دقیق بعدی:** Task 50 — Release Validation و Fresh Deployment مستقل از سازمان از Clean Clone.

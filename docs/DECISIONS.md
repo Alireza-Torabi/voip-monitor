@@ -591,3 +591,14 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 391. **No destructive migration in Task 48:** legacy history tables remain untouched and receive no new rows.
 392. **Cleanup requires proof:** table removal needs deployment observation, downstream dependency review, and a tested backup/restore point before a separately reviewed migration.
 393. **Task 49 is next:** hardening, backup, tested restore, and production deployment runbook includes the explicit legacy-history cleanup decision.
+
+## 2026-10-06 — Task 49 production hardening and recovery
+
+394. **Stopped-service backup is the recovery baseline:** operational consistency is preferred over hot-copy complexity; backup requires explicit confirmation that the service is stopped.
+395. **Database and master key are one recovery unit:** backup validates SQLite format and exact 32-byte key size and restores both together with private environment metadata.
+396. **Recovery sets are integrity-protected, not encrypted by the script:** SHA-256 checksums and restrictive permissions are built in; encryption at rest/in transit remains organization policy.
+397. **Restore is fail-closed:** validation precedes writes and existing target files require explicit `--allow-overwrite`.
+398. **Recovery readiness requires a drill:** automated synthetic coverage reopens restored SQLite and checks a probe; production readiness additionally requires an isolated restore of a current production recovery set.
+399. **Systemd hardening remains compatibility-aware:** empty capabilities, namespace/device/kernel/process protections and AF_UNIX/AF_INET/AF_INET6 restrictions are accepted; aggressive syscall/JIT restrictions are deferred until exact runtime validation.
+400. **Legacy history tables remain:** Task 49 does not destructively drop them; production observation, dependency review, fresh backup, isolated restore, and separate migration approval are mandatory before deletion.
+401. **Task 50 is next:** release validation must prove a clean organization-neutral deployment without importing private state from another installation.
