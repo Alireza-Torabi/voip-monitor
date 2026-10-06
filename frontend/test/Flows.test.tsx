@@ -1273,6 +1273,25 @@ describe('dashboard builder', () => {
     expect(container.textContent).toContain('Current problems');
     expect(container.textContent).toContain('Infrastructure health');
     expect(container.textContent).toContain('Full screen');
+    expect(container.textContent).toContain('Wallboard');
+
+    const wallboard = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent === 'Wallboard',
+    );
+    await act(async () => wallboard?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    expect(container.querySelector('[data-dashboard-root]')?.getAttribute('data-wallboard')).toBe(
+      'true',
+    );
+    expect(container.querySelector('[data-dashboard-toolbar]')).toBeNull();
+    expect(container.textContent).toContain('Exit wallboard');
+    const exitWallboard = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent === 'Exit wallboard',
+    );
+    await act(async () => exitWallboard?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    expect(container.querySelector('[data-dashboard-root]')?.getAttribute('data-wallboard')).toBe(
+      'false',
+    );
+    expect(container.querySelector('[data-dashboard-toolbar]')).not.toBeNull();
 
     const edit = [...container.querySelectorAll('button')].find(
       (button) => button.textContent === 'Edit dashboard',

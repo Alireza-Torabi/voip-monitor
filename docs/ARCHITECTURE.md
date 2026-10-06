@@ -119,3 +119,7 @@ The default dashboard presentation is now a dedicated OperatorOverview over the 
 ## Task 54 workspace presentation architecture
 
 Frontend workspaces now share WorkspacePrimitives layered on the Task 52 NOC primitives. WorkspaceHeader owns page hierarchy, WorkspaceToolbar owns scope/search/filter controls, WorkspaceState owns loading/error/status/empty treatment, and DataSurface owns dense tabular/list framing. Settings adds a responsive category rail while retaining existing component/data ownership. The redesign does not add backend endpoints or alter PBX/read-only data contracts.
+
+## Task 55 wallboard and accessibility architecture
+
+The dashboard now distinguishes browser fullscreen from application wallboard state. Wallboard is presentation-only and can operate without fullscreen support. The application shell uses a responsive navigation topology: bottom rail on mobile, compact sidebar on tablet, full sidebar on desktop. Accessibility behavior is centralized in shell/global CSS: skip-to-content, focus-visible styling, reduced-motion handling, forced-colors fallbacks, minimum mobile control height, and semantic navigation/status landmarks. Dark-theme contrast tokens are centrally verified rather than adjusted ad hoc per component.

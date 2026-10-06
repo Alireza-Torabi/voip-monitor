@@ -492,6 +492,7 @@ export function DashboardBuilder({
   const [addType, setAddType] = useState<DashboardWidgetType>('cpu');
   const [draggedId, setDraggedId] = useState('');
   const [fullscreen, setFullscreen] = useState(false);
+  const [wallboard, setWallboard] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [error, setError] = useState('');
 
@@ -656,6 +657,7 @@ export function DashboardBuilder({
       setFullscreen(isFullscreen);
       setControlsVisible(isFullscreen);
       if (isFullscreen) setEditing(false);
+      if (!isFullscreen) setWallboard(false);
       if (hideTimer.current) window.clearTimeout(hideTimer.current);
       if (isFullscreen) {
         hideTimer.current = window.setTimeout(() => setControlsVisible(false), 3000);
@@ -665,8 +667,30 @@ export function DashboardBuilder({
     return () => document.removeEventListener('fullscreenchange', handler);
   }, []);
 
+  async function enterWallboard() {
+    setEditing(false);
+    setWallboard(true);
+    setControlsVisible(true);
+    if (hideTimer.current) window.clearTimeout(hideTimer.current);
+    hideTimer.current = window.setTimeout(() => setControlsVisible(false), 3000);
+    if (rootRef.current?.requestFullscreen && document.fullscreenElement !== rootRef.current) {
+      try {
+        await rootRef.current.requestFullscreen();
+      } catch {
+        // Wallboard remains usable in-page when browser fullscreen is unavailable or denied.
+      }
+    }
+  }
+
+  async function exitWallboard() {
+    setWallboard(false);
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    }
+  }
+
   function showControls() {
-    if (!fullscreen) return;
+    if (!fullscreen && !wallboard) return;
     setControlsVisible(true);
     if (hideTimer.current) window.clearTimeout(hideTimer.current);
     hideTimer.current = window.setTimeout(() => setControlsVisible(false), 3000);
@@ -883,14 +907,19 @@ export function DashboardBuilder({
     <Box
       ref={rootRef}
       data-dashboard-root
-      bg="transparent"
-      minH={fullscreen ? '100vh' : undefined}
-      p={fullscreen ? { base: '3', md: '5' } : '0'}
-      overflow={fullscreen ? 'auto' : undefined}
+      data-wallboard={wallboard ? 'true' : 'false'}
+      role={wallboard ? 'region' : undefined}
+      aria-label={wallboard ? text.wallboard : undefined}
+      bg={wallboard ? 'noc.canvas' : 'transparent'}
+      minH={fullscreen || wallboard ? '100vh' : undefined}
+      p={fullscreen || wallboard ? { base: '3', md: '5', xl: '6' } : '0'}
+      overflow={fullscreen || wallboard ? 'auto' : undefined}
       onMouseMove={showControls}
+      onKeyDown={showControls}
+      onFocusCapture={showControls}
     >
       <Stack gap="4">
-        {!fullscreen ? (
+        {!fullscreen && !wallboard ? (
           <Flex
             data-dashboard-toolbar
             align={{ base: 'stretch', xl: 'center' }}
@@ -963,13 +992,22 @@ export function DashboardBuilder({
               >
                 {fullscreen ? text.exitFullscreen : text.fullscreen}
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void enterWallboard()}
+                aria-label={text.wallboard}
+              >
+                {text.wallboard}
+              </Button>
             </HStack>
           </Flex>
         ) : null}
 
-        {fullscreen ? (
+        {fullscreen || wallboard ? (
           <Button
             data-dashboard-fullscreen-exit
+            aria-label={wallboard ? text.exitWallboard : text.exitFullscreen}
             size="xs"
             variant="solid"
             position="fixed"
@@ -980,13 +1018,16 @@ export function DashboardBuilder({
             pointerEvents={controlsVisible ? 'auto' : 'none'}
             transition="opacity 180ms ease"
             boxShadow="sm"
-            onClick={() => void document.exitFullscreen()}
+            onClick={() => {
+              if (wallboard) void exitWallboard();
+              else if (document.fullscreenElement) void document.exitFullscreen();
+            }}
           >
-            {text.exitFullscreen}
+            {wallboard ? text.exitWallboard : text.exitFullscreen}
           </Button>
         ) : null}
 
-        {editing && !fullscreen ? (
+        {editing && !fullscreen && !wallboard ? (
           <Card.Root variant="outline">
             <Card.Body gap="3">
               <Flex gap="2" flexWrap="wrap" align="end">
@@ -1042,6 +1083,7 @@ export function DashboardBuilder({
             telephonyLive={telephonyLive}
             visibleFilesystems={visibleFilesystems}
             onNavigate={onNavigate}
+            wallboard={wallboard}
           />
         ) : (
           <Box

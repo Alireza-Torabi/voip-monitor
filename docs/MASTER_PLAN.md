@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-06. PR #63 merged Task 53. Task 54 is complete locally on feature/workspaces-redesign and merge is pending. Telephony, History, Security, and Settings now share one Modern NOC workspace language with consistent headers, toolbars, data surfaces, states, and settings navigation. Task 55 follows only after Task 54 merges.
+Status: 2026-10-06. PR #64 merged Task 54. Task 55 is complete locally on feature/noc-wallboard-accessibility and merge is pending. Wallboard mode, mobile bottom navigation, keyboard/focus affordances, reduced-motion/high-contrast handling, skip navigation, and verified dark-theme contrast are implemented. Task 56 follows only after Task 55 merges.
 
 ## Phase 0 — environment discovery
 
@@ -698,7 +698,7 @@ The product foundation is production-ready, but the monitoring product is not ye
   - Prioritize current problems, system/PBX health, active calls, trunk/endpoint/queue pressure, infrastructure state, and stale/source-health visibility.
 - [x] **Task 54 — Redesign Telephony, History, Security, and Settings**
   - Unify search/filter/table/detail patterns and improve drill-down, density, and error/empty/loading behavior.
-- [ ] **Task 55 — NOC/Wallboard and accessibility pass**
+- [x] **Task 55 — NOC/Wallboard and accessibility pass**
   - Fullscreen/wallboard behavior, high-visibility severity, keyboard/focus handling, contrast, reduced-motion considerations, and tablet/mobile fallback.
 
 ### Phase 14 — Unified operational health
@@ -869,6 +869,35 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 
 - Node v24.21.0 / npm 11.19.0.
 - lint PASS after migration cleanup.
+- format check PASS.
+- typecheck PASS.
+- backend tests 165/165 PASS.
+- frontend tests 28/28 PASS.
+- production build PASS.
+- foundation check PASS.
+- license check PASS.
+- git diff check PASS.
+- Existing Chakra/Ark/Zag/Rolldown module-level `use client` warnings remain non-fatal and unchanged in nature.
+
+## 2026-10-06 — Task 55 completion record
+
+- **Result:** completed the NOC/Wallboard and accessibility pass without changing backend, PBX, collector, or monitoring semantics.
+- **Wallboard mode:** added an explicit Wallboard action separate from ordinary Fullscreen. Wallboard hides normal dashboard controls, forces the approved operational Overview, increases key operational density/number sizing, applies a higher-visibility severity ring, and remains usable in-page when browser Fullscreen is unavailable or denied.
+- **Fullscreen behavior:** existing fullscreen remains supported. Exit controls are mouse-, focus-, and keyboard-revealable and distinguish normal fullscreen from wallboard exit semantics.
+- **Mobile/tablet fallback:** mobile no longer sacrifices horizontal content to a fixed 72px sidebar. Primary navigation becomes a scrollable bottom rail on small screens, returns to compact side navigation on tablet, and to the full 232px sidebar on desktop. Main content reserves bottom space for the mobile rail and retains fluid workspace layouts.
+- **Keyboard/focus:** added a first-focus skip link to main content, explicit main landmark/focus target, visible global focus rings, accessible labels for icon-only mobile navigation items, a named primary navigation landmark, and polite realtime status announcement.
+- **Motion:** added a global `prefers-reduced-motion: reduce` path that collapses transitions/animations and disables smooth scrolling behavior.
+- **High contrast:** added `forced-colors: active` fallbacks for focus, selected navigation, shell/workspace borders, and operational surfaces.
+- **Contrast verification:** numeric WCAG contrast checks found the previous subtle-text token at 4.17:1 on the canvas. It was raised from `#617894` to `#748ca9`; verified ratios are 5.47:1 on canvas, 5.00:1 on primary surface, and 4.63:1 on nested surface. Other primary semantic colors were already above 4.5:1 against the canvas (muted 7.25, healthy 8.58, warning 10.60, critical 6.31, info 8.84, accent 5.69).
+- **Regression coverage:** existing App shell tests now assert the skip link/main target, and the DashboardBuilder test proves Wallboard can enter/exit without requiring the browser Fullscreen API while keeping normal fullscreen behavior intact.
+- **Failures resolved:** an initial implementation applied a `wallboard` dependency to an unrelated PersianClock effect and used a wallboard-only value inside a helper without that scope; both were corrected. Chakra `Box as="a"` also did not expose `href` under the current type surface, so the skip link uses Chakra `Link`. None of these failures reached commit.
+- **Known limitation:** Task 55 does not implement wallboard auto-rotation, multi-view playlists, kiosk process management, or advanced NOC rotation rules. Those remain part of later Task 73 if still desired.
+- **Exact next task:** Task 56 — Unified Operational Health Model.
+
+### Task 55 final validation
+
+- Node v24.21.0 / npm 11.19.0.
+- lint PASS.
 - format check PASS.
 - typecheck PASS.
 - backend tests 165/165 PASS.

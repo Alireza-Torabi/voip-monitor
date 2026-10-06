@@ -1,6 +1,6 @@
 # Master Plan
 
-Status: 2026-10-06. PR #63، Task 53 را Merge کرده است. Task 54 روی Branch feature/workspaces-redesign به‌صورت Local کامل شده و Merge آن Pending است. Telephony، History، Security و Settings اکنون یک Modern NOC Workspace Language مشترک با Header، Toolbar، Data Surface، State و Settings Navigation یکپارچه دارند. Task 55 فقط بعد از Merge شدن Task 54 شروع می‌شود.
+Status: 2026-10-06. PR #64، Task 54 را Merge کرده است. Task 55 روی Branch feature/noc-wallboard-accessibility به‌صورت Local کامل شده و Merge آن Pending است. Wallboard Mode، Mobile Bottom Navigation، Keyboard/Focus Affordance، Reduced-motion/High-contrast Handling، Skip Navigation و Contrast تأییدشده Dark Theme پیاده‌سازی شده‌اند. Task 56 فقط بعد از Merge شدن Task 55 شروع می‌شود.
 
 ## Phase 0 - کشف محیط
 
@@ -696,7 +696,7 @@ Foundation پروژه از نظر Production آماده است، اما محصو
 - [x] **Task 52 — پیاده‌سازی UI Shell و Design System تأییدشده**
 - [x] **Task 53 — بازطراحی Operator Dashboard با رویکرد Operational Decision Surface**
 - [x] **Task 54 — بازطراحی Telephony، History، Security و Settings**
-- [ ] **Task 55 — NOC/Wallboard و Accessibility Pass**
+- [x] **Task 55 — NOC/Wallboard و Accessibility Pass**
 
 ### Phase 14 — Unified Operational Health
 
@@ -873,5 +873,32 @@ Lint نه مورد Migration Leftover پیدا کرد: چند Import بدون ا
 ### Final Validation مربوط به Task 54
 
 Node برابر v24.21.0 و npm برابر 11.19.0 بود. بعد از Migration Cleanup، Lint، Format Check، Typecheck، Backend Test برابر 165/165، Frontend Test برابر 28/28، Production Build، Foundation Check، License Check و Git Diff Check همگی PASS شدند. Warningهای موجود Chakra/Ark/Zag/Rolldown درباره module-level use client همچنان Non-fatal هستند.
+
+</div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-06 — ثبت تکمیل Task 55
+
+- **نتیجه:** NOC/Wallboard و Accessibility Pass بدون تغییر Backend، PBX، Collector یا Monitoring Semantics کامل شد.
+- **Wallboard Mode:** Action مستقل از Fullscreen عادی اضافه شد. Wallboard کنترل‌های عادی Dashboard را پنهان می‌کند، Operator Overview تأییدشده را نگه می‌دارد، Metric/Numberهای کلیدی را خواناتر می‌کند، Severity Ring واضح‌تری دارد و حتی اگر Browser Fullscreen در دسترس نباشد یا رد شود داخل صفحه قابل استفاده است.
+- **Fullscreen:** رفتار Fullscreen قبلی حفظ شد و Exit Control با Mouse، Focus و Keyboard قابل آشکار شدن است. Exit مربوط به Wallboard و Fullscreen عادی Semantics جدا دارند.
+- **Mobile/Tablet:** در Mobile دیگر یک Sidebar ثابت 72px فضای محتوا را نمی‌گیرد. Navigation اصلی در صفحه کوچک Bottom Rail افقی و Scrollable است؛ در Tablet به Sidebar Compact و در Desktop به Sidebar کامل 232px برمی‌گردد. Main Content برای Bottom Rail فضای کافی رزرو می‌کند.
+- **Keyboard/Focus:** Skip Link برای رفتن مستقیم به Main Content، Main Landmark قابل Focus، Focus Ring سراسری واضح، Accessible Label مستقل برای Navigation Iconهای Mobile، Primary Navigation Landmark و Realtime Status با aria-live polite اضافه شدند.
+- **Motion:** برای prefers-reduced-motion مسیر سراسری اضافه شد که Transition/Animation را تقریباً حذف می‌کند و Smooth Scroll را غیرفعال می‌کند.
+- **High Contrast:** برای forced-colors حالت‌های Focus، Selected Navigation، Borderهای Shell/Workspace و Operational Surface fallback اضافه شد.
+- **Contrast Verification:** Audit عددی نشان داد textSubtle قبلی روی Canvas فقط 4.17:1 بود. Token از #617894 به #748ca9 تغییر کرد و Ratio نهایی روی Canvas برابر 5.47:1، Surface اصلی 5.00:1 و Nested Surface برابر 4.63:1 شد. رنگ‌های Semantic اصلی دیگر از قبل بالاتر از 4.5:1 بودند.
+- **Regression:** تست App Shell اکنون Skip Link/Main Target را verify می‌کند و تست DashboardBuilder ورود/خروج Wallboard بدون وابستگی اجباری به Browser Fullscreen را همراه با حفظ Fullscreen قبلی بررسی می‌کند.
+- **Failureهای رفع‌شده:** در Implementation اولیه یک dependency مربوط به wallboard اشتباهاً به PersianClock Effect اعمال شد و یک Helper خارج از Scope از wallboard استفاده کرد؛ هر دو اصلاح شدند. همچنین Box as="a" در Type Surface فعلی Chakra، href را قبول نکرد و Skip Link با Chakra Link پیاده شد. هیچ‌کدام وارد Commit نشدند.
+- **محدودیت:** Auto-rotation، Multi-view Playlist، Kiosk Process Management و NOC Rotation Rule پیشرفته در Task 55 نیستند و در صورت نیاز برای Task 73 باقی می‌مانند.
+- **Task دقیق بعدی:** Task 56 — Unified Operational Health Model.
+
+</div>
+
+<div dir="rtl" align="right">
+
+### Final Validation مربوط به Task 55
+
+Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check، Typecheck، Backend Test برابر 165/165، Frontend Test برابر 28/28، Production Build، Foundation Check، License Check و Git Diff Check همگی PASS شدند. Warningهای موجود Chakra/Ark/Zag/Rolldown درباره module-level use client همچنان Non-fatal هستند.
 
 </div>
