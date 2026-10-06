@@ -2,9 +2,7 @@ import {
   Badge,
   Box,
   Button,
-  Card,
   Flex,
-  Heading,
   HStack,
   Input,
   NativeSelect,
@@ -22,6 +20,14 @@ import {
   type SafeDatabaseSourceConfiguration,
 } from './api.js';
 import { messages, type Language } from './i18n.js';
+import { NocInset, NocPanel, StatusIndicator } from './NocPrimitives.js';
+import {
+  WorkspaceField,
+  WorkspaceHeader,
+  WorkspaceSelect,
+  WorkspaceState,
+  WorkspaceToolbar,
+} from './WorkspacePrimitives.js';
 
 type TextMap = (typeof messages)[Language];
 
@@ -142,53 +148,58 @@ export function DatabaseSourceWorkspace({
   }
 
   if (profiles.length === 0) {
-    return (
-      <Card.Root variant="outline">
-        <Card.Body>{text.dashboardNoPbx}</Card.Body>
-      </Card.Root>
-    );
+    return <WorkspaceState title={text.dashboardNoPbx} />;
   }
 
   return (
-    <Stack gap="5">
-      <Flex
-        align={{ base: 'stretch', md: 'end' }}
-        justify="space-between"
-        direction={{ base: 'column', md: 'row' }}
-        gap="4"
-      >
-        <Box>
-          <Heading size="xl">{text.databaseSourceTitle}</Heading>
-          <Text color="fg.muted" mt="1">
-            {text.databaseSourceHint}
+    <Stack gap="4" data-workspace="databasesource">
+      <WorkspaceHeader title={text.databaseSourceTitle} description={text.databaseSourceHint} />
+      <WorkspaceToolbar>
+        <WorkspaceField label={text.dashboardPbx}>
+          <WorkspaceSelect
+            value={selected?.id ?? ''}
+            onChange={setSelectedId}
+            ariaLabel={text.dashboardPbx}
+          >
+            {profiles.map((profile) => (
+              <option key={profile.id} value={profile.id}>
+                {profile.displayName}
+              </option>
+            ))}
+          </WorkspaceSelect>
+        </WorkspaceField>
+        <Box flex="1 1 220px" minW="220px">
+          <Text
+            fontSize="10px"
+            color="noc.textSubtle"
+            fontWeight="700"
+            letterSpacing=".05em"
+            textTransform="uppercase"
+            mb="1.5"
+          >
+            {text.databaseSourceTitle}
           </Text>
+          <StatusIndicator
+            tone={current?.hasCredential ? 'healthy' : 'unknown'}
+            label={
+              current?.hasCredential
+                ? text.databaseSourceConfigured
+                : text.databaseSourceNotConfigured
+            }
+          />
         </Box>
-        <Box minW={{ base: '100%', md: '280px' }}>
-          <Text fontSize="sm" fontWeight="semibold" mb="1.5">
-            {text.dashboardPbx}
-          </Text>
-          <NativeSelect.Root>
-            <NativeSelect.Field
-              value={selected?.id ?? ''}
-              onChange={(event) => setSelectedId(event.target.value)}
-            >
-              {profiles.map((profile) => (
-                <option key={profile.id} value={profile.id}>
-                  {profile.displayName}
-                </option>
-              ))}
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-        </Box>
-      </Flex>
+      </WorkspaceToolbar>
 
-      <Card.Root variant="outline">
-        <Card.Header>
+      <NocPanel p="4">
+        <Box>
           <Flex justify="space-between" align="center" gap="3" flexWrap="wrap">
             <Box>
-              <Card.Title>{text.databaseSourceConfiguration}</Card.Title>
-              <Card.Description>{text.databaseSourceWriteOnlyHint}</Card.Description>
+              <Text fontSize="14px" fontWeight="600" color="noc.text">
+                {text.databaseSourceConfiguration}
+              </Text>
+              <Text fontSize="11px" color="noc.textMuted" mt="1">
+                {text.databaseSourceWriteOnlyHint}
+              </Text>
             </Box>
             <Badge colorPalette={current?.hasCredential ? 'green' : 'gray'}>
               {current?.hasCredential
@@ -196,8 +207,8 @@ export function DatabaseSourceWorkspace({
                 : text.databaseSourceNotConfigured}
             </Badge>
           </Flex>
-        </Card.Header>
-        <Card.Body>
+        </Box>
+        <Box mt="4">
           <form onSubmit={(event) => void save(event)} autoComplete="off">
             <Stack gap="4">
               <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
@@ -310,41 +321,15 @@ export function DatabaseSourceWorkspace({
                 </Box>
               </SimpleGrid>
 
-              <Card.Root variant="subtle" bg="blue.50">
-                <Card.Body gap="1">
-                  <Text fontWeight="semibold">{text.databaseSourceReadOnlyTitle}</Text>
-                  <Text fontSize="sm" color="fg.muted">
-                    {text.databaseSourceReadOnlyHint}
-                  </Text>
-                </Card.Body>
-              </Card.Root>
+              <NocInset p="3">
+                <StatusIndicator tone="info" label={text.databaseSourceReadOnlyTitle} />
+                <Text fontSize="11px" color="noc.textMuted" mt="2">
+                  {text.databaseSourceReadOnlyHint}
+                </Text>
+              </NocInset>
 
-              {status ? (
-                <Box
-                  role="status"
-                  borderWidth="1px"
-                  borderColor="green.200"
-                  bg="green.50"
-                  color="green.800"
-                  borderRadius="lg"
-                  p="3"
-                >
-                  {status}
-                </Box>
-              ) : null}
-              {error ? (
-                <Box
-                  role="alert"
-                  borderWidth="1px"
-                  borderColor="red.200"
-                  bg="red.50"
-                  color="red.800"
-                  borderRadius="lg"
-                  p="3"
-                >
-                  {error}
-                </Box>
-              ) : null}
+              {status ? <WorkspaceState tone="healthy" title={status} role="status" /> : null}
+              {error ? <WorkspaceState tone="critical" title={error} role="alert" /> : null}
 
               <HStack gap="2" flexWrap="wrap">
                 <Button type="submit" colorPalette="blue" disabled={pending}>
@@ -364,8 +349,8 @@ export function DatabaseSourceWorkspace({
               </HStack>
             </Stack>
           </form>
-        </Card.Body>
-      </Card.Root>
+        </Box>
+      </NocPanel>
     </Stack>
   );
 }

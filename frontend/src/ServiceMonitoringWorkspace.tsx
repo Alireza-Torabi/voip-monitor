@@ -1,18 +1,15 @@
-import {
-  Badge,
-  Box,
-  Button,
-  Card,
-  Flex,
-  Heading,
-  NativeSelect,
-  Stack,
-  Text,
-  Textarea,
-} from '@chakra-ui/react';
+import { Box, Button, Flex, Stack, Text, Textarea } from '@chakra-ui/react';
 import { useEffect, useState } from 'react';
 import { api, ApiError, type PbxProfile } from './api.js';
 import { messages, type Language } from './i18n.js';
+import { NocPanel, SectionHeader, StatusIndicator } from './NocPrimitives.js';
+import {
+  WorkspaceField,
+  WorkspaceHeader,
+  WorkspaceSelect,
+  WorkspaceState,
+  WorkspaceToolbar,
+} from './WorkspacePrimitives.js';
 
 type TextMap = (typeof messages)[Language];
 
@@ -100,103 +97,93 @@ export function ServiceMonitoringWorkspace({
   }
 
   return (
-    <Stack gap="5">
-      <Flex
-        align={{ base: 'stretch', md: 'end' }}
-        justify="space-between"
-        direction={{ base: 'column', md: 'row' }}
-        gap="4"
-      >
-        <Box>
-          <Heading size="lg">{text.serviceMonitoringTitle}</Heading>
-          <Text color="fg.muted" mt="1">
-            {text.serviceMonitoringHint}
-          </Text>
-        </Box>
-        <Box minW={{ base: '100%', md: '280px' }}>
-          <Text fontSize="sm" fontWeight="semibold" mb="1.5">
-            {text.dashboardPbx}
-          </Text>
-          <NativeSelect.Root>
-            <NativeSelect.Field
-              value={selected?.id ?? ''}
-              onChange={(event) => setSelectedId(event.target.value)}
-            >
-              {profiles.map((profile) => (
-                <option key={profile.id} value={profile.id}>
-                  {profile.displayName}
-                </option>
-              ))}
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-        </Box>
-      </Flex>
+    <Stack gap="4" data-workspace="service-monitoring">
+      <WorkspaceHeader
+        title={text.serviceMonitoringTitle}
+        description={text.serviceMonitoringHint}
+      />
 
-      <Card.Root variant="outline">
-        <Card.Header>
-          <Flex justify="space-between" align="start" gap="3" flexWrap="wrap">
-            <Box>
-              <Card.Title>{text.serviceMonitoringServices}</Card.Title>
-              <Card.Description>{text.serviceMonitoringServicesHint}</Card.Description>
-            </Box>
-            <Badge colorPalette={serviceIds.length > 0 ? 'green' : 'gray'}>
-              {serviceIds.length > 0
+      <WorkspaceToolbar>
+        <WorkspaceField label={text.dashboardPbx}>
+          <WorkspaceSelect
+            value={selected?.id ?? ''}
+            onChange={setSelectedId}
+            ariaLabel={text.dashboardPbx}
+          >
+            {profiles.map((profile) => (
+              <option key={profile.id} value={profile.id}>
+                {profile.displayName}
+              </option>
+            ))}
+          </WorkspaceSelect>
+        </WorkspaceField>
+        <Box flex="1 1 220px" minW="220px">
+          <Text
+            fontSize="10px"
+            color="noc.textSubtle"
+            fontWeight="700"
+            letterSpacing=".05em"
+            textTransform="uppercase"
+            mb="1.5"
+          >
+            {text.serviceMonitoringServices}
+          </Text>
+          <StatusIndicator
+            tone={serviceIds.length > 0 ? 'healthy' : 'unknown'}
+            label={
+              serviceIds.length > 0
                 ? serviceIds.length + ' ' + text.serviceMonitoringConfigured
-                : text.serviceMonitoringNotConfigured}
-            </Badge>
-          </Flex>
-        </Card.Header>
-        <Card.Body gap="4">
+                : text.serviceMonitoringNotConfigured
+            }
+          />
+        </Box>
+      </WorkspaceToolbar>
+
+      <NocPanel p="4">
+        <SectionHeader
+          title={text.serviceMonitoringServices}
+          description={text.serviceMonitoringServicesHint}
+        />
+        <Stack gap="4" mt="4">
           <Textarea
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            rows={8}
+            rows={9}
             dir="ltr"
             fontFamily="mono"
             placeholder={'asterisk.service\\nsshd.service'}
+            bg="noc.surface2"
+            borderColor="noc.border"
+            borderRadius="nocControl"
+            fontSize="12px"
           />
-          <Text fontSize="xs" color="fg.muted">
+          <Text fontSize="10px" color="noc.textSubtle">
             {text.serviceMonitoringValidationHint}
           </Text>
 
-          {status ? (
-            <Box
-              role="status"
-              borderWidth="1px"
-              borderColor="green.200"
-              bg="green.50"
-              color="green.800"
-              borderRadius="lg"
-              p="3"
-            >
-              {status}
-            </Box>
-          ) : null}
-          {error ? (
-            <Box
-              role="alert"
-              borderWidth="1px"
-              borderColor="red.200"
-              bg="red.50"
-              color="red.800"
-              borderRadius="lg"
-              p="3"
-            >
-              {error}
-            </Box>
-          ) : null}
+          {status ? <WorkspaceState tone="healthy" title={status} role="status" /> : null}
+          {error ? <WorkspaceState tone="critical" title={error} role="alert" /> : null}
 
           <Flex gap="2" flexWrap="wrap">
-            <Button colorPalette="blue" disabled={pending || !selected} onClick={() => void save()}>
+            <Button
+              size="sm"
+              colorPalette="blue"
+              disabled={pending || !selected}
+              onClick={() => void save()}
+            >
               {text.serviceMonitoringSave}
             </Button>
-            <Button variant="outline" disabled={pending || !selected} onClick={() => void reset()}>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={pending || !selected}
+              onClick={() => void reset()}
+            >
               {text.serviceMonitoringReset}
             </Button>
           </Flex>
-        </Card.Body>
-      </Card.Root>
+        </Stack>
+      </NocPanel>
     </Stack>
   );
 }

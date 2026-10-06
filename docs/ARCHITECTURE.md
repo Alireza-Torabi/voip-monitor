@@ -115,3 +115,7 @@ The frontend now uses a product-specific Chakra system instead of the default sy
 ## Task 53 Operator Overview
 
 The default dashboard presentation is now a dedicated OperatorOverview over the existing DashboardBuilder data-loading boundary. It derives a presentation-only overall condition and current-problem list from provider state, SSE connectivity, telephony synchronization/entities, current security alerts, and system metrics. It introduces no new backend health or alert contract. Saved DashboardDefinition widgets remain persisted and editable, but they are rendered only in explicit Edit mode; normal mode uses the fixed approved operational hierarchy.
+
+## Task 54 workspace presentation architecture
+
+Frontend workspaces now share WorkspacePrimitives layered on the Task 52 NOC primitives. WorkspaceHeader owns page hierarchy, WorkspaceToolbar owns scope/search/filter controls, WorkspaceState owns loading/error/status/empty treatment, and DataSurface owns dense tabular/list framing. Settings adds a responsive category rail while retaining existing component/data ownership. The redesign does not add backend endpoints or alter PBX/read-only data contracts.

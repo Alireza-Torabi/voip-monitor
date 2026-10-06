@@ -79,3 +79,7 @@ Task 52 implements the approved application shell and centralized visual system 
 ## 2026-10-06 — Task 53 problem-first Operator Dashboard
 
 The default dashboard now prioritizes operator decisions instead of arbitrary widget layout. Current existing read-only signals are synthesized into a compact health strip, current-problem list, infrastructure panel, active-call/trunk state, and endpoint/queue/service summaries. Persisted dashboard layouts remain supported only as an explicit secondary Edit mode, so customization no longer weakens the default first-glance hierarchy. No backend monitoring, PBX behavior, generic alert model, or fleet-health semantics changed in this task.
+
+## 2026-10-06 — Task 54 workspace redesign
+
+The non-dashboard operator surfaces now share the same Modern NOC visual and interaction language. Telephony uses a compact live-status header, unified scope/search toolbar and dense data table; source-backed History uses dataset-aware dense records rather than cards; Security uses compact current/recent alert surfaces and consistent rule panels; Settings uses a responsive sub-navigation rail and consistent NOC form surfaces across PBX, database, SSH, service, storage and account administration. Data/API/PBX behavior is unchanged.

@@ -1,6 +1,6 @@
 # Master Plan
 
-Status: 2026-10-06. PR #62، Task 52 را Merge کرده است. Task 53 روی Branch feature/operator-dashboard-redesign به‌صورت Local کامل شده و Merge آن Pending است. Operator Dashboard پیش‌فرض اکنون یک Operational Surface ثابت و Problem-first است؛ Saved Widget Layoutها فقط به‌عنوان Edit Mode ثانویه باقی مانده‌اند. Task 54 فقط بعد از Merge شدن Task 53 شروع می‌شود.
+Status: 2026-10-06. PR #63، Task 53 را Merge کرده است. Task 54 روی Branch feature/workspaces-redesign به‌صورت Local کامل شده و Merge آن Pending است. Telephony، History، Security و Settings اکنون یک Modern NOC Workspace Language مشترک با Header، Toolbar، Data Surface، State و Settings Navigation یکپارچه دارند. Task 55 فقط بعد از Merge شدن Task 54 شروع می‌شود.
 
 ## Phase 0 - کشف محیط
 
@@ -695,7 +695,7 @@ Foundation پروژه از نظر Production آماده است، اما محصو
   - هیچ تغییر در Backend Contract یا رفتار PBX انجام نمی‌شود.
 - [x] **Task 52 — پیاده‌سازی UI Shell و Design System تأییدشده**
 - [x] **Task 53 — بازطراحی Operator Dashboard با رویکرد Operational Decision Surface**
-- [ ] **Task 54 — بازطراحی Telephony، History، Security و Settings**
+- [x] **Task 54 — بازطراحی Telephony، History، Security و Settings**
 - [ ] **Task 55 — NOC/Wallboard و Accessibility Pass**
 
 ### Phase 14 — Unified Operational Health
@@ -827,5 +827,51 @@ Lint یک Helper استفاده‌نشده به نام connectionTone پیدا �
 Node برابر v24.21.0 و npm برابر 11.19.0 بود. بعد از حذف Helper بدون استفاده‌ای که Run اول Lint پیدا کرد، Lint، Format Check، Typecheck، Backend Test برابر 165/165، Frontend Test برابر 28/28، Production Build، Foundation Check، License Check و Git Diff Check همگی PASS شدند. Warningهای موجود Chakra/Ark/Rolldown درباره module-level use client همچنان Non-fatal هستند.
 
 همچنین یک inconsistency در Roadmap اصلاح شد: Task 51 قبلاً در PR #61 Merge شده بود ولی Checkbox آن باز مانده بود؛ اکنون Complete علامت‌گذاری شد.
+
+</div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-06 — ثبت تکمیل Task 54
+
+- **نتیجه:** Telephony، Source-backed History، Security و تمام Settings Surfaceهای فعلی اکنون به‌جای Generic Card Layoutهای مستقل از یک Modern NOC Workspace Language مشترک استفاده می‌کنند.
+- **Workspace Primitiveهای مشترک:** WorkspaceHeader، WorkspaceToolbar، WorkspaceField، WorkspaceSearch، WorkspaceSelect، WorkspaceState، DataSurface و WorkspaceStatusPills روی Design System مربوط به Task 52 اضافه شدند.
+- **Telephony:** Header، Live/Capability/Synchronization Status، PBX/Search Toolbar، Warning/Error State، Dense Table و Pagination یکپارچه شدند. Search، Filter، Active-channel behavior، Paging و SSE Contract تغییر نکرده‌اند.
+- **History:** نمایش Card-per-record با Data Surface متراکم جایگزین شد. PBX Scope، Dataset Availability، Dataset Selection، Schema Refresh، Loading/Error/Empty State، Source Timestamp Notice و Row Detailهای نرمال‌شده همگی زبان تعاملی مشترک دارند. Query همچنان Explicit، Bounded، Read-only و Source-owned است.
+- **Security:** Current/Recent Alertها به Compact List Surface تبدیل شدند؛ Live/Current Status برجسته شده و Rule Configuration از NOC Inset Panel و Stateهای مشترک استفاده می‌کند. مدل دو Rule فعلی، Persistence، Realtime Merge و API Contract تغییر نکرده‌اند.
+- **Settings Shell:** در Desktop یک Sub-navigation Rail اختصاصی و در Layout کوچک‌تر Navigation افقی قابل Scroll دارد. PBX، Database Source، SSH Metrics، Service Monitoring، Dashboard Storage، Security و Accounts داخل یک Content Region منسجم Render می‌شوند.
+- **Settings Workspaceها:** PBX Management، Database Source، SSH Metrics، Service Monitoring، Dashboard Storage و Accounts از Card.Rootهای Legacy به NocPanel/NocInset و Workspace Stateهای مشترک مهاجرت کردند. رفتار Write-only Credential و Validationهای قبلی بدون تغییر باقی مانده‌اند.
+- **RTL/LTR:** Chrome فارسی RTL باقی می‌ماند و Technical Valueها، Host-like Identifierها، Service ID، Call ID و Source Timestamp به‌صورت Explicit LTR نمایش داده می‌شوند.
+- **Failureهای رفع‌شده:** TypeScript Strict یک Collision بین HTML title در FlexProps و title محتوایی SectionHeader پیدا کرد که با Omit کردن HTML prop اصلاح شد. Labelهای i18n جاافتاده و Type widening مربوط به Status Tone اصلاح شدند. یک Replace گسترده در JSX مربوط به PBX موقتاً Closing Tag فرم Setup را خراب کرد که قبل از Validation ترمیم شد. تست Security نیز بعد از Compact شدن Row به‌خاطر حذف Colon ظاهری شکست و Contract خوانای Matched events: N بازگردانده شد.
+- **محدودیت:** Task 54، Entity Drawer جدید، Historical Filter جدید، Unified Health Semantics یا Alert Lifecycle جدید اضافه نمی‌کند و فقط Presentation/Interaction رفتارهای موجود را استاندارد می‌کند.
+- **Task دقیق بعدی:** Task 55 — NOC/Wallboard و Accessibility Pass.
+
+</div>
+
+<div dir="rtl" align="right">
+
+### Failure مربوط به Final Gate در Task 54
+
+Lint نه مورد Migration Leftover پیدا کرد: چند Import بدون استفاده بعد از حذف Card/Headerهای قدیمی و Helper قدیمی connectionPalette که بعد از انتقال PBX Status به StatusIndicator دیگر استفاده نمی‌شد. همه حذف شدند و Full Gate از ابتدا Restart شد.
+
+</div>
+
+<div dir="rtl" align="right">
+
+در Run دوم Lint سه Import باقی مانده بود چون Prettier لیست Importها را Compact کرده و Pattern پاکسازی اول آن‌ها را Match نکرده بود. آن‌ها حذف شدند و Full Gate دوباره از ابتدا Restart شد.
+
+</div>
+
+<div dir="rtl" align="right">
+
+در Run سوم مشخص شد Flex در Layout/Actionهای Storage هنوز استفاده می‌شود و هنگام Lint Cleanup به اشتباه حذف شده بود. Import لازم برگردانده شد و Full Gate دوباره از ابتدا Restart شد.
+
+</div>
+
+<div dir="rtl" align="right">
+
+### Final Validation مربوط به Task 54
+
+Node برابر v24.21.0 و npm برابر 11.19.0 بود. بعد از Migration Cleanup، Lint، Format Check، Typecheck، Backend Test برابر 165/165، Frontend Test برابر 28/28، Production Build، Foundation Check، License Check و Git Diff Check همگی PASS شدند. Warningهای موجود Chakra/Ark/Zag/Rolldown درباره module-level use client همچنان Non-fatal هستند.
 
 </div>

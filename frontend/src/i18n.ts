@@ -254,6 +254,7 @@ export const messages = {
     callerId: 'Caller ID',
     historyMenu: 'History',
     historyTitle: 'Source-backed history',
+    historyDataset: 'Dataset',
     historyHint:
       'Bounded read-only history loaded directly from the configured PBX database source. Rows are not copied into VoIP Monitor storage.',
     historyPbx: 'History PBX',
@@ -342,6 +343,10 @@ export const messages = {
       'Outbound registrations are CONFIRMED. Static chan_sip peers and PJSIP endpoints with outbound authentication are shown as CANDIDATE because AMI does not provide a universal trunk-role flag.',
     securityTitle: 'Security monitoring',
     securityHint: 'Current persisted alerts and the two bounded authentication-failure rules.',
+    securityCurrentAlertsHint: 'Active security conditions for the selected PBX.',
+    securityRecentAlertsHint:
+      'Recent bounded security-alert history from the current runtime window.',
+    securityRulesHint: 'Configure the existing bounded authentication-failure alert rules.',
     securityPbx: 'Security PBX',
     currentAlerts: 'Current alerts',
     recentAlerts: 'Recent alert history (24 hours)',
@@ -618,6 +623,7 @@ export const messages = {
     callerId: 'Caller ID',
     historyMenu: 'تاریخچه',
     historyTitle: 'تاریخچه مستقیم از Source',
+    historyDataset: 'مجموعه داده',
     historyHint:
       'History محدود و فقط‌خواندنی مستقیماً از Database Source پیکربندی‌شده PBX خوانده می‌شود و Rowها داخل VoIP Monitor کپی نمی‌شوند.',
     historyPbx: 'PBX تاریخچه',
@@ -707,6 +713,9 @@ export const messages = {
       'Outbound Registrationها با CONFIRMED نمایش داده می‌شوند. Static chan_sip Peerها و PJSIP Endpointهای دارای Outbound Authentication به‌صورت CANDIDATE نمایش داده می‌شوند، چون AMI یک Trunk-role عمومی و قطعی ارائه نمی‌کند.',
     securityTitle: 'پایش امنیت',
     securityHint: 'هشدارهای فعلی ذخیره‌شده و دو Rule محدود مربوط به خطاهای احراز هویت.',
+    securityCurrentAlertsHint: 'وضعیت‌های امنیتی فعال برای PBX انتخاب‌شده.',
+    securityRecentAlertsHint: 'History محدود هشدارهای امنیتی اخیر در Runtime فعلی.',
+    securityRulesHint: 'Ruleهای محدود موجود برای Authentication Failure را تنظیم کنید.',
     securityPbx: 'PBX امنیتی',
     currentAlerts: 'هشدارهای فعلی',
     recentAlerts: 'تاریخچه اخیر هشدارها (۲۴ ساعت)',
