@@ -111,3 +111,7 @@ Release portability is validated from a temporary seed commit built from the sta
 ## Task 52 frontend shell and design system
 
 The frontend now uses a product-specific Chakra system instead of the default system. Central NOC tokens define the dark canvas, grouped surfaces, structural borders, text hierarchy, accent, and semantic operational states. A persistent responsive sidebar and sticky compact top bar form the application shell, while existing workspaces remain behaviorally unchanged and inherit dark semantic bg/fg/border compatibility tokens. Reusable NOC panel/status/header primitives support incremental migration without coupling UI modernization to backend or PBX behavior.
+
+## Task 53 Operator Overview
+
+The default dashboard presentation is now a dedicated OperatorOverview over the existing DashboardBuilder data-loading boundary. It derives a presentation-only overall condition and current-problem list from provider state, SSE connectivity, telephony synchronization/entities, current security alerts, and system metrics. It introduces no new backend health or alert contract. Saved DashboardDefinition widgets remain persisted and editable, but they are rendered only in explicit Edit mode; normal mode uses the fixed approved operational hierarchy.

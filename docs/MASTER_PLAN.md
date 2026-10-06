@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-06. PR #61 merged Task 51. Task 52 is complete locally on feature/ui-shell-design-system and merge is pending. The approved Modern NOC shell, centralized design tokens, semantic compatibility layer, RTL-aware navigation, reusable primitives, and regression coverage are implemented. Task 53 follows only after Task 52 merges.
+Status: 2026-10-06. PR #62 merged Task 52. Task 53 is complete locally on feature/operator-dashboard-redesign and merge is pending. The default Operator Dashboard is now a fixed problem-first operational surface; saved widget layouts remain available only as a secondary Edit mode. Task 54 follows only after Task 53 merges.
 
 ## Phase 0 — environment discovery
 
@@ -684,7 +684,7 @@ The product foundation is production-ready, but the monitoring product is not ye
 
 ### Phase 13 — UI/UX modernization
 
-- [ ] **Task 51 — UI/UX Redesign Foundation and Master Mockup**
+- [x] **Task 51 — UI/UX Redesign Foundation and Master Mockup**
   - Inventory the current navigation, dashboard, table, form, state, and interaction patterns.
   - Freeze a modern operations-console design system: typography, spacing, surfaces, elevation, borders, semantic status colors, density, grid, charts, tables, filters, empty/loading/stale/error states, and RTL/LTR behavior.
   - Redefine information architecture for Dashboard, Telephony, History, Alerts/Security, and Settings.
@@ -693,7 +693,7 @@ The product foundation is production-ready, but the monitoring product is not ye
 - [x] **Task 52 — Implement the approved UI shell and design system**
   - Replace the current default Chakra visual language with product-specific tokens/components.
   - Implement the approved sidebar/topbar/navigation, page shells, cards, badges, tables, filters, dialogs, and status treatments.
-- [ ] **Task 53 — Redesign the Operator Dashboard**
+- [x] **Task 53 — Redesign the Operator Dashboard**
   - Turn the home screen from a widget collection into an operational decision surface.
   - Prioritize current problems, system/PBX health, active calls, trunk/endpoint/queue pressure, infrastructure state, and stale/source-health visibility.
 - [ ] **Task 54 — Redesign Telephony, History, Security, and Settings**
@@ -810,3 +810,37 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 - license check PASS.
 - git diff check PASS.
 - Existing Chakra/Ark/Rolldown module-level "use client" warnings remain non-fatal and unchanged in nature.
+
+## 2026-10-06 — Task 53 completion record
+
+- **Result:** the default Operator Dashboard is no longer a free-form widget grid. It is now a fixed, problem-first operational surface based on the approved Modern NOC master.
+- **First-glance hierarchy:** compact overall-health / calls / trunks / endpoints / queues / security-alerts / live-state KPI strip; current-problems panel; infrastructure-health panel; active-calls panel; trunk-health panel; endpoint, queue, and service summaries.
+- **Problem synthesis:** the view derives only from existing read-only state. It promotes provider disconnect/degradation, stale telephony, degraded live streams, current security alerts, unhealthy trunks, unreachable endpoints, queue pressure, failed services, high CPU/memory, and high filesystem usage. No new backend alert semantics are invented.
+- **Infrastructure:** CPU, memory, selected filesystem pressure, uptime, and bounded CPU trend are compact rather than gauge-heavy.
+- **Telephony:** active calls and current trunks are visible directly on the Overview, with drill-down into existing Telephony workspaces. Endpoint/queue/service summaries remain compact.
+- **Customization:** persisted dashboard definitions and widget CRUD/reordering/resizing remain intact, but they are shown only in explicit Edit mode. The default operational view is no longer controlled by arbitrary widget order.
+- **Toolbar:** customization controls are secondary. Normal mode shows dashboard title/hint, PBX scope, Edit Dashboard, and Fullscreen; dashboard-definition selection/new-dashboard controls appear only while editing.
+- **RTL/i18n:** new operational labels are bilingual. Existing technical identifiers remain LTR islands.
+- **Regression coverage:** frontend suite increased from 27 to 28 tests with an explicit critical/problem-first overview case. The persisted-layout test now proves the layout is hidden in normal mode, restored in Edit mode, and remains editable/deletable/fullscreen-compatible.
+- **Failures resolved:** the first migration test expected persisted widgets in normal mode; it was updated to the approved secondary Edit-mode contract. A later toolbar refinement moved the saved-dashboard name out of normal mode, so its assertion was moved into Edit mode. Strict exactOptionalPropertyTypes also required explicit undefined-compatible component props; those contracts were corrected without loosening compiler settings.
+- **Known limitation:** this task does not add a fleet-wide cross-PBX health model or generic operational alert engine. Overall dashboard health is a presentation synthesis over current existing signals only. Unified health semantics remain Task 56.
+- **Exact next task:** Task 54 — Redesign Telephony, History, Security, and Settings workspaces using the approved NOC interaction language.
+
+### Task 53 final-gate failure
+
+- **Lint found one unused `connectionTone` helper — resolved:** the helper became obsolete after the final Overview composition was simplified. It was removed and the full final gate was restarted from the beginning.
+
+### Task 53 final validation
+
+- Node v24.21.0 / npm 11.19.0.
+- lint PASS after removing the obsolete helper found by the first gate run.
+- format check PASS.
+- typecheck PASS.
+- backend tests 165/165 PASS.
+- frontend tests 28/28 PASS.
+- production build PASS.
+- foundation check PASS.
+- license check PASS.
+- git diff check PASS.
+- Existing Chakra/Ark/Rolldown module-level "use client" warnings remain non-fatal and unchanged in nature.
+- Roadmap consistency correction: Task 51 had already been merged in PR #61 but its Phase 13 checkbox remained open; it is now marked complete.

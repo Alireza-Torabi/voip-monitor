@@ -1,6 +1,6 @@
 # Master Plan
 
-Status: 2026-10-06. PR #61، Task 51 را Merge کرده است. Task 52 روی Branch feature/ui-shell-design-system به‌صورت Local کامل شده و Merge آن Pending است. Modern NOC Shell، Design Tokenهای مرکزی، Semantic Compatibility Layer، Navigation سازگار با RTL، Primitiveهای reusable و Regression Testها پیاده‌سازی شده‌اند. Task 53 فقط بعد از Merge شدن Task 52 شروع می‌شود.
+Status: 2026-10-06. PR #62، Task 52 را Merge کرده است. Task 53 روی Branch feature/operator-dashboard-redesign به‌صورت Local کامل شده و Merge آن Pending است. Operator Dashboard پیش‌فرض اکنون یک Operational Surface ثابت و Problem-first است؛ Saved Widget Layoutها فقط به‌عنوان Edit Mode ثانویه باقی مانده‌اند. Task 54 فقط بعد از Merge شدن Task 53 شروع می‌شود.
 
 ## Phase 0 - کشف محیط
 
@@ -687,14 +687,14 @@ Foundation پروژه از نظر Production آماده است، اما محصو
 
 ### Phase 13 — نوسازی UI/UX
 
-- [ ] **Task 51 — UI/UX Redesign Foundation و Master Mockup**
+- [x] **Task 51 — UI/UX Redesign Foundation و Master Mockup**
   - Inventory کامل Navigation، Dashboard، Table، Form، State و Interactionهای فعلی.
   - تعریف Design System مدرن برای Operations Console شامل Typography، Spacing، Surface، Border، Elevation، Status Color، Density، Grid، Chart، Table، Filter و Stateهای Empty/Loading/Stale/Error.
   - بازتعریف Information Architecture برای Dashboard، Telephony، History، Alerts/Security و Settings.
   - ساخت و Approval یک Desktop Master Mockup قبل از تغییر اساسی Production UI.
   - هیچ تغییر در Backend Contract یا رفتار PBX انجام نمی‌شود.
 - [x] **Task 52 — پیاده‌سازی UI Shell و Design System تأییدشده**
-- [ ] **Task 53 — بازطراحی Operator Dashboard با رویکرد Operational Decision Surface**
+- [x] **Task 53 — بازطراحی Operator Dashboard با رویکرد Operational Decision Surface**
 - [ ] **Task 54 — بازطراحی Telephony، History، Security و Settings**
 - [ ] **Task 55 — NOC/Wallboard و Accessibility Pass**
 
@@ -790,5 +790,42 @@ Task دقیق بعدی بعد از Merge شدن Task 51، **Task 52 — پیاد
 ### Final Validation مربوط به Task 52
 
 Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check، Typecheck، Backend Test برابر 165/165، Frontend Test برابر 27/27، Production Build، Foundation Check، License Check و Git Diff Check همگی PASS شدند. Warningهای موجود Chakra/Ark/Rolldown درباره module-level use client همچنان Non-fatal هستند.
+
+</div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-06 — ثبت تکمیل Task 53
+
+- **نتیجه:** Operator Dashboard پیش‌فرض دیگر Free-form Widget Grid نیست و به یک Operational Surface ثابت و Problem-first مطابق Modern NOC Master تبدیل شد.
+- **Hierarchy نگاه اول:** KPI Strip فشرده برای Overall Health، Calls، Trunks، Endpoints، Queues، Security Alerts و Live State؛ سپس Current Problems، Infrastructure Health، Active Calls، Trunk Health و Summaryهای Endpoint/Queue/Service.
+- **Problem Synthesis:** فقط از Stateهای Read-only موجود استفاده می‌شود و Provider Disconnect/Degradation، Telephony Stale، Live Stream Degradation، Security Alert فعلی، Trunk ناسالم، Endpoint غیرقابل‌دسترس، Queue Pressure، Service Failure و مصرف بالای CPU/Memory/Filesystem را برجسته می‌کند. هیچ Alert Semantics جدید Backend ساخته نشده است.
+- **Infrastructure:** CPU، Memory، Filesystem انتخاب‌شده، Uptime و CPU Trend به‌صورت Compact نمایش داده می‌شوند و Gaugeهای بزرگ از Default View حذف شده‌اند.
+- **Telephony:** Active Call و Trunk State مستقیماً در Overview دیده می‌شوند و به Workspaceهای موجود Drill-down دارند.
+- **Customization:** Dashboard Definition و Widget CRUD/Reorder/Resize قبلی حفظ شده‌اند، اما فقط در Edit Mode صریح نمایش داده می‌شوند. Default Operational View دیگر تحت کنترل ترتیب دلخواه Widgetها نیست.
+- **Toolbar:** Customization ثانویه شده است. حالت عادی فقط Title/Hint، PBX Scope، Edit Dashboard و Fullscreen را نشان می‌دهد؛ Dashboard Selector و New Dashboard فقط در Edit Mode ظاهر می‌شوند.
+- **RTL/i18n:** Labelهای جدید دوزبانه هستند و Technical Identifierها LTR باقی مانده‌اند.
+- **Regression:** Frontend Suite از 27 به 28 تست افزایش یافت و Critical/Problem-first Overview به‌صورت مستقیم تست می‌شود.
+- **Failureهای رفع‌شده:** تست اولیه Persisted Widgetها را در Normal Mode انتظار داشت که با Contract جدید Edit Mode هماهنگ شد. بعد از Secondary شدن Customization، Assertion نام Saved Dashboard نیز به Edit Mode منتقل شد. Strict exactOptionalPropertyTypes هم با Contractهای صریح optional اصلاح شد و Compiler Setting شل نشد.
+- **محدودیت:** Fleet-wide Health Model یا Generic Operational Alert Engine در این Task اضافه نشده است. Overall Health فعلی فقط Presentation Synthesis روی Signalهای موجود است و Unified Health Semantics در Task 56 انجام می‌شود.
+- **Task دقیق بعدی:** Task 54 — بازطراحی Telephony، History، Security و Settings با همان NOC Interaction Language.
+
+</div>
+
+<div dir="rtl" align="right">
+
+### Failure مربوط به Final Gate در Task 53
+
+Lint یک Helper استفاده‌نشده به نام connectionTone پیدا کرد. این Helper بعد از Simplify شدن Composition نهایی Overview دیگر لازم نبود؛ حذف شد و Full Gate از ابتدا Restart شد.
+
+</div>
+
+<div dir="rtl" align="right">
+
+### Final Validation مربوط به Task 53
+
+Node برابر v24.21.0 و npm برابر 11.19.0 بود. بعد از حذف Helper بدون استفاده‌ای که Run اول Lint پیدا کرد، Lint، Format Check، Typecheck، Backend Test برابر 165/165، Frontend Test برابر 28/28، Production Build، Foundation Check، License Check و Git Diff Check همگی PASS شدند. Warningهای موجود Chakra/Ark/Rolldown درباره module-level use client همچنان Non-fatal هستند.
+
+همچنین یک inconsistency در Roadmap اصلاح شد: Task 51 قبلاً در PR #61 Merge شده بود ولی Checkbox آن باز مانده بود؛ اکنون Complete علامت‌گذاری شد.
 
 </div>

@@ -640,3 +640,12 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 423. **Navigation only exposes real capabilities:** approved mockup items without current functionality are not rendered as fake interactive features.
 424. **Shell and dashboard redesign remain separate tasks:** Task 52 owns shell/design-system migration; Task 53 owns the problem-first operator dashboard composition.
 425. **RTL shell behavior is regression-tested:** Persian application chrome remains RTL while technical value direction contracts remain unchanged.
+
+## 2026-10-06 — Task 53 Operator Dashboard redesign
+
+426. **The default Overview is fixed and problem-first:** saved widget order no longer controls the operator's first view.
+427. **Dashboard customization remains secondary:** persisted layouts, widget CRUD, reordering, resizing, and fullscreen compatibility remain available only through explicit Edit mode.
+428. **Problem synthesis uses existing signals only:** provider state, realtime stream state, telephony synchronization, security alerts, trunk/endpoint/queue state, system metrics, filesystems, and services may influence presentation; this is not a replacement for the future generic alert or unified-health model.
+429. **Large gauges are removed from the default Overview:** infrastructure is summarized through compact metric bars, uptime, and bounded trend presentation.
+430. **Operational drill-down reuses existing workspaces:** calls, trunks, endpoints, queues, and security links do not create duplicate views or new data paths.
+431. **Customization controls do not dominate normal operation:** dashboard-definition selection and creation are visible only while editing.

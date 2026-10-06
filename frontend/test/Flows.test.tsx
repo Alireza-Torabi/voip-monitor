@@ -1268,14 +1268,19 @@ describe('dashboard builder', () => {
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    expect(container.querySelectorAll('[data-dashboard-widget]')).toHaveLength(3);
-    expect(container.textContent).toContain('TV');
+    expect(container.querySelector('[data-operator-overview]')).not.toBeNull();
+    expect(container.querySelectorAll('[data-dashboard-widget]')).toHaveLength(0);
+    expect(container.textContent).toContain('Current problems');
+    expect(container.textContent).toContain('Infrastructure health');
     expect(container.textContent).toContain('Full screen');
 
     const edit = [...container.querySelectorAll('button')].find(
       (button) => button.textContent === 'Edit dashboard',
     );
     await act(async () => edit?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    expect(container.querySelector('[data-operator-overview]')).toBeNull();
+    expect(container.querySelectorAll('[data-dashboard-widget]')).toHaveLength(3);
+    expect(container.textContent).toContain('TV');
     expect(container.textContent).toContain('Drag widgets to reorder them.');
     const remove = [...container.querySelectorAll('button')].find(
       (button) => button.textContent === '×',
