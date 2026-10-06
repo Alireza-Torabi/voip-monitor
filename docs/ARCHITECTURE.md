@@ -1,6 +1,6 @@
 # Proposed architecture
 
-Status: PR #57 merged Task 48. Task 49 is complete locally on `feature/hardening-backup-restore-runbook` and merge is pending: production hardening, stopped-service backup, checksum-validated tested restore, and bilingual production runbooks are implemented. Task 50 follows after merge.
+Status: PR #58 merged Task 49. Task 50 is complete locally on `feature/fresh-deployment-release-validation` and merge is pending: staged-source fresh deployment, zero-high/critical dependency audit, backup/restore, and approved physical reboot recovery passed. No Task 51 is defined.
 
 ```text
 PBX (Asterisk / FreePBX)
@@ -103,3 +103,7 @@ The security alert layer evaluates only normalized persisted `SecurityEvent` rec
 ## Task 49 production hardening and recovery
 
 Production recovery uses a coordinated stopped-service recovery set containing the SQLite database and matching 32-byte master key, plus private environment metadata and optional TLS material. Backup files are checksummed and permission-restricted; encryption of the recovery destination is an external deployment-policy boundary. Restore verifies the complete set before writing and refuses overwrite by default. The tracked systemd unit removes Linux capabilities, restricts namespaces/devices/kernel/control-group/clock/hostname/process visibility, prevents SUID/realtime privilege paths, and permits only Unix/IPv4/IPv6 address families. Legacy monitoring-history tables remain present but unused; deletion is a separate destructive migration gated on production observation and tested recovery.
+
+## Task 50 release validation
+
+Release portability is validated from a temporary seed commit built from the staged Git index and then cloned into a new worktree. The validator rejects private/runtime artifacts, installs exactly from the lockfile, gates on high/critical dependency audit, builds the application, creates isolated TLS/data/key/environment state, starts the production launcher with PBX networking disabled, performs first-admin plus synthetic PBX onboarding, and proves backup/restore plus restart recovery. Physical host reboot remains a separate explicitly approved gate whenever boot would reconnect to a real PBX. Installed systemd-unit drift is treated as a release failure until the tracked hardened unit is installed and reboot-tested.

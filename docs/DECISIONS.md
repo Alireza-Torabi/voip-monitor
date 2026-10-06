@@ -602,3 +602,13 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 399. **Systemd hardening remains compatibility-aware:** empty capabilities, namespace/device/kernel/process protections and AF_UNIX/AF_INET/AF_INET6 restrictions are accepted; aggressive syscall/JIT restrictions are deferred until exact runtime validation.
 400. **Legacy history tables remain:** Task 49 does not destructively drop them; production observation, dependency review, fresh backup, isolated restore, and separate migration approval are mandatory before deletion.
 401. **Task 50 is next:** release validation must prove a clean organization-neutral deployment without importing private state from another installation.
+
+## 2026-10-06 — Task 50 release validation
+
+402. **Release validation must start from staged clean source:** a temporary seed commit from the Git index is cloned into a fresh worktree so uncommitted release-candidate changes can be validated without copying runtime state or mutating project refs.
+403. **High/critical dependency audit is a release gate:** the clean-clone drill runs npm audit at high severity; the discovered source-map-js 1.2.1 advisory was resolved to patched 1.2.2 before acceptance.
+404. **Fresh deployment must prove operational recovery:** acceptance includes isolated HTTPS boot, health/readiness, first-admin onboarding, synthetic secret-safe PBX configuration, stopped-service backup, checksum-validated restore, login/state recovery, and restart recovery.
+405. **Physical reboot remains an explicit PBX boundary:** if a host would reconnect to a real PBX on boot, reboot validation requires explicit approval.
+406. **Installed service drift blocks release acceptance:** Task 50 detected an older installed systemd unit after the first reboot; acceptance required installing the merged hardened unit and repeating the reboot gate.
+407. **No additional PBX probe is needed for reboot evidence:** existing transport reconnection can be verified from local service/network state without sending new PBX commands.
+408. **Current approved roadmap ends at Task 50:** no Task 51 is defined; after merge, work stops until an explicit next roadmap item is approved.
