@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-06. PR #56 merged Task 47. Task 48 is complete locally on feature/nondup-history-reconciliation and merge is pending. New monitoring history writes are now bounded in-memory only; legacy persisted history tables remain untouched pending a separately reviewed cleanup. Task 49 follows only after Task 48 is merged.
+Status: 2026-10-06. PR #57 merged Task 48. Task 49 is complete locally on feature/hardening-backup-restore-runbook and merge is pending. Production hardening, stopped-service backup, checksum-validated tested restore, and bilingual production runbooks are implemented. Task 50 follows only after Task 49 is merged.
 
 ## Phase 0 — environment discovery
 
@@ -86,20 +86,19 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 46: add source-schema adapters for historical/reporting views (for example CDR/CEL/queue data when the configured source actually provides them), using normalized provider-neutral contracts and synthetic fixtures before any separately approved real-database compatibility verification.
 - [x] Task 47: expose bounded source-backed historical/reporting APIs and UI views without copying source rows into the VoIP Monitor database.
 - [x] Task 48: reconcile legacy locally persisted monitoring histories with the new non-duplication policy: bounded in-memory trend/state buffers now replace new local history writes, explicitly justified current operational state remains persisted, and legacy history tables are retained untouched until a separately reviewed cleanup migration.
-- [ ] Task 49: hardening, backup, tested restore, and production deployment runbook, including explicit review of whether/when the now-unused legacy monitoring-history tables may be destructively removed.
+- [x] Task 49: hardening, backup, tested restore, and production deployment runbook, with legacy monitoring-history table deletion explicitly deferred pending production observation and a separately approved destructive migration.
+- [ ] Task 50: organization-neutral fresh-deployment/release validation from a clean clone, proving install, onboarding, backup/restore, reboot recovery, and operation without importing private state.
 
 ### Current execution handoff
 
-- PR #56 merged Task 47. Current branch: `feature/nondup-history-reconciliation`, created from synchronized `main` at merge commit `1eb8b61`.
-- Task 48 stops all new SQLite writes to `system_metric_history`, `security_event_history`, and `security_alert_history`. Existing tables/rows are intentionally not dropped or modified in this task.
-- Recent system-metric trends use a PBX-scoped in-memory buffer capped at 2048 records. Security-event and security-alert recent history use PBX-scoped in-memory buffers capped at 500 records each. Existing retention cutoffs and API limits remain enforced.
-- Current operational state remains persistent: one latest system-metric sample, one latest security event, current per-rule security alerts, rule configuration, dashboard/settings data, encrypted credentials, and notification delivery reliability state remain in SQLite.
-- Security threshold evaluation continues to use the same repository history contract, but that contract is now process-local memory and clears on restart. This is intentional for the real-time monitor architecture.
-- Existing history APIs/UI remain compatible during a process lifetime; after restart their local recent-history buffers begin empty and refill from live monitoring. Source-backed telephony/reporting history remains owned by the configured external database source.
-- Safe cleanup plan: do not drop legacy history tables in Task 48. First deploy and observe the in-memory replacement, confirm no downstream backup/reporting dependency relies on those tables, take a tested backup/restore point, then use a separately reviewed migration to remove legacy tables only if explicitly approved.
-- Targeted validation passes 18/18 across storage, security-alert runtime, and system-metrics runtime, including proof that the three legacy history tables receive zero new rows while current operational state survives reopen.
-- No real PBX, source database, credential, or production monitoring data was accessed.
-- Exact next task after Task 48 merge is **Task 49 — hardening, backup, tested restore, and production deployment runbook**, including the explicit cleanup decision for the now-unused legacy history tables.
+- PR #57 merged Task 48. Current branch: feature/hardening-backup-restore-runbook, created from synchronized main at merge commit 3460a2b.
+- Task 49 adds fail-closed stopped-service backup/restore tooling with SQLite-format, 32-byte master-key, application-ref, checksum, and overwrite validation.
+- Automated recovery validation creates a real temporary SQLite database, backs up and restores DB/key/env/TLS fixtures, reopens restored SQLite and reads a probe, verifies overwrite refusal, and proves tampering fails closed.
+- The tracked systemd unit passes systemd-analyze verify. Offline exposure on the current Ubuntu 24.04 host improved from 5.3 MEDIUM to 2.8 OK after compatibility-safe capability, namespace, device, kernel, process, realtime/SUID, and address-family restrictions.
+- Bilingual production runbooks now define hardening review, pre-deployment gates, backup, isolated restore drill, ownership recovery, upgrade/rollback, post-deployment verification, reboot recovery, and troubleshooting.
+- Legacy history cleanup remains intentionally non-destructive: removal requires production observation, no downstream dependency, a fresh production recovery set, successful isolated restore, and a separately reviewed/approved migration.
+- No real PBX, source database, production credential, production backup, or production runtime data was accessed during Task 49.
+- Exact next task after Task 49 merge is Task 50 — organization-neutral fresh-deployment/release validation from a clean clone.
 
 ### Failure and bug log
 
@@ -577,8 +576,7 @@ Tasks 7–13 implemented substantial Asterisk-provider and telephony-state found
 - [x] Phase 7: security monitoring — normalized AMI authentication events, persistence/API/SSE, bounded alert evaluation/persistence/rules/runtime, authenticated rule APIs, and bilingual current/recent-history/realtime alert UI are complete for the defined slice; broader sources/rules and external delivery remain separate future work.
 - [x] Phase 8 foundation: authenticated PBX-scoped read-only/realtime exposure exists for system metrics, security state, alerts, and normalized telephony current state.
 - [x] Phase 9: bilingual operator dashboard foundation using existing safe provider/system/security boundaries.
-- [x] Phase 10: source-backed history/reporting without duplicate telemetry persistence, with new legacy local monitoring-history writes replaced by bounded in-memory buffers and destructive cleanup intentionally deferred.
-- [ ] Phase 11: hardening, backup, tested restore, and a production deployment runbook.
+- [x] Phase 11: hardening, stopped-service backup, checksum-validated tested restore, and bilingual production operations runbook.
 - [ ] Phase 12: release validation, including an organization-neutral fresh-deployment procedure that can onboard a new service without carrying private values from another deployment.
 
 Phase 1 is closed. The live-monitoring foundations through the operator dashboard are complete, and Task 47 now exposes bounded source-backed historical/reporting views without local row duplication. Task 48 is the exact next task after Task 47 merges: reconcile legacy locally persisted monitoring histories with the non-duplication policy and define a safe migration/cleanup plan before any destructive removal.
@@ -643,3 +641,16 @@ For every future task, retain resolved failures and bugs in this plan with: obse
 ### Task 48 final validation
 
 - **Final repository gates:** project Node 24.21.0/npm 11.19.0 passed lint, format check, typecheck, backend 164/164 tests, frontend 25/25 tests, production build, foundation check, license check, and `git diff --check`. Existing Chakra/Ark/Zag `"use client"` bundle warnings remain non-fatal.
+
+## 2026-10-06 — Task 49 completion record
+
+- **Result:** production hardening, fail-closed stopped-service backup/restore scripts, automated SQLite restore validation, and bilingual production operations runbooks are complete.
+- **Backup contract:** valid SQLite, exact 32-byte master key, environment file, safe application ref, explicit stopped-service confirmation, and optional paired TLS files are required. The recovery directory is mode 0700 and files are mode 0600 with a manifest plus SHA-256 checksums.
+- **Restore contract:** backup format, SQLite header, master-key size, and all checksums are validated before writing; existing destinations fail closed unless `--allow-overwrite` is explicit.
+- **Restore proof:** synthetic automation creates a real SQLite database, performs backup/restore, reopens the restored database and reads a probe, verifies overwrite refusal, and proves tampering fails closed.
+- **Hardening:** the tracked systemd unit passes `systemd-analyze verify`; offline exposure on the current Ubuntu 24.04 host is `2.8 OK`.
+- **Known limitation:** systemd exposure scores vary by host/version and are not a security certification. Aggressive syscall/JIT restrictions remain deferred until exact runtime compatibility is tested.
+- **Encryption boundary:** the scripts restrict local permissions but do not encrypt recovery sets. Backup storage/transport encryption remains organization policy.
+- **Legacy history cleanup:** destructive table removal is explicitly deferred until production observation, dependency review, a fresh production recovery set, successful isolated restore drill, and a separately approved migration.
+- **Failures resolved:** the first backup script had an invalid Bash conditional for paired TLS arguments; `bash -n` caught it and the guard was rewritten explicitly. Foundation validation also initially hit Git safe-directory protection; it was rerun with process-scoped `safe.directory` only.
+- **Exact next task:** Task 50 — organization-neutral fresh-deployment/release validation from a clean clone.
