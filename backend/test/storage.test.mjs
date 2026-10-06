@@ -482,6 +482,146 @@ test('security alert persistence is duplicate-safe, per-rule monotonic, retentio
     }
   }));
 
+test('legacy monitoring history tables stop receiving rows while current operational state persists', () =>
+  fixture(async (config) => {
+    let storage = await SqliteStorage.open(config);
+    storage.pbxInstances.save({
+      id: 'nondup-pbx',
+      providerType: 'ASTERISK',
+      displayName: 'Nondup',
+    });
+
+    const metric = {
+      instanceId: 'nondup-pbx',
+      source: 'SSH',
+      observedAt: '2026-10-06T10:00:00.000Z',
+      capabilities: {
+        cpu: 'SUPPORTED',
+        memory: 'NOT_CONFIGURED',
+        filesystems: 'NOT_CONFIGURED',
+        uptime: 'NOT_CONFIGURED',
+        services: 'NOT_CONFIGURED',
+      },
+      cpu: { utilizationPercent: 10 },
+    };
+    const event = {
+      instanceId: 'nondup-pbx',
+      source: 'AMI',
+      observedAt: '2026-10-06T10:00:01.000Z',
+      streamGeneration: 1,
+      streamSequence: 1,
+      type: 'AUTHENTICATION_FAILURE',
+      reason: 'INVALID_PASSWORD',
+    };
+    const alert = {
+      instanceId: 'nondup-pbx',
+      ruleId: 'AUTHENTICATION_FAILURE_ANY',
+      observedAt: '2026-10-06T10:00:01.000Z',
+      matchedEventCount: 1,
+      streamGeneration: 1,
+      streamSequence: 1,
+    };
+
+    storage.systemMetrics.save(metric, '2026-10-06T09:00:00.000Z');
+    storage.securityEvents.save(event, '2026-10-06T09:00:00.000Z');
+    storage.securityAlerts.save(alert, '2026-10-06T09:00:00.000Z');
+
+    assert.equal(
+      storage.systemMetrics.listHistory(
+        'nondup-pbx',
+        '2026-10-06T09:00:00.000Z',
+        '2026-10-06T11:00:00.000Z',
+        10,
+      ).length,
+      1,
+    );
+    assert.equal(
+      storage.securityEvents.listHistory(
+        'nondup-pbx',
+        '2026-10-06T09:00:00.000Z',
+        '2026-10-06T11:00:00.000Z',
+        10,
+      ).length,
+      1,
+    );
+    assert.equal(
+      storage.securityAlerts.listHistory(
+        'nondup-pbx',
+        '2026-10-06T09:00:00.000Z',
+        '2026-10-06T11:00:00.000Z',
+        10,
+      ).length,
+      1,
+    );
+
+    const inspect = new DatabaseSync(config.databasePath);
+    try {
+      assert.equal(
+        inspect.prepare('SELECT COUNT(*) AS total FROM system_metric_history').get().total,
+        0,
+      );
+      assert.equal(
+        inspect.prepare('SELECT COUNT(*) AS total FROM security_event_history').get().total,
+        0,
+      );
+      assert.equal(
+        inspect.prepare('SELECT COUNT(*) AS total FROM security_alert_history').get().total,
+        0,
+      );
+      assert.equal(
+        inspect.prepare('SELECT COUNT(*) AS total FROM system_metric_current').get().total,
+        1,
+      );
+      assert.equal(
+        inspect.prepare('SELECT COUNT(*) AS total FROM security_event_current').get().total,
+        1,
+      );
+      assert.equal(
+        inspect.prepare('SELECT COUNT(*) AS total FROM security_alert_current').get().total,
+        1,
+      );
+    } finally {
+      inspect.close();
+    }
+
+    storage.close();
+    storage = await SqliteStorage.open(config);
+    try {
+      assert.equal(
+        storage.systemMetrics.listHistory(
+          'nondup-pbx',
+          '2026-10-06T09:00:00.000Z',
+          '2026-10-06T11:00:00.000Z',
+          10,
+        ).length,
+        0,
+      );
+      assert.equal(
+        storage.securityEvents.listHistory(
+          'nondup-pbx',
+          '2026-10-06T09:00:00.000Z',
+          '2026-10-06T11:00:00.000Z',
+          10,
+        ).length,
+        0,
+      );
+      assert.equal(
+        storage.securityAlerts.listHistory(
+          'nondup-pbx',
+          '2026-10-06T09:00:00.000Z',
+          '2026-10-06T11:00:00.000Z',
+          10,
+        ).length,
+        0,
+      );
+      assert.equal(storage.systemMetrics.getCurrent('nondup-pbx').observedAt, metric.observedAt);
+      assert.equal(storage.securityEvents.getCurrent('nondup-pbx').observedAt, event.observedAt);
+      assert.equal(storage.securityAlerts.listCurrent('nondup-pbx').length, 1);
+    } finally {
+      storage.close();
+    }
+  }));
+
 test('changed migration history fails closed', () =>
   fixture(async (config) => {
     const storage = await SqliteStorage.open(config);

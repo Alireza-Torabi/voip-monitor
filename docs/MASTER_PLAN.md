@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-06. PR #55 merged Task 46. Product direction remains a non-duplicating real-time monitor with source-owned historical/reporting data. Task 47 is complete locally on feature/source-backed-history-ui and merge is pending; Task 48 follows only after Task 47 is merged.
+Status: 2026-10-06. PR #56 merged Task 47. Task 48 is complete locally on feature/nondup-history-reconciliation and merge is pending. New monitoring history writes are now bounded in-memory only; legacy persisted history tables remain untouched pending a separately reviewed cleanup. Task 49 follows only after Task 48 is merged.
 
 ## Phase 0 — environment discovery
 
@@ -85,18 +85,21 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 45: add a provider-neutral read-only database transport/query boundary with explicit dialect adapters, network/TLS policy, SELECT-only enforcement, query timeout, row/output bounds, and synthetic database validation only.
 - [x] Task 46: add source-schema adapters for historical/reporting views (for example CDR/CEL/queue data when the configured source actually provides them), using normalized provider-neutral contracts and synthetic fixtures before any separately approved real-database compatibility verification.
 - [x] Task 47: expose bounded source-backed historical/reporting APIs and UI views without copying source rows into the VoIP Monitor database.
-- [ ] Task 48: reconcile legacy locally persisted monitoring histories with the new non-duplication policy: prefer bounded in-memory trend/state buffers, retain only configuration and explicitly justified operational state, and provide a safe migration/cleanup plan before removing any existing persisted telemetry.
+- [x] Task 48: reconcile legacy locally persisted monitoring histories with the new non-duplication policy: bounded in-memory trend/state buffers now replace new local history writes, explicitly justified current operational state remains persisted, and legacy history tables are retained untouched until a separately reviewed cleanup migration.
+- [ ] Task 49: hardening, backup, tested restore, and production deployment runbook, including explicit review of whether/when the now-unused legacy monitoring-history tables may be destructively removed.
 
 ### Current execution handoff
 
-- PR #55 merged Task 46. Current branch: `feature/source-backed-history-ui`, created from synchronized `main` at merge commit `8c3a020`.
-- Task 47 is complete locally: authenticated PBX-scoped GET-only history capability/calls/call-events/queue-events APIs consume the existing Task 46 adapter.
-- History requests are explicit and bounded to 1–200 recent normalized rows. There is no raw-SQL endpoint, background polling, startup database probe, cache, or local history persistence.
-- The bilingual top-level History workspace discovers per-dataset support and loads only supported source rows on explicit operator action.
-- Source timestamps remain source-reported strings; the application does not invent UTC or another timezone for naive values.
-- Synthetic validation only: no real PBX, source database, schema, credential, DNS target, or production host was contacted.
-- Final gates passed with Node 24.21.0/npm 11.19.0: lint, format check, typecheck, backend 163/163, frontend 25/25, production build, foundation check, license check, and diff check.
-- Exact next task after Task 47 merge is **Task 48 — reconcile legacy locally persisted monitoring histories with the non-duplication policy and define a safe migration/cleanup plan before destructive removal**.
+- PR #56 merged Task 47. Current branch: `feature/nondup-history-reconciliation`, created from synchronized `main` at merge commit `1eb8b61`.
+- Task 48 stops all new SQLite writes to `system_metric_history`, `security_event_history`, and `security_alert_history`. Existing tables/rows are intentionally not dropped or modified in this task.
+- Recent system-metric trends use a PBX-scoped in-memory buffer capped at 2048 records. Security-event and security-alert recent history use PBX-scoped in-memory buffers capped at 500 records each. Existing retention cutoffs and API limits remain enforced.
+- Current operational state remains persistent: one latest system-metric sample, one latest security event, current per-rule security alerts, rule configuration, dashboard/settings data, encrypted credentials, and notification delivery reliability state remain in SQLite.
+- Security threshold evaluation continues to use the same repository history contract, but that contract is now process-local memory and clears on restart. This is intentional for the real-time monitor architecture.
+- Existing history APIs/UI remain compatible during a process lifetime; after restart their local recent-history buffers begin empty and refill from live monitoring. Source-backed telephony/reporting history remains owned by the configured external database source.
+- Safe cleanup plan: do not drop legacy history tables in Task 48. First deploy and observe the in-memory replacement, confirm no downstream backup/reporting dependency relies on those tables, take a tested backup/restore point, then use a separately reviewed migration to remove legacy tables only if explicitly approved.
+- Targeted validation passes 18/18 across storage, security-alert runtime, and system-metrics runtime, including proof that the three legacy history tables receive zero new rows while current operational state survives reopen.
+- No real PBX, source database, credential, or production monitoring data was accessed.
+- Exact next task after Task 48 merge is **Task 49 — hardening, backup, tested restore, and production deployment runbook**, including the explicit cleanup decision for the now-unused legacy history tables.
 
 ### Failure and bug log
 
@@ -574,7 +577,7 @@ Tasks 7–13 implemented substantial Asterisk-provider and telephony-state found
 - [x] Phase 7: security monitoring — normalized AMI authentication events, persistence/API/SSE, bounded alert evaluation/persistence/rules/runtime, authenticated rule APIs, and bilingual current/recent-history/realtime alert UI are complete for the defined slice; broader sources/rules and external delivery remain separate future work.
 - [x] Phase 8 foundation: authenticated PBX-scoped read-only/realtime exposure exists for system metrics, security state, alerts, and normalized telephony current state.
 - [x] Phase 9: bilingual operator dashboard foundation using existing safe provider/system/security boundaries.
-- [ ] Phase 10: source-backed history/reporting without duplicate telemetry persistence, plus migration of legacy local monitoring histories to the approved non-duplication policy.
+- [x] Phase 10: source-backed history/reporting without duplicate telemetry persistence, with new legacy local monitoring-history writes replaced by bounded in-memory buffers and destructive cleanup intentionally deferred.
 - [ ] Phase 11: hardening, backup, tested restore, and a production deployment runbook.
 - [ ] Phase 12: release validation, including an organization-neutral fresh-deployment procedure that can onboard a new service without carrying private values from another deployment.
 
@@ -624,3 +627,19 @@ For every future task, retain resolved failures and bugs in this plan with: obse
 ### Task 47 final validation
 
 - **Final repository gates:** using project Node 24.21.0/npm 11.19.0, lint, format check, typecheck, backend 163/163 tests, frontend 25/25 tests, production build, foundation check, license check, and `git diff --check` all passed. Existing Chakra/Ark/Zag `"use client"` bundle warnings remain non-fatal and unchanged in impact.
+
+## 2026-10-06 — Task 48 completion record
+
+- **Result:** new system-metric, security-event, and security-alert history no longer persists to SQLite; recent history/trends are process-local bounded buffers.
+- **Bounds:** system metrics keep at most 2048 records per PBX; security events and alerts keep at most 500 each. Retention cutoffs still prune memory and records older than the cutoff are rejected.
+- **Operational state retained:** current system metric, current security event, current per-rule alerts, configuration, secrets, dashboards, and notification reliability state remain persisted because they are bounded application-operational state rather than historical warehouses.
+- **Compatibility:** existing history APIs, dashboard trends, security recent-history UI, and threshold evaluator keep their repository contracts. History is intentionally empty after process restart and refills from live data.
+- **Legacy data:** `system_metric_history`, `security_event_history`, and `security_alert_history` are no longer written but are not dropped or altered by Task 48.
+- **Cleanup plan:** destructive removal requires a later explicit migration after deployment observation, dependency review, and tested backup/restore.
+- **Failure fixed:** the first in-memory implementation pruned before insertion but then accepted a newly supplied record older than the retention cutoff. Root cause was append ordering. Fix: reject any record older than the cutoff after pruning and before insertion; targeted suites then passed 18/18.
+- **Known limitation:** local recent-history UI/trends reset on application restart by design. They are not durable reporting history.
+- **Exact next task:** Task 49 — hardening, backup, tested restore, and production deployment runbook, including the explicit legacy-history cleanup decision.
+
+### Task 48 final validation
+
+- **Final repository gates:** project Node 24.21.0/npm 11.19.0 passed lint, format check, typecheck, backend 164/164 tests, frontend 25/25 tests, production build, foundation check, license check, and `git diff --check`. Existing Chakra/Ark/Zag `"use client"` bundle warnings remain non-fatal.

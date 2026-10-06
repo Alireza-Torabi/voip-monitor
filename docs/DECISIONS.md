@@ -580,3 +580,14 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 383. **Errors are bounded:** database/schema/driver internals, SQL text, host details, and credentials are not exposed through history errors.
 384. **Real database access remains separately approved:** Task 47 validation is synthetic/mock only and makes no production schema compatibility claim.
 385. **Task 48 is next:** reconcile legacy persisted monitoring histories only after Task 47 merges, with a safe migration/cleanup plan before destructive removal.
+
+## 2026-10-06 — Task 48 non-duplication reconciliation
+
+386. **No new local monitoring-history writes:** system metric, security event, and security alert history are process-local bounded buffers.
+387. **Current operational state may remain durable:** latest metric/event state and current alerts are bounded current-state records, not historical warehouses, and remain persisted for restart continuity.
+388. **Existing history contracts remain stable:** APIs/UI/evaluator keep using repository history interfaces while their implementation is in-memory.
+389. **Bounded memory:** system metrics are capped at 2048 records per PBX; security events and alerts are capped at 500 records per PBX, with existing retention cutoffs applied.
+390. **Restart semantics are explicit:** in-memory history starts empty after restart and refills from live monitoring; durable reporting belongs to approved source systems.
+391. **No destructive migration in Task 48:** legacy history tables remain untouched and receive no new rows.
+392. **Cleanup requires proof:** table removal needs deployment observation, downstream dependency review, and a tested backup/restore point before a separately reviewed migration.
+393. **Task 49 is next:** hardening, backup, tested restore, and production deployment runbook includes the explicit legacy-history cleanup decision.

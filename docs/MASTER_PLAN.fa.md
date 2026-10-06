@@ -85,7 +85,8 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - [x] Task 45: Boundary عمومی Read-only Database Transport/Query را با Dialect Adapter صریح، Network/TLS Policy، اجبار SELECT-only، Query Timeout و Row/Output Limit و فقط Synthetic Database Validation اضافه کند.
 - [x] Task 46: Adapterهای Schema منبع برای Historical/Reporting Viewها مانند CDR/CEL/Queue را فقط وقتی Source پیکربندی‌شده واقعاً آن‌ها را ارائه می‌کند، با Contractهای Normalized و Fixtureهای Synthetic اضافه کند؛ هر Real-Database Compatibility Verification نیاز به Approval جدا دارد.
 - [x] Task 47: API و UI محدود برای Historical/Reporting Data مستقیم از Source ارائه شد، بدون کپی‌کردن Rowهای Source داخل Database خود VoIP Monitor.
-- [ ] Task 48: Historyهای Monitoring محلی قدیمی را با Policy جدید Non-duplication تطبیق دهد؛ Trend/State کوتاه‌مدت ترجیحاً bounded in-memory باشد، فقط Configuration و Operational State با توجیه صریح Persist شود و قبل از حذف Telemetry موجود Migration/Cleanup Plan امن تهیه شود.
+- [x] Task 48: Historyهای Monitoring محلی قدیمی با Policy جدید Non-duplication تطبیق داده شد؛ History جدید فقط در Bufferهای محدود In-memory نگه‌داری می‌شود، Current Operational State با توجیه صریح Persist می‌ماند و Tableهای History قدیمی تا Cleanup جداگانه دست‌نخورده باقی می‌مانند.
+- [ ] Task 49: Hardening، Backup، Tested Restore و Production Deployment Runbook، همراه با تصمیم صریح درباره زمان/شرایط حذف مخرب Tableهای Legacy History.
 
 ### وضعیت فعلی ادامه کار
 
@@ -624,3 +625,18 @@ Phase 1 بسته است. Foundationهای Live Monitoring تا Operator Dashboar
 ### Final Validation مربوط به Task 47
 
 - **Final Repository Gateها:** با Project Node 24.21.0 و npm 11.19.0، Lint، Format Check، Typecheck، تست‌های Backend برابر 163/163، تست‌های Frontend برابر 25/25، Production Build، Foundation Check، License Check و `git diff --check` همگی PASS شدند. Warningهای موجود Chakra/Ark/Zag درباره `"use client"` همچنان Non-fatal هستند و Impact آن‌ها تغییری نکرده است.
+
+## 2026-10-06 — ثبت تکمیل Task 48
+
+- **نتیجه:** System Metric History، Security Event History و Security Alert History جدید دیگر داخل SQLite Persist نمی‌شوند و Recent History/Trend فقط در Bufferهای محدود Process Memory نگه‌داری می‌شود.
+- **حدود:** System Metrics حداکثر 2048 Record برای هر PBX و Security Event/Alert هرکدام حداکثر 500 Record برای هر PBX نگه می‌دارند. Retention Cutoff همچنان اعمال می‌شود.
+- **Operational State باقی‌مانده:** Current System Metric، Current Security Event، Current Alertهای Rule، Configuration، Secretها، Dashboardها و Notification Reliability State همچنان Persist می‌شوند.
+- **Legacy Tableها:** `system_metric_history`، `security_event_history` و `security_alert_history` دیگر Write نمی‌شوند ولی در Task 48 Drop یا Modify نشده‌اند.
+- **Cleanup Plan:** حذف مخرب فقط بعد از Observation روی Deployment، Review وابستگی‌ها و Backup/Restore تست‌شده و در Migration جداگانه انجام می‌شود.
+- **Bug رفع‌شده:** Implementation اولیه بعد از Prune می‌توانست Record قدیمی‌تر از Cutoff را دوباره Insert کند. اکنون Record قدیمی قبل از Append Reject می‌شود و Targeted Testها 18/18 PASS هستند.
+- **محدودیت شناخته‌شده:** Recent History/Trend محلی بعد از Restart عمداً خالی می‌شود و دوباره از Live Data پر می‌شود؛ این بخش Durable Reporting History نیست.
+- **Task دقیق بعدی:** Task 49 — Hardening، Backup، Tested Restore و Production Deployment Runbook، همراه با تصمیم صریح Cleanup برای Legacy History Tableها.
+
+### Final Validation مربوط به Task 48
+
+- **Final Repository Gateها:** با Project Node 24.21.0 و npm 11.19.0، Lint، Format Check، Typecheck، تست‌های Backend برابر 164/164، تست‌های Frontend برابر 25/25، Production Build، Foundation Check، License Check و `git diff --check` همگی PASS شدند. Warningهای موجود Chakra/Ark/Zag درباره `"use client"` همچنان Non-fatal هستند.
