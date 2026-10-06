@@ -230,6 +230,31 @@ export const messages = {
     agentName: 'Agent',
     agentId: 'Agent ID',
     callerId: 'Caller ID',
+    databaseSourceTitle: 'Read-only database',
+    databaseSourceHint:
+      'Configure the PBX-scoped source database that will remain authoritative for historical/reporting data.',
+    databaseSourceConfiguration: 'Database source configuration',
+    databaseSourceWriteOnlyHint:
+      'The password is write-only, encrypted at rest, and never returned by the API.',
+    databaseSourceConfigured: 'CONFIGURED',
+    databaseSourceNotConfigured: 'NOT CONFIGURED',
+    databaseSourceDialect: 'Database dialect',
+    databaseSourceHost: 'Database host',
+    databaseSourcePort: 'Database port',
+    databaseSourceDatabaseName: 'Database name',
+    databaseSourceUsername: 'Database username',
+    databaseSourcePassword: 'Database password',
+    databaseSourceReadOnlyTitle: 'Read-only source; no connection is attempted yet',
+    databaseSourceReadOnlyHint:
+      'This task stores configuration only. It does not resolve the host, open a database connection, inspect schemas, or run queries. Future database access is constrained to READ_ONLY.',
+    databaseSourceSave: 'Save database source',
+    databaseSourceRemove: 'Remove database source',
+    databaseSourceSaved: 'Read-only database source configuration saved.',
+    databaseSourceRemoved: 'Database source configuration removed.',
+    databaseSourceLoadFailed: 'Database source configuration could not be loaded.',
+    databaseSourceSaveFailed:
+      'Database source configuration could not be saved. Check dialect, host, port, database, username and password.',
+    databaseSourceRemoveFailed: 'Database source configuration could not be removed.',
     sshMetricsTitle: 'System metrics SSH',
     sshMetricsHint:
       'Configure optional PBX-scoped restricted SSH for CPU, memory, uptime and filesystem metrics.',
@@ -516,6 +541,31 @@ export const messages = {
     agentName: 'Agent',
     agentId: 'Agent ID',
     callerId: 'Caller ID',
+    databaseSourceTitle: 'Database فقط‌خواندنی',
+    databaseSourceHint:
+      'Database Source مربوط به این PBX را برای History/Reporting پیکربندی کنید؛ خود Source مرجع اصلی داده باقی می‌ماند.',
+    databaseSourceConfiguration: 'پیکربندی Database Source',
+    databaseSourceWriteOnlyHint:
+      'Password فقط Write-only است، در حالت ذخیره رمزنگاری می‌شود و API هرگز آن را برنمی‌گرداند.',
+    databaseSourceConfigured: 'پیکربندی‌شده',
+    databaseSourceNotConfigured: 'پیکربندی‌نشده',
+    databaseSourceDialect: 'Database Dialect',
+    databaseSourceHost: 'Database Host',
+    databaseSourcePort: 'Database Port',
+    databaseSourceDatabaseName: 'Database Name',
+    databaseSourceUsername: 'Database Username',
+    databaseSourcePassword: 'Database Password',
+    databaseSourceReadOnlyTitle: 'Source فقط‌خواندنی است و فعلاً Connection ایجاد نمی‌شود',
+    databaseSourceReadOnlyHint:
+      'این Task فقط Configuration را ذخیره می‌کند. هیچ Host Resolution، Database Connection، Schema Inspection یا Query اجرا نمی‌شود. دسترسی آینده فقط READ_ONLY خواهد بود.',
+    databaseSourceSave: 'ذخیره Database Source',
+    databaseSourceRemove: 'حذف Database Source',
+    databaseSourceSaved: 'پیکربندی Database Source فقط‌خواندنی ذخیره شد.',
+    databaseSourceRemoved: 'پیکربندی Database Source حذف شد.',
+    databaseSourceLoadFailed: 'پیکربندی Database Source قابل Load نبود.',
+    databaseSourceSaveFailed:
+      'پیکربندی Database Source ذخیره نشد. Dialect، Host، Port، Database، Username و Password را بررسی کنید.',
+    databaseSourceRemoveFailed: 'پیکربندی Database Source حذف نشد.',
     sshMetricsTitle: 'SSH مربوط به System Metrics',
     sshMetricsHint:
       'Restricted SSH اختیاری و PBX-scoped را برای CPU، Memory، Uptime و Filesystem Metrics پیکربندی کنید.',

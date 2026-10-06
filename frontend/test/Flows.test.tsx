@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App, FirstAdminForm, LoginForm, PbxWorkspace } from '../src/App.js';
 import { SecurityWorkspace } from '../src/SecurityWorkspace.js';
 import { SshMetricsWorkspace } from '../src/SshMetricsWorkspace.js';
+import { DatabaseSourceWorkspace } from '../src/DatabaseSourceWorkspace.js';
 import { DashboardStorageWorkspace } from '../src/DashboardStorageWorkspace.js';
 import { DashboardBuilder } from '../src/DashboardBuilder.js';
 import { ServiceMonitoringWorkspace } from '../src/ServiceMonitoringWorkspace.js';
@@ -865,6 +866,75 @@ describe('telephony entity workspace', () => {
     expect(container.textContent).toContain('NOT_APPLICABLE');
     expect(container.textContent).toContain('REACHABLE');
     expect(container.textContent).toContain('Trunk discovery uses explicit confidence');
+  });
+});
+
+describe('read-only database source workspace', () => {
+  it('saves only PBX-scoped source configuration and clears the write-only password', async () => {
+    const profile = {
+      id: 'database-pbx',
+      displayName: 'Database PBX',
+      providerType: 'ASTERISK',
+      enabled: true,
+      amiHost: 'pbx.example.test',
+      amiPort: 5038,
+      amiUsername: 'synthetic-user',
+      hasAmiPassword: true,
+      connectionStatus: 'CONNECTED',
+      createdAt: '',
+      updatedAt: '',
+    } as const;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string, init?: RequestInit) => {
+        if (path === '/api/pbx-instances/database-pbx/database-source' && init?.method === 'GET')
+          return response({}, 404);
+        if (path === '/api/pbx-instances/database-pbx/database-source' && init?.method === 'PUT') {
+          const body = JSON.parse(String(init.body)) as {
+            credential?: string;
+            accessMode?: string;
+            dialect?: string;
+          };
+          expect(body.credential).toBe('synthetic-database-password');
+          expect(body.accessMode).toBe('READ_ONLY');
+          expect(body.dialect).toBe('MYSQL_MARIADB');
+          return response({
+            pbxInstanceId: 'database-pbx',
+            dialect: 'MYSQL_MARIADB',
+            host: 'db.example.test',
+            port: 3306,
+            databaseName: 'pbx_reporting',
+            username: 'readonly_monitor',
+            accessMode: 'READ_ONLY',
+            hasCredential: true,
+            createdAt: '',
+            updatedAt: '',
+          });
+        }
+        throw new Error('unexpected API route: ' + path);
+      }),
+    );
+
+    await act(async () =>
+      root.render(
+        <DatabaseSourceWorkspace
+          text={messages.en}
+          profiles={[profile]}
+          onUnauthorized={() => {}}
+        />,
+      ),
+    );
+
+    await enter('database-host', 'db.example.test');
+    await enter('database-name', 'pbx_reporting');
+    await enter('database-username', 'readonly_monitor');
+    await enter('database-credential', 'synthetic-database-password');
+    await submit();
+
+    expect(container.textContent).toContain('Read-only database source configuration saved.');
+    expect(input('database-credential').value).toBe('');
+    expect(container.textContent).toContain('Read-only source; no connection is attempted yet');
+    expect(container.textContent).not.toContain('synthetic-database-password');
   });
 });
 

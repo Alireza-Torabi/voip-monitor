@@ -99,6 +99,26 @@ export interface SshConfigRepository {
   list(): SshConfigRecord[];
 }
 
+export type DatabaseDialect = 'MYSQL_MARIADB' | 'POSTGRESQL';
+export type DatabaseAccessMode = 'READ_ONLY';
+export interface DatabaseSourceConfigRecord {
+  pbxInstanceId: string;
+  dialect: DatabaseDialect;
+  host: string;
+  port: number;
+  databaseName: string;
+  username: string;
+  accessMode: DatabaseAccessMode;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface DatabaseSourceConfigRepository {
+  put(config: DatabaseSourceConfigRecord): void;
+  get(pbxInstanceId: string): DatabaseSourceConfigRecord | undefined;
+  delete(pbxInstanceId: string): boolean;
+  list(): DatabaseSourceConfigRecord[];
+}
+
 export interface SystemMetricsRepository {
   save(sample: SystemMetricsSample, retentionCutoff: string): void;
   getCurrent(instanceId: string): SystemMetricsSample | undefined;
@@ -222,6 +242,7 @@ export interface AppStorage {
   readonly pbxInstances: PbxInstanceRepository;
   readonly pbxProfiles: PbxProfileRepository;
   readonly sshConfigs: SshConfigRepository;
+  readonly databaseSourceConfigs: DatabaseSourceConfigRepository;
   readonly systemMetrics: SystemMetricsRepository;
   readonly dashboardStorageConfig: DashboardStorageConfigRepository;
   readonly serviceMonitoringConfig: ServiceMonitoringConfigRepository;
@@ -341,6 +362,7 @@ export class SqliteStorage implements AppStorage {
   readonly pbxInstances: PbxInstanceRepository;
   readonly pbxProfiles: PbxProfileRepository;
   readonly sshConfigs: SshConfigRepository;
+  readonly databaseSourceConfigs: DatabaseSourceConfigRepository;
   readonly systemMetrics: SystemMetricsRepository;
   readonly dashboardStorageConfig: DashboardStorageConfigRepository;
   readonly serviceMonitoringConfig: ServiceMonitoringConfigRepository;
@@ -655,6 +677,51 @@ export class SqliteStorage implements AppStorage {
           .prepare('SELECT * FROM ssh_config ORDER BY created_at, pbx_instance_id')
           .all()
           .map(mapSshConfig),
+    };
+    this.databaseSourceConfigs = {
+      put: (config) => {
+        this.db
+          .prepare(
+            `INSERT INTO database_source_config
+             (pbx_instance_id, dialect, db_host, db_port, database_name, db_username,
+              access_mode, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(pbx_instance_id) DO UPDATE SET
+               dialect=excluded.dialect,
+               db_host=excluded.db_host,
+               db_port=excluded.db_port,
+               database_name=excluded.database_name,
+               db_username=excluded.db_username,
+               access_mode=excluded.access_mode,
+               updated_at=excluded.updated_at`,
+          )
+          .run(
+            config.pbxInstanceId,
+            config.dialect,
+            config.host,
+            config.port,
+            config.databaseName,
+            config.username,
+            config.accessMode,
+            config.createdAt,
+            config.updatedAt,
+          );
+      },
+      get: (pbxInstanceId) => {
+        const row = this.db
+          .prepare('SELECT * FROM database_source_config WHERE pbx_instance_id = ?')
+          .get(pbxInstanceId);
+        return row ? mapDatabaseSourceConfig(row) : undefined;
+      },
+      delete: (pbxInstanceId) =>
+        this.db
+          .prepare('DELETE FROM database_source_config WHERE pbx_instance_id = ?')
+          .run(pbxInstanceId).changes > 0,
+      list: () =>
+        this.db
+          .prepare('SELECT * FROM database_source_config ORDER BY created_at, pbx_instance_id')
+          .all()
+          .map(mapDatabaseSourceConfig),
     };
     this.systemMetrics = {
       save: (sample, retentionCutoff) => {
@@ -1641,6 +1708,20 @@ function mapSshConfig(row: Record<string, unknown>): SshConfigRecord {
     authMethod: row.auth_method as SshAuthMethod,
     hostKeyPolicy: row.host_key_policy as SshHostKeyPolicy,
     hostKeyFingerprint: row.host_key_fingerprint as string,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+  };
+}
+
+function mapDatabaseSourceConfig(row: Record<string, unknown>): DatabaseSourceConfigRecord {
+  return {
+    pbxInstanceId: row.pbx_instance_id as string,
+    dialect: row.dialect as DatabaseDialect,
+    host: row.db_host as string,
+    port: row.db_port as number,
+    databaseName: row.database_name as string,
+    username: row.db_username as string,
+    accessMode: row.access_mode as DatabaseAccessMode,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };

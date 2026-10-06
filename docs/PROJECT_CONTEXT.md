@@ -1,10 +1,10 @@
 # Project context
 
-Status: PR #51 is merged. The current unmerged fix/dashboard-fullscreen-controls branch removes the dashboard management toolbar and all edit affordances from fullscreen presentation mode, retaining only a small auto-hiding overlay exit control while browser Esc remains available. This is UI-only and does not change PBX/backend behavior. After merge, validate with Selenium and continue with Task 44. License: Apache-2.0.
+Status: PR #52 is merged. The operator has approved a source-owned, non-duplicating monitoring architecture: live state stays real-time, while historical/reporting views will query an explicitly configured read-only PBX database rather than be re-persisted by VoIP Monitor. Task 44 is complete locally on feature/read-only-database-source and merge is pending; it adds encrypted PBX-scoped database-source configuration only and performed no real database connection/query.
 
 ## Repository state
 
-The public repository tracks origin/main. The current correction branch is fix/runtime-sse-resilience; it changes only HTTP/SSE runtime resilience, production child-process supervision, regression coverage, and project records. Task 44 is intentionally not mixed into this correction.
+The public repository tracks `origin/main`. The current unmerged branch is `feature/read-only-database-source`, created from merged PR #52. It implements Task 44 configuration/credential/API/UI boundaries only and intentionally performs no real database connection or query.
 
 ## Product constraints
 

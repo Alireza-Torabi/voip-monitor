@@ -5,6 +5,7 @@ import { SqliteStorage } from './storage/index.js';
 import { SecretStore } from './security/secret-store.js';
 import { AuthService } from './auth/index.js';
 import { SshConfigurationService } from './ssh/configuration.js';
+import { DatabaseSourceConfigurationService } from './database/configuration.js';
 import {
   RestrictedSshSystemMetricsCollectorFactory,
   SystemMetricsRuntime,
@@ -58,6 +59,10 @@ if (config) {
           config.pbxNetworkMode === 'plain_tcp' ? new AsteriskProviderFactory(secrets) : undefined;
         const runtime = new ProviderRuntimeManager(storage, secrets, providerFactory);
         const sshConfiguration = new SshConfigurationService(storage, secrets);
+        const databaseSourceConfiguration = new DatabaseSourceConfigurationService(
+          storage,
+          secrets,
+        );
         const systemMetricsFactory =
           config.pbxNetworkMode === 'plain_tcp'
             ? new RestrictedSshSystemMetricsCollectorFactory(sshConfiguration, secrets, storage)
@@ -88,6 +93,7 @@ if (config) {
           systemMetricsRuntime,
           telephonyState,
           sshConfiguration,
+          databaseSourceConfiguration,
         );
         server.on('error', () => {
           log('error', 'server_error');

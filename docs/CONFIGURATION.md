@@ -32,6 +32,14 @@ Authenticated administrators can manage Asterisk profiles through `/api/pbx-inst
 The first profile changes setup state to `PBX_CONFIGURED_UNVERIFIED`; deleting the final profile returns it to `SETUP_IN_PROGRESS`. With network mode disabled, profiles remain `UNVERIFIED` and connection tests return a safe disabled error. With explicit `plain_tcp` mode, enabled profiles are managed by one provider runtime each; authenticated administrators can call `POST /api/pbx-instances/:id/test-connection` or use the browser button. Successful discovery stores safe Asterisk metadata plus `lastVerifiedAt` and advances setup to `COMPLETE`. Changes to host, port, AMI username, or AMI password invalidate that verification. `GET /api/pbx-instances/:id/provider-status` reports safe runtime state. PBX outages never change `/ready`. The frontend development proxy forwards same-origin API routes to a local backend on port 3000. Start that backend with `APP_ENV=development`; production requires a controlled HTTPS reverse proxy and continues to enforce HTTPS Origin checks.
 
 
+## Read-only historical/reporting database source
+
+An authenticated administrator can configure one optional PBX-scoped source database under **Settings -> Read-only database**. Task 44 stores only validated source metadata (`dialect`, host, port, database name, username, and `READ_ONLY` access intent) plus an encrypted write-only password in the existing secret store. The password is never returned by the API or stored in `database_source_config`.
+
+The configuration surface currently accepts declared `MYSQL_MARIADB` and `POSTGRESQL` dialects so later adapters do not guess driver behavior. This is configuration metadata only and is not a connectivity claim. Saving the configuration performs no DNS resolution, socket connection, schema discovery, or SQL query. Future database access must remain read-only, bounded, and explicitly implemented by the later transport/schema-adapter tasks.
+
+The source database remains authoritative for historical/reporting rows; VoIP Monitor must not copy those rows into new local telephony-history tables.
+
 ## Dashboard storage visibility
 
 Dashboard storage visibility is PBX-scoped application configuration managed under **Settings -> Dashboard storage**. The available choices come from the current normalized filesystem sample reported by restricted SSH. No filesystem path is hardcoded by the repository.

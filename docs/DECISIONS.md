@@ -520,3 +520,23 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 340. **Browser-native escape remains valid:** the browser Esc path remains the zero-UI fallback for leaving fullscreen.
 341. **Fullscreen target remains dashboard root:** application-level navigation/header stays outside fullscreen; no document-level fullscreen is introduced.
 342. **Task 44 remains next:** after this UI correction merges and the merged behavior is Selenium-validated, resume the roadmap with telephony history/retention.
+
+
+## 2026-10-06 — Source-owned history and read-only database architecture
+
+343. **Product intent is real-time monitoring, not a duplicate historical warehouse:** VoIP Monitor is an operational dashboard. Historical/reporting systems already maintained by the PBX or related source remain authoritative.
+344. **Do not add local telephony-history persistence:** the former Task 44 design is superseded. New historical views must query approved read-only source systems rather than copy their rows into the monitor database.
+345. **Persistent application storage remains valid for configuration and justified operational state:** user accounts, PBX profiles, encrypted credentials, dashboard definitions, source configuration, and delivery/reliability state may persist because they are application-owned rather than duplicated monitoring telemetry.
+346. **External database access is PBX-scoped and read-only by contract:** configuration records declare READ_ONLY access; credentials are write-only and encrypted through SecretStore. Application code must never expose the credential through API responses or logs.
+347. **Database connectivity is separately gated:** Task 44 stores configuration only. It performs no DNS resolution, socket connection, schema discovery, or query against a real database. A later transport task must enforce SELECT-only semantics, bounded query time/rows/output, and the shared network boundary.
+348. **Source dialect is explicit:** configuration records the declared SQL dialect so later adapters do not infer or silently guess schema/driver behavior. Declaring a dialect does not imply that connectivity has been verified.
+349. **No destructive cleanup before replacement is proven:** existing locally persisted metrics/security histories are legacy relative to the new direction. They are not removed until source/in-memory replacements and migration effects are explicitly reviewed and validated.
+350. **Roadmap transition:** Tasks 44-48 replace the former local telephony-history task with configuration, bounded read-only transport, source-schema adapters, source-backed views, and a controlled cleanup of legacy duplicate histories.
+
+
+## 2026-10-06 — Task 44 read-only database source configuration
+
+351. **Task 44 configuration schema is intentionally small:** one optional PBX-scoped row stores declared dialect, host, port, database name, username, fixed `READ_ONLY` intent, and timestamps only. Password material never enters the metadata table.
+352. **Initial declared dialect allowlist is configuration-only:** `MYSQL_MARIADB` and `POSTGRESQL` are accepted so future adapters have an explicit driver family. This does not claim connectivity or schema compatibility for either dialect.
+353. **Password replacement is explicit and write-only:** Save requires a fresh database password, encrypts it through the existing `SecretStore`, clears the browser password field after success, and exposes only `hasCredential` in safe responses.
+354. **No Task 44 connection-test endpoint:** saving database-source settings does not resolve DNS, connect to a host, inspect schemas, or execute SQL. Those operations belong only to later bounded transport/schema tasks and any real compatibility gate requires separate approval.

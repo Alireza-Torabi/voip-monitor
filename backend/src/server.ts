@@ -15,6 +15,10 @@ import {
   NotificationConfigurationService,
 } from './notifications/configuration.js';
 import { SshConfigurationError, SshConfigurationService } from './ssh/configuration.js';
+import {
+  DatabaseSourceConfigurationError,
+  DatabaseSourceConfigurationService,
+} from './database/configuration.js';
 import { ProviderRuntimeError, type ProviderRuntimeManager } from './providers/runtime/index.js';
 import type {
   SystemMetricsHealthListener,
@@ -300,6 +304,7 @@ export function createApp(
   systemMetrics?: SystemMetricsRuntime,
   telephonyState?: TelephonyStateEngine,
   sshConfiguration?: SshConfigurationService,
+  databaseSourceConfiguration?: DatabaseSourceConfigurationService,
 ): Server {
   const limiter = new AttemptLimiter();
   const metricsStreams = new Set<ServerResponse>();
@@ -701,6 +706,39 @@ export function createApp(
           return send(response, 200, configured);
         } catch (error) {
           if (!(error instanceof SshConfigurationError)) throw error;
+          if (error.code === 'PBX_NOT_FOUND') return send(response, 404, { error: 'not_found' });
+          return send(response, 400, { error: 'invalid_request' });
+        }
+      }
+
+      const databaseSourceAction = path.match(/^\/api\/pbx-instances\/([^/]+)\/database-source$/);
+      if (databaseSourceAction) {
+        if (!auth || !databaseSourceConfiguration || !auth.principal(sessionToken(request)))
+          return send(response, 401, { error: 'unauthorized' });
+        const id = databaseSourceAction[1]!;
+        if (!onboarding?.get(id)) return send(response, 404, { error: 'not_found' });
+        if (request.method === 'GET') {
+          const current = databaseSourceConfiguration.get(id);
+          return current
+            ? send(response, 200, current)
+            : send(response, 404, { error: 'not_found' });
+        }
+        if (!['PUT', 'DELETE'].includes(request.method ?? ''))
+          return send(response, 404, { error: 'not_found' });
+        if (!sameOrigin(request, auth.requiresSecureOrigin))
+          return send(response, 403, { error: 'forbidden' });
+        try {
+          if (request.method === 'DELETE') {
+            const deleted = databaseSourceConfiguration.delete(id);
+            return deleted
+              ? send(response, 200, { status: 'deleted' })
+              : send(response, 404, { error: 'not_found' });
+          }
+          const input = await body(request);
+          if (!input) return send(response, 400, { error: 'invalid_request' });
+          return send(response, 200, databaseSourceConfiguration.configure(id, input));
+        } catch (error) {
+          if (!(error instanceof DatabaseSourceConfigurationError)) throw error;
           if (error.code === 'PBX_NOT_FOUND') return send(response, 404, { error: 'not_found' });
           return send(response, 400, { error: 'invalid_request' });
         }

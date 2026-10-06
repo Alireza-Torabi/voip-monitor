@@ -1,6 +1,6 @@
 # Proposed architecture
 
-Status: PR #51 is merged. The current fix/dashboard-fullscreen-controls correction makes dashboard fullscreen a presentation-only TV/NOC surface: management/edit controls are removed from fullscreen layout and only a small auto-hiding floating exit affordance remains. The Fullscreen API target stays the dashboard root, so application navigation remains outside fullscreen. No backend or PBX behavior changes. Task 44 remains next after merge.
+Status: PR #52 is merged. Task 44 is complete locally and pending merge on `feature/read-only-database-source`: the source-owned history architecture now has PBX-scoped read-only database metadata, encrypted write-only credentials, authenticated configuration API, and bilingual Settings UI. No database transport/query is implemented or exercised; Task 45 is next after merge.
 
 ```text
 PBX (Asterisk / FreePBX)
@@ -21,6 +21,14 @@ The monitor is an observer. A failed monitor cannot stop calls. Restricted SSH c
 ## Repository layout
 
 Proposed source directories: `backend/src/{providers,collectors,domain,state,storage,security,auth,api,realtime}`, `backend/tests`, `frontend/src/{components,pages,features,i18n,api}`, `frontend/tests`, `shared`, `mocks/asterisk`, `deploy/{nginx,docker}`, `.github/workflows`, `docs`, `scripts`, and ignored `.local`. Root deployment files include `docker-compose.yml` and `.env.example`. Create source directories when implementation begins.
+
+## Source-owned history / reporting
+
+VoIP Monitor does not create a second authoritative copy of telephony history. Live operational state continues to come from bounded provider/collector paths such as AMI and restricted SSH. Historical/reporting data must come from an explicitly configured PBX-scoped read-only source database through future provider-neutral adapters.
+
+The monitor may persist application-owned configuration and justified operational state, including local users, PBX profiles, encrypted credentials, dashboard definitions, source configuration, and delivery/reliability state. It must not add new local telephony-history tables. Existing locally persisted metrics/security history predates this architecture decision and will be reconciled only after replacement behavior is proven; no destructive migration is implied by Task 44.
+
+Database source credentials use the existing SecretStore boundary and are write-only through the API. Task 44 stores validated metadata and encrypted credentials only. It opens no database socket, performs no schema discovery, and issues no query. Future database transport must enforce the shared network policy plus SELECT-only statements, bounded time/row/output limits, and explicit dialect/schema adapters.
 
 ## Runtime data
 
