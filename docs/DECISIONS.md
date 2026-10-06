@@ -569,3 +569,14 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 375. **Dialect differences stay inside the adapter:** MySQL/MariaDB and PostgreSQL use dialect-safe identifier quoting and explicit text casts so date/numeric driver behavior is normalized before row parsing while the shared result contract remains unchanged.
 376. **Synthetic fixtures are the only Task 46 compatibility evidence:** tests cover supported, missing, mismatched, and ambiguous schemas plus CDR/CEL/queue normalization and fail-closed input handling. No real database/schema/credential was contacted; real compatibility verification still requires separate operator approval.
 377. **Task 47 is the first user-facing consumer:** authenticated bounded source-backed historical/reporting APIs and UI may consume these adapters after Task 46 is merged, but must not persist returned source rows locally.
+
+## 2026-10-06 — Task 47 source-backed history exposure
+
+378. **History is GET-only and adapter-owned:** browser/API consumers select only fixed capability/calls/call-events/queue-events operations; there is no raw SQL or identifier input surface.
+379. **User-facing row bounds remain 1–200:** the API validates the limit before adapter invocation and underlying transport timeout/row/output limits remain mandatory.
+380. **No local copy:** source rows are returned transiently and Task 47 adds no SQLite history table, cache, background poller, or browser persistence.
+381. **Schema capability is visible:** unsupported, missing, mismatched, and ambiguous datasets are explicit UI/API states rather than false empty-success history.
+382. **Source timestamp semantics remain unchanged:** naive source timestamps are shown as source-reported strings; neither API nor UI invents UTC or another timezone.
+383. **Errors are bounded:** database/schema/driver internals, SQL text, host details, and credentials are not exposed through history errors.
+384. **Real database access remains separately approved:** Task 47 validation is synthetic/mock only and makes no production schema compatibility claim.
+385. **Task 48 is next:** reconcile legacy persisted monitoring histories only after Task 47 merges, with a safe migration/cleanup plan before destructive removal.

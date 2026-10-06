@@ -7,6 +7,7 @@ import { App, FirstAdminForm, LoginForm, PbxWorkspace } from '../src/App.js';
 import { SecurityWorkspace } from '../src/SecurityWorkspace.js';
 import { SshMetricsWorkspace } from '../src/SshMetricsWorkspace.js';
 import { DatabaseSourceWorkspace } from '../src/DatabaseSourceWorkspace.js';
+import { HistoryWorkspace } from '../src/HistoryWorkspace.js';
 import { DashboardStorageWorkspace } from '../src/DashboardStorageWorkspace.js';
 import { DashboardBuilder } from '../src/DashboardBuilder.js';
 import { ServiceMonitoringWorkspace } from '../src/ServiceMonitoringWorkspace.js';
@@ -938,6 +939,73 @@ describe('read-only database source workspace', () => {
     expect(input('database-credential').value).toBe('');
     expect(container.textContent).toContain('Read-only source; saving does not test connectivity');
     expect(container.textContent).not.toContain('synthetic-database-password');
+  });
+});
+
+describe('source-backed history workspace', () => {
+  it('inspects dataset support and loads only bounded normalized rows', async () => {
+    const profile = {
+      id: 'history-pbx',
+      displayName: 'History PBX',
+      providerType: 'ASTERISK',
+      enabled: true,
+      amiHost: 'pbx.example.test',
+      amiPort: 5038,
+      amiUsername: 'synthetic-user',
+      hasAmiPassword: true,
+      connectionStatus: 'CONNECTED',
+      createdAt: '',
+      updatedAt: '',
+    } as const;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string) => {
+        if (path === '/api/pbx-instances/history-pbx/history')
+          return response({
+            instanceId: 'history-pbx',
+            source: 'DATABASE',
+            adapter: 'ASTERISK_CONVENTIONAL_SQL_V1',
+            calls: { availability: 'SUPPORTED' },
+            callEvents: { availability: 'NOT_FOUND' },
+            queueEvents: { availability: 'SCHEMA_MISMATCH' },
+          });
+        if (path === '/api/pbx-instances/history-pbx/history/calls?limit=100')
+          return response({
+            items: [
+              {
+                instanceId: 'history-pbx',
+                source: 'DATABASE',
+                recordId: 'call-1',
+                sourceStartedAt: '2026-10-06 10:00:00',
+                sourceNumber: '100',
+                destinationNumber: '200',
+                durationSeconds: 12,
+                billableSeconds: 10,
+                disposition: 'ANSWERED',
+              },
+            ],
+          });
+        throw new Error('unexpected API route: ' + path);
+      }),
+    );
+
+    await act(async () =>
+      root.render(
+        <HistoryWorkspace text={messages.en} profiles={[profile]} onUnauthorized={() => {}} />,
+      ),
+    );
+    expect(container.textContent).toContain('Source-backed history');
+    expect(container.textContent).toContain('SUPPORTED');
+    expect(container.textContent).toContain('NOT_FOUND');
+
+    const loadButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Load recent rows'),
+    );
+    await act(async () => loadButton?.click());
+
+    expect(container.textContent).toContain('call-1');
+    expect(container.textContent).toContain('ANSWERED');
+    expect(container.textContent).toContain('2026-10-06 10:00:00');
   });
 });
 

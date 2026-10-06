@@ -177,7 +177,7 @@ test('database source removal deletes only its credential and PBX deletion casca
     );
   }));
 
-async function serveApi(storage, secrets, auth, databaseSourceConfiguration) {
+async function serveApi(storage, secrets, auth, databaseSourceConfiguration, historicalSource) {
   const server = createApp(
     storage,
     secrets,
@@ -187,6 +187,7 @@ async function serveApi(storage, secrets, auth, databaseSourceConfiguration) {
     undefined,
     undefined,
     databaseSourceConfiguration,
+    historicalSource,
   );
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
@@ -263,6 +264,73 @@ test('database source API is authenticated, same-origin protected and credential
       });
       assert.equal(deleted.status, 200);
       assert.equal((await fetch(app.base + path, { headers: { cookie } })).status, 404);
+    } finally {
+      await app.close();
+    }
+  }));
+
+test('source-backed history API is authenticated and bounded without raw SQL exposure', async () =>
+  fixture(async ({ config, storage, secrets, auth }) => {
+    const service = new DatabaseSourceConfigurationService(storage, secrets);
+    const calls = [];
+    const historicalSource = {
+      inspect: async (id) => ({
+        instanceId: id,
+        source: 'DATABASE',
+        adapter: 'ASTERISK_CONVENTIONAL_SQL_V1',
+        calls: { availability: 'SUPPORTED' },
+        callEvents: { availability: 'NOT_FOUND' },
+        queueEvents: { availability: 'SCHEMA_MISMATCH' },
+      }),
+      listRecentCalls: async (id, limit) => {
+        calls.push({ id, limit });
+        return [
+          {
+            instanceId: id,
+            source: 'DATABASE',
+            recordId: 'synthetic-call-1',
+            sourceStartedAt: '2026-10-06 10:00:00',
+            sourceNumber: '100',
+            destinationNumber: '200',
+            durationSeconds: 12,
+            billableSeconds: 10,
+            disposition: 'ANSWERED',
+          },
+        ];
+      },
+      listRecentCallEvents: async () => [],
+      listRecentQueueEvents: async () => [],
+    };
+    const app = await serveApi(storage, secrets, auth, service, historicalSource);
+    try {
+      const basePath = '/api/pbx-instances/' + PBX_ID + '/history';
+      assert.equal((await fetch(app.base + basePath)).status, 401);
+      const cookie = await login(app.base, config);
+
+      const capabilities = await fetch(app.base + basePath, { headers: { cookie } });
+      assert.equal(capabilities.status, 200);
+      assert.equal((await capabilities.json()).calls.availability, 'SUPPORTED');
+
+      const rows = await fetch(app.base + basePath + '/calls?limit=3', { headers: { cookie } });
+      assert.equal(rows.status, 200);
+      const body = await rows.json();
+      assert.equal(body.items.length, 1);
+      assert.equal(body.items[0].recordId, 'synthetic-call-1');
+      assert.deepEqual(calls, [{ id: PBX_ID, limit: 3 }]);
+
+      assert.equal(
+        (await fetch(app.base + basePath + '/calls?limit=201', { headers: { cookie } })).status,
+        400,
+      );
+      assert.equal(
+        (
+          await fetch(app.base + basePath + '/calls', {
+            method: 'POST',
+            headers: { cookie, origin: app.base },
+          })
+        ).status,
+        404,
+      );
     } finally {
       await app.close();
     }

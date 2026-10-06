@@ -1,6 +1,6 @@
 # Proposed architecture
 
-Status: PR #54 merged Task 45. Task 46 is complete locally on `feature/source-schema-adapters` and merge is pending: the source-owned history architecture now has an internal conventional Asterisk SQL schema adapter over the bounded read-only transport, provider-neutral historical contracts, and synthetic schema fixtures. It is not wired to a public historical API or background runtime; Task 47 is the next consumer after merge.
+Status: PR #55 merged Task 46. Task 47 is complete locally on `feature/source-backed-history-ui` and merge is pending: authenticated bounded source-backed history APIs and a bilingual operator workspace consume the internal adapter only on explicit GET requests, without raw SQL exposure or local row persistence. Task 48 follows after merge.
 
 ```text
 PBX (Asterisk / FreePBX)

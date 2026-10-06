@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-06. PR #54 merged Task 45. Product direction remains a non-duplicating real-time monitor with source-owned historical/reporting data. Task 46 is complete locally on feature/source-schema-adapters and merge is pending; Task 47 follows only after Task 46 is merged.
+Status: 2026-10-06. PR #55 merged Task 46. Product direction remains a non-duplicating real-time monitor with source-owned historical/reporting data. Task 47 is complete locally on feature/source-backed-history-ui and merge is pending; Task 48 follows only after Task 47 is merged.
 
 ## Phase 0 — environment discovery
 
@@ -84,22 +84,19 @@ These later checks do not change the historical Phase 1 validation record. Docke
 - [x] Task 44: adopt the source-owned history architecture and add PBX-scoped read-only external database source configuration with encrypted write-only credentials and bilingual Settings UI. This task stores configuration only, performs no database connection/query, and adds no local telephony-history persistence.
 - [x] Task 45: add a provider-neutral read-only database transport/query boundary with explicit dialect adapters, network/TLS policy, SELECT-only enforcement, query timeout, row/output bounds, and synthetic database validation only.
 - [x] Task 46: add source-schema adapters for historical/reporting views (for example CDR/CEL/queue data when the configured source actually provides them), using normalized provider-neutral contracts and synthetic fixtures before any separately approved real-database compatibility verification.
-- [ ] Task 47: expose bounded source-backed historical/reporting APIs and UI views without copying source rows into the VoIP Monitor database.
+- [x] Task 47: expose bounded source-backed historical/reporting APIs and UI views without copying source rows into the VoIP Monitor database.
 - [ ] Task 48: reconcile legacy locally persisted monitoring histories with the new non-duplication policy: prefer bounded in-memory trend/state buffers, retain only configuration and explicitly justified operational state, and provide a safe migration/cleanup plan before removing any existing persisted telemetry.
 
 ### Current execution handoff
 
-- PR #54 merged Task 45. Current branch: `feature/source-schema-adapters`, created from synchronized `main` at merge commit `5956360`.
-- Task 46 adds `AsteriskConventionalSqlHistoryAdapter`, an internal source-schema boundary over the Task 45 read-only transport. It is not wired into startup, polling, a browser action, or a public historical API.
-- Schema discovery is read-only and explicit: the adapter queries `information_schema.columns` for conventional `cdr`, `cel`, and `queue_log` table names in the configured database. Each dataset is independently classified as `SUPPORTED`, `NOT_FOUND`, `SCHEMA_MISMATCH`, or `AMBIGUOUS`; missing or ambiguous data never becomes a false empty success.
-- Supported CDR shape requires `calldate`, `src`, `dst`, `duration`, `billsec`, `disposition`, and `uniqueid`; `linkedid` is optional. Supported CEL requires `eventtime`, `eventtype`, and `uniqueid`, with optional `linkedid`, `exten`, and `cid_num`. SQL-backed queue history requires `time`, `callid`, `queuename`, `agent`, and `event`.
-- Provider-neutral shared contracts now model normalized call history, call-event history, queue-event history, and dataset capability. Known Asterisk dispositions/event names map to bounded enums; unknown event values become `OTHER`/`UNKNOWN` instead of leaking provider-specific fields.
-- Source values are selected through explicit dialect-safe casts and discovered/quoted identifiers. PostgreSQL and MySQL/MariaDB share the normalized contract while keeping dialect-specific quoting/cast syntax internal. Schema/table identifiers come only from `information_schema` rows and are escaped before query construction.
-- Historical reads are recent/bounded only: caller limit must be 1–200 and the Task 45 timeout/output limits remain in force. Task 46 adds no local historical table or cache.
-- Naive PBX database timestamps are deliberately preserved as `sourceStartedAt` / `sourceOccurredAt`; the adapter does not invent UTC or a timezone offset that the source did not provide. Timezone interpretation remains a later compatibility/UI concern.
-- Synthetic fixtures cover supported MySQL-style conventional schema, PostgreSQL schema qualification, missing/mismatched/ambiguous datasets, normalized CDR/CEL/queue records, invalid-row rejection, invalid limits, and missing configuration. Task 46 targeted coverage passes 6/6.
-- Final validation passes under project Node 24.21.0/npm 11.19.0: lint, format check, typecheck, backend 162/162 tests, frontend 24/24 tests, production build, foundation check, license check, and diff check. No real PBX, source database, schema, credential, or production host was contacted. Known Ark UI/Rolldown `use client` build warnings remain non-fatal.
-- After Task 46 merges, exact next task is **Task 47 — bounded source-backed historical/reporting APIs and UI views**, without copying source rows into the VoIP Monitor database.
+- PR #55 merged Task 46. Current branch: `feature/source-backed-history-ui`, created from synchronized `main` at merge commit `8c3a020`.
+- Task 47 is complete locally: authenticated PBX-scoped GET-only history capability/calls/call-events/queue-events APIs consume the existing Task 46 adapter.
+- History requests are explicit and bounded to 1–200 recent normalized rows. There is no raw-SQL endpoint, background polling, startup database probe, cache, or local history persistence.
+- The bilingual top-level History workspace discovers per-dataset support and loads only supported source rows on explicit operator action.
+- Source timestamps remain source-reported strings; the application does not invent UTC or another timezone for naive values.
+- Synthetic validation only: no real PBX, source database, schema, credential, DNS target, or production host was contacted.
+- Final gates passed with Node 24.21.0/npm 11.19.0: lint, format check, typecheck, backend 163/163, frontend 25/25, production build, foundation check, license check, and diff check.
+- Exact next task after Task 47 merge is **Task 48 — reconcile legacy locally persisted monitoring histories with the non-duplication policy and define a safe migration/cleanup plan before destructive removal**.
 
 ### Failure and bug log
 
@@ -581,7 +578,7 @@ Tasks 7–13 implemented substantial Asterisk-provider and telephony-state found
 - [ ] Phase 11: hardening, backup, tested restore, and a production deployment runbook.
 - [ ] Phase 12: release validation, including an organization-neutral fresh-deployment procedure that can onboard a new service without carrying private values from another deployment.
 
-Phase 1 is closed. The live-monitoring foundations through the operator dashboard are complete, and Task 43 completed broader trunk discovery. The 2026-10-06 product decision makes historical/reporting data source-owned: Task 44 adds safe read-only database-source configuration, Task 45 adds the bounded transport/query boundary, Task 46 adds source-schema adapters, Task 47 exposes source-backed historical/reporting views, and Task 48 reconciles legacy local histories with the non-duplication policy. Exact next task after Task 44 merge is **Task 45 — read-only database transport/query boundary**.
+Phase 1 is closed. The live-monitoring foundations through the operator dashboard are complete, and Task 47 now exposes bounded source-backed historical/reporting views without local row duplication. Task 48 is the exact next task after Task 47 merges: reconcile legacy locally persisted monitoring histories with the non-duplication policy and define a safe migration/cleanup plan before any destructive removal.
 
 ## 2026-09-26 — Task 28 completion record
 
@@ -601,3 +598,29 @@ Phase 1 is closed. The live-monitoring foundations through the operator dashboar
 ### Mandatory failure/bug recording rule
 
 For every future task, retain resolved failures and bugs in this plan with: observed stage, root cause, fix, re-validation result, current status/impact, and known limitations. Do not delete historical failures merely because they were fixed.
+
+## 2026-10-06 — Task 47 completion record
+
+- **Result:** added authenticated PBX-scoped GET-only source-backed history APIs and a bilingual operator History workspace using the existing Task 45 transport and Task 46 schema adapter.
+- **API surface:** `GET /api/pbx-instances/:id/history` reports dataset capability. `/history/calls`, `/history/call-events`, and `/history/queue-events` return recent normalized source rows only.
+- **Bounds:** row requests accept only integer `limit` values from 1 to 200; Task 45 timeout, row, and normalized-output limits remain enforced underneath.
+- **No raw SQL:** callers cannot submit SQL, identifiers, schema names, table names, or arbitrary query parameters.
+- **No duplication:** Task 47 adds no SQLite history table, backend cache, browser persistence, background poller, or startup database probe. Returned rows remain transient API/UI data.
+- **UI behavior:** the operator selects one PBX, capability inspection marks each dataset as `SUPPORTED`, `NOT_FOUND`, `SCHEMA_MISMATCH`, or `AMBIGUOUS`, unsupported datasets are disabled, and recent rows load only after explicit operator action.
+- **Timestamp behavior:** source timestamps are displayed as source-reported strings; the UI explicitly states that naive timestamps are not relabeled with an invented timezone.
+- **Error boundary:** schema/query/transport failures map to bounded application errors; SQL text, credentials, database host details, driver errors, and arbitrary raw source fields are not returned.
+- **Targeted validation:** backend database/history API tests passed 6/6 and frontend tests passed 25/25 using synthetic/mocked sources only.
+- **PBX/database scope:** no real PBX, production database, source schema, credential, DNS target, or production host was contacted during Task 47.
+- **Exact next task:** after Task 47 is merged, Task 48 reconciles legacy locally persisted monitoring histories with the non-duplication policy and defines a safe migration/cleanup plan before any destructive removal.
+
+### Task 47 failures / bugs / gaps
+
+- **Unsupported Vitest option — resolved:** the first targeted frontend command used `--runInBand`, which Vitest 5 does not support. The failure was command-line only; rerunning the repository frontend test script passed 25/25.
+- **Wrong shell Node selected initially — controlled before final gates:** the generic local toolchain path still resolved Node 22. Final validation uses the explicit project Node 24.21.0 archive path.
+- **Known limitation:** Task 47 exposes recent bounded rows only; arbitrary date ranges, cursor pagination, export, aggregation/report builders, and cross-PBX queries are not implemented.
+- **Known limitation:** `ASTERISK_CONVENTIONAL_SQL_V1` remains the only history schema adapter. Custom/vendor schemas require explicit future adapter work.
+- **Known limitation:** there is no real-database compatibility claim. Any real source-database access remains a separately approved operational action.
+
+### Task 47 final validation
+
+- **Final repository gates:** using project Node 24.21.0/npm 11.19.0, lint, format check, typecheck, backend 163/163 tests, frontend 25/25 tests, production build, foundation check, license check, and `git diff --check` all passed. Existing Chakra/Ark/Zag `"use client"` bundle warnings remain non-fatal and unchanged in impact.

@@ -1,6 +1,6 @@
 # Master Plan
 
-وضعیت: 2026-10-06. PR #54 مربوط به Task 45 داخل main Merge شده است. جهت محصول همچنان Monitoring بلادرنگ بدون Duplicate Storage و Source-owned History/Reporting است. Task 46 روی feature/source-schema-adapters به‌صورت Local کامل است و Merge آن Pending است؛ Task 47 فقط بعد از Merge شدن Task 46 شروع می‌شود.
+Status: 2026-10-06. PR #55، Task 46 را Merge کرده است. جهت محصول همچنان Real-time Monitoring بدون Duplicate Storage و با Historical/Reporting Data متعلق به Source است. Task 47 روی Branch `feature/source-backed-history-ui` به‌صورت Local کامل شده و Merge آن Pending است؛ Task 48 فقط بعد از Merge شدن Task 47 شروع می‌شود.
 
 ## Phase 0 - کشف محیط
 
@@ -84,22 +84,19 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - [x] Task 44: معماری Source-owned History را اعمال و Configuration مربوط به External Database Source فقط‌خواندنی و PBX-scoped را با Credential رمزنگاری‌شده/Write-only و Settings UI دو‌زبانه اضافه کند. این Task فقط Configuration را ذخیره می‌کند، هیچ Database Connection/Query انجام نمی‌دهد و Telephony History محلی جدید ایجاد نمی‌کند.
 - [x] Task 45: Boundary عمومی Read-only Database Transport/Query را با Dialect Adapter صریح، Network/TLS Policy، اجبار SELECT-only، Query Timeout و Row/Output Limit و فقط Synthetic Database Validation اضافه کند.
 - [x] Task 46: Adapterهای Schema منبع برای Historical/Reporting Viewها مانند CDR/CEL/Queue را فقط وقتی Source پیکربندی‌شده واقعاً آن‌ها را ارائه می‌کند، با Contractهای Normalized و Fixtureهای Synthetic اضافه کند؛ هر Real-Database Compatibility Verification نیاز به Approval جدا دارد.
-- [ ] Task 47: API و UI محدود برای Historical/Reporting Data مستقیم از Source ارائه کند، بدون کپی‌کردن Rowهای Source داخل Database خود VoIP Monitor.
+- [x] Task 47: API و UI محدود برای Historical/Reporting Data مستقیم از Source ارائه شد، بدون کپی‌کردن Rowهای Source داخل Database خود VoIP Monitor.
 - [ ] Task 48: Historyهای Monitoring محلی قدیمی را با Policy جدید Non-duplication تطبیق دهد؛ Trend/State کوتاه‌مدت ترجیحاً bounded in-memory باشد، فقط Configuration و Operational State با توجیه صریح Persist شود و قبل از حذف Telemetry موجود Migration/Cleanup Plan امن تهیه شود.
 
 ### وضعیت فعلی ادامه کار
 
-- PR #54 مربوط به Task 45 Merge شده است. Branch فعلی `feature/source-schema-adapters` است که از `main` همگام‌شده روی Merge Commit `5956360` ساخته شد.
-- Task 46، `AsteriskConventionalSqlHistoryAdapter` را به‌عنوان Boundary داخلی Source-schema روی Read-only Transport مربوط به Task 45 اضافه می‌کند؛ هیچ Startup Wiring، Polling، Browser Action یا Public Historical API ایجاد نمی‌شود.
-- Schema Discovery فقط‌خواندنی و صریح است: Adapter برای نام‌های متعارف `cdr`، `cel` و `queue_log` از `information_schema.columns` استفاده می‌کند. هر Dataset مستقل به `SUPPORTED`، `NOT_FOUND`، `SCHEMA_MISMATCH` یا `AMBIGUOUS` طبقه‌بندی می‌شود و نبود/ابهام Schema به‌اشتباه Empty Success محسوب نمی‌شود.
-- CDR پشتیبانی‌شده به `calldate`، `src`، `dst`، `duration`، `billsec`، `disposition` و `uniqueid` نیاز دارد و `linkedid` اختیاری است. CEL به `eventtime`، `eventtype` و `uniqueid` نیاز دارد و `linkedid`، `exten` و `cid_num` اختیاری هستند. Queue History مبتنی بر SQL به `time`، `callid`، `queuename`، `agent` و `event` نیاز دارد.
-- Shared Contractهای Provider-neutral اکنون Call History، Call-event History، Queue-event History و Dataset Capability را مدل می‌کنند. Disposition/Eventهای شناخته‌شده Asterisk به Enumهای محدود Map می‌شوند و Valueهای ناشناخته به `OTHER`/`UNKNOWN` تبدیل می‌شوند؛ Raw Provider Fieldها Forward نمی‌شوند.
-- Source Valueها با Cast صریح و Identifierهای Discover‌شده/Quote‌شده خوانده می‌شوند. PostgreSQL و MySQL/MariaDB Contract یکسان دارند و Syntax مربوط به Quote/Cast داخل Adapter باقی می‌ماند. Schema/Table Identifier فقط از `information_schema` گرفته و قبل از Query Construction Escape می‌شود.
-- Historical Read فقط Recent و Bounded است: Limit فراخواننده باید بین 1 تا 200 باشد و Timeout/Output Limit مربوط به Task 45 همچنان اعمال می‌شود. Task 46 هیچ Historical Table یا Cache محلی اضافه نمی‌کند.
-- Timestampهای Naive در Database سیستم تلفنی عمداً به‌شکل `sourceStartedAt` / `sourceOccurredAt` حفظ می‌شوند؛ Adapter UTC یا Offsetای را که Source نداده جعل نمی‌کند. تفسیر Timezone به Compatibility/UI بعدی موکول است.
-- Fixtureهای Synthetic، Schema متعارف MySQL، Qualification در PostgreSQL، Datasetهای Missing/Mismatched/Ambiguous، Normalization رکوردهای CDR/CEL/Queue، Reject شدن Row نامعتبر، Limit نامعتبر و نبود Configuration را پوشش می‌دهند. Targeted Coverage مربوط به Task 46 برابر 6/6 PASS است.
-- Final Validation با Project Node 24.21.0/npm 11.19.0 PASS است: Lint، Format Check، Typecheck، Backend 162/162، Frontend 24/24، Production Build، Foundation Check، License Check و Diff Check. هیچ Real PBX، Source Database، Schema، Credential یا Production Host Contact نشده است. Warningهای شناخته‌شده Ark UI/Rolldown درباره `use client` Non-fatal باقی می‌مانند.
-- بعد از Merge شدن Task 46، Task دقیق بعدی **Task 47 — API و UI محدود Source-backed برای Historical/Reporting** است؛ بدون کپی Rowهای Source داخل Database خود VoIP Monitor.
+- PR #55 مربوط به Task 46 Merge شده است. Branch فعلی `feature/source-backed-history-ui` است که از `main` همگام‌شده روی Merge Commit `8c3a020` ساخته شد.
+- Task 47 به‌صورت Local کامل است: APIهای GET-only احراز هویت‌شده و PBX-scoped برای Capability، Calls، Call Events و Queue Events از Adapter موجود Task 46 استفاده می‌کنند.
+- درخواست History صریح و محدود به 1 تا 200 Recent Normalized Row است. هیچ Raw-SQL Endpoint، Background Polling، Startup Database Probe، Cache یا Local History Persistence وجود ندارد.
+- Workspace سطح اول و دو‌زبانه History، پشتیبانی هر Dataset را Discover می‌کند و فقط Datasetهای Supported را با Action صریح Operator Load می‌کند.
+- Timestampهای Source به‌شکل Source-reported باقی می‌مانند و Application برای مقدار Naive، UTC یا Timezone دیگری جعل نمی‌کند.
+- Validation فقط Synthetic است: هیچ Real PBX، Source Database، Schema، Credential، DNS Target یا Production Host Contact نشده است.
+- Final Gateها با Node 24.21.0 و npm 11.19.0 PASS هستند: Lint، Format Check، Typecheck، Backend 163/163، Frontend 25/25، Production Build، Foundation Check، License Check و Diff Check.
+- Task دقیق بعدی پس از Merge شدن Task 47، **Task 48 — تطبیق Legacy Monitoring Historyهای Persist‌شده محلی با Non-duplication Policy و تعریف Migration/Cleanup Plan امن قبل از حذف مخرب** است.
 
 ### ثبت خرابی و اشکال
 
@@ -581,7 +578,7 @@ commit محلی قبلی `e735f1c` قبل از انتشار اصلاح شد تا
 - [ ] Phase 11: سخت شدن، تهیه نسخه پشتیبان، بازیابی آزمایش شده، و یک دفترچه راه اندازی تولید.
 - [ ] Phase 12: اعتبار سنجی انتشار، از جمله رویه استقرار تازه خنثی برای سازمان که می تواند بدون حمل مقادیر خصوصی از استقرار دیگر، روی یک سرویس جدید نصب شود.
 
-Phase 1 بسته است. Phaseهای Live Monitoring تا Operator Dashboard Foundation کامل‌اند. Task 43 Trunk Discovery گسترده‌تر را تکمیل کرد. تصمیم Product در 2026-10-06، History را Source-owned تعریف کرد: Task 44 Configuration امن Database Source فقط‌خواندنی را اضافه می‌کند، Task 45 Transport/Query Boundary محدود را می‌سازد، Task 46 Schema Adapterها را تعریف می‌کند، Task 47 Historical/Reporting Viewهای Source-backed را ارائه می‌کند و Task 48 Historyهای محلی قدیمی را با Policy Non-duplication تطبیق می‌دهد. بعد از Merge Task 44، Task دقیق بعدی **Task 45 — Read-only Database Transport/Query Boundary** است.
+Phase 1 بسته است. Foundationهای Live Monitoring تا Operator Dashboard کامل‌اند و Task 47 اکنون Historical/Reporting Viewهای Source-backed محدود را بدون Duplicate Storage محلی ارائه می‌کند. Task دقیق بعدی پس از Merge شدن Task 47، **Task 48** است: تطبیق Legacy Monitoring Historyهای Persist‌شده محلی با Non-duplication Policy و تعریف Migration/Cleanup Plan امن قبل از هر حذف مخرب.
 
 ## 26-09-2026 - رکورد تکمیل Task 28
 
@@ -601,3 +598,29 @@ Phase 1 بسته است. Phaseهای Live Monitoring تا Operator Dashboard Fou
 ### قانون اجباری شکست/ضبط اشکال
 
 برای هر کار آینده، خرابی ها و اشکالات حل شده را در این طرح با موارد زیر حفظ کنید: مرحله مشاهده شده، علت اصلی، رفع مشکل، نتیجه تأیید مجدد، وضعیت/تاثیر فعلی و محدودیت های شناخته شده. شکست های تاریخی را صرفاً به این دلیل که رفع شده اند حذف نکنید.
+
+## 2026-10-06 — ثبت تکمیل Task 47
+
+- **نتیجه:** APIهای GET-only احراز هویت‌شده و PBX-scoped برای Source-backed History و یک Workspace دو‌زبانه History با استفاده از Transport مربوط به Task 45 و Schema Adapter مربوط به Task 46 اضافه شد.
+- **سطح API:** مسیر `GET /api/pbx-instances/:id/history` Capability هر Dataset را گزارش می‌کند. مسیرهای `/history/calls`، `/history/call-events` و `/history/queue-events` فقط Recent Normalized Rowهای Source را برمی‌گردانند.
+- **حدود:** درخواست Row فقط `limit` صحیح بین 1 تا 200 را می‌پذیرد و Timeout، Row Limit و Normalized-output Limit مربوط به Task 45 همچنان در لایه زیرین اعمال می‌شوند.
+- **بدون Raw SQL:** Caller نمی‌تواند SQL، Identifier، Schema Name، Table Name یا Query Parameter دلخواه ارسال کند.
+- **بدون Duplicate Storage:** Task 47 هیچ SQLite History Table، Backend Cache، Browser Persistence، Background Poller یا Startup Database Probe اضافه نمی‌کند. Rowهای برگشتی فقط داده موقت API/UI هستند.
+- **رفتار UI:** Operator یک PBX را انتخاب می‌کند؛ Capability Inspection هر Dataset را به `SUPPORTED`، `NOT_FOUND`، `SCHEMA_MISMATCH` یا `AMBIGUOUS` طبقه‌بندی می‌کند؛ Datasetهای Unsupported غیرفعال می‌شوند و Recent Rowها فقط با Action صریح Operator Load می‌شوند.
+- **رفتار Timestamp:** Timestampهای Source دقیقاً به‌شکل Source-reported نمایش داده می‌شوند و UI صریحاً اعلام می‌کند Timestampهای Naive با Timezone ساختگی Relabel نمی‌شوند.
+- **مرز خطا:** خطاهای Schema/Query/Transport فقط به Errorهای محدود Application Map می‌شوند؛ SQL Text، Credential، Database Host Detail، Driver Error و Raw Source Field دلخواه بازگردانده نمی‌شوند.
+- **Targeted Validation:** تست Backend Database/History API برابر 6/6 و تست Frontend برابر 25/25 با Sourceهای Synthetic/Mock پاس شد.
+- **دامنه PBX/Database:** در Task 47 هیچ Real PBX، Production Database، Source Schema، Credential، DNS Target یا Production Host Contact نشد.
+- **Task دقیق بعدی:** بعد از Merge شدن Task 47، Task 48 باید Legacy Monitoring Historyهای Persist‌شده محلی را با Non-duplication Policy تطبیق دهد و قبل از هر حذف مخرب Migration/Cleanup Plan امن تعریف کند.
+
+### خرابی‌ها / Bugها / Gapهای Task 47
+
+- **Option پشتیبانی‌نشده Vitest — رفع شد:** اولین Targeted Frontend Command از `--runInBand` استفاده کرد که Vitest 5 پشتیبانی نمی‌کند. Failure فقط مربوط به Command Line بود؛ اجرای مجدد Script خود Repository برابر 25/25 PASS شد.
+- **انتخاب اولیه Node اشتباه در Shell — قبل از Final Gate کنترل شد:** مسیر عمومی Toolchain محلی هنوز Node 22 را Resolve می‌کرد. Final Validation از مسیر صریح Archive مربوط به Project Node 24.21.0 استفاده می‌کند.
+- **محدودیت شناخته‌شده:** Task 47 فقط Recent Rowهای محدود را ارائه می‌کند؛ Date Range دلخواه، Cursor Pagination، Export، Aggregation/Report Builder و Cross-PBX Query پیاده‌سازی نشده است.
+- **محدودیت شناخته‌شده:** `ASTERISK_CONVENTIONAL_SQL_V1` همچنان تنها History Schema Adapter است. Custom/Vendor Schemaها به Adapter آینده صریح نیاز دارند.
+- **محدودیت شناخته‌شده:** هیچ Real-database Compatibility Claim وجود ندارد. هر Real Source-database Access همچنان Operational Action با Approval جداگانه است.
+
+### Final Validation مربوط به Task 47
+
+- **Final Repository Gateها:** با Project Node 24.21.0 و npm 11.19.0، Lint، Format Check، Typecheck، تست‌های Backend برابر 163/163، تست‌های Frontend برابر 25/25، Production Build، Foundation Check، License Check و `git diff --check` همگی PASS شدند. Warningهای موجود Chakra/Ark/Zag درباره `"use client"` همچنان Non-fatal هستند و Impact آن‌ها تغییری نکرده است.
