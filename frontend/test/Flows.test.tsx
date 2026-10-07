@@ -1017,6 +1017,69 @@ describe('telephony entity workspace', () => {
     expect(container.textContent).toContain('UP→DOWN');
     expect(container.textContent).toContain('Trunk discovery uses explicit confidence');
   });
+
+  it('renders trunks from an older backend response that has no reliability field', async () => {
+    class FakeEventSource {
+      onopen: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      addEventListener() {}
+      close() {}
+      constructor(readonly url: string) {}
+    }
+    vi.stubGlobal('EventSource', FakeEventSource);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string) => {
+        if (path === '/api/pbx-instances/entity-pbx/telephony-state')
+          return response({
+            current: {
+              instanceId: 'entity-pbx',
+              revision: 1,
+              synchronization: 'CURRENT',
+              channels: [],
+              calls: [],
+              endpointCapability: 'SUPPORTED',
+              endpointSynchronization: 'CURRENT',
+              endpoints: [],
+              trunkCapability: 'SUPPORTED',
+              trunkSynchronization: 'CURRENT',
+              trunks: [
+                {
+                  trunkId: 'PJSIP/legacy-carrier',
+                  technology: 'PJSIP',
+                  kind: 'OUTBOUND_REGISTRATION',
+                  confidence: 'CONFIRMED',
+                  registrationState: 'UNREGISTERED',
+                  updatedAt: '2026-10-07T05:00:00.000Z',
+                },
+              ],
+              queueCapability: 'SUPPORTED',
+              queueSynchronization: 'CURRENT',
+              queues: [],
+              queueMembers: [],
+              queueCallers: [],
+              agentCapability: 'SUPPORTED',
+              agentSynchronization: 'LIVE_ONLY',
+              agentInteractions: [],
+            },
+          });
+        throw new Error('unexpected API route: ' + path);
+      }),
+    );
+    await act(async () =>
+      root.render(
+        <TelephonyWorkspace
+          text={messages.en}
+          profiles={[profile]}
+          page="trunks"
+          onUnauthorized={() => {}}
+        />,
+      ),
+    );
+    expect(container.textContent).toContain('PJSIP/legacy-carrier');
+    expect(container.textContent).toContain('DOWN');
+    expect(container.textContent).toContain('UNREGISTERED');
+  });
 });
 
 describe('read-only database source workspace', () => {
@@ -1158,6 +1221,36 @@ describe('source-backed history workspace', () => {
   });
 });
 
+describe('primary navigation hierarchy', () => {
+  it('keeps only three primary choices and reveals one child group at a time', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => response({ items: [] })),
+    );
+    await act(async () => root.render(<App initialLanguage="en" initialView="ready" />));
+    const button = (label: string) =>
+      [...container.querySelectorAll('button')].find(
+        (item) => item.getAttribute('aria-label') === label,
+      );
+    expect(button('Overview')).toBeTruthy();
+    expect(button('Operations')).toBeTruthy();
+    expect(button('Settings')).toBeTruthy();
+    expect(button('Trunks')).toBeFalsy();
+    await act(async () =>
+      button('Operations')?.dispatchEvent(new MouseEvent('click', { bubbles: true })),
+    );
+    expect(button('Trunks')).toBeTruthy();
+    expect(button('PBX Fleet')).toBeTruthy();
+    expect(button('Infrastructure')).toBeFalsy();
+    await act(async () =>
+      button('Settings')?.dispatchEvent(new MouseEvent('click', { bubbles: true })),
+    );
+    expect(button('Infrastructure')).toBeTruthy();
+    expect(button('Accounts')).toBeTruthy();
+    expect(button('Trunks')).toBeFalsy();
+  });
+});
+
 describe('SSH metrics management workspace', () => {
   it('loads only safe metadata and clears write-only credential after save', async () => {
     const profile = {
@@ -1190,6 +1283,7 @@ describe('SSH metrics management workspace', () => {
             authMethod: 'PASSWORD',
             hostKeyPolicy: 'PINNED_SHA256',
             hostKeyFingerprint: fingerprint,
+            lastVerifiedAt: '2026-10-07T06:00:00.000Z',
             hasCredential: true,
             hasPrivateKeyPassphrase: false,
             createdAt: '',
@@ -1212,9 +1306,52 @@ describe('SSH metrics management workspace', () => {
     await enter('ssh-credential', 'synthetic-ssh-password');
     await submit();
 
-    expect(container.textContent).toContain('SSH configuration saved and runtime synchronized.');
+    expect(container.textContent).toContain(
+      'SSH host key and authentication verified; configuration saved.',
+    );
+    expect(container.textContent).toContain('VERIFIED');
     expect(input('ssh-credential').value).toBe('');
     expect(container.textContent).not.toContain('synthetic-ssh-password');
+  });
+
+  it('keeps an invalid credential unverified and available for correction', async () => {
+    const profile = {
+      id: 'ssh-pbx',
+      displayName: 'SSH PBX',
+      providerType: 'ASTERISK',
+      enabled: true,
+      amiHost: 'pbx.example.test',
+      amiPort: 5038,
+      amiUsername: 'synthetic-user',
+      hasAmiPassword: true,
+      connectionStatus: 'CONNECTED',
+      createdAt: '',
+      updatedAt: '',
+    } as const;
+    const fingerprint = 'SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string, init?: RequestInit) => {
+        if (path === '/api/pbx-instances/ssh-pbx/ssh-configuration' && init?.method === 'GET')
+          return response({}, 404);
+        if (path === '/api/pbx-instances/ssh-pbx/ssh-configuration' && init?.method === 'PUT')
+          return response({ error: 'ssh_authentication_failed' }, 502);
+        throw new Error('unexpected API route: ' + path);
+      }),
+    );
+    await act(async () =>
+      root.render(
+        <SshMetricsWorkspace text={messages.en} profiles={[profile]} onUnauthorized={() => {}} />,
+      ),
+    );
+    await enter('ssh-host', 'pbx.example.test');
+    await enter('ssh-username', 'monitor');
+    await enter('ssh-fingerprint', fingerprint);
+    await enter('ssh-credential', 'wrong-password');
+    await submit();
+    expect(container.textContent).toContain('SSH authentication failed');
+    expect(container.textContent).toContain('NOT CONFIGURED');
+    expect(input('ssh-credential').value).toBe('wrong-password');
   });
 });
 

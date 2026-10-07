@@ -342,7 +342,8 @@ export const messages = {
     sshConfiguration: 'SSH configuration',
     sshWriteOnlyHint:
       'Credentials are write-only, encrypted at rest, and never returned by the API.',
-    sshConfigured: 'CONFIGURED',
+    sshConfigured: 'VERIFIED',
+    sshUnverified: 'UNVERIFIED',
     sshNotConfigured: 'NOT CONFIGURED',
     sshHost: 'SSH host',
     sshPort: 'SSH port',
@@ -354,12 +355,23 @@ export const messages = {
     sshFingerprintHint:
       'Required SHA-256 host-key fingerprint in the form SHA256:... . The monitor never trusts a new host key automatically.',
     sshKeyPassphrase: 'Private-key passphrase (optional)',
-    sshNoProbeTitle: 'Saving does not test the real host',
-    sshNoProbeHint:
-      'This task only stores validated metadata/credentials and synchronizes runtime state. No SSH connection is initiated by this screen.',
+    sshTrustAnchor: 'TRUST ANCHOR',
+    sshVerificationRequiredTitle: 'Verification required before saving',
+    sshVerificationRequiredHint:
+      'The monitor verifies the pinned host key and SSH authentication first. Configuration is saved only after the handshake succeeds.',
+    sshVerifyAndSave: 'Verify & save',
+    sshVerifying: 'Verifying SSH…',
     sshSave: 'Save SSH configuration',
     sshRemove: 'Remove SSH configuration',
     sshSaved: 'SSH configuration saved and runtime synchronized.',
+    sshVerifiedAndSaved: 'SSH host key and authentication verified; configuration saved.',
+    sshVerifyFailed: 'SSH verification failed. Configuration was not saved.',
+    sshHostKeyMismatch: 'Host-key fingerprint mismatch. Configuration was not saved.',
+    sshAuthenticationFailed:
+      'SSH authentication failed. Check the username and credential; configuration was not saved.',
+    sshVerifyTimeout: 'SSH verification timed out. Configuration was not saved.',
+    sshTargetBlocked: 'SSH target is blocked by the network safety policy.',
+    sshConnectionFailed: 'SSH connection failed before verification completed.',
     sshRemoved: 'SSH configuration removed and runtime synchronized.',
     sshLoadFailed: 'SSH configuration could not be loaded.',
     sshSaveFailed:
@@ -739,7 +751,8 @@ export const messages = {
     sshConfiguration: 'پیکربندی SSH',
     sshWriteOnlyHint:
       'Credentialها فقط Write-only هستند، در حالت ذخیره رمزنگاری می‌شوند و API هرگز آن‌ها را برنمی‌گرداند.',
-    sshConfigured: 'پیکربندی‌شده',
+    sshConfigured: 'تأییدشده',
+    sshUnverified: 'تأییدنشده',
     sshNotConfigured: 'پیکربندی‌نشده',
     sshHost: 'SSH Host',
     sshPort: 'SSH Port',
@@ -751,12 +764,23 @@ export const messages = {
     sshFingerprintHint:
       'Fingerprint اجباری SHA-256 با فرمت SHA256:... . Monitor هیچ Host Key جدیدی را خودکار Trust نمی‌کند.',
     sshKeyPassphrase: 'Passphrase مربوط به Private Key (اختیاری)',
-    sshNoProbeTitle: 'Save کردن Host واقعی را Test نمی‌کند',
-    sshNoProbeHint:
-      'این Task فقط Metadata/Credential معتبر را ذخیره و Runtime را Sync می‌کند. این صفحه هیچ SSH Connection ایجاد نمی‌کند.',
+    sshTrustAnchor: 'TRUST ANCHOR',
+    sshVerificationRequiredTitle: 'قبل از ذخیره، Verification اجباری است',
+    sshVerificationRequiredHint:
+      'Monitor ابتدا Pinned Host Key و SSH Authentication را Verify می‌کند و فقط بعد از موفقیت Handshake تنظیمات را ذخیره می‌کند.',
+    sshVerifyAndSave: 'Verify و ذخیره',
+    sshVerifying: 'در حال Verify کردن SSH…',
     sshSave: 'ذخیره پیکربندی SSH',
     sshRemove: 'حذف پیکربندی SSH',
     sshSaved: 'پیکربندی SSH ذخیره و Runtime همگام شد.',
+    sshVerifiedAndSaved: 'Host Key و Authentication تأیید شد و پیکربندی SSH ذخیره شد.',
+    sshVerifyFailed: 'Verification مربوط به SSH ناموفق بود؛ تنظیمات ذخیره نشد.',
+    sshHostKeyMismatch: 'Host-key Fingerprint مطابقت ندارد؛ تنظیمات ذخیره نشد.',
+    sshAuthenticationFailed:
+      'SSH Authentication ناموفق بود؛ Username و Credential را بررسی کنید. تنظیمات ذخیره نشد.',
+    sshVerifyTimeout: 'SSH Verification Timeout شد؛ تنظیمات ذخیره نشد.',
+    sshTargetBlocked: 'SSH Target توسط Network Safety Policy مسدود شده است.',
+    sshConnectionFailed: 'SSH Connection قبل از تکمیل Verification برقرار نشد.',
     sshRemoved: 'پیکربندی SSH حذف و Runtime همگام شد.',
     sshLoadFailed: 'پیکربندی SSH قابل Load نبود.',
     sshSaveFailed:

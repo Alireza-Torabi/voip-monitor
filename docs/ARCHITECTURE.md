@@ -143,3 +143,11 @@ TelephonyStateEngine now owns a per-endpoint bounded reliability tracker alongsi
 ## Single-navigation shell rule
 
 AppShell owns all route/page destinations. Workspace components may expose scope controls, filters, search, status, and actions, but must not render a second route-navigation system. Telephony pages and Settings pages are selected through AppShell state and each selected workspace renders directly with its own single header.
+
+## Navigation disclosure, SSH verification, and release compatibility
+
+AppShell exposes three primary navigation controls: Overview, Operations, and Settings. Operations/Settings each own a flat one-level list of route destinations and never nest another submenu. The active group is expanded and group disclosure uses native button state (`aria-expanded`, `aria-controls`) while active route children use `aria-current`.
+
+SSH configuration writes are guarded by `SshConnectionVerifier`. The submitted configuration is parsed once, target resolution passes the existing network boundary, the pinned host-key fingerprint is verified during the SSH handshake, and user authentication must reach the SSH `ready` state. Only then does `SshConfigurationService` persist metadata/encrypted credentials with `last_verified_at`; failed verification is side-effect free.
+
+Frontend telephony contracts permit absent reliability metadata only at the API boundary. Presentation immediately normalizes that legacy shape into conservative derived reliability, preventing runtime crashes while a stale backend process is still serving an older response. This is a release-compatibility guard, not an alternate reliability authority. Production deployment must restart the backend whenever merged frontend/backend shared contracts change.

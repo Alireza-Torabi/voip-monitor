@@ -43,6 +43,16 @@ function emptyForm() {
   };
 }
 
+function sshVerificationMessage(text: TextMap, failure: unknown): string {
+  if (!(failure instanceof ApiError)) return text.sshVerifyFailed;
+  if (failure.code === 'ssh_host_key_mismatch') return text.sshHostKeyMismatch;
+  if (failure.code === 'ssh_authentication_failed') return text.sshAuthenticationFailed;
+  if (failure.code === 'ssh_timeout') return text.sshVerifyTimeout;
+  if (failure.code === 'ssh_target_blocked') return text.sshTargetBlocked;
+  if (failure.code === 'ssh_connection_failed') return text.sshConnectionFailed;
+  return text.sshVerifyFailed;
+}
+
 export function SshMetricsWorkspace({
   text,
   profiles,
@@ -139,10 +149,10 @@ export function SshMetricsWorkspace({
         credential: '',
         keyPassphrase: '',
       }));
-      setStatus(text.sshSaved);
+      setStatus(text.sshVerifiedAndSaved);
     } catch (failure) {
       if (failure instanceof ApiError && failure.status === 401) onUnauthorized();
-      else setError(text.sshSaveFailed);
+      else setError(sshVerificationMessage(text, failure));
     } finally {
       setPending(false);
     }
@@ -199,8 +209,16 @@ export function SshMetricsWorkspace({
             {text.sshMetricsTitle}
           </Text>
           <StatusIndicator
-            tone={current?.hasCredential ? 'healthy' : 'unknown'}
-            label={current?.hasCredential ? text.sshConfigured : text.sshNotConfigured}
+            tone={
+              current?.lastVerifiedAt ? 'healthy' : current?.hasCredential ? 'warning' : 'unknown'
+            }
+            label={
+              current?.lastVerifiedAt
+                ? text.sshConfigured
+                : current?.hasCredential
+                  ? text.sshUnverified
+                  : text.sshNotConfigured
+            }
           />
         </Box>
       </WorkspaceToolbar>
@@ -216,8 +234,16 @@ export function SshMetricsWorkspace({
                 {text.sshWriteOnlyHint}
               </Text>
             </Box>
-            <Badge colorPalette={current?.hasCredential ? 'green' : 'gray'}>
-              {current?.hasCredential ? text.sshConfigured : text.sshNotConfigured}
+            <Badge
+              colorPalette={
+                current?.lastVerifiedAt ? 'green' : current?.hasCredential ? 'yellow' : 'gray'
+              }
+            >
+              {current?.lastVerifiedAt
+                ? text.sshConfigured
+                : current?.hasCredential
+                  ? text.sshUnverified
+                  : text.sshNotConfigured}
             </Badge>
           </Flex>
         </Box>
@@ -290,10 +316,13 @@ export function SshMetricsWorkspace({
                 </Box>
               </SimpleGrid>
 
-              <Box>
-                <Text fontSize="sm" fontWeight="semibold" mb="1.5">
-                  {text.sshFingerprint}
-                </Text>
+              <NocInset p="3">
+                <Flex align="center" justify="space-between" gap="3" mb="2">
+                  <Text fontSize="sm" fontWeight="700" color="noc.text">
+                    {text.sshFingerprint}
+                  </Text>
+                  <StatusIndicator tone="warning" label={text.sshTrustAnchor} />
+                </Flex>
                 <Input
                   name="ssh-fingerprint"
                   value={form.hostKeyFingerprint}
@@ -302,10 +331,10 @@ export function SshMetricsWorkspace({
                   required
                   dir="ltr"
                 />
-                <Text fontSize="xs" color="fg.muted" mt="1.5">
+                <Text fontSize="xs" color="noc.textMuted" mt="1.5">
                   {text.sshFingerprintHint}
                 </Text>
-              </Box>
+              </NocInset>
 
               <Box>
                 <Text fontSize="sm" fontWeight="semibold" mb="1.5">
@@ -351,9 +380,9 @@ export function SshMetricsWorkspace({
               ) : null}
 
               <NocInset p="3">
-                <StatusIndicator tone="info" label={text.sshNoProbeTitle} />
+                <StatusIndicator tone="info" label={text.sshVerificationRequiredTitle} />
                 <Text fontSize="11px" color="noc.textMuted" mt="2">
-                  {text.sshNoProbeHint}
+                  {text.sshVerificationRequiredHint}
                 </Text>
               </NocInset>
 
@@ -362,7 +391,7 @@ export function SshMetricsWorkspace({
 
               <HStack gap="2" flexWrap="wrap">
                 <Button type="submit" colorPalette="blue" disabled={pending}>
-                  {text.sshSave}
+                  {pending ? text.sshVerifying : text.sshVerifyAndSave}
                 </Button>
                 {current ? (
                   <Button
