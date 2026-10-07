@@ -155,3 +155,7 @@ Frontend telephony contracts permit absent reliability metadata only at the API 
 ## Live telephony delivery and reconciliation
 
 AMI events are the low-latency source for call/channel/live entity changes. ProviderRuntime publishes normalized events into TelephonyStateEngine; state revisions are streamed to browsers through authenticated SSE. Browsers additionally perform a bounded 10-second read of the local current-state API to self-heal from proxy/SSE interruptions without generating PBX traffic. ProviderRuntime performs authoritative reconciliation every 15 seconds; supported endpoint/trunk snapshots replace inventory and prune reliability records for entities that disappeared from the PBX.
+
+## Metrics-health realtime semantics
+
+System-metrics SSE has two data classes: `system-metrics` carries successful samples and `system-metrics-health` carries source freshness/error transitions. The browser consumes both. A persisted current-row is historical last-known operational state, not proof of current freshness; current-value presentation is gated on runtime source freshness `CURRENT`. Restricted SSH connection/authentication/timeout failures remain bounded safe transport codes through collection and runtime health, while arbitrary/private errors are collapsed to generic collection failure.

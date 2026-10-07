@@ -138,6 +138,34 @@ test('restricted SSH transport executes a synthetic loopback command with pinned
   }
 });
 
+test('restricted SSH transport preserves authentication failure as a bounded code', async () => {
+  const fixture = await createServer((accept) => {
+    const channel = accept();
+    channel.end();
+  });
+
+  try {
+    const transport = new Ssh2RestrictedSshTransport(
+      options(fixture.port, fixture.hostFingerprint, {
+        secrets: {
+          getSecret(_instanceId, name) {
+            if (name === 'ssh-password') return Buffer.from('wrong-password');
+            return undefined;
+          },
+        },
+      }),
+    );
+
+    await assert.rejects(
+      transport.execute(resolveRestrictedSshCommand({ id: 'UPTIME' }), limits()),
+      (error) =>
+        error instanceof RestrictedSshTransportError && error.code === 'AUTHENTICATION_FAILED',
+    );
+  } finally {
+    await stopServer(fixture);
+  }
+});
+
 test('restricted SSH transport rejects a mismatched pinned host key', async () => {
   const fixture = await createServer((accept) => {
     const channel = accept();

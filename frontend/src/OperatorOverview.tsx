@@ -242,7 +242,7 @@ export function OperatorOverview({
   onNavigate,
   wallboard = false,
 }: OperatorOverviewProps) {
-  const sample = metrics?.current ?? null;
+  const sample = metrics?.source?.health.freshness === 'CURRENT' ? (metrics.current ?? null) : null;
   const memoryPercent =
     sample?.memory && sample.memory.totalBytes > 0
       ? (100 * (sample.memory.totalBytes - sample.memory.availableBytes)) / sample.memory.totalBytes

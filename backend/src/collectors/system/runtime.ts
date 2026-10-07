@@ -7,6 +7,7 @@ import { Ssh2RestrictedSshTransport } from './ssh-client-transport.js';
 import { collectSystemMetrics } from './index.js';
 import type { SystemMetricsCollector } from './collector.js';
 import { RestrictedSshSystemMetricsCollector } from './restricted-ssh-collector.js';
+import { RestrictedSshTransportError } from './ssh-transport.js';
 
 export interface SystemMetricsCollectorFactory {
   create(instanceId: PbxInstanceId): SystemMetricsCollector;
@@ -66,12 +67,24 @@ function unavailable(instanceId: PbxInstanceId): SystemMetricsSourceStatus {
 }
 
 function errorCode(error: unknown): DataSourceHealth['error'] {
+  if (error instanceof RestrictedSshTransportError) {
+    if (error.code === 'TIMEOUT') return { code: 'TIMEOUT' };
+    if (error.code === 'AUTHENTICATION_FAILED') return { code: 'AUTHENTICATION_FAILED' };
+    if (error.code === 'PERMISSION_DENIED') return { code: 'PERMISSION_DENIED' };
+    if (error.code === 'UNSUPPORTED') return { code: 'UNSUPPORTED' };
+    if (error.code === 'CONNECTION_FAILED') return { code: 'CONNECTION_FAILED' };
+    return { code: 'UNKNOWN' };
+  }
   if (!(error instanceof Error)) return { code: 'UNKNOWN' };
-  const message = error.message;
+  const message = error.message.toUpperCase();
   if (message.includes('TIMEOUT')) return { code: 'TIMEOUT' };
-  if (message.includes('PERMISSION_DENIED')) return { code: 'PERMISSION_DENIED' };
+  if (message.includes('AUTHENTICATION_FAILED') || message.includes('AUTHENTICATION FAILED'))
+    return { code: 'AUTHENTICATION_FAILED' };
+  if (message.includes('PERMISSION_DENIED') || message.includes('PERMISSION DENIED'))
+    return { code: 'PERMISSION_DENIED' };
   if (message.includes('UNSUPPORTED')) return { code: 'UNSUPPORTED' };
-  if (message.includes('CONNECTION_FAILED')) return { code: 'CONNECTION_FAILED' };
+  if (message.includes('CONNECTION_FAILED') || message.includes('CONNECTION FAILED'))
+    return { code: 'CONNECTION_FAILED' };
   return { code: 'UNKNOWN' };
 }
 

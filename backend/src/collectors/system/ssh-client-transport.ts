@@ -58,6 +58,12 @@ function collectChunk(
   target.push(bytes);
 }
 
+function errorLevel(error: unknown): string | undefined {
+  return error && typeof error === 'object' && 'level' in error && typeof error.level === 'string'
+    ? error.level
+    : undefined;
+}
+
 function closeClient(client: Client): void {
   try {
     client.end();
@@ -141,6 +147,8 @@ export class Ssh2RestrictedSshTransport implements RestrictedSshTransport {
       );
     } catch (error) {
       if (error instanceof RestrictedSshTransportError) throw error;
+      if (errorLevel(error) === 'client-authentication')
+        throw new RestrictedSshTransportError('AUTHENTICATION_FAILED');
       throw new RestrictedSshTransportError('CONNECTION_FAILED');
     } finally {
       if (channel) destroyChannel(channel);

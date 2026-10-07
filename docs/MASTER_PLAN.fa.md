@@ -1086,3 +1086,20 @@ Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check،
 - **Deployment:** بعد از Merge این Branch باید main Sync، Release Build و `voip-monitor.service` Restart شود و سپس حرکت Telephony Revision، Live Call count و حذف Trunkهای حذف‌شده verify شود.
 
 </div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-07 — عیب‌یابی Production Live State و Hotfix مربوط به Metrics Health
+
+- **Deploy:** PR #73 روی Production Sync شد، Frontend/Backend با هم Build شدند و `voip-monitor.service` در ساعت 06:47:25 UTC Restart شد.
+- **Telephony واقعاً Live است:** Read احراز هویت‌شده از Current-state API نشان داد Revision و Current Call Count مربوط به MVM در فاصله چند ثانیه تغییر می‌کنند. AMI Freshness، Event Timestamp و Reconciliation Snapshot هم Current هستند. بنابراین مسیر Server-side مربوط به Live Call سالم است.
+- **Browser:** Production Gateway برای `index.html` مقدار `Cache-Control: no-store` و برای Assetهای Hash‌شده Cache immutable دارد. Tabی که قبل از Deploy باز بوده Bundle قبلی را تا زمان Reload در Memory نگه می‌دارد؛ Hard Reload نسخه Merge‌شده با SSE و Fallback ده‌ثانیه‌ای را بارگذاری می‌کند.
+- **علت CPU/Memory:** Runtime مربوط به System Metrics فعال است و Retry می‌کند، اما SSH Credential ذخیره‌شده Authentication را Pass نمی‌کند. تست Read-only با SSH Verifier خود اپ `AUTHENTICATION_FAILED` را تأیید کرد و Host Key پذیرفته شد. بنابراین آخرین Sample موفق CPU/Memory قدیمی است. TopTec نیز SSH Metrics Configuration ندارد و طبق طراحی UNAVAILABLE است.
+- **Error Propagation:** خطای SSH Authentication اکنون به‌صورت bounded با کد `AUTHENTICATION_FAILED` از Transport تا Runtime حفظ می‌شود و دیگر `UNKNOWN` نمی‌شود. Errorهای ناشناخته همچنان به Generic Collection Failure امن تبدیل می‌شوند و Raw Message خارج نمی‌شود.
+- **Metrics SSE:** DashboardBuilder اکنون Event مربوط به `system-metrics-health` را نیز مصرف می‌کند تا ERROR و Recovery منبع بلافاصله در UI منعکس شود.
+- **Sample قدیمی Current نمایش داده نمی‌شود:** OperatorOverview و Dashboard Widgetها فقط وقتی Source Freshness برابر `CURRENT` باشد CPU/Memory/Filesystem/Uptime را Current نمایش می‌دهند. در ERROR/STALE/UNAVAILABLE مقدار Persistشده قبلی دیگر به‌عنوان مقدار فعلی نشان داده نمی‌شود.
+- **اقدام Operator:** در Settings > Infrastructure رمز SSH صحیح را دوباره وارد و `Verify & Save` کنید. بعد از Verification موفق Runtime Sync می‌شود و CPU/Memory با Cadence سی‌ثانیه‌ای دوباره جمع‌آوری می‌شوند.
+- **Regression:** Backend برابر 177/177 و Frontend برابر 34/34 PASS است.
+- **Roadmap:** Task 60 تا Merge و Deploy این Hotfix همچنان Pending است.
+
+</div>
