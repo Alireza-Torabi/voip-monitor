@@ -287,7 +287,7 @@ export function AppShell({
         },
         {
           icon: 'settings' as const,
-          label: fa ? 'تنظیمات داشبورد' : 'Dashboard Settings',
+          label: fa ? 'Storage / Filesystems' : 'Storage / Filesystems',
           destination: { workspace: 'settings', page: 'storage' } as ShellDestination,
         },
         {

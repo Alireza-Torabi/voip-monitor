@@ -163,10 +163,10 @@ export const messages = {
     telephonyMenu: 'Telephony',
     settingsTitle: 'Settings',
     settingsHint: 'PBX, monitoring, dashboard and security configuration.',
-    dashboardStorageTitle: 'Dashboard settings',
+    dashboardStorageTitle: 'Storage / filesystems',
     dashboardStorageHint:
-      'Configure dashboard storage visibility and per-element visual update cadence for this PBX.',
-    dashboardStorageAvailable: 'Available filesystems',
+      'Choose which current filesystems from this PBX are visible on the dashboard. Update cadence is configured separately below.',
+    dashboardStorageAvailable: 'Storage / filesystems',
     dashboardStorageAvailableHint:
       'The list comes from current SSH system metrics and is not hardcoded for any deployment.',
     dashboardStorageDefaultAll: 'DEFAULT: ALL',
@@ -598,10 +598,10 @@ export const messages = {
     telephonyMenu: 'تلفنی',
     settingsTitle: 'تنظیمات',
     settingsHint: 'تنظیمات PBX، Monitoring، Dashboard و Security.',
-    dashboardStorageTitle: 'تنظیمات داشبورد',
+    dashboardStorageTitle: 'Storage / Filesystems',
     dashboardStorageHint:
-      'نمایش Storage و نرخ Update دیداری هر بخش Dashboard را برای این PBX تنظیم کنید.',
-    dashboardStorageAvailable: 'Filesystemهای موجود',
+      'مشخص کنید کدام Filesystemهای فعلی این PBX در Dashboard نمایش داده شوند. نرخ Update به‌صورت یک بخش جدا در پایین همین صفحه تنظیم می‌شود.',
+    dashboardStorageAvailable: 'Storage / Filesystems',
     dashboardStorageAvailableHint:
       'این لیست از System Metrics فعلی SSH می‌آید و برای هیچ Deploymentی Hardcode نشده است.',
     dashboardStorageDefaultAll: 'پیش‌فرض: همه',

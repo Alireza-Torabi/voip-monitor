@@ -207,7 +207,7 @@ export function DashboardStorageWorkspace({
         </Box>
       </WorkspaceToolbar>
 
-      <NocPanel p="4">
+      <NocPanel p="4" data-dashboard-storage-settings>
         <SectionHeader
           title={text.dashboardStorageAvailable}
           description={text.dashboardStorageAvailableHint}

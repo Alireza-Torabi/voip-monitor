@@ -1139,3 +1139,6 @@ Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check،
 - **Regression:** Backend برابر 179/179 و Frontend برابر 34/34 PASS است.
 
 </div>
+<div dir="rtl" align="right">
+- **اصلاح Discoverability در Settings:** تنظیم انتخاب Filesystemها همچنان یک مقصد مستقل و واضح با نام `Storage / Filesystems` است. Refresh Cadence جای آن را نمی‌گیرد؛ در همان Workspace دو پنل جدا داریم: ابتدا انتخاب Storage/Filesystemهای قابل نمایش و سپس تنظیم Refresh Rate هر بخش.
+</div>

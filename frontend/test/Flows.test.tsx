@@ -1541,6 +1541,7 @@ describe('dashboard storage settings', () => {
     );
     await act(async () => save?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
     expect(putBodies).toEqual([{ selectedFilesystemIds: ['/dev/root', '/dev/recording'] }]);
+    expect(container.querySelector('[data-dashboard-storage-settings]')).toBeTruthy();
     expect(container.querySelector('[data-dashboard-refresh-settings]')).toBeTruthy();
     const refreshSelects = [
       ...container.querySelectorAll<HTMLSelectElement>('[data-dashboard-refresh-settings] select'),
