@@ -649,9 +649,22 @@ export function DashboardBuilder({
         setAlertsLive('disconnected');
       }
     });
+    const refreshTelephony = async () => {
+      try {
+        const value = await api.telephonyState(selected.id);
+        if (!cancelled) setTelephony(value.current);
+      } catch (failure) {
+        if (failure instanceof ApiError && failure.status === 401) onUnauthorized();
+      }
+    };
+    const telephonyFallbackTimer = window.setInterval(() => void refreshTelephony(), 10_000);
+
     const telephonySource = new EventSource(api.telephonyStateStreamUrl(selected.id));
     telephonySource.onopen = () => setTelephonyLive('connected');
-    telephonySource.onerror = () => setTelephonyLive('disconnected');
+    telephonySource.onerror = () => {
+      setTelephonyLive('disconnected');
+      void refreshTelephony();
+    };
     telephonySource.addEventListener('telephony-state', (event) => {
       try {
         const payload = JSON.parse((event as MessageEvent<string>).data) as {
@@ -666,6 +679,7 @@ export function DashboardBuilder({
       cancelled = true;
       metricsSource.close();
       alertSource.close();
+      window.clearInterval(telephonyFallbackTimer);
       telephonySource.close();
     };
   }, [selected?.id]);

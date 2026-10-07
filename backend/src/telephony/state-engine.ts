@@ -1568,6 +1568,9 @@ export class TelephonyStateEngine {
         );
       }
       entry.endpoints = endpoints;
+      for (const endpointId of entry.endpointReliability.keys()) {
+        if (!endpoints.has(endpointId)) entry.endpointReliability.delete(endpointId);
+      }
       entry.endpointCapability = 'SUPPORTED';
       entry.endpointSynchronization = 'CURRENT';
     } else if (endpointState) {
@@ -1605,6 +1608,9 @@ export class TelephonyStateEngine {
         );
       }
       entry.trunks = trunks;
+      for (const trunkId of entry.trunkReliability.keys()) {
+        if (!trunks.has(trunkId)) entry.trunkReliability.delete(trunkId);
+      }
       entry.trunkCapability = 'SUPPORTED';
       entry.trunkSynchronization = 'CURRENT';
     } else if (trunkState) {

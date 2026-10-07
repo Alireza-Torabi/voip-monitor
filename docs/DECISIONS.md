@@ -726,3 +726,11 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 482. **SSH verification is enforced server-side:** browser behavior cannot bypass the verification requirement.
 483. **Frontend must tolerate one-release telephony contract skew:** optional compatibility derivation prevents a blank operational page while deployment versions are being aligned.
 484. **Production frontend/backend are one release unit:** any merged shared-contract change requires an atomic build/deploy and service restart; replacing frontend assets alone is invalid.
+
+## 2026-10-07 — Live telephony refresh decisions
+
+485. **AMI events remain the primary live path:** call/channel changes are event-driven and propagated through TelephonyStateEngine + SSE.
+486. **UI has a bounded local-state fallback:** Dashboard/Telephony refresh `/telephony-state` every 10 seconds and immediately after SSE errors; this is application-memory read-only fallback, not PBX polling.
+487. **Authoritative inventory reconciliation defaults to 15 seconds:** deleted/added PBX entities are corrected from snapshots even when no removal event exists.
+488. **Reliability state follows authoritative inventory lifetime:** reliability entries for endpoints/trunks absent from a supported snapshot are pruned.
+489. **Frontend/backend contract changes require a merged service restart:** stale backend processes must not coexist with freshly built frontend assets in production.

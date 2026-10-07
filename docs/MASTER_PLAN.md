@@ -1088,3 +1088,15 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 - git diff check PASS.
 - Existing Chakra/Ark/Zag/Rolldown module-level `use client` warnings remain non-fatal and unchanged in nature.
 - Production service was intentionally not restarted before merge; deploy/restart is required after merge to align the running backend with the built frontend contract.
+
+## 2026-10-07 — Live telephony refresh and inventory reconciliation correction
+
+- **Observed production issue:** telephony KPIs/call counts were not visibly updating live and PBX-side trunk deletion remained visible in the panel.
+- **Deployment root cause:** the production service process was still the pre-Task-58/59 backend while newer frontend assets had been built on disk. This frontend/backend version skew can prevent newer state behavior from being available until the merged backend is restarted.
+- **SSE remains primary:** AMI login enables Events whenever runtime event/security subscribers exist; provider events feed TelephonyStateEngine, which emits revisions to the authenticated telephony SSE endpoint. Live calls therefore remain event-driven rather than polling-driven.
+- **Frontend resilience:** Dashboard and Telephony workspace now retain SSE as the primary real-time channel and add a bounded 10-second read-only fallback refresh against the local `/telephony-state` endpoint. SSE error also triggers an immediate local-state refresh. This fallback never contacts the PBX directly.
+- **Inventory reconciliation cadence:** provider reconciliation default was reduced from 45 seconds to 15 seconds so authoritative PBX snapshots correct inventory drift (including deleted trunks/endpoints) promptly without relying on a removal event.
+- **Deleted entity lifecycle:** authoritative reconciliation now prunes reliability state for trunks/endpoints no longer present in the current snapshot. Reappearing entities start a fresh reliability baseline rather than inheriting stale operational state.
+- **Safety/performance:** the 10-second browser fallback reads only application memory. PBX work remains bounded to one provider reconciliation per configured PBX every 15 seconds; live call changes continue to use AMI events immediately.
+- **Regression:** backend suite increased to 175/175 with explicit deleted-trunk reconciliation/pruning coverage. Frontend suite increased to 34/34 with a silent-SSE test proving the 10-second fallback refresh updates current call rows.
+- **Deployment requirement:** after this corrective branch merges, sync `main`, rebuild the merged release, restart `voip-monitor.service`, and verify service start time, AMI connection, telephony revision movement, live call count movement, and removal of the deleted trunks.

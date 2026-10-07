@@ -1070,3 +1070,19 @@ Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check،
 Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check، Typecheck، Backend Test برابر 174/174، Frontend Test برابر 33/33، Production Build، Foundation Check، License Check و Git Diff Check همگی PASS شدند. Warningهای موجود Chakra/Ark/Zag/Rolldown درباره module-level use client همچنان Non-fatal هستند. Production Service عمداً قبل از Merge Restart نشد؛ بعد از Merge باید Release یکپارچه Deploy/Restart شود تا Backend در حال اجرا با Frontend Build هم‌نسخه شود.
 
 </div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-07 — اصلاح Live Telephony Refresh و Inventory Reconciliation
+
+- **مشکل مشاهده‌شده:** KPIها و تعداد تماس‌های زنده در پنل Update نمی‌شدند و Trunkهایی که از PBX حذف شده بودند همچنان در پنل باقی می‌ماندند.
+- **علت Deployment:** Production Service هنوز Backend قدیمی قبل از Task 58/59 را اجرا می‌کرد در حالی که Frontend Assetهای جدید روی Disk Build شده بودند. این Version Skew تا زمان Restart نسخه Merge‌شده باعث رفتار ناسازگار می‌شود.
+- **مسیر اصلی Live:** AMI هنگام وجود Runtime subscriber با `Events: on` Login می‌کند؛ Eventها وارد TelephonyStateEngine می‌شوند و Revision جدید از Telephony SSE منتشر می‌شود. بنابراین Live Call همچنان Event-driven است.
+- **Fallback Frontend:** Dashboard و Telephony Workspace علاوه بر SSE یک Refresh محدود هر 10 ثانیه از Endpoint محلی `/telephony-state` دارند. خطای SSE نیز بلافاصله یک Refresh محلی ایجاد می‌کند. این مسیر مستقیماً به PBX وصل نمی‌شود.
+- **Reconciliation:** زمان پیش‌فرض Provider Reconciliation از 45 ثانیه به 15 ثانیه کاهش یافت تا Snapshot معتبر PBX حذف/اضافه شدن Trunk و Endpoint را سریع‌تر اصلاح کند.
+- **حذف Entity:** وقتی Trunk یا Endpoint در Snapshot معتبر دیگر وجود نداشته باشد، Reliability State وابسته به آن نیز Prune می‌شود. اگر Entity بعداً برگردد Baseline جدید می‌گیرد و State قدیمی را به ارث نمی‌برد.
+- **Performance:** Refresh ده‌ثانیه‌ای Browser فقط Application Memory را می‌خواند. PBX Work محدود به یک Reconciliation برای هر PBX در هر 15 ثانیه است؛ تغییر تماس‌های زنده همچنان از AMI Event فوراً می‌رسد.
+- **Regression:** Backend اکنون 175/175 و Frontend برابر 34/34 تست PASS دارد. حذف Trunk با Snapshot و Refresh در حالت Silent SSE پوشش داده شده‌اند.
+- **Deployment:** بعد از Merge این Branch باید main Sync، Release Build و `voip-monitor.service` Restart شود و سپس حرکت Telephony Revision، Live Call count و حذف Trunkهای حذف‌شده verify شود.
+
+</div>

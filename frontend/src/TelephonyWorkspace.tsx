@@ -200,9 +200,22 @@ export function TelephonyWorkspace({
         else if (!cancelled) setError(text.dashboardLoadFailed);
       });
 
+    const refreshCurrent = async () => {
+      try {
+        const value = await api.telephonyState(selected.id);
+        if (!cancelled) setState(value.current);
+      } catch (failure) {
+        if (failure instanceof ApiError && failure.status === 401) onUnauthorized();
+      }
+    };
+    const fallbackTimer = window.setInterval(() => void refreshCurrent(), 10_000);
+
     const source = new EventSource(api.telephonyStateStreamUrl(selected.id));
     source.onopen = () => setLive('connected');
-    source.onerror = () => setLive('disconnected');
+    source.onerror = () => {
+      setLive('disconnected');
+      void refreshCurrent();
+    };
     source.addEventListener('telephony-state', (event) => {
       try {
         const value = JSON.parse((event as MessageEvent<string>).data) as {
@@ -216,6 +229,7 @@ export function TelephonyWorkspace({
 
     return () => {
       cancelled = true;
+      window.clearInterval(fallbackTimer);
       source.close();
     };
   }, [selected?.id]);

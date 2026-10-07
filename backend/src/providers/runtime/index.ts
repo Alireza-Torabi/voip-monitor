@@ -287,7 +287,7 @@ export class ProviderRuntimeManager {
     this.options = {
       reconnectBaseMs: options.reconnectBaseMs ?? 1000,
       reconnectMaxMs: options.reconnectMaxMs ?? 60_000,
-      reconcileMs: options.reconcileMs ?? 45_000,
+      reconcileMs: options.reconcileMs ?? 15_000,
       random: options.random ?? Math.random,
     };
   }
