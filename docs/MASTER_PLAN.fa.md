@@ -1145,3 +1145,6 @@ Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check،
 <div dir="rtl" align="right">
 - **تفکیک Settings:** بخش‌های `Storage / Filesystems` و `Dashboard Settings` اکنون دو مقصد و دو Workspace مستقل هستند. Storage فقط Current System Metrics و Dashboard Storage Selection را می‌خواند و هیچ وابستگی به Dashboard Refresh API ندارد؛ بنابراین خرابی Refresh API دیگر نمی‌تواند لیست Filesystemها را خالی کند یا Storage Load Error بسازد.
 </div>
+<div dir="rtl" align="right">
+- **تفکیک Build و Deploy:** دستور عادی `npm run build` دیگر داخل `frontend/dist` که Production Gateway مستقیماً سرو می‌کند چیزی نمی‌نویسد و Frontend Verification را در `/tmp/voip-monitor-frontend-build` می‌سازد. فقط `npm run build:production` اجازه دارد `frontend/dist` را تولید کند. بنابراین Full Gate یک Branch Merge‌نشده دیگر نمی‌تواند Frontend زنده را عوض کند در حالی که Backend Production هنوز نسخه Merge‌شده قبلی است.
+</div>

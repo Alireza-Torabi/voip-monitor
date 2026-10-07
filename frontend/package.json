@@ -6,9 +6,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "vite build",
+    "build": "vite build --outDir /tmp/voip-monitor-frontend-build",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:production": "vite build --outDir dist"
   },
   "dependencies": {
     "@chakra-ui/react": "^3.37.0",

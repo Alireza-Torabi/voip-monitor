@@ -97,7 +97,7 @@ echo "Installing dependencies from lockfile..."
   cd "$CLONE_DIR"
   "$NPM_BIN" ci --ignore-scripts
   "$NPM_BIN" audit --audit-level=high
-  "$NPM_BIN" run build
+  "$NPM_BIN" run build:production
   GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="$CLONE_DIR" python3 scripts/check_foundation.py
   python3 scripts/check_licenses.py
 )

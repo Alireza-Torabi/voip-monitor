@@ -131,3 +131,7 @@ Dashboard Settings now owns PBX-scoped per-element visual cadence. These values 
 ## 2026-10-07 — Settings separation
 
 Storage / Filesystems and Dashboard Settings are separate Settings destinations. The storage workspace is intentionally independent from refresh configuration: it reads only current filesystem metrics and dashboard-storage selection. Dashboard cadence failures cannot block filesystem discovery or selection.
+
+## 2026-10-07 — Build isolation
+
+The default Full Gate build is non-deploying: frontend output goes to `/tmp/voip-monitor-frontend-build`. Only explicit `npm run build:production` writes the live `frontend/dist` served by the production gateway. Never use an unmerged branch build as a production UI preview.
