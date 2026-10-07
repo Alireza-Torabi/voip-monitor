@@ -299,4 +299,11 @@ export const migrations = [
         CHECK (tls_mode IN ('REQUIRED', 'DISABLED'));
     `,
   },
+  {
+    version: 17,
+    name: 'ssh_verification_state',
+    sql: `
+      ALTER TABLE ssh_config ADD COLUMN last_verified_at TEXT;
+    `,
+  },
 ] as const;

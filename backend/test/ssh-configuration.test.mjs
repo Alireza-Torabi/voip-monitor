@@ -20,6 +20,7 @@ import {
   SshConfigurationError,
   SshConfigurationService,
   SshTrustError,
+  SshVerificationError,
   validateSshResolvedTarget,
   verifyPinnedSshHostKey,
 } from '../dist/ssh/index.js';
@@ -260,7 +261,14 @@ test('deleting SSH configuration removes only SSH secrets and PBX deletion casca
     assert.equal(storage.secretRecords.has(PBX_ID, SSH_SECRET_NAMES.passwordCredential), false);
   }));
 
-async function serveSshApi(storage, secrets, auth, sshConfiguration, systemMetrics) {
+async function serveSshApi(
+  storage,
+  secrets,
+  auth,
+  sshConfiguration,
+  systemMetrics,
+  sshVerifier = { async verify() {} },
+) {
   const server = createApp(
     storage,
     secrets,
@@ -269,6 +277,9 @@ async function serveSshApi(storage, secrets, auth, sshConfiguration, systemMetri
     systemMetrics,
     undefined,
     sshConfiguration,
+    undefined,
+    undefined,
+    sshVerifier,
   );
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
@@ -310,7 +321,20 @@ test('SSH configuration API is authenticated, write-only for credentials, same-o
         syncCalls.push(id);
       },
     };
-    const app = await serveSshApi(storage, secrets, auth, sshConfiguration, systemMetrics);
+    const verified = [];
+    const sshVerifier = {
+      async verify(input) {
+        verified.push(input);
+      },
+    };
+    const app = await serveSshApi(
+      storage,
+      secrets,
+      auth,
+      sshConfiguration,
+      systemMetrics,
+      sshVerifier,
+    );
     try {
       const path = '/api/pbx-instances/' + PBX_ID + '/ssh-configuration';
       assert.equal((await fetch(app.base + path)).status, 401);
@@ -343,6 +367,9 @@ test('SSH configuration API is authenticated, write-only for credentials, same-o
       const saved = JSON.parse(savedText);
       assert.equal(saved.host, 'pbx.example.test');
       assert.equal(saved.hasCredential, true);
+      assert.equal(typeof saved.lastVerifiedAt, 'string');
+      assert.equal(verified.length, 1);
+      assert.equal(verified[0].credential, 'synthetic-ssh-password');
       assert.deepEqual(syncCalls, [PBX_ID]);
 
       const readText = await (await fetch(app.base + path, { headers: { cookie } })).text();
@@ -359,6 +386,59 @@ test('SSH configuration API is authenticated, write-only for credentials, same-o
     } finally {
       await app.close();
     }
+  }));
+
+test('SSH configuration API verifies before persistence and keeps failed credentials unconfigured', async () =>
+  fixture(async ({ config, storage, secrets, auth }) => {
+    const sshConfiguration = new SshConfigurationService(storage, secrets);
+    const syncCalls = [];
+    const systemMetrics = {
+      syncProfile(id) {
+        syncCalls.push(id);
+      },
+    };
+    const sshVerifier = {
+      async verify() {
+        throw new SshVerificationError('AUTHENTICATION_FAILED');
+      },
+    };
+    const app = await serveSshApi(
+      storage,
+      secrets,
+      auth,
+      sshConfiguration,
+      systemMetrics,
+      sshVerifier,
+    );
+    try {
+      const cookie = await loginForSshApi(app.base, config);
+      const path = '/api/pbx-instances/' + PBX_ID + '/ssh-configuration';
+      const failed = await fetch(app.base + path, {
+        method: 'PUT',
+        headers: { cookie, origin: app.base, 'content-type': 'application/json' },
+        body: JSON.stringify(passwordConfiguration({ credential: 'wrong-password' })),
+      });
+      assert.equal(failed.status, 502);
+      assert.deepEqual(await failed.json(), { error: 'ssh_authentication_failed' });
+      assert.equal(storage.sshConfigs.get(PBX_ID), undefined);
+      assert.equal(secrets.hasSecret(PBX_ID, SSH_SECRET_NAMES.passwordCredential), false);
+      assert.deepEqual(syncCalls, []);
+    } finally {
+      await app.close();
+    }
+  }));
+
+test('legacy SSH metadata remains unverified until a verified save occurs', async () =>
+  fixture(async ({ storage, secrets }) => {
+    const service = new SshConfigurationService(storage, secrets);
+    const legacy = service.configure(PBX_ID, passwordConfiguration());
+    assert.equal(legacy.lastVerifiedAt, undefined);
+    const verified = service.configure(
+      PBX_ID,
+      passwordConfiguration({ credential: 'replacement-password' }),
+      '2026-10-07T06:00:00.000Z',
+    );
+    assert.equal(verified.lastVerifiedAt, '2026-10-07T06:00:00.000Z');
   }));
 
 test('dashboard storage API is authenticated, PBX-scoped, same-origin protected, and supports reset-to-all', async () =>

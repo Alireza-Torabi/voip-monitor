@@ -233,6 +233,7 @@ export interface SafeSshConfiguration {
   authMethod: SshAuthMethod;
   hostKeyPolicy: 'PINNED_SHA256';
   hostKeyFingerprint: string;
+  lastVerifiedAt?: string;
   hasCredential: boolean;
   hasPrivateKeyPassphrase: boolean;
   createdAt: string;
@@ -265,7 +266,7 @@ export interface TelephonyEndpointState {
   registrationState: 'REGISTERED' | 'UNREGISTERED' | 'UNKNOWN';
   reachability: 'REACHABLE' | 'UNREACHABLE' | 'UNKNOWN';
   updatedAt: string;
-  reliability: EndpointReliabilityState;
+  reliability?: EndpointReliabilityState;
 }
 
 export interface TelephonyTrunkState {
@@ -283,7 +284,7 @@ export interface TelephonyTrunkState {
     | 'UNKNOWN';
   reachability?: 'REACHABLE' | 'UNREACHABLE' | 'UNKNOWN';
   updatedAt: string;
-  reliability: TrunkReliabilityState;
+  reliability?: TrunkReliabilityState;
 }
 
 export interface TelephonyQueueState {
@@ -457,6 +458,12 @@ export const api = {
     ),
   sshConfiguration: (id: string) =>
     request<SafeSshConfiguration>(`/api/pbx-instances/${id}/ssh-configuration`),
+  testSshConfiguration: (id: string, value: object) =>
+    request<{ status: 'verified' }>(
+      `/api/pbx-instances/${id}/ssh-configuration/test`,
+      'POST',
+      value,
+    ),
   putSshConfiguration: (id: string, value: object) =>
     request<SafeSshConfiguration>(`/api/pbx-instances/${id}/ssh-configuration`, 'PUT', value),
   deleteSshConfiguration: (id: string) =>

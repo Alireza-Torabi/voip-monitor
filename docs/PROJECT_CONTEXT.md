@@ -107,3 +107,7 @@ Endpoint reliability is now bounded in-memory operational state inside Telephony
 ## 2026-10-07 — Navigation hierarchy correction
 
 The UI now follows a single-navigation hierarchy: the persistent AppShell sidebar is the sole route/page navigation surface. Telephony and Settings no longer render secondary nested menus. All previously nested destinations remain accessible directly from the sidebar, while workspace-local selectors, filters, search, and actions remain inside content. This correction changes presentation/navigation only and does not alter backend or monitoring behavior.
+
+## 2026-10-07 — UX/security correction after Task 59
+
+The primary navigation is now a compact three-choice shell: Overview, Operations, and Settings, with only one level of expandable children and one group open at a time. Infrastructure lives under Settings. SSH configuration is verified by the backend before persistence: pinned host key and authentication must both succeed, and verified provenance is recorded in `ssh_config.last_verified_at`; legacy configs remain UNVERIFIED. Telephony frontend rendering now includes a compatibility path for older responses missing reliability metadata, preventing blank Trunks/Endpoints pages during temporary frontend/backend version skew. Production deployment must rebuild and restart frontend/backend as one merged release.

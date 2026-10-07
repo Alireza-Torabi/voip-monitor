@@ -52,6 +52,14 @@ const privateKeySchema = z.strictObject({
 
 const configurationSchema = z.discriminatedUnion('authMethod', [passwordSchema, privateKeySchema]);
 
+export type SshConfigurationInput = z.infer<typeof configurationSchema>;
+
+export function parseSshConfigurationInput(input: unknown): SshConfigurationInput {
+  const parsed = configurationSchema.safeParse(input);
+  if (!parsed.success) throw new SshConfigurationError('INVALID_INPUT');
+  return parsed.data;
+}
+
 export type SafeSshConfiguration = SshConfigRecord & {
   hasCredential: boolean;
   hasPrivateKeyPassphrase: boolean;
@@ -83,24 +91,24 @@ export class SshConfigurationService {
     return this.storage.sshConfigs.list().map((record) => this.safe(record));
   }
 
-  configure(pbxInstanceId: string, input: unknown): SafeSshConfiguration {
+  configure(pbxInstanceId: string, input: unknown, lastVerifiedAt?: string): SafeSshConfiguration {
     if (!this.storage.pbxProfiles.get(pbxInstanceId)) {
       throw new SshConfigurationError('PBX_NOT_FOUND');
     }
 
-    const parsed = configurationSchema.safeParse(input);
-    if (!parsed.success) throw new SshConfigurationError('INVALID_INPUT');
+    const parsed = parseSshConfigurationInput(input);
 
     const previous = this.storage.sshConfigs.get(pbxInstanceId);
     const now = new Date().toISOString();
     const record: SshConfigRecord = {
       pbxInstanceId,
-      host: parsed.data.host,
-      port: parsed.data.port,
-      username: parsed.data.username,
-      authMethod: parsed.data.authMethod,
+      host: parsed.host,
+      port: parsed.port,
+      username: parsed.username,
+      authMethod: parsed.authMethod,
       hostKeyPolicy: HOST_KEY_POLICY,
-      hostKeyFingerprint: parsed.data.hostKeyFingerprint,
+      hostKeyFingerprint: parsed.hostKeyFingerprint,
+      ...(lastVerifiedAt ? { lastVerifiedAt } : {}),
       createdAt: previous?.createdAt ?? now,
       updatedAt: now,
     };
@@ -108,18 +116,14 @@ export class SshConfigurationService {
     return this.storage.transaction(() => {
       this.storage.sshConfigs.put(record);
 
-      if (parsed.data.authMethod === 'PASSWORD') {
-        this.putSecret(pbxInstanceId, SSH_PASSWORD_SECRET, parsed.data.credential);
+      if (parsed.authMethod === 'PASSWORD') {
+        this.putSecret(pbxInstanceId, SSH_PASSWORD_SECRET, parsed.credential);
         this.secrets.deleteSecret(pbxInstanceId, SSH_PRIVATE_KEY_SECRET);
         this.secrets.deleteSecret(pbxInstanceId, SSH_PRIVATE_KEY_PASSPHRASE_SECRET);
       } else {
-        this.putSecret(pbxInstanceId, SSH_PRIVATE_KEY_SECRET, parsed.data.credential);
-        if (parsed.data.keyPassphrase !== undefined) {
-          this.putSecret(
-            pbxInstanceId,
-            SSH_PRIVATE_KEY_PASSPHRASE_SECRET,
-            parsed.data.keyPassphrase,
-          );
+        this.putSecret(pbxInstanceId, SSH_PRIVATE_KEY_SECRET, parsed.credential);
+        if (parsed.keyPassphrase !== undefined) {
+          this.putSecret(pbxInstanceId, SSH_PRIVATE_KEY_PASSPHRASE_SECRET, parsed.keyPassphrase);
         } else {
           this.secrets.deleteSecret(pbxInstanceId, SSH_PRIVATE_KEY_PASSPHRASE_SECRET);
         }

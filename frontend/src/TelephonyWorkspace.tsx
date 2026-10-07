@@ -86,18 +86,67 @@ function formatDuration(totalSeconds: number): string {
   return `${seconds}s`;
 }
 
+function endpointReliability(
+  item: TelephonyEndpointState,
+): NonNullable<TelephonyEndpointState['reliability']> {
+  if (item.reliability) return item.reliability;
+  const availability =
+    item.reachability === 'UNREACHABLE' || item.registrationState === 'UNREGISTERED'
+      ? 'OFFLINE'
+      : item.reachability === 'REACHABLE' || item.registrationState === 'REGISTERED'
+        ? 'ONLINE'
+        : 'UNKNOWN';
+  return {
+    availability,
+    ...(availability === 'ONLINE' ? { lastReachableAt: item.updatedAt } : {}),
+    ...(availability === 'OFFLINE'
+      ? { lastUnreachableAt: item.updatedAt, offlineStartedAt: item.updatedAt }
+      : {}),
+    flapCount: 0,
+    recentTransitions: [],
+  };
+}
+
+function trunkReliability(
+  item: TelephonyTrunkState,
+): NonNullable<TelephonyTrunkState['reliability']> {
+  if (item.reliability) return item.reliability;
+  const availability =
+    item.reachability === 'UNREACHABLE' ||
+    ['UNREGISTERED', 'REJECTED', 'FAILED'].includes(item.registrationState)
+      ? 'DOWN'
+      : item.registrationState === 'REGISTERING'
+        ? 'TRANSITIONING'
+        : item.registrationState === 'REGISTERED' ||
+            (item.registrationState === 'NOT_APPLICABLE' && item.reachability === 'REACHABLE')
+          ? 'UP'
+          : 'UNKNOWN';
+  return {
+    availability,
+    ...(availability === 'UP' ? { lastUpAt: item.updatedAt } : {}),
+    ...(availability === 'DOWN'
+      ? { lastDownAt: item.updatedAt, outageStartedAt: item.updatedAt }
+      : {}),
+    flapCount: 0,
+    reconnectCount: 0,
+    recentTransitions: [],
+  };
+}
+
 function endpointReliabilityRank(item: TelephonyEndpointState): number {
-  if (item.reliability.availability === 'OFFLINE') return 0;
-  if (item.reliability.flapCount > 0) return 1;
-  if (item.reliability.availability === 'UNKNOWN') return 2;
+  const reliability = endpointReliability(item);
+  if (reliability.availability === 'OFFLINE') return 0;
+  if (reliability.flapCount > 0) return 1;
+  if (reliability.availability === 'UNKNOWN') return 2;
   return 3;
 }
 
 function trunkReliabilityRank(item: TelephonyTrunkState): number {
-  if (item.reliability.availability === 'DOWN') return 0;
-  if (item.reliability.availability === 'TRANSITIONING') return 1;
-  if (item.reliability.flapCount > 0) return 2;
-  if (item.reliability.availability === 'UNKNOWN') return 3;
+  const reliability = trunkReliability(item);
+  if (reliability.availability === 'DOWN') return 0;
+  if (reliability.availability === 'TRANSITIONING') return 1;
+  if (reliability.flapCount > 0) return 2;
+  if (reliability.availability === 'UNKNOWN') return 3;
   return 4;
 }
 
@@ -173,9 +222,10 @@ export function TelephonyWorkspace({
 
   useEffect(() => {
     const hasActiveDuration =
-      (page === 'trunks' && state?.trunks.some((trunk) => trunk.reliability.outageStartedAt)) ||
+      (page === 'trunks' &&
+        state?.trunks.some((trunk) => trunkReliability(trunk).outageStartedAt)) ||
       (page === 'endpoints' &&
-        state?.endpoints.some((endpoint) => endpoint.reliability.offlineStartedAt));
+        state?.endpoints.some((endpoint) => endpointReliability(endpoint).offlineStartedAt));
     if (!hasActiveDuration) return;
     const timer = window.setInterval(() => setReliabilityNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
@@ -238,23 +288,24 @@ export function TelephonyWorkspace({
             item.endpointId,
             item.registrationState,
             item.reachability,
-            item.reliability.availability,
+            endpointReliability(item).availability,
           ),
         )
         .sort(
           (left, right) =>
             endpointReliabilityRank(left) - endpointReliabilityRank(right) ||
-            right.reliability.flapCount - left.reliability.flapCount ||
+            endpointReliability(right).flapCount - endpointReliability(left).flapCount ||
             left.endpointId.localeCompare(right.endpointId),
         )
         .map((item) => {
-          const offlineSeconds = item.reliability.offlineStartedAt
+          const reliability = endpointReliability(item);
+          const offlineSeconds = reliability.offlineStartedAt
             ? Math.max(
                 0,
-                Math.floor((reliabilityNow - Date.parse(item.reliability.offlineStartedAt)) / 1000),
+                Math.floor((reliabilityNow - Date.parse(reliability.offlineStartedAt)) / 1000),
               )
             : undefined;
-          const transitions = item.reliability.recentTransitions
+          const transitions = reliability.recentTransitions
             .slice(-3)
             .reverse()
             .map((transition) => `${transition.from}→${transition.to} ${transition.observedAt}`)
@@ -263,13 +314,13 @@ export function TelephonyWorkspace({
             key: item.endpointId,
             cells: [
               item.endpointId,
-              item.reliability.availability,
+              reliability.availability,
               item.registrationState,
               item.reachability,
-              item.reliability.lastReachableAt ?? '—',
-              item.reliability.lastUnreachableAt ?? '—',
+              reliability.lastReachableAt ?? '—',
+              reliability.lastUnreachableAt ?? '—',
               offlineSeconds === undefined ? '—' : formatDuration(offlineSeconds),
-              String(item.reliability.flapCount),
+              String(reliability.flapCount),
               transitions || '—',
               item.updatedAt,
             ],
@@ -287,24 +338,25 @@ export function TelephonyWorkspace({
             item.confidence,
             item.registrationState,
             item.reachability,
-            item.reliability.availability,
+            trunkReliability(item).availability,
           ),
         )
         .sort(
           (left, right) =>
             trunkReliabilityRank(left) - trunkReliabilityRank(right) ||
-            right.reliability.flapCount - left.reliability.flapCount ||
-            right.reliability.reconnectCount - left.reliability.reconnectCount ||
+            trunkReliability(right).flapCount - trunkReliability(left).flapCount ||
+            trunkReliability(right).reconnectCount - trunkReliability(left).reconnectCount ||
             left.trunkId.localeCompare(right.trunkId),
         )
         .map((item) => {
-          const outageSeconds = item.reliability.outageStartedAt
+          const reliability = trunkReliability(item);
+          const outageSeconds = reliability.outageStartedAt
             ? Math.max(
                 0,
-                Math.floor((reliabilityNow - Date.parse(item.reliability.outageStartedAt)) / 1000),
+                Math.floor((reliabilityNow - Date.parse(reliability.outageStartedAt)) / 1000),
               )
             : undefined;
-          const transitions = item.reliability.recentTransitions
+          const transitions = reliability.recentTransitions
             .slice(-3)
             .reverse()
             .map((transition) => `${transition.from}→${transition.to} ${transition.observedAt}`)
@@ -316,14 +368,14 @@ export function TelephonyWorkspace({
               item.technology,
               item.kind,
               item.confidence,
-              item.reliability.availability,
+              reliability.availability,
               item.registrationState,
               item.reachability ?? '—',
-              item.reliability.lastUpAt ?? '—',
-              item.reliability.lastDownAt ?? '—',
+              reliability.lastUpAt ?? '—',
+              reliability.lastDownAt ?? '—',
               outageSeconds === undefined ? '—' : formatDuration(outageSeconds),
-              String(item.reliability.flapCount),
-              String(item.reliability.reconnectCount),
+              String(reliability.flapCount),
+              String(reliability.reconnectCount),
               transitions || '—',
               item.updatedAt,
             ],

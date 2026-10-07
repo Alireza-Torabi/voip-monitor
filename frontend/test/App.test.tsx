@@ -49,17 +49,9 @@ describe('bilingual onboarding shell', () => {
     expect(html).toContain('href="#main-content"');
     expect(html).toContain('id="main-content"');
     expect(html).toContain('Overview');
-    expect(html).toContain('PBX Fleet');
-    expect(html).toContain('Live Calls');
-    expect(html).toContain('Channels');
-    expect(html).toContain('Call History');
-    expect(html).toContain('PBX Settings');
-    expect(html).toContain('Data Source');
-    expect(html).toContain('Infrastructure');
-    expect(html).toContain('Service Monitoring');
-    expect(html).toContain('Dashboard Storage');
-    expect(html).toContain('Security');
-    expect(html).toContain('Accounts');
+    expect(html).toContain('Operations');
+    expect(html).toContain('Settings');
+    expect(html).not.toContain('PBX Fleet');
     expect(html).not.toContain('data-telephony-navigation');
     expect(html).not.toContain('data-settings-navigation');
   });
@@ -68,8 +60,8 @@ describe('bilingual onboarding shell', () => {
     const html = renderUi(<App initialLanguage="fa" initialView="ready" />);
     expect(html).toContain('dir="rtl"');
     expect(html).toContain('نمای کلی');
-    expect(html).toContain('تماس‌های زنده');
-    expect(html).toContain('زیرساخت');
+    expect(html).toContain('عملیات');
+    expect(html).toContain('تنظیمات');
   });
 
   it('renders an authenticated first PBX form before a connection test is available', () => {

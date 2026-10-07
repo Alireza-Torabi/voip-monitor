@@ -1041,3 +1041,32 @@ Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check،
 Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check، Typecheck، Backend Test برابر 172/172، Frontend Test برابر 30/30، Production Build، Foundation Check، License Check و Git Diff Check همگی PASS شدند. Warningهای موجود Chakra/Ark/Zag/Rolldown درباره module-level use client همچنان Non-fatal هستند.
 
 </div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-07 — اصلاح Grouped Navigation، SSH Verification و سازگاری Trunks
+
+- **Navigation:** Shell اکنون دقیقاً سه انتخاب اصلی دارد: `Overview`، `Operations` و `Settings`. دو گروه Operations و Settings فقط یک سطح Child دارند و در هر لحظه فقط یک Group باز است. Navigation دوم داخل محتوای صفحه برنگشته است.
+- **Operations:** شامل PBX Fleet، Live Calls، Channels، Trunks، Endpoints، Queues، Agents و Call History است.
+- **Settings:** شامل PBX Settings، Data Source، Infrastructure، Service Monitoring، Dashboard Storage، Security و Accounts است؛ بنابراین Infrastructure دیگر Top-level مستقل نیست.
+- **اصل طراحی:** شلوغی Routeها با Grouping معنادار و Disclosure یک‌سطحی کنترل شده است، نه با Flat کردن همه مقصدها و نه با Submenu چندلایه. Group Buttonها `aria-expanded` و `aria-controls` دارند و Child فعال `aria-current=page` را حفظ می‌کند.
+- **Infrastructure:** ذخیره SSH اکنون Verify-before-save است. Backend قبل از هر Persistence یک SSH Handshake واقعی با Host، Pinned SHA-256 Host-key Fingerprint، Username و Credential ارسالی انجام می‌دهد.
+- **Failure Safety:** Host-key mismatch، Authentication failure، Timeout، Target blocked و Connection failure با Error Code محدود برمی‌گردند. Verification ناموفق هیچ Metadata/Secret جدیدی ذخیره نمی‌کند و System Metrics Runtime را Sync نمی‌کند.
+- **Host Key:** فیلد Pinned Host-key Fingerprint در UI به‌عنوان Trust Anchor برجسته شده و خطای Host Key از خطای Password/Authentication جدا نمایش داده می‌شود.
+- **Verification State:** Migration شماره 17 ستون nullable به نام `last_verified_at` را به `ssh_config` اضافه می‌کند. Configهای قدیمی بعد از Upgrade به‌صورت `UNVERIFIED` دیده می‌شوند و فقط `Verify & Save` موفق آن‌ها را `VERIFIED` می‌کند.
+- **API Safety:** Verification در خود PUT Endpoint مربوط به SSH اجباری است؛ بنابراین حتی Direct API Call نیز Credential تأییدنشده را ذخیره نمی‌کند.
+- **علت Blank شدن Trunks:** Frontend جدید Build شده بود ولی Backend Production از زمان Start قبلی Service هنوز نسخه قدیمی بود. UI جدید `reliability` مربوط به Task 58 را انتظار داشت اما Backend قدیمی آن را نمی‌فرستاد و Render در Browser Crash می‌کرد.
+- **Compatibility:** Reliability در Frontend API Boundary اختیاری پذیرفته می‌شود و اگر Backend قدیمی آن را ندهد، UI از Registration/Reachability یک View محافظه‌کارانه می‌سازد و صفحه را نمایش می‌دهد. بعد از هم‌نسخه شدن Frontend/Backend Metadata کامل خودکار استفاده می‌شود.
+- **Deployment Rule:** Releaseهایی که Contract مشترک Frontend/Backend را تغییر می‌دهند باید به‌صورت یک Version Build و Restart شوند. نوشتن Frontend Asset جدید روی Backend قدیمی یک Deployment معتبر نیست.
+- **Regression:** Backend اکنون 174/174 و Frontend برابر 33/33 تست PASS دارد. Credential اشتباه SSH، Legacy UNVERIFIED، Grouped Navigation و Trunks با Response قدیمی Backend پوشش داده شده‌اند.
+- **Roadmap:** بعد از Merge این Fix و Deploy/Restart نسخه Merge‌شده، Task 60 — Call Outcome Analytics همچنان Task بعدی است.
+
+</div>
+
+<div dir="rtl" align="right">
+
+### Final Validation اصلاح Navigation / Infrastructure / Trunks
+
+Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check، Typecheck، Backend Test برابر 174/174، Frontend Test برابر 33/33، Production Build، Foundation Check، License Check و Git Diff Check همگی PASS شدند. Warningهای موجود Chakra/Ark/Zag/Rolldown درباره module-level use client همچنان Non-fatal هستند. Production Service عمداً قبل از Merge Restart نشد؛ بعد از Merge باید Release یکپارچه Deploy/Restart شود تا Backend در حال اجرا با Frontend Build هم‌نسخه شود.
+
+</div>
