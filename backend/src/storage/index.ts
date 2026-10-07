@@ -89,6 +89,7 @@ export interface SshConfigRecord {
   authMethod: SshAuthMethod;
   hostKeyPolicy: SshHostKeyPolicy;
   hostKeyFingerprint: string;
+  lastVerifiedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -656,13 +657,14 @@ export class SqliteStorage implements AppStorage {
           .prepare(
             `INSERT INTO ssh_config
           (pbx_instance_id, ssh_host, ssh_port, ssh_username, auth_method,
-           host_key_policy, host_key_fingerprint, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+           host_key_policy, host_key_fingerprint, last_verified_at, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(pbx_instance_id) DO UPDATE SET
           ssh_host=excluded.ssh_host, ssh_port=excluded.ssh_port,
           ssh_username=excluded.ssh_username, auth_method=excluded.auth_method,
           host_key_policy=excluded.host_key_policy,
           host_key_fingerprint=excluded.host_key_fingerprint,
+          last_verified_at=excluded.last_verified_at,
           updated_at=excluded.updated_at`,
           )
           .run(
@@ -673,6 +675,7 @@ export class SqliteStorage implements AppStorage {
             config.authMethod,
             config.hostKeyPolicy,
             config.hostKeyFingerprint,
+            config.lastVerifiedAt ?? null,
             config.createdAt,
             config.updatedAt,
           );
@@ -1700,6 +1703,9 @@ function mapSshConfig(row: Record<string, unknown>): SshConfigRecord {
     authMethod: row.auth_method as SshAuthMethod,
     hostKeyPolicy: row.host_key_policy as SshHostKeyPolicy,
     hostKeyFingerprint: row.host_key_fingerprint as string,
+    ...(row.last_verified_at === null || row.last_verified_at === undefined
+      ? {}
+      : { lastVerifiedAt: row.last_verified_at as string }),
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };

@@ -1056,3 +1056,35 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 - license check PASS.
 - git diff check PASS.
 - Existing Chakra/Ark/Zag/Rolldown module-level `use client` warnings remain non-fatal and unchanged in nature.
+
+## 2026-10-07 — Navigation grouping, SSH verification, and Trunks compatibility correction
+
+- **Navigation correction:** the shell now follows a compact information architecture with exactly three primary choices: `Overview`, `Operations`, and `Settings`. Operations and Settings use one-level disclosure groups; only one group is expanded at a time. No second in-content route navigation was reintroduced.
+- **Operations group:** PBX Fleet, Live Calls, Channels, Trunks, Endpoints, Queues, Agents, and Call History.
+- **Settings group:** PBX Settings, Data Source, Infrastructure, Service Monitoring, Dashboard Storage, Security, and Accounts. Infrastructure is therefore no longer a top-level primary item.
+- **Navigation rationale:** route density is controlled by meaningful grouping and one-level disclosure rather than flattening every destination or creating nested multilevel menus. Group buttons expose `aria-expanded`/`aria-controls`; selected child routes retain `aria-current=page`.
+- **Infrastructure trust model:** SSH configuration is now verify-before-save. The backend performs a one-shot SSH handshake using the submitted host, pinned SHA-256 host-key fingerprint, username, and credential before any metadata or secret is persisted.
+- **SSH verification failure safety:** host-key mismatch, authentication failure, timeout, blocked target, and connection failure are returned as bounded error codes. Failed verification leaves prior storage/secrets untouched and does not synchronize the system-metrics runtime.
+- **Host-key priority:** the pinned host-key fingerprint is visually promoted as the trust anchor in the Infrastructure form. The UI reports distinct host-key versus authentication failures.
+- **Persistent SSH verification state:** schema migration 17 adds nullable `last_verified_at` to `ssh_config`. Existing pre-migration SSH configs therefore load as `UNVERIFIED`; only a successful verified save records a timestamp and displays `VERIFIED`.
+- **Direct API safety:** verification is enforced by the existing SSH configuration PUT endpoint itself, not only by browser UI, so direct API callers cannot store an unverified credential.
+- **Trunks blank-page root cause:** production frontend assets had been rebuilt while the long-running backend process was still from the previous service start. New UI expected the Task 58 `reliability` object but the old backend response did not contain it, causing a client render exception.
+- **Trunks compatibility fix:** Endpoint/Trunk reliability fields are accepted as optional at the frontend API boundary. When a previous backend response lacks the field, the UI derives a conservative compatibility view from registration/reachability and renders instead of crashing. Full reliability metadata appears automatically once frontend/backend versions are aligned.
+- **Deployment rule:** merged releases that change frontend/backend contracts must be built and restarted as one version. Writing new frontend assets without restarting the backend is not a valid production deployment state.
+- **Regression:** backend suite is now 174/174 and frontend suite 33/33. New coverage verifies failed SSH credentials are never persisted, legacy SSH config stays unverified, grouped navigation disclosure behavior, and Trunks rendering against an older backend response.
+- **Roadmap:** Task 60 — Call Outcome Analytics remains next after this corrective branch merges and the merged service is deployed/restarted.
+
+### Navigation/Infrastructure/Trunks correction final validation
+
+- Node v24.21.0 / npm 11.19.0.
+- lint PASS.
+- format check PASS.
+- typecheck PASS.
+- backend tests 174/174 PASS.
+- frontend tests 33/33 PASS.
+- production build PASS.
+- foundation check PASS.
+- license check PASS.
+- git diff check PASS.
+- Existing Chakra/Ark/Zag/Rolldown module-level `use client` warnings remain non-fatal and unchanged in nature.
+- Production service was intentionally not restarted before merge; deploy/restart is required after merge to align the running backend with the built frontend contract.

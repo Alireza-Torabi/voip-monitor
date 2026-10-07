@@ -207,93 +207,110 @@ export function AppShell({
     ['ERROR', 'DEGRADED', 'DISCONNECTED'].includes(profile.connectionStatus),
   ).length;
 
-  const nav: Array<{
-    icon: IconName;
-    label: string;
-    destination: ShellDestination;
-    badge?: string;
-  }> = [
+  const overview = {
+    icon: 'overview' as const,
+    label: fa ? 'نمای کلی' : 'Overview',
+    destination: { workspace: 'dashboard' } as ShellDestination,
+  };
+  const groups = [
     {
-      icon: 'overview',
-      label: fa ? 'نمای کلی' : 'Overview',
-      destination: { workspace: 'dashboard' },
+      id: 'operations' as const,
+      icon: 'calls' as const,
+      label: fa ? 'عملیات' : 'Operations',
+      children: [
+        {
+          icon: 'pbx' as const,
+          label: fa ? 'PBXها' : 'PBX Fleet',
+          destination: { workspace: 'fleet' } as ShellDestination,
+        },
+        {
+          icon: 'calls' as const,
+          label: fa ? 'تماس‌های زنده' : 'Live Calls',
+          destination: { workspace: 'telephony', page: 'calls' } as ShellDestination,
+        },
+        {
+          icon: 'channels' as const,
+          label: fa ? 'Channelها' : 'Channels',
+          destination: { workspace: 'telephony', page: 'channels' } as ShellDestination,
+        },
+        {
+          icon: 'trunks' as const,
+          label: fa ? 'Trunkها' : 'Trunks',
+          destination: { workspace: 'telephony', page: 'trunks' } as ShellDestination,
+        },
+        {
+          icon: 'endpoints' as const,
+          label: fa ? 'Endpointها' : 'Endpoints',
+          destination: { workspace: 'telephony', page: 'endpoints' } as ShellDestination,
+        },
+        {
+          icon: 'queues' as const,
+          label: fa ? 'صف‌ها' : 'Queues',
+          destination: { workspace: 'telephony', page: 'queues' } as ShellDestination,
+        },
+        {
+          icon: 'agents' as const,
+          label: fa ? 'Agentها' : 'Agents',
+          destination: { workspace: 'telephony', page: 'agents' } as ShellDestination,
+        },
+        {
+          icon: 'history' as const,
+          label: fa ? 'تاریخچه تماس' : 'Call History',
+          destination: { workspace: 'history' } as ShellDestination,
+        },
+      ],
     },
     {
-      icon: 'pbx',
-      label: fa ? 'PBXها' : 'PBX Fleet',
-      destination: { workspace: 'fleet' },
-    },
-    {
-      icon: 'calls',
-      label: fa ? 'تماس‌های زنده' : 'Live Calls',
-      destination: { workspace: 'telephony', page: 'calls' },
-    },
-    {
-      icon: 'channels',
-      label: fa ? 'Channelها' : 'Channels',
-      destination: { workspace: 'telephony', page: 'channels' },
-    },
-    {
-      icon: 'trunks',
-      label: fa ? 'Trunkها' : 'Trunks',
-      destination: { workspace: 'telephony', page: 'trunks' },
-    },
-    {
-      icon: 'endpoints',
-      label: fa ? 'Endpointها' : 'Endpoints',
-      destination: { workspace: 'telephony', page: 'endpoints' },
-    },
-    {
-      icon: 'queues',
-      label: fa ? 'صف‌ها' : 'Queues',
-      destination: { workspace: 'telephony', page: 'queues' },
-    },
-    {
-      icon: 'agents',
-      label: fa ? 'Agentها' : 'Agents',
-      destination: { workspace: 'telephony', page: 'agents' },
-    },
-    {
-      icon: 'history',
-      label: fa ? 'تاریخچه تماس' : 'Call History',
-      destination: { workspace: 'history' },
-    },
-    {
-      icon: 'pbx',
-      label: fa ? 'تنظیمات PBX' : 'PBX Settings',
-      destination: { workspace: 'settings', page: 'pbx' },
-    },
-    {
-      icon: 'settings',
-      label: fa ? 'منبع داده' : 'Data Source',
-      destination: { workspace: 'settings', page: 'database-source' },
-    },
-    {
-      icon: 'infra',
-      label: fa ? 'زیرساخت' : 'Infrastructure',
-      destination: { workspace: 'settings', page: 'ssh-metrics' },
-    },
-    {
-      icon: 'infra',
-      label: fa ? 'مانیتورینگ سرویس' : 'Service Monitoring',
-      destination: { workspace: 'settings', page: 'service-monitoring' },
-    },
-    {
-      icon: 'settings',
-      label: fa ? 'ذخیره‌سازی داشبورد' : 'Dashboard Storage',
-      destination: { workspace: 'settings', page: 'storage' },
-    },
-    {
-      icon: 'security',
-      label: fa ? 'امنیت' : 'Security',
-      destination: { workspace: 'settings', page: 'security' },
-    },
-    {
-      icon: 'settings',
-      label: fa ? 'حساب‌های کاربری' : 'Accounts',
-      destination: { workspace: 'settings', page: 'accounts' },
+      id: 'settings' as const,
+      icon: 'settings' as const,
+      label: fa ? 'تنظیمات' : 'Settings',
+      children: [
+        {
+          icon: 'pbx' as const,
+          label: fa ? 'تنظیمات PBX' : 'PBX Settings',
+          destination: { workspace: 'settings', page: 'pbx' } as ShellDestination,
+        },
+        {
+          icon: 'settings' as const,
+          label: fa ? 'منبع داده' : 'Data Source',
+          destination: { workspace: 'settings', page: 'database-source' } as ShellDestination,
+        },
+        {
+          icon: 'infra' as const,
+          label: fa ? 'زیرساخت' : 'Infrastructure',
+          destination: { workspace: 'settings', page: 'ssh-metrics' } as ShellDestination,
+        },
+        {
+          icon: 'infra' as const,
+          label: fa ? 'مانیتورینگ سرویس' : 'Service Monitoring',
+          destination: { workspace: 'settings', page: 'service-monitoring' } as ShellDestination,
+        },
+        {
+          icon: 'settings' as const,
+          label: fa ? 'ذخیره‌سازی داشبورد' : 'Dashboard Storage',
+          destination: { workspace: 'settings', page: 'storage' } as ShellDestination,
+        },
+        {
+          icon: 'security' as const,
+          label: fa ? 'امنیت' : 'Security',
+          destination: { workspace: 'settings', page: 'security' } as ShellDestination,
+        },
+        {
+          icon: 'settings' as const,
+          label: fa ? 'حساب‌های کاربری' : 'Accounts',
+          destination: { workspace: 'settings', page: 'accounts' } as ShellDestination,
+        },
+      ],
     },
   ];
+  type GroupId = (typeof groups)[number]['id'];
+  const activeGroup: GroupId | null =
+    workspace === 'settings' ? 'settings' : workspace === 'dashboard' ? null : 'operations';
+  const [expandedGroup, setExpandedGroup] = useState<GroupId | null>(activeGroup);
+
+  useEffect(() => {
+    setExpandedGroup(activeGroup);
+  }, [activeGroup]);
 
   return (
     <Flex minH="100vh" bg="noc.canvas" color="noc.text" data-app-shell>
@@ -376,47 +393,151 @@ export function AppShell({
           gap="1"
           px={{ base: '2', lg: '3' }}
           py={{ base: '2', md: '3' }}
-          overflowX={{ base: 'auto', md: 'visible' }}
-          overflowY={{ base: 'hidden', md: 'auto' }}
+          overflowX={{ base: 'visible', md: 'visible' }}
+          overflowY={{ base: 'visible', md: 'auto' }}
           flex="1"
           direction={{ base: 'row', md: 'column' }}
           align={{ base: 'center', md: 'stretch' }}
+          justify={{ base: 'space-around', md: 'flex-start' }}
         >
-          {nav.map((item) => {
-            const active = navIsActive(item.destination, workspace, telephonyPage, settingsPage);
+          <Button
+            type="button"
+            variant="ghost"
+            h={{ base: '46px', md: '40px' }}
+            minW={{ base: '64px', md: 'auto' }}
+            px={{ base: '2', lg: '3' }}
+            justifyContent={{ base: 'center', lg: 'flex-start' }}
+            gap="3"
+            borderRadius="9px"
+            color={workspace === 'dashboard' ? 'white' : 'noc.textMuted'}
+            bg={workspace === 'dashboard' ? 'rgba(45,140,255,.18)' : 'transparent'}
+            borderWidth="1px"
+            borderColor={workspace === 'dashboard' ? 'rgba(45,140,255,.30)' : 'transparent'}
+            _hover={{ bg: 'rgba(255,255,255,.045)', color: 'white' }}
+            onClick={() => onNavigate(overview.destination)}
+            aria-current={workspace === 'dashboard' ? 'page' : undefined}
+            aria-label={overview.label}
+            title={overview.label}
+          >
+            <NavIcon name={overview.icon} />
+            <Text
+              fontSize="13px"
+              fontWeight={workspace === 'dashboard' ? '600' : '500'}
+              display={{ base: 'none', lg: 'block' }}
+            >
+              {overview.label}
+            </Text>
+          </Button>
+
+          {groups.map((group) => {
+            const expanded = expandedGroup === group.id;
+            const groupActive = activeGroup === group.id;
             return (
-              <Button
-                key={item.label}
-                type="button"
-                variant="ghost"
-                h={{ base: '46px', md: '40px' }}
-                minW={{ base: '46px', md: 'auto' }}
-                px={{ base: '2', lg: '3' }}
-                justifyContent={{ base: 'center', lg: 'flex-start' }}
-                gap="3"
-                borderRadius="9px"
-                color={active ? 'white' : 'noc.textMuted'}
-                bg={active ? 'rgba(45,140,255,.18)' : 'transparent'}
-                borderWidth="1px"
-                borderColor={active ? 'rgba(45,140,255,.30)' : 'transparent'}
-                _hover={{
-                  bg: active ? 'rgba(45,140,255,.22)' : 'rgba(255,255,255,.045)',
-                  color: 'white',
-                }}
-                onClick={() => onNavigate(item.destination)}
-                aria-current={active ? 'page' : undefined}
-                aria-label={item.label}
-                title={item.label}
-              >
-                <NavIcon name={item.icon} />
-                <Text
-                  fontSize="13px"
-                  fontWeight={active ? '600' : '500'}
-                  display={{ base: 'none', lg: 'block' }}
+              <Box key={group.id} minW={{ base: '64px', md: '0' }}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  w="full"
+                  h={{ base: '46px', md: '40px' }}
+                  minW={{ base: '64px', md: 'auto' }}
+                  px={{ base: '2', lg: '3' }}
+                  justifyContent={{ base: 'center', lg: 'flex-start' }}
+                  gap="3"
+                  borderRadius="9px"
+                  color={groupActive ? 'white' : 'noc.textMuted'}
+                  bg={groupActive ? 'rgba(45,140,255,.18)' : 'transparent'}
+                  borderWidth="1px"
+                  borderColor={groupActive ? 'rgba(45,140,255,.30)' : 'transparent'}
+                  _hover={{ bg: 'rgba(255,255,255,.045)', color: 'white' }}
+                  onClick={() => setExpandedGroup(expanded ? null : group.id)}
+                  aria-expanded={expanded}
+                  aria-controls={`nav-group-${group.id}`}
+                  aria-label={group.label}
+                  title={group.label}
                 >
-                  {item.label}
-                </Text>
-              </Button>
+                  <NavIcon name={group.icon} />
+                  <Text
+                    fontSize="13px"
+                    fontWeight={groupActive ? '600' : '500'}
+                    display={{ base: 'none', lg: 'block' }}
+                  >
+                    {group.label}
+                  </Text>
+                  <Text
+                    aria-hidden="true"
+                    ms="auto"
+                    fontSize="15px"
+                    display={{ base: 'none', lg: 'block' }}
+                  >
+                    {expanded ? '−' : '+'}
+                  </Text>
+                </Button>
+
+                {expanded ? (
+                  <Stack
+                    id={`nav-group-${group.id}`}
+                    as="ul"
+                    listStyleType="none"
+                    m="0"
+                    mt={{ base: '0', md: '1' }}
+                    ms={{ md: '2' }}
+                    p={{ base: '2', md: '0' }}
+                    gap="1"
+                    position={{ base: 'fixed', md: 'static' }}
+                    insetInline={{ base: '8px', md: 'auto' }}
+                    bottom={{ base: '68px', md: 'auto' }}
+                    maxH={{ base: '60vh', md: 'none' }}
+                    overflowY={{ base: 'auto', md: 'visible' }}
+                    bg={{ base: 'noc.sidebar', md: 'transparent' }}
+                    borderWidth={{ base: '1px', md: '0' }}
+                    borderColor="noc.border"
+                    borderRadius={{ base: 'nocPanel', md: '0' }}
+                    boxShadow={{ base: '0 -12px 30px rgba(0,0,0,.32)', md: 'none' }}
+                    zIndex="30"
+                  >
+                    {group.children.map((item) => {
+                      const active = navIsActive(
+                        item.destination,
+                        workspace,
+                        telephonyPage,
+                        settingsPage,
+                      );
+                      return (
+                        <Box as="li" key={item.label}>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            w="full"
+                            h="36px"
+                            px={{ base: '3', md: '2', lg: '3' }}
+                            justifyContent="flex-start"
+                            gap="3"
+                            borderRadius="8px"
+                            color={active ? 'white' : 'noc.textMuted'}
+                            bg={active ? 'rgba(45,140,255,.14)' : 'transparent'}
+                            borderWidth="1px"
+                            borderColor={active ? 'rgba(45,140,255,.24)' : 'transparent'}
+                            _hover={{ bg: 'rgba(255,255,255,.045)', color: 'white' }}
+                            onClick={() => onNavigate(item.destination)}
+                            aria-current={active ? 'page' : undefined}
+                            aria-label={item.label}
+                            title={item.label}
+                          >
+                            <NavIcon name={item.icon} />
+                            <Text
+                              fontSize="12px"
+                              fontWeight={active ? '600' : '500'}
+                              display={{ base: 'block', md: 'none', lg: 'block' }}
+                            >
+                              {item.label}
+                            </Text>
+                          </Button>
+                        </Box>
+                      );
+                    })}
+                  </Stack>
+                ) : null}
+              </Box>
             );
           })}
         </Stack>

@@ -714,3 +714,15 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 473. **Workspace toolbars are not navigation:** PBX scope, search, filters, status, and actions remain local to the current page.
 474. **All real destinations must stay reachable from the shell:** removing nested navigation requires promoting previously hidden destinations such as Channels and configuration workspaces into the primary sidebar.
 475. **A workspace owns one page header:** wrapper-level duplicate headings such as the generic Settings heading are removed when the selected workspace already provides its own title and description.
+
+## 2026-10-07 — Navigation, SSH verification, and version-skew decisions
+
+476. **Primary shell navigation is capped at three choices:** Overview, Operations, Settings. Route density is handled with exactly one disclosure level.
+477. **Only one navigation disclosure is expanded at a time:** this keeps the side rail scannable and avoids accordion sprawl or multilevel submenu chains.
+478. **Infrastructure is configuration and belongs under Settings:** it is not a peer of live operational destinations.
+479. **SSH is verify-before-persist:** submitted host-key trust and authentication must both succeed before metadata or encrypted credentials are written.
+480. **Pinned host key is a trust anchor, not decorative metadata:** host-key mismatch is separately surfaced from credential failure.
+481. **Stored SSH configuration carries verification provenance:** nullable `last_verified_at` prevents pre-verification legacy rows from being presented as verified.
+482. **SSH verification is enforced server-side:** browser behavior cannot bypass the verification requirement.
+483. **Frontend must tolerate one-release telephony contract skew:** optional compatibility derivation prevents a blank operational page while deployment versions are being aligned.
+484. **Production frontend/backend are one release unit:** any merged shared-contract change requires an atomic build/deploy and service restart; replacing frontend assets alone is invalid.

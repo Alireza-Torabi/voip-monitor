@@ -15,6 +15,7 @@ import {
   NotificationConfigurationService,
 } from './notifications/configuration.js';
 import { SshConfigurationError, SshConfigurationService } from './ssh/configuration.js';
+import { SshVerificationError, type SshConnectionVerifier } from './ssh/verification.js';
 import {
   DatabaseSourceConfigurationError,
   DatabaseSourceConfigurationService,
@@ -313,6 +314,7 @@ export function createApp(
   sshConfiguration?: SshConfigurationService,
   databaseSourceConfiguration?: DatabaseSourceConfigurationService,
   historicalSource?: AsteriskConventionalSqlHistoryAdapter,
+  sshVerifier?: SshConnectionVerifier,
 ): Server {
   const limiter = new AttemptLimiter();
   const metricsStreams = new Set<ServerResponse>();
@@ -752,10 +754,24 @@ export function createApp(
           }
           const input = await body(request);
           if (!input) return send(response, 400, { error: 'invalid_request' });
-          const configured = sshConfiguration.configure(id, input);
+          if (!sshVerifier) return send(response, 409, { error: 'ssh_verification_unavailable' });
+          await sshVerifier.verify(input);
+          const configured = sshConfiguration.configure(id, input, new Date().toISOString());
           systemMetrics?.syncProfile(id);
           return send(response, 200, configured);
         } catch (error) {
+          if (error instanceof SshVerificationError) {
+            if (error.code === 'INVALID_INPUT')
+              return send(response, 400, { error: 'invalid_request' });
+            const code = {
+              HOST_KEY_MISMATCH: 'ssh_host_key_mismatch',
+              AUTHENTICATION_FAILED: 'ssh_authentication_failed',
+              CONNECTION_FAILED: 'ssh_connection_failed',
+              TIMEOUT: 'ssh_timeout',
+              TARGET_BLOCKED: 'ssh_target_blocked',
+            }[error.code];
+            return send(response, 502, { error: code });
+          }
           if (!(error instanceof SshConfigurationError)) throw error;
           if (error.code === 'PBX_NOT_FOUND') return send(response, 404, { error: 'not_found' });
           return send(response, 400, { error: 'invalid_request' });
