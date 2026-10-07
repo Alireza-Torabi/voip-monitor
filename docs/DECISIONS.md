@@ -749,3 +749,17 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 496. **Endpoint Overview prioritizes reachable population:** the large KPI is REACHABLE; total observed endpoints and unreachable count are secondary statistics.
 497. **Fleet names endpoint state accurately:** `endpointFailures` is replaced by `unreachableEndpoints` and is not assigned warning/critical severity solely because the count is non-zero.
 498. **Capacity uses gauges, utilization over time uses time series:** storage/filesystem capacity is represented by per-volume usage gauges; CPU and memory use recent bounded time-series history.
+
+## 2026-10-07 — Dashboard cadence and wallboard decisions
+
+499. **Dashboard refresh preferences are presentation cadence, not source polling:** AMI/SSE and collectors remain authoritative; per-widget cadence only stages application of already-received state.
+500. **Cadence is PBX-scoped and bounded:** Active Calls, Endpoints, Queues, Problems, CPU/RAM, Storage, and Services each have independently persisted values from an allowlist of 500 ms through 60 s.
+501. **First-good and unhealthy transitions bypass cadence:** first valid data and ERROR/UNAVAILABLE invalidation render immediately so cadence can never make stale telemetry look current.
+502. **Active Calls history is ephemeral:** the chart maintains only a bounded in-memory sample window and never persists call-count telemetry.
+503. **CPU and memory share one temporal chart:** distinct series colors communicate two utilization dimensions without duplicating panel chrome.
+504. **Storage saturation uses progressive color:** gauge fill follows green-to-amber-to-red along the arc; higher utilization reveals more of the critical end of the scale.
+505. **Wallboard is one-screen first:** compact four-row layout, viewport-height sizing, responsive breakpoints, and hidden wallboard overflow take precedence over normal dashboard spacing.
+506. **Filesystem visibility remains explicitly discoverable:** the Settings child is named `Storage / Filesystems`; refresh cadence is a separate panel in the same workspace and must never visually replace or obscure filesystem selection.
+507. **Storage selection and dashboard cadence are independent workspaces:** Storage / Filesystems must load and save without any dependency on dashboard-refresh APIs; Dashboard Settings owns cadence configuration separately.
+508. **Verification builds must not mutate live frontend assets:** default `npm run build` writes frontend output outside the production static root; only explicit `build:production` may write `frontend/dist`.
+509. **Frontend/backend production release is atomic by workflow:** preview/verification of unmerged branches must not change the static assets served by the production gateway.

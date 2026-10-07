@@ -34,6 +34,30 @@ export type AgentCompletionReason = 'CALLER' | 'AGENT' | 'TRANSFER' | 'UNKNOWN';
 
 export type SystemServiceState = 'ACTIVE' | 'INACTIVE' | 'FAILED' | 'UNKNOWN';
 
+export interface DashboardRefreshRates {
+  activeCallsMs: number;
+  endpointsMs: number;
+  queuesMs: number;
+  problemsMs: number;
+  cpuMemoryMs: number;
+  storageMs: number;
+  servicesMs: number;
+}
+
+export const DASHBOARD_REFRESH_RATE_OPTIONS = [
+  500, 1000, 2000, 5000, 10000, 15000, 30000, 60000,
+] as const;
+
+export const DEFAULT_DASHBOARD_REFRESH_RATES: DashboardRefreshRates = {
+  activeCallsMs: 1000,
+  endpointsMs: 5000,
+  queuesMs: 3000,
+  problemsMs: 3000,
+  cpuMemoryMs: 30000,
+  storageMs: 30000,
+  servicesMs: 10000,
+};
+
 export type HistoricalCallDisposition = 'ANSWERED' | 'NO_ANSWER' | 'BUSY' | 'FAILED' | 'UNKNOWN';
 export type HistoricalCallEventType =
   | 'CHANNEL_STARTED'

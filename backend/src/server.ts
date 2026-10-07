@@ -31,7 +31,12 @@ import type {
   SystemMetricsRuntime,
   SystemMetricsSampleListener,
 } from './collectors/system/runtime.js';
-import type { SecurityEvent } from '@voip-monitor/shared';
+import {
+  DASHBOARD_REFRESH_RATE_OPTIONS,
+  DEFAULT_DASHBOARD_REFRESH_RATES,
+  type DashboardRefreshRates,
+  type SecurityEvent,
+} from '@voip-monitor/shared';
 import type { ProviderRuntimeSecurityEventListener } from './providers/runtime/index.js';
 import type { TelephonyInstanceState, TelephonyStateEngine } from './telephony/state-engine.js';
 import { buildOperationalHealthSnapshot } from './operational-health.js';
@@ -302,6 +307,31 @@ function parseDashboardStorageSelection(
     values.push(value);
   }
   return values;
+}
+
+function parseDashboardRefreshRates(
+  input: Record<string, unknown> | undefined,
+): DashboardRefreshRates | undefined {
+  if (!input) return undefined;
+  const keys = [
+    'activeCallsMs',
+    'endpointsMs',
+    'queuesMs',
+    'problemsMs',
+    'cpuMemoryMs',
+    'storageMs',
+    'servicesMs',
+  ] as const;
+  if (Object.keys(input).length !== keys.length || keys.some((key) => !(key in input)))
+    return undefined;
+  const allowed = new Set<number>(DASHBOARD_REFRESH_RATE_OPTIONS);
+  const result = {} as DashboardRefreshRates;
+  for (const key of keys) {
+    const value = input[key];
+    if (typeof value !== 'number' || !allowed.has(value)) return undefined;
+    result[key] = value;
+  }
+  return result;
 }
 
 export function createApp(
@@ -656,6 +686,33 @@ export function createApp(
         if (!input) return send(response, 400, { error: 'invalid_request' });
         storage.dashboardStorageConfig.put(id, input);
         return send(response, 200, { selectedFilesystemIds: input });
+      }
+
+      const dashboardRefreshAction = path.match(
+        /^\/api\/pbx-instances\/([^/]+)\/dashboard-refresh$/,
+      );
+      if (dashboardRefreshAction) {
+        if (!auth || !storage || !auth.principal(sessionToken(request)))
+          return send(response, 401, { error: 'unauthorized' });
+        const id = dashboardRefreshAction[1]!;
+        if (!onboarding?.get(id)) return send(response, 404, { error: 'not_found' });
+        if (request.method === 'GET') {
+          return send(response, 200, {
+            rates: storage.dashboardRefreshConfig.get(id) ?? DEFAULT_DASHBOARD_REFRESH_RATES,
+          });
+        }
+        if (!['PUT', 'DELETE'].includes(request.method ?? ''))
+          return send(response, 404, { error: 'not_found' });
+        if (!sameOrigin(request, auth.requiresSecureOrigin))
+          return send(response, 403, { error: 'forbidden' });
+        if (request.method === 'DELETE') {
+          storage.dashboardRefreshConfig.delete(id);
+          return send(response, 200, { rates: DEFAULT_DASHBOARD_REFRESH_RATES });
+        }
+        const input = parseDashboardRefreshRates(await body(request));
+        if (!input) return send(response, 400, { error: 'invalid_request' });
+        storage.dashboardRefreshConfig.put(id, input);
+        return send(response, 200, { rates: input });
       }
 
       const metricsAction = path.match(

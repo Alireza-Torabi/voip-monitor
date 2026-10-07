@@ -12,6 +12,7 @@ export type ShellSettingsPage =
   | 'ssh-metrics'
   | 'service-monitoring'
   | 'storage'
+  | 'dashboard-refresh'
   | 'security'
   | 'accounts';
 
@@ -287,8 +288,13 @@ export function AppShell({
         },
         {
           icon: 'settings' as const,
-          label: fa ? 'ذخیره‌سازی داشبورد' : 'Dashboard Storage',
+          label: fa ? 'Storage / Filesystems' : 'Storage / Filesystems',
           destination: { workspace: 'settings', page: 'storage' } as ShellDestination,
+        },
+        {
+          icon: 'settings' as const,
+          label: fa ? 'تنظیمات داشبورد' : 'Dashboard Settings',
+          destination: { workspace: 'settings', page: 'dashboard-refresh' } as ShellDestination,
         },
         {
           icon: 'security' as const,

@@ -165,3 +165,13 @@ System-metrics SSE has two data classes: `system-metrics` carries successful sam
 OperationalHealth treats a supported/current endpoint inventory as HEALTHY independent of individual endpoint reachability. Endpoint capability and synchronization remain authoritative for UNKNOWN/STALE. Reliability state continues to collect bounded endpoint transitions but is not itself an incident rule. Fleet contracts expose `unreachableEndpoints` as statistics rather than failures.
 
 Overview visualization follows metric semantics: CPU and memory are temporal utilization signals rendered from existing bounded metric history as time series; filesystem/storage capacity is a point-in-time saturation signal rendered as per-volume gauges with used/total capacity. No additional persistence or collection path is introduced.
+
+## Dashboard presentation cadence
+
+`dashboard_refresh_config` stores only PBX-scoped presentation preferences. Live source ingestion remains independent: AMI events update TelephonyStateEngine, SSE delivers current application state, and system metrics follow their collector cadence. OperatorOverview uses bounded cadence gates for individual visual elements; source errors and first-valid data bypass the gate to prevent stale-as-current presentation. Active-call chart samples are process/browser-memory presentation state only and are never persisted.
+
+Wallboard rendering is a responsive four-row grid sized to the viewport: KPI strip, Active Calls/Infrastructure main row, compact entity/service summaries, and Current Problems. Normal dashboard breakpoints retain reflow and scrolling; wallboard compacts padding/chart heights/gauges and suppresses page scrolling.
+
+## Verification build isolation
+
+The production gateway serves `frontend/dist` directly. Therefore the default repository build used by lint/test/full-gate workflows must not write that directory. Frontend verification output is written to `/tmp/voip-monitor-frontend-build`; production deployment explicitly uses `npm run build:production` to generate `frontend/dist`. This preserves frontend/backend release atomicity and prevents unmerged branch verification from creating contract skew in the live service.

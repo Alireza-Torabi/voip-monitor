@@ -12,6 +12,7 @@ import {
   Text,
 } from '@chakra-ui/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { DEFAULT_DASHBOARD_REFRESH_RATES, type DashboardRefreshRates } from '@voip-monitor/shared';
 import {
   api,
   ApiError,
@@ -483,6 +484,9 @@ export function DashboardBuilder({
   const [metrics, setMetrics] = useState<SystemMetricsResponse>();
   const [metricHistory, setMetricHistory] = useState<SystemMetricsSample[]>([]);
   const [selectedFilesystemIds, setSelectedFilesystemIds] = useState<string[] | null>(null);
+  const [refreshRates, setRefreshRates] = useState<DashboardRefreshRates>(
+    DEFAULT_DASHBOARD_REFRESH_RATES,
+  );
   const [alerts, setAlerts] = useState<SecurityAlertRecord[]>([]);
   const [telephony, setTelephony] = useState<TelephonyInstanceState | null>(null);
   const [metricsLive, setMetricsLive] = useState<LiveState>('connecting');
@@ -547,6 +551,7 @@ export function DashboardBuilder({
     setMetrics(undefined);
     setMetricHistory([]);
     setSelectedFilesystemIds(null);
+    setRefreshRates(DEFAULT_DASHBOARD_REFRESH_RATES);
     setAlerts([]);
     setTelephony(null);
     setError('');
@@ -573,6 +578,12 @@ export function DashboardBuilder({
         .dashboardStorage(selected.id)
         .then((value) => {
           if (!cancelled) setSelectedFilesystemIds(value.selectedFilesystemIds);
+        })
+        .catch(fail),
+      api
+        .dashboardRefresh(selected.id)
+        .then((value) => {
+          if (!cancelled) setRefreshRates(value.rates);
         })
         .catch(fail),
       api
@@ -960,14 +971,15 @@ export function DashboardBuilder({
       role={wallboard ? 'region' : undefined}
       aria-label={wallboard ? text.wallboard : undefined}
       bg={wallboard ? 'noc.canvas' : 'transparent'}
-      minH={fullscreen || wallboard ? '100vh' : undefined}
-      p={fullscreen || wallboard ? { base: '3', md: '5', xl: '6' } : '0'}
-      overflow={fullscreen || wallboard ? 'auto' : undefined}
+      minH={fullscreen || wallboard ? '100dvh' : undefined}
+      h={wallboard ? '100dvh' : undefined}
+      p={fullscreen || wallboard ? { base: '2', md: '3', xl: '4' } : '0'}
+      overflow={wallboard ? 'hidden' : fullscreen ? 'auto' : undefined}
       onMouseMove={showControls}
       onKeyDown={showControls}
       onFocusCapture={showControls}
     >
-      <Stack gap="4">
+      <Stack gap={wallboard ? '2' : '4'} h={wallboard ? 'full' : undefined}>
         {!fullscreen && !wallboard ? (
           <Flex
             data-dashboard-toolbar
@@ -1132,6 +1144,7 @@ export function DashboardBuilder({
             alertsLive={alertsLive}
             telephonyLive={telephonyLive}
             visibleFilesystems={visibleFilesystems}
+            refreshRates={refreshRates}
             onNavigate={onNavigate}
             wallboard={wallboard}
           />

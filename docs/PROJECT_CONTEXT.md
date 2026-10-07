@@ -123,3 +123,15 @@ Production was rebuilt/restarted on the merged PR #73 release. The backend telep
 ## 2026-10-07 — Endpoint/statistics and Infrastructure visualization
 
 Endpoint reachability is now treated as availability statistics rather than an operational fault: reachable count is the primary Overview number, total/unreachable counts are secondary, and individual offline endpoints do not degrade PBX health or create Current Problems. Endpoint reliability data remains available for troubleshooting. Infrastructure Overview uses separate CPU and memory time series from the existing bounded history and per-filesystem storage usage gauges with Used/Total capacity.
+
+## 2026-10-07 — Dashboard visual cadence and wallboard layout
+
+Dashboard Settings now owns PBX-scoped per-element visual cadence. These values never change AMI/SSE or system collector frequency and never create additional PBX polling; they only stage when the latest local live state is painted by each Overview element. Active Calls uses bounded in-memory chart history, CPU/RAM share a dual-series chart, storage uses progressive green-to-red gauges, Current Problems is moved to the bottom, and wallboard uses a compact four-row one-screen responsive layout.
+
+## 2026-10-07 — Settings separation
+
+Storage / Filesystems and Dashboard Settings are separate Settings destinations. The storage workspace is intentionally independent from refresh configuration: it reads only current filesystem metrics and dashboard-storage selection. Dashboard cadence failures cannot block filesystem discovery or selection.
+
+## 2026-10-07 — Build isolation
+
+The default Full Gate build is non-deploying: frontend output goes to `/tmp/voip-monitor-frontend-build`. Only explicit `npm run build:production` writes the live `frontend/dist` served by the production gateway. Never use an unmerged branch build as a production UI preview.
