@@ -45,6 +45,12 @@ function queryError(error: unknown, signal: AbortSignal): DatabaseQueryError {
   return new DatabaseQueryError('QUERY_FAILED');
 }
 
+function isMysqlReadOnlyTransactionSyntaxUnsupported(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const candidate = error as { code?: unknown; errno?: unknown };
+  return candidate.code === 'ER_PARSE_ERROR' || candidate.errno === 1064;
+}
+
 async function safeMysqlEnd(connection: mysql.Connection | undefined): Promise<void> {
   if (!connection) return;
   try {
@@ -100,7 +106,12 @@ export class MysqlMariadbReadOnlyAdapter implements DatabaseDialectAdapter {
       const abort = (): void => connection?.destroy();
       signal.addEventListener('abort', abort, { once: true });
       try {
-        await connection.query('START TRANSACTION READ ONLY');
+        try {
+          await connection.query('START TRANSACTION READ ONLY');
+        } catch (error) {
+          if (!isMysqlReadOnlyTransactionSyntaxUnsupported(error)) throw error;
+          await connection.query('START TRANSACTION');
+        }
         transactionStarted = true;
         const [rows] = await connection.query<mysql.RowDataPacket[]>(
           {

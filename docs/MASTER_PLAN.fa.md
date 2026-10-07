@@ -1231,3 +1231,15 @@ Lint، Format، Typecheck، Backend Test برابر 179/179، Frontend Test بر
 - **Regression:** تست‌ها Escalation محدود، جلوگیری از اجرای دوباره Driver در Cooldown و Reset بعد از Success را پوشش می‌دهند.
 
 </div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-07 — سازگاری Read-only Transaction با MySQL 5.5
+
+- **مشاهده واقعی:** بعد از Flush شدن Host Block، Database واقعی PBX نسخه `5.5.62-0+deb8u1` را در MySQL Handshake اعلام کرد.
+- **مشکل:** Adapter همیشه قبل از Query دستور `START TRANSACTION READ ONLY` را اجرا می‌کرد؛ این Syntax روی Server قدیمی موجود قابل قبول نیست و می‌تواند Credential صحیح را هم در Verification/History به‌شکل Failure نشان دهد.
+- **اصلاح:** Adapter همچنان ابتدا `START TRANSACTION READ ONLY` را امتحان می‌کند. فقط اگر MySQL خطای Syntax مشخص `ER_PARSE_ERROR` / errno `1064` بدهد، به `START TRANSACTION` عادی Fall back می‌کند. مسیر Prepared Query همچنان فقط SELECT را قبول می‌کند، Multiple Statement غیرفعال است و Account دیتابیس Read-only باقی می‌ماند.
+- **Safety:** Failureهای غیر Syntax در Transaction پنهان نمی‌شوند و Fail-closed باقی می‌مانند.
+- **Regression:** تست Adapter هم Fallback مربوط به MySQL 5.5 و هم Fail-closed شدن Failureهای غیر Syntax را پوشش می‌دهد.
+
+</div>

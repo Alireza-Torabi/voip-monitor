@@ -1212,3 +1212,12 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 - **Scope:** only connection/timeout failures affect backoff; query/data/schema errors do not extend the connection-failure cooldown. No history or retry state is persisted.
 - **UI/API:** database verification and source-backed History return a distinct 429/backoff state with operator guidance instead of repeatedly contacting the database.
 - **Regression:** tests verify bounded escalation, no second driver execution during an active cooldown, and reset after success.
+
+
+## 2026-10-07 — MySQL 5.5 read-only transaction compatibility
+
+- **Observed compatibility fact:** the real PBX database endpoint reports MySQL `5.5.62-0+deb8u1` after the operator flushed the host block.
+- **Problem:** the MySQL adapter always started queries with `START TRANSACTION READ ONLY`, which is not accepted by this legacy server and could make valid credentials appear invalid during verification/history reads.
+- **Resolution:** the adapter still attempts `START TRANSACTION READ ONLY` first. Only when MySQL returns the specific parse/syntax error (`ER_PARSE_ERROR` / errno `1064`) does it fall back to plain `START TRANSACTION`. The prepared query path remains SELECT-only, multiple statements stay disabled, and the configured database account is read-only.
+- **Safety:** non-syntax transaction failures are not hidden by the compatibility fallback.
+- **Regression:** adapter tests cover both the MySQL 5.5 syntax fallback and fail-closed handling for non-syntax transaction failures.
