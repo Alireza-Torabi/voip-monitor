@@ -1,4 +1,5 @@
 import type {
+  EndpointReliabilityState,
   FleetOverviewSnapshot,
   OperationalHealthSnapshot,
   TrunkReliabilityState,
@@ -264,6 +265,7 @@ export interface TelephonyEndpointState {
   registrationState: 'REGISTERED' | 'UNREGISTERED' | 'UNKNOWN';
   reachability: 'REACHABLE' | 'UNREACHABLE' | 'UNKNOWN';
   updatedAt: string;
+  reliability: EndpointReliabilityState;
 }
 
 export interface TelephonyTrunkState {

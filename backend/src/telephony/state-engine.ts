@@ -3,6 +3,9 @@ import type {
   CapabilityState,
   EndpointReachability,
   EndpointRegistrationState,
+  EndpointReliabilityState,
+  EndpointReliabilityTransition,
+  EndpointTransitionSource,
   PbxConnectionState,
   ProviderChannelSnapshot,
   ProviderEndpointSnapshot,
@@ -23,7 +26,7 @@ import type {
   TrunkReliabilityTransition,
   TrunkTransitionSource,
 } from '@voip-monitor/shared';
-import { classifyTrunkAvailability } from '@voip-monitor/shared';
+import { classifyEndpointAvailability, classifyTrunkAvailability } from '@voip-monitor/shared';
 
 export type TelephonySynchronization = 'CURRENT' | 'AWAITING_SNAPSHOT' | 'STALE';
 export type AgentInteractionSynchronization = 'LIVE_ONLY' | 'STALE';
@@ -42,6 +45,7 @@ export interface TelephonyEndpointState {
   registrationState: EndpointRegistrationState;
   reachability: EndpointReachability;
   updatedAt: string;
+  reliability: EndpointReliabilityState;
 }
 
 export interface TelephonyTrunkState {
@@ -146,8 +150,17 @@ interface MutableChannel extends TelephonyChannelState {
   order: ChannelOrder;
 }
 
-interface MutableEndpoint extends TelephonyEndpointState {
+interface MutableEndpoint extends Omit<TelephonyEndpointState, 'reliability'> {
   order: ChannelOrder;
+}
+
+interface MutableEndpointReliability {
+  availability: EndpointReliabilityState['availability'];
+  lastReachableAt?: string;
+  lastUnreachableAt?: string;
+  offlineStartedAt?: string;
+  flapCount: number;
+  recentTransitions: EndpointReliabilityTransition[];
 }
 
 interface MutableTrunk extends Omit<TelephonyTrunkState, 'reliability'> {
@@ -193,6 +206,7 @@ interface EngineEntry {
   streamGeneration?: number;
   channels: Map<string, MutableChannel>;
   endpoints: Map<string, MutableEndpoint>;
+  endpointReliability: Map<string, MutableEndpointReliability>;
   endpointCapability: CapabilityState;
   endpointSynchronization: TelephonySynchronization | 'UNAVAILABLE';
   trunks: Map<string, MutableTrunk>;
@@ -317,6 +331,93 @@ function callStates(channels: Iterable<MutableChannel>): TelephonyCallState[] {
     }));
 }
 
+const MAX_ENDPOINT_TRANSITIONS = 20;
+const MAX_ENDPOINT_COUNTER = 9999;
+
+function observeEndpointReliability(
+  entry: EngineEntry,
+  endpoint: Pick<MutableEndpoint, 'endpointId' | 'registrationState' | 'reachability'>,
+  observedAt: string,
+  source: EndpointTransitionSource,
+): void {
+  const next = classifyEndpointAvailability(endpoint.registrationState, endpoint.reachability);
+  const current = entry.endpointReliability.get(endpoint.endpointId);
+  if (!current) {
+    entry.endpointReliability.set(endpoint.endpointId, {
+      availability: next,
+      ...(next === 'ONLINE' ? { lastReachableAt: observedAt } : {}),
+      ...(next === 'OFFLINE'
+        ? { lastUnreachableAt: observedAt, offlineStartedAt: observedAt }
+        : {}),
+      flapCount: 0,
+      recentTransitions: [],
+    });
+    return;
+  }
+  if (current.availability === next) return;
+  current.recentTransitions = [
+    ...current.recentTransitions,
+    {
+      observedAt,
+      from: current.availability,
+      to: next,
+      registrationState: endpoint.registrationState,
+      reachability: endpoint.reachability,
+      source,
+    },
+  ].slice(-MAX_ENDPOINT_TRANSITIONS);
+  if (next === 'OFFLINE') {
+    current.lastUnreachableAt = observedAt;
+    if (!current.offlineStartedAt) {
+      current.offlineStartedAt = observedAt;
+      if (current.lastReachableAt)
+        current.flapCount = Math.min(MAX_ENDPOINT_COUNTER, current.flapCount + 1);
+    }
+  }
+  if (next === 'ONLINE') {
+    current.lastReachableAt = observedAt;
+    delete current.offlineStartedAt;
+  }
+  current.availability = next;
+}
+
+function publicEndpointReliability(
+  current: MutableEndpointReliability | undefined,
+  endpoint: Pick<MutableEndpoint, 'registrationState' | 'reachability' | 'updatedAt'>,
+): EndpointReliabilityState {
+  const fallbackAvailability = classifyEndpointAvailability(
+    endpoint.registrationState,
+    endpoint.reachability,
+  );
+  if (!current) {
+    return {
+      availability: fallbackAvailability,
+      ...(fallbackAvailability === 'ONLINE' ? { lastReachableAt: endpoint.updatedAt } : {}),
+      ...(fallbackAvailability === 'OFFLINE'
+        ? {
+            lastUnreachableAt: endpoint.updatedAt,
+            offlineStartedAt: endpoint.updatedAt,
+            offlineDurationSeconds: 0,
+          }
+        : {}),
+      flapCount: 0,
+      recentTransitions: [],
+    };
+  }
+  const offlineDurationSeconds = current.offlineStartedAt
+    ? Math.max(0, Math.floor((Date.now() - Date.parse(current.offlineStartedAt)) / 1000))
+    : undefined;
+  return {
+    availability: current.availability,
+    ...(current.lastReachableAt ? { lastReachableAt: current.lastReachableAt } : {}),
+    ...(current.lastUnreachableAt ? { lastUnreachableAt: current.lastUnreachableAt } : {}),
+    ...(current.offlineStartedAt ? { offlineStartedAt: current.offlineStartedAt } : {}),
+    ...(offlineDurationSeconds === undefined ? {} : { offlineDurationSeconds }),
+    flapCount: current.flapCount,
+    recentTransitions: current.recentTransitions.map((transition) => ({ ...transition })),
+  };
+}
+
 const MAX_TRUNK_TRANSITIONS = 20;
 const MAX_TRUNK_COUNTER = 9999;
 
@@ -430,6 +531,10 @@ function publicState(entry: EngineEntry): TelephonyInstanceState | undefined {
       registrationState: endpoint.registrationState,
       reachability: endpoint.reachability,
       updatedAt: endpoint.updatedAt,
+      reliability: publicEndpointReliability(
+        entry.endpointReliability.get(endpoint.endpointId),
+        endpoint,
+      ),
     }));
   const trunks = [...entry.trunks.values()]
     .sort((left, right) => left.trunkId.localeCompare(right.trunkId))
@@ -837,6 +942,7 @@ function mergeEndpoint(
     existing.registrationState !== next.registrationState ||
     existing.reachability !== next.reachability;
   entry.endpoints.set(event.endpointId, next);
+  observeEndpointReliability(entry, next, event.observedAt, 'EVENT');
   return changed;
 }
 
@@ -1234,6 +1340,7 @@ export class TelephonyStateEngine {
       synchronization: 'AWAITING_SNAPSHOT',
       channels: new Map(),
       endpoints: new Map(),
+      endpointReliability: new Map(),
       endpointCapability: 'UNKNOWN',
       endpointSynchronization: 'AWAITING_SNAPSHOT',
       trunks: new Map(),
@@ -1449,6 +1556,16 @@ export class TelephonyStateEngine {
           updatedAt: endpointState.observedAt,
           order: endpointSnapshotOrder(snapshot, endpoint),
         });
+        observeEndpointReliability(
+          entry,
+          {
+            endpointId: endpoint.endpointId,
+            registrationState: endpoint.registrationState,
+            reachability: endpoint.reachability,
+          },
+          endpointState.observedAt,
+          'SNAPSHOT',
+        );
       }
       entry.endpoints = endpoints;
       entry.endpointCapability = 'SUPPORTED';

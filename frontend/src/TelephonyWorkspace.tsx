@@ -4,6 +4,7 @@ import {
   api,
   ApiError,
   type PbxProfile,
+  type TelephonyEndpointState,
   type TelephonyInstanceState,
   type TelephonyTrunkState,
 } from './api.js';
@@ -85,6 +86,13 @@ function formatDuration(totalSeconds: number): string {
   return `${seconds}s`;
 }
 
+function endpointReliabilityRank(item: TelephonyEndpointState): number {
+  if (item.reliability.availability === 'OFFLINE') return 0;
+  if (item.reliability.flapCount > 0) return 1;
+  if (item.reliability.availability === 'UNKNOWN') return 2;
+  return 3;
+}
+
 function trunkReliabilityRank(item: TelephonyTrunkState): number {
   if (item.reliability.availability === 'DOWN') return 0;
   if (item.reliability.availability === 'TRANSITIONING') return 1;
@@ -164,8 +172,11 @@ export function TelephonyWorkspace({
   }, [selected?.id]);
 
   useEffect(() => {
-    if (page !== 'trunks' || !state?.trunks.some((trunk) => trunk.reliability.outageStartedAt))
-      return;
+    const hasActiveDuration =
+      (page === 'trunks' && state?.trunks.some((trunk) => trunk.reliability.outageStartedAt)) ||
+      (page === 'endpoints' &&
+        state?.endpoints.some((endpoint) => endpoint.reliability.offlineStartedAt));
+    if (!hasActiveDuration) return;
     const timer = window.setInterval(() => setReliabilityNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, [page, state]);
@@ -222,12 +233,48 @@ export function TelephonyWorkspace({
     if (page === 'endpoints') {
       return state.endpoints
         .filter((item) =>
-          matches(query, item.endpointId, item.registrationState, item.reachability),
+          matches(
+            query,
+            item.endpointId,
+            item.registrationState,
+            item.reachability,
+            item.reliability.availability,
+          ),
         )
-        .map((item) => ({
-          key: item.endpointId,
-          cells: [item.endpointId, item.registrationState, item.reachability, item.updatedAt],
-        }));
+        .sort(
+          (left, right) =>
+            endpointReliabilityRank(left) - endpointReliabilityRank(right) ||
+            right.reliability.flapCount - left.reliability.flapCount ||
+            left.endpointId.localeCompare(right.endpointId),
+        )
+        .map((item) => {
+          const offlineSeconds = item.reliability.offlineStartedAt
+            ? Math.max(
+                0,
+                Math.floor((reliabilityNow - Date.parse(item.reliability.offlineStartedAt)) / 1000),
+              )
+            : undefined;
+          const transitions = item.reliability.recentTransitions
+            .slice(-3)
+            .reverse()
+            .map((transition) => `${transition.from}→${transition.to} ${transition.observedAt}`)
+            .join(' · ');
+          return {
+            key: item.endpointId,
+            cells: [
+              item.endpointId,
+              item.reliability.availability,
+              item.registrationState,
+              item.reachability,
+              item.reliability.lastReachableAt ?? '—',
+              item.reliability.lastUnreachableAt ?? '—',
+              offlineSeconds === undefined ? '—' : formatDuration(offlineSeconds),
+              String(item.reliability.flapCount),
+              transitions || '—',
+              item.updatedAt,
+            ],
+          };
+        });
     }
     if (page === 'trunks') {
       return state.trunks
@@ -317,7 +364,7 @@ export function TelephonyWorkspace({
           item.updatedAt,
         ],
       }));
-  }, [state, page, query]);
+  }, [state, page, query, reliabilityNow]);
 
   const headers =
     page === 'calls'
@@ -338,7 +385,18 @@ export function TelephonyWorkspace({
             text.updatedAt,
           ]
         : page === 'endpoints'
-          ? [text.entityId, text.registrationState, text.reachability, text.updatedAt]
+          ? [
+              text.entityId,
+              text.endpointAvailability,
+              text.registrationState,
+              text.reachability,
+              text.endpointLastReachable,
+              text.endpointLastUnreachable,
+              text.endpointOffline,
+              text.endpointFlaps,
+              text.endpointRecentTransitions,
+              text.updatedAt,
+            ]
           : page === 'trunks'
             ? [
                 text.entityId,

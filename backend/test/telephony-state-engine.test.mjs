@@ -1346,3 +1346,110 @@ test('trunk reliability tracks bounded real transitions without treating provide
 
   engine.stop();
 });
+
+test('endpoint reliability tracks bounded offline transitions without treating provider visibility loss as offline', () => {
+  const source = new FakeStateSource();
+  const engine = new TelephonyStateEngine(source);
+  engine.start();
+
+  source.snapshot(
+    snapshot({
+      endpointState: {
+        capability: 'SUPPORTED',
+        observedAt: '2026-10-07T06:00:00.000Z',
+        streamGeneration: 1,
+        streamStartedSequence: 0,
+        endpoints: [
+          {
+            endpointId: 'PJSIP/100',
+            registrationState: 'REGISTERED',
+            reachability: 'REACHABLE',
+            streamSequence: 1,
+          },
+        ],
+      },
+    }),
+  );
+
+  let endpoint = engine.current('pbx-1').endpoints[0];
+  assert.equal(endpoint.reliability.availability, 'ONLINE');
+  assert.equal(endpoint.reliability.lastReachableAt, '2026-10-07T06:00:00.000Z');
+  assert.equal(endpoint.reliability.flapCount, 0);
+  assert.deepEqual(endpoint.reliability.recentTransitions, []);
+
+  source.connection('pbx-1', 'DISCONNECTED');
+  endpoint = engine.current('pbx-1').endpoints[0];
+  assert.equal(endpoint.reliability.availability, 'ONLINE');
+  assert.equal(endpoint.reliability.offlineStartedAt, undefined);
+
+  source.connection('pbx-1', 'CONNECTED');
+  source.snapshot(
+    snapshot({
+      observedAt: '2026-10-07T06:00:10.000Z',
+      endpointState: {
+        capability: 'SUPPORTED',
+        observedAt: '2026-10-07T06:00:10.000Z',
+        streamGeneration: 1,
+        streamStartedSequence: 1,
+        endpoints: [
+          {
+            endpointId: 'PJSIP/100',
+            registrationState: 'REGISTERED',
+            reachability: 'REACHABLE',
+            streamSequence: 2,
+          },
+        ],
+      },
+    }),
+  );
+
+  source.event(
+    baseEvent('ENDPOINT_STATUS_CHANGED', {
+      endpointId: 'PJSIP/100',
+      registrationState: 'UNREGISTERED',
+      reachability: 'UNREACHABLE',
+      streamSequence: 3,
+      observedAt: '2026-10-07T06:00:20.000Z',
+    }),
+  );
+  endpoint = engine.current('pbx-1').endpoints[0];
+  assert.equal(endpoint.reliability.availability, 'OFFLINE');
+  assert.equal(endpoint.reliability.lastUnreachableAt, '2026-10-07T06:00:20.000Z');
+  assert.equal(endpoint.reliability.offlineStartedAt, '2026-10-07T06:00:20.000Z');
+  assert.equal(endpoint.reliability.flapCount, 1);
+
+  source.event(
+    baseEvent('ENDPOINT_STATUS_CHANGED', {
+      endpointId: 'PJSIP/100',
+      registrationState: 'REGISTERED',
+      reachability: 'REACHABLE',
+      streamSequence: 4,
+      observedAt: '2026-10-07T06:00:30.000Z',
+    }),
+  );
+  endpoint = engine.current('pbx-1').endpoints[0];
+  assert.equal(endpoint.reliability.availability, 'ONLINE');
+  assert.equal(endpoint.reliability.lastReachableAt, '2026-10-07T06:00:30.000Z');
+  assert.equal(endpoint.reliability.offlineStartedAt, undefined);
+  assert.equal(endpoint.reliability.flapCount, 1);
+
+  let sequence = 5;
+  for (let index = 0; index < 24; index += 1) {
+    const offline = index % 2 === 0;
+    source.event(
+      baseEvent('ENDPOINT_STATUS_CHANGED', {
+        endpointId: 'PJSIP/100',
+        registrationState: offline ? 'UNREGISTERED' : 'REGISTERED',
+        reachability: offline ? 'UNREACHABLE' : 'REACHABLE',
+        streamSequence: sequence,
+        observedAt: `2026-10-07T06:01:${String(index).padStart(2, '0')}.000Z`,
+      }),
+    );
+    sequence += 1;
+  }
+  endpoint = engine.current('pbx-1').endpoints[0];
+  assert.equal(endpoint.reliability.recentTransitions.length, 20);
+  assert.ok(endpoint.reliability.flapCount > 1);
+
+  engine.stop();
+});
