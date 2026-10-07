@@ -1125,3 +1125,4 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 - **Reliability retained:** Endpoint Reliability transition history, offline duration, flap data, and detailed Endpoint workspace remain available for observation/troubleshooting; they are informational unless a future explicit rule promotes a specific condition.
 - **Regression:** backend suite increased to 178/178 with explicit all-endpoints-unreachable-but-healthy coverage. Frontend remains 34/34 and verifies CPU/RAM time series, storage gauge rendering, and Reachable/Total endpoint hierarchy.
 - **Roadmap:** Task 60 — Call Outcome Analytics remains next after this UI/semantics branch merges.
+- **Overview density follow-up:** removed the large Active calls and Trunks detail panels from the default Overview to keep the dashboard compact. Their top KPI cells and dedicated navigation/workspaces remain available.

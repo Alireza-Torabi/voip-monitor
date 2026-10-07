@@ -1119,3 +1119,6 @@ Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check،
 - **Roadmap:** بعد از Merge این Branch، Task 60 — Call Outcome Analytics همچنان Task بعدی است.
 
 </div>
+<div dir="rtl" align="right">
+- **اصلاح تراکم Overview:** پنل‌های بزرگ Active calls و Trunks از بدنه Overview حذف شدند تا داشبورد جمع‌وجور بماند. KPIهای بالایی و Workspaceهای مستقل آن‌ها همچنان در دسترس هستند.
+</div>

@@ -262,5 +262,7 @@ describe('problem-first operator overview', () => {
     expect(html).toContain('data-reachable="0"');
     expect(html).toContain('data-total="1"');
     expect(html).toContain('data-unreachable="1"');
+    expect(html.match(/>Active calls<\/h2>/g) ?? []).toHaveLength(0);
+    expect(html.match(/>Trunks<\/h2>/g) ?? []).toHaveLength(0);
   });
 });
