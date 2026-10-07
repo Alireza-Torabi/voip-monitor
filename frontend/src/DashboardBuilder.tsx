@@ -1073,6 +1073,7 @@ export function DashboardBuilder({
         {!editing ? (
           <OperatorOverview
             text={text}
+            instanceId={selected?.id ?? ''}
             connection={connection}
             metrics={metrics}
             metricHistory={metricHistory}

@@ -33,6 +33,7 @@ import type {
 import type { SecurityEvent } from '@voip-monitor/shared';
 import type { ProviderRuntimeSecurityEventListener } from './providers/runtime/index.js';
 import type { TelephonyInstanceState, TelephonyStateEngine } from './telephony/state-engine.js';
+import { buildOperationalHealthSnapshot } from './operational-health.js';
 
 function send(response: ServerResponse, status: number, data: object, cookie?: string): void {
   response.writeHead(status, {
@@ -442,6 +443,32 @@ export function createApp(
         return updated
           ? send(response, 200, updated)
           : send(response, 409, { error: 'account_update_rejected' });
+      }
+
+      const operationalHealthAction = path.match(
+        /^\/api\/pbx-instances\/([^/]+)\/operational-health$/,
+      );
+      if (operationalHealthAction) {
+        if (!auth || !storage || !onboarding || !auth.principal(sessionToken(request)))
+          return send(response, 401, { error: 'unauthorized' });
+        if (request.method !== 'GET') return send(response, 404, { error: 'not_found' });
+        const id = operationalHealthAction[1]!;
+        const profile = onboarding.get(id);
+        if (!profile) return send(response, 404, { error: 'not_found' });
+        return send(
+          response,
+          200,
+          buildOperationalHealthSnapshot({
+            instanceId: id,
+            providerState: profile.connectionStatus,
+            securityAlerts: storage.securityAlerts.listCurrent(id),
+            ...(telephonyState?.current(id) ? { telephony: telephonyState.current(id)! } : {}),
+            ...(systemMetrics ? { systemStatus: systemMetrics.status(id) } : {}),
+            ...(storage.systemMetrics.getCurrent(id)
+              ? { systemSample: storage.systemMetrics.getCurrent(id)! }
+              : {}),
+          }),
+        );
       }
 
       const telephonyStateAction = path.match(

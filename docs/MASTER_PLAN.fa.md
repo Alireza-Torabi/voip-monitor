@@ -1,6 +1,6 @@
 # Master Plan
 
-Status: 2026-10-06. PR #64، Task 54 را Merge کرده است. Task 55 روی Branch feature/noc-wallboard-accessibility به‌صورت Local کامل شده و Merge آن Pending است. Wallboard Mode، Mobile Bottom Navigation، Keyboard/Focus Affordance، Reduced-motion/High-contrast Handling، Skip Navigation و Contrast تأییدشده Dark Theme پیاده‌سازی شده‌اند. Task 56 فقط بعد از Merge شدن Task 55 شروع می‌شود.
+Status: 2026-10-07. PR #65، Task 55 را Merge کرده است. Task 56 روی Branch feature/unified-operational-health به‌صورت Local کامل شده و Merge آن Pending است. Contract/Evaluator مشترک و Provider-neutral برای Operational Health اکنون صاحب Semantics سلامت PBX است، API احراز هویت‌شده PBX-scoped Snapshot را ارائه می‌کند و Operator Overview برای Realtime Presentation از همان Shared Evaluator استفاده می‌کند. Task 57 فقط بعد از Merge شدن Task 56 شروع می‌شود.
 
 ## Phase 0 - کشف محیط
 
@@ -700,7 +700,7 @@ Foundation پروژه از نظر Production آماده است، اما محصو
 
 ### Phase 14 — Unified Operational Health
 
-- [ ] **Task 56 — Unified Operational Health Model**
+- [x] **Task 56 — Unified Operational Health Model**
 - [ ] **Task 57 — Fleet Overview چند PBX**
 
 ### Phase 15 — Telephony Reliability
@@ -900,5 +900,38 @@ Node برابر v24.21.0 و npm برابر 11.19.0 بود. بعد از Migration
 ### Final Validation مربوط به Task 55
 
 Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check، Typecheck، Backend Test برابر 165/165، Frontend Test برابر 28/28، Production Build، Foundation Check، License Check و Git Diff Check همگی PASS شدند. Warningهای موجود Chakra/Ark/Zag/Rolldown درباره module-level use client همچنان Non-fatal هستند.
+
+</div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-07 — ثبت تکمیل Task 56
+
+- **نتیجه:** یک Operational Health Model مشترک و Provider-neutral برای Provider، Telephony، Trunk، Endpoint، Queue، System، Security و Call Quality آینده ایجاد شد.
+- **Stateهای Canonical:** `HEALTHY`، `DEGRADED`، `CRITICAL`، `UNKNOWN` و `STALE`.
+- **Aggregation Precedence:** `CRITICAL > STALE > DEGRADED > HEALTHY > UNKNOWN`. حالت UNKNOWN یک PBX سالم را خراب نمی‌کند، چون Capability پشتیبانی‌نشده/پیکربندی‌نشده یا Feature آینده نباید Incident جعلی بسازد. STALE از DEGRADED بالاتر است چون داده stale اعتماد به تصویر عملیاتی فعلی را کاهش می‌دهد.
+- **Reason Codeهای محدود:** هر Component فقط Reason Codeهای Allowlisted به‌همراه Count/Value محدود دارد و Raw Error/Payload/Credential/Message آزاد وارد Snapshot نمی‌شود.
+- **Provider:** CONNECTED=HEALTHY، DEGRADED/CONNECTING=DEGRADED، DISCONNECTED/ERROR=CRITICAL و UNVERIFIED=UNKNOWN.
+- **Telephony:** CURRENT=HEALTHY، STALE=STALE، AWAITING_SNAPSHOT=UNKNOWN و نبود State برابر UNKNOWN است.
+- **Trunk:** Capability/Sync ناموجود UNKNOWN یا STALE است؛ REGISTERING برابر DEGRADED و UNREGISTERED/REJECTED/FAILED/UNREACHABLE برابر CRITICAL است. Inventory خالیِ Supported به‌جای Healthy جعلی، UNKNOWN است.
+- **Endpoint:** وجود Endpoint غیرقابل‌دسترس DEGRADED و غیرقابل‌دسترس بودن تمام Endpointهای مشاهده‌شده CRITICAL است. Capability یا Inventory ناموجود UNKNOWN و Sync stale برابر STALE است.
+- **Queue:** وجود هر Waiting Caller در State فعلی Queue را DEGRADED می‌کند. Threshold بحرانی عمومی ساخته نشد چون Capacity/SLA بین Deploymentها متفاوت است.
+- **System:** Freshness منبع به UNKNOWN/STALE/CRITICAL نگاشت می‌شود. Thresholdهای مرکزی: CPU از 85% DEGRADED و از 95% CRITICAL؛ Memory از 90% DEGRADED و 97% CRITICAL؛ Filesystem از 90% DEGRADED و 97% CRITICAL. Service با FAILED برابر CRITICAL و INACTIVE برابر DEGRADED است.
+- **Security:** وجود حداقل یک Security Alert فعلی Persisted، Security را CRITICAL می‌کند و صفر Alert برابر HEALTHY است.
+- **Call Quality:** Dimension مربوط به CALL_QUALITY از الان وجود دارد اما تا Tasks 61–64 و اثبات Capability واقعی، با Reason محدود به‌صورت UNKNOWN باقی می‌ماند.
+- **Backend:** Endpoint جدید `GET /api/pbx-instances/:id/operational-health` اضافه شد؛ Authenticated، PBX-scoped و Read-only است و فقط از Current Runtime/Storage State محاسبه می‌شود. هیچ PBX/Database/SSH Probe یا Persistence جدیدی ندارد.
+- **Frontend:** `@voip-monitor/shared` به‌عنوان Internal Workspace Dependency اضافه شد و تصمیم Health/Tone در Operator Overview به همان Shared Evaluator منتقل شد. Current Problems دیگر نمی‌تواند در حالی که Health canonical ناپایدار/stale/critical است پیام «مشکل فعالی وجود ندارد» نشان دهد.
+- **Regression:** Backend از 165 به 169 تست رسید؛ Healthy همراه Future Capability نامشخص، Critical Precedence، Stale Precedence، Reasonهای deterministic System/Security و API authenticated تست شدند. Frontend همچنان 28/28 است.
+- **Failureهای رفع‌شده:** Compile strict اولیه Optional Numeric Reasonها را که ممکن بود undefined باشند رد کرد و Shape اولیه Call Quality فاقد Dimension canonical بود. Valueها قبل از ساخت Reason narrow شدند و Call Quality از Canonical Component Constructor عبور می‌کند. هیچ Compiler Setting شل نشد.
+- **محدودیت:** Task 56 فقط Current-state Normalization است و Fleet Aggregation، Transition History، Outage Duration، Flap Counter، Generic Operational Alert یا Notification Lifecycle اضافه نمی‌کند. این موارد برای Tasks 57–69 باقی می‌مانند.
+- **Task دقیق بعدی:** Task 57 — Fleet Overview.
+
+</div>
+
+<div dir="rtl" align="right">
+
+### Final Validation مربوط به Task 56
+
+Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check، Typecheck، Backend Test برابر 169/169، Frontend Test برابر 28/28، Production Build، Foundation Check، License Check و Git Diff Check همگی PASS شدند. Warningهای موجود Chakra/Ark/Zag/Rolldown درباره module-level use client همچنان Non-fatal هستند.
 
 </div>

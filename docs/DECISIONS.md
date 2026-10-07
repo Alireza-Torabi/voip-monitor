@@ -667,3 +667,14 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 441. **Reduced motion and forced colors are supported globally:** accessibility preferences must not depend on individual workspace implementations.
 442. **Small metadata text must meet AA contrast:** the subtle-text token was raised after numeric verification; decorative low-contrast text is not an acceptable default for operational metadata.
 443. **Advanced wallboard rotation remains deferred:** Task 55 provides a stable display mode; playlists/rotation remain Task 73 scope.
+
+## 2026-10-07 — Task 56 unified operational health decisions
+
+444. **Operational health has one canonical shared contract:** backend API and frontend presentation use the same evaluator and reason-code vocabulary.
+445. **Canonical state order is `CRITICAL > STALE > DEGRADED > HEALTHY > UNKNOWN`:** stale data is surfaced above degraded conditions, while unknown unsupported capabilities do not poison known-good monitored dimensions.
+446. **Health is capability-aware and fail-honest:** unavailable/unsupported/not-configured dimensions become UNKNOWN, never a fabricated HEALTHY or zero-value state.
+447. **Queue health is conservative:** any waiting caller is DEGRADED; no universal CRITICAL queue-depth threshold is invented without deployment/SLA context.
+448. **System thresholds are centralized:** CPU 85/95, memory 90/97, filesystem 90/97 percent for degraded/critical; monitored service FAILED is critical and INACTIVE is degraded.
+449. **Current security alerts are operationally critical:** one or more current persisted alert records sets Security CRITICAL; Task 56 does not replace the later generic operational-alert model.
+450. **Call quality is represented before it is claimed:** CALL_QUALITY exists as UNKNOWN until source discovery and provider-neutral quality contracts are completed.
+451. **The operational-health API is synthesis-only:** it reads current normalized state and performs no new network operation, query, persistence, or PBX action.

@@ -138,6 +138,7 @@ describe('problem-first operator overview', () => {
     const html = renderUi(
       <OperatorOverview
         text={messages.en}
+        instanceId="synthetic-id"
         connection="CONNECTED"
         metrics={{
           current: {
