@@ -1171,3 +1171,12 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 - git diff check PASS.
 - public diff secret/private-network scan found no credential, key, token, or deployment-address additions.
 - Existing Chakra/Ark/Zag/Rolldown module-level `use client` warnings remain non-fatal.
+
+## 2026-10-07 — Dashboard cadence dropdown UX correction
+
+- **Operator feedback:** per-widget cadence buttons were visually noisy.
+- **Resolution:** Dashboard Settings now uses one compact dropdown per widget while retaining the corrected bounded allowlist, including the 3-second option.
+- **CPU / Memory regression coverage:** the frontend test changes the CPU / Memory dropdown to 5 seconds, saves it, and verifies the persisted PUT payload contains `cpuMemoryMs: 5000`. Queue default coverage also confirms `3000 ms` remains selectable.
+- **Behavior unchanged:** cadence is still PBX-scoped presentation timing only and does not alter PBX polling or collector frequency.
+- **Validation:** lint PASS, format check PASS, typecheck PASS, backend 179/179 PASS, frontend 35/35 PASS, build PASS, foundation PASS, license PASS, diff check PASS.
+- **Exact next task:** merge/deploy this UX correction, then resume Task 60 — Call Outcome Analytics.

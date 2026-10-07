@@ -1580,29 +1580,16 @@ describe('dashboard refresh settings', () => {
     expect(container.querySelector('[data-dashboard-storage-settings]')).toBeNull();
     const refresh = container.querySelector('[data-dashboard-refresh-settings]');
     expect(refresh).toBeTruthy();
-    const controls = [
-      ...refresh!.querySelectorAll<HTMLElement>('[data-dashboard-cadence-control]'),
-    ];
-    expect(controls).toHaveLength(7);
-    const activeCalls = refresh!.querySelector<HTMLElement>(
-      '[data-dashboard-cadence-control="activeCallsMs"]',
-    );
-    const cpuMemory = refresh!.querySelector<HTMLElement>(
-      '[data-dashboard-cadence-control="cpuMemoryMs"]',
-    );
-    const queues = refresh!.querySelector<HTMLElement>(
-      '[data-dashboard-cadence-control="queuesMs"]',
-    );
-    expect(queues?.querySelector('button[aria-pressed="true"]')?.textContent).toBe('3 s');
-    const active500 = [...activeCalls!.querySelectorAll('button')].find(
-      (button) => button.textContent === '500 ms',
-    );
-    const cpu5000 = [...cpuMemory!.querySelectorAll('button')].find(
-      (button) => button.textContent === '5 s',
-    );
-    await act(async () => active500?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
-    await act(async () => cpu5000?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
-    expect(cpuMemory?.querySelector('button[aria-pressed="true"]')?.textContent).toBe('5 s');
+    const selects = [...refresh!.querySelectorAll<HTMLSelectElement>('select')];
+    expect(selects).toHaveLength(7);
+    expect(selects[2]!.value).toBe('3000');
+    await act(async () => {
+      selects[0]!.value = '500';
+      selects[0]!.dispatchEvent(new Event('change', { bubbles: true }));
+      selects[4]!.value = '5000';
+      selects[4]!.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(selects[4]!.value).toBe('5000');
     const save = [...container.querySelectorAll('button')].find(
       (button) => button.textContent === 'Save update cadence',
     );

@@ -1177,3 +1177,16 @@ Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check،
 Lint، Format، Typecheck، Backend Test برابر 179/179، Frontend Test برابر 35/35، Build غیرDeploying، Foundation Check، License Check و Git Diff Check همگی PASS شدند. Foundation Check با `safe.directory` فقط در Environment همان Process اجرا شد و هیچ Global Git Configuration تغییر نکرد. بررسی Public Diff نیز هیچ Credential، Key، Token یا Deployment Address جدیدی پیدا نکرد. Warningهای موجود Chakra/Ark/Zag/Rolldown درباره `use client` همچنان Non-fatal هستند.
 
 </div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-07 — اصلاح UX برای Dropdown نرخ Update داشبورد
+
+- **بازخورد Operator:** نمایش Rateها به‌شکل چند Button برای هر Widget شلوغ و نامناسب بود.
+- **اصلاح:** در Dashboard Settings هر Widget دوباره یک Dropdown فشرده دارد، در حالی که Allowlist اصلاح‌شده شامل گزینه 3 ثانیه حفظ شده است.
+- **تست CPU / Memory:** تست Frontend مقدار Dropdown مربوط به CPU / Memory را روی 5 ثانیه می‌گذارد، Save می‌کند و Payload ذخیره‌شده با `cpuMemoryMs: 5000` را بررسی می‌کند. همچنین Default سه‌ثانیه‌ای Queue همچنان قابل انتخاب است.
+- **رفتار اصلی تغییر نکرد:** Cadence فقط زمان اعمال State روی UI است و Frequency مربوط به PBX Polling یا Collector را تغییر نمی‌دهد.
+- **Validation:** Lint، Format Check، Typecheck، Backend Test برابر 179/179، Frontend Test برابر 35/35، Build، Foundation، License و Diff Check همگی PASS شدند.
+- **Exact Next Task:** ابتدا این اصلاح UX Merge/Deploy شود و سپس Task 60 — Call Outcome Analytics ادامه پیدا کند.
+
+</div>
