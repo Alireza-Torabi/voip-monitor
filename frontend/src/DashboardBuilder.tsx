@@ -630,6 +630,22 @@ export function DashboardBuilder({
         setMetricsLive('disconnected');
       }
     });
+    metricsSource.addEventListener('system-metrics-health', (event) => {
+      try {
+        const payload = JSON.parse((event as MessageEvent<string>).data) as {
+          source?: SystemMetricsResponse['source'];
+        };
+        const source = payload.source;
+        if (source) {
+          setMetrics((current) => ({
+            current: current?.current ?? null,
+            source,
+          }));
+        }
+      } catch {
+        setMetricsLive('disconnected');
+      }
+    });
     const alertSource = new EventSource(api.securityAlertStreamUrl(selected.id));
     alertSource.onopen = () => setAlertsLive('connected');
     alertSource.onerror = () => setAlertsLive('disconnected');
@@ -822,7 +838,7 @@ export function DashboardBuilder({
     setDraggedId('');
   }
 
-  const sample = metrics?.current ?? null;
+  const sample = metrics?.source?.health.freshness === 'CURRENT' ? (metrics.current ?? null) : null;
   const memoryPercent =
     sample?.memory && sample.memory.totalBytes > 0
       ? (100 * (sample.memory.totalBytes - sample.memory.availableBytes)) / sample.memory.totalBytes

@@ -115,3 +115,7 @@ The primary navigation is now a compact three-choice shell: Overview, Operations
 ## 2026-10-07 — Live update resilience
 
 Telephony remains AMI-event driven through TelephonyStateEngine and SSE. Dashboard and Telephony workspaces now also refresh the current in-memory telephony state every 10 seconds as a fallback and immediately on SSE error. Provider reconciliation defaults to 15 seconds so authoritative snapshots remove stale inventory such as PBX-side deleted trunks/endpoints, and reliability maps are pruned with deleted entities. Production must restart the merged backend together with frontend assets to avoid version skew.
+
+## 2026-10-07 — Production live-state verification
+
+Production was rebuilt/restarted on the merged PR #73 release. The backend telephony state is confirmed live: AMI events, reconciliation snapshots, revisions, channels, and call counts change continuously. System metrics are a separate issue: the stored MVM SSH credential currently fails authentication, so no fresh CPU/memory sample can be produced. The UI hotfix consumes metrics-health SSE updates, preserves the bounded authentication error code, and never presents an old persisted metric sample as current while the source is unhealthy.

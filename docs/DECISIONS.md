@@ -734,3 +734,10 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 487. **Authoritative inventory reconciliation defaults to 15 seconds:** deleted/added PBX entities are corrected from snapshots even when no removal event exists.
 488. **Reliability state follows authoritative inventory lifetime:** reliability entries for endpoints/trunks absent from a supported snapshot are pruned.
 489. **Frontend/backend contract changes require a merged service restart:** stale backend processes must not coexist with freshly built frontend assets in production.
+
+## 2026-10-07 — Metrics health and stale-sample decisions
+
+490. **System-metrics health events are first-class realtime UI input:** Dashboard consumes both sample and source-health SSE events.
+491. **Persisted metrics are not automatically current metrics:** CPU/memory/filesystem/uptime render as current values only while source freshness is `CURRENT`.
+492. **Bounded SSH authentication failure is preserved end-to-end:** `AUTHENTICATION_FAILED` survives transport/collector/runtime boundaries; unknown private errors remain generic.
+493. **An already-open SPA tab is not a deployment validator:** production cache policy is correct, but a tab opened before deployment must reload to execute the new bundle.

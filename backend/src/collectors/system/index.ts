@@ -6,6 +6,7 @@ import type {
   SystemServiceHealthSample,
 } from '@voip-monitor/shared';
 import { SystemMetricsCollectorError, type SystemMetricsCollector } from './collector.js';
+import { RestrictedSshTransportError } from './ssh-transport.js';
 
 export * from './collector.js';
 export * from './parsers.js';
@@ -179,7 +180,11 @@ export async function collectSystemMetrics(
   try {
     sample = await collector.collect(instanceId);
   } catch (error) {
-    if (error instanceof SystemMetricsCollectorError) throw error;
+    if (
+      error instanceof SystemMetricsCollectorError ||
+      error instanceof RestrictedSshTransportError
+    )
+      throw error;
     throw new SystemMetricsCollectorError('COLLECTION_FAILED');
   }
 

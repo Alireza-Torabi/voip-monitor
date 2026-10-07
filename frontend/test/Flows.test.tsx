@@ -1528,11 +1528,20 @@ describe('dashboard storage settings', () => {
 describe('dashboard builder', () => {
   it('loads a persisted layout and supports widget edit/delete controls without a new collector', async () => {
     class FakeEventSource {
-      onopen = null;
-      onerror = null;
-      addEventListener() {}
+      static instances: FakeEventSource[] = [];
+      onopen: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      listeners = new Map<string, (event: MessageEvent<string>) => void>();
+      constructor(readonly url: string) {
+        FakeEventSource.instances.push(this);
+      }
+      addEventListener(name: string, listener: (event: MessageEvent<string>) => void) {
+        this.listeners.set(name, listener);
+      }
+      emit(name: string, payload: object) {
+        this.listeners.get(name)?.({ data: JSON.stringify(payload) } as MessageEvent<string>);
+      }
       close() {}
-      constructor(readonly url: string) {}
     }
     vi.stubGlobal('EventSource', FakeEventSource);
     const profile = {
@@ -1633,6 +1642,28 @@ describe('dashboard builder', () => {
     expect(container.textContent).toContain('Infrastructure health');
     expect(container.textContent).toContain('Full screen');
     expect(container.textContent).toContain('Wallboard');
+    expect(container.textContent).toContain('12%');
+
+    const metricsStream = FakeEventSource.instances.find((source) =>
+      source.url.includes('/system-metrics/stream'),
+    );
+    expect(metricsStream).toBeTruthy();
+    await act(async () => {
+      metricsStream?.emit('system-metrics-health', {
+        source: {
+          instanceId: 'builder-pbx',
+          health: {
+            source: 'SSH',
+            freshness: 'ERROR',
+            error: { code: 'AUTHENTICATION_FAILED' },
+          },
+          consecutiveFailures: 1,
+        },
+      });
+    });
+    expect(container.textContent).not.toContain('12%');
+    expect(container.textContent).toContain('Infrastructure health');
+    expect(container.textContent).toContain('ERROR');
 
     const wallboard = [...container.querySelectorAll('button')].find(
       (button) => button.textContent === 'Wallboard',

@@ -131,8 +131,16 @@ export class RestrictedSshSystemMetricsCollector implements SystemMetricsCollect
       if (error instanceof SystemMetricsParseError) {
         throw new SystemMetricsCollectorError('INVALID_SAMPLE');
       }
-      if (error instanceof RestrictedSshTransportError && error.code === 'INVALID_COMMAND') {
-        throw new SystemMetricsCollectorError('INVALID_SAMPLE');
+      if (error instanceof RestrictedSshTransportError) {
+        if (error.code === 'INVALID_COMMAND')
+          throw new SystemMetricsCollectorError('INVALID_SAMPLE');
+        if (
+          error.code === 'AUTHENTICATION_FAILED' ||
+          error.code === 'CONNECTION_FAILED' ||
+          error.code === 'TIMEOUT'
+        )
+          throw error;
+        throw new SystemMetricsCollectorError('COLLECTION_FAILED');
       }
       throw new SystemMetricsCollectorError('COLLECTION_FAILED');
     }

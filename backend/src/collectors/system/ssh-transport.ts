@@ -31,6 +31,7 @@ export type RestrictedSshTransportErrorCode =
   | 'TIMEOUT'
   | 'OUTPUT_LIMIT'
   | 'PERMISSION_DENIED'
+  | 'AUTHENTICATION_FAILED'
   | 'UNSUPPORTED'
   | 'CONNECTION_FAILED'
   | 'COMMAND_FAILED'
@@ -178,7 +179,7 @@ export async function runRestrictedSshCommand(
     };
   } catch (error) {
     if (error instanceof RestrictedSshTransportError) throw error;
-    throw new RestrictedSshTransportError('CONNECTION_FAILED');
+    throw new RestrictedSshTransportError('COMMAND_FAILED');
   } finally {
     if (timer) clearTimeout(timer);
   }

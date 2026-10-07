@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { AuthService } from '../dist/auth/index.js';
 import { loadAppConfig } from '../dist/config.js';
 import { SystemMetricsRuntime } from '../dist/collectors/system/runtime.js';
+import { RestrictedSshTransportError } from '../dist/collectors/system/ssh-transport.js';
 import { SshConfigurationService } from '../dist/ssh/configuration.js';
 import { SecretStore } from '../dist/security/secret-store.js';
 import { SqliteStorage } from '../dist/storage/index.js';
@@ -179,6 +180,30 @@ test('system metrics runtime backs off bounded failures and recovers without thr
     await waitFor(() => runtime.status(profile.id).health.freshness === 'CURRENT');
     assert.equal(runtime.status(profile.id).consecutiveFailures, 0);
     assert.equal(factory.created[0].calls, 2);
+  });
+});
+
+test('system metrics runtime preserves bounded SSH authentication failure code', async () => {
+  await fixture(async ({ storage, secrets, setRuntime }) => {
+    const { PbxOnboardingService } = await import('../dist/onboarding/index.js');
+    const onboarding = new PbxOnboardingService(storage, secrets);
+    const profile = onboarding.create(profileInput());
+    const ssh = await configureSsh(storage, secrets, profile.id);
+    const factory = new FakeCollectorFactory(() => {
+      throw new RestrictedSshTransportError('AUTHENTICATION_FAILED');
+    });
+    const runtime = new SystemMetricsRuntime(storage, ssh, factory, {
+      intervalMs: 10_000,
+      failureBackoffBaseMs: 100,
+      failureBackoffMaxMs: 100,
+      random: () => 0.5,
+    });
+    setRuntime(runtime);
+    runtime.start();
+
+    await waitFor(() => runtime.status(profile.id).health.freshness === 'ERROR');
+    assert.equal(runtime.status(profile.id).health.error.code, 'AUTHENTICATION_FAILED');
+    assert.equal(runtime.status(profile.id).consecutiveFailures, 1);
   });
 });
 
