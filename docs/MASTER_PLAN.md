@@ -1113,3 +1113,16 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 - **Operator action:** re-enter the correct SSH credential under Settings > Infrastructure and use Verify & Save. Successful verification resynchronizes the metrics runtime; normal CPU/memory collection resumes on its 30-second cadence.
 - **Regression:** backend suite increased to 177/177 and frontend remains 34/34, including bounded SSH authentication-code propagation and UI health-event stale-sample suppression.
 - **Next roadmap task:** Task 60 remains pending until this hotfix merges and is deployed.
+
+## 2026-10-07 — Overview visualization and endpoint-semantics correction
+
+- **Storage visualization:** Overview Infrastructure now renders each selected filesystem/storage volume as a semicircular gauge showing current used percentage plus Used and Total capacity. Filesystem selection remains driven by the existing Dashboard Storage configuration.
+- **CPU/RAM visualization:** CPU and memory are now separate time-series charts based on the existing bounded system-metrics history. Current percentage remains visible beside each series. No charting dependency or new collector was added.
+- **Endpoint KPI hierarchy:** Overview now promotes the current `REACHABLE` count as the large Endpoint number. Total observed endpoints is secondary text underneath. Unreachable count remains visible as an informational statistic.
+- **Endpoint operational semantics:** an endpoint being `UNREACHABLE`/offline is not an operational incident by itself because softphones and user devices can legitimately be powered off or disconnected. A current, supported endpoint inventory is therefore HEALTHY regardless of individual reachability distribution. Capability/synchronization loss still produces UNKNOWN/STALE as before.
+- **Current Problems:** unreachable endpoints no longer create warning/critical issue rows and no longer degrade overall PBX operational health.
+- **Fleet semantics:** the former `endpointFailures` field was renamed to `unreachableEndpoints`. Fleet continues to expose the count as inventory statistics, but no longer colors/grades that count as a failure condition.
+- **Reliability retained:** Endpoint Reliability transition history, offline duration, flap data, and detailed Endpoint workspace remain available for observation/troubleshooting; they are informational unless a future explicit rule promotes a specific condition.
+- **Regression:** backend suite increased to 178/178 with explicit all-endpoints-unreachable-but-healthy coverage. Frontend remains 34/34 and verifies CPU/RAM time series, storage gauge rendering, and Reachable/Total endpoint hierarchy.
+- **Roadmap:** Task 60 — Call Outcome Analytics remains next after this UI/semantics branch merges.
+- **Overview density follow-up:** removed the large Active calls and Trunks detail panels from the default Overview to keep the dashboard compact. Their top KPI cells and dedicated navigation/workspaces remain available.

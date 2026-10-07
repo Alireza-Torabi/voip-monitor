@@ -103,7 +103,7 @@ test('fleet overview aggregates current PBX state and sorts by severity', () => 
   assert.equal(result.totalPbx, 2);
   assert.equal(result.activeCalls, 1);
   assert.equal(result.trunkFailures, 1);
-  assert.equal(result.endpointFailures, 1);
+  assert.equal(result.unreachableEndpoints, 1);
   assert.equal(result.waitingCallers, 2);
   assert.equal(result.criticalAlerts, 1);
   assert.equal(result.healthCounts.CRITICAL, 2);

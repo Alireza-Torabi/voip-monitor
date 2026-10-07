@@ -161,7 +161,22 @@ describe('problem-first operator overview', () => {
             consecutiveFailures: 0,
           },
         }}
-        metricHistory={[]}
+        metricHistory={[
+          {
+            instanceId: 'synthetic-id',
+            source: 'SSH',
+            observedAt: '2026-10-05T23:59:30.000Z',
+            cpu: { utilizationPercent: 54 },
+            memory: { totalBytes: 1000, availableBytes: 400 },
+          },
+          {
+            instanceId: 'synthetic-id',
+            source: 'SSH',
+            observedAt: '2026-10-06T00:00:00.000Z',
+            cpu: { utilizationPercent: 92 },
+            memory: { totalBytes: 1000, availableBytes: 50 },
+          },
+        ]}
         alerts={[
           {
             instanceId: 'synthetic-id',
@@ -240,5 +255,14 @@ describe('problem-first operator overview', () => {
     expect(html).toContain('Trunks');
     expect(html).toContain('Endpoints');
     expect(html).toContain('Infrastructure health');
+    expect(html).toContain('data-time-series="CPU utilization"');
+    expect(html).toContain('data-time-series="Memory usage"');
+    expect(html).toContain('data-storage-gauge="/"');
+    expect(html).toContain('data-endpoint-reachability="true"');
+    expect(html).toContain('data-reachable="0"');
+    expect(html).toContain('data-total="1"');
+    expect(html).toContain('data-unreachable="1"');
+    expect(html.match(/>Active calls<\/h2>/g) ?? []).toHaveLength(0);
+    expect(html.match(/>Trunks<\/h2>/g) ?? []).toHaveLength(0);
   });
 });

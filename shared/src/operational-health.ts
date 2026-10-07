@@ -34,8 +34,6 @@ export type OperationalHealthReasonCode =
   | 'TRUNK_REJECTED'
   | 'TRUNK_FAILED'
   | 'TRUNK_UNREACHABLE'
-  | 'ENDPOINT_UNREACHABLE'
-  | 'ENDPOINT_ALL_UNREACHABLE'
   | 'QUEUE_WAITING'
   | 'SYSTEM_NOT_COLLECTED'
   | 'SYSTEM_UNAVAILABLE'
@@ -180,15 +178,6 @@ function endpointHealth(
   if (sync) return sync;
   if (input.endpoints.length === 0)
     return component('ENDPOINTS', 'UNKNOWN', [{ code: 'NO_OBSERVED_ENTITIES' }]);
-  const unreachable = input.endpoints.filter((item) => item.reachability === 'UNREACHABLE').length;
-  if (unreachable === input.endpoints.length)
-    return component('ENDPOINTS', 'CRITICAL', [
-      { code: 'ENDPOINT_ALL_UNREACHABLE', count: unreachable },
-    ]);
-  if (unreachable > 0)
-    return component('ENDPOINTS', 'DEGRADED', [
-      { code: 'ENDPOINT_UNREACHABLE', count: unreachable },
-    ]);
   return component('ENDPOINTS', 'HEALTHY');
 }
 

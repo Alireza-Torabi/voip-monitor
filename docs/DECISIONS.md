@@ -741,3 +741,11 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 491. **Persisted metrics are not automatically current metrics:** CPU/memory/filesystem/uptime render as current values only while source freshness is `CURRENT`.
 492. **Bounded SSH authentication failure is preserved end-to-end:** `AUTHENTICATION_FAILED` survives transport/collector/runtime boundaries; unknown private errors remain generic.
 493. **An already-open SPA tab is not a deployment validator:** production cache policy is correct, but a tab opened before deployment must reload to execute the new bundle.
+
+## 2026-10-07 — Endpoint availability and overview visualization decisions
+
+494. **Endpoint reachability is informational, not incident severity:** current supported endpoint inventory remains HEALTHY even when some or all observed endpoints are UNREACHABLE. Capability/synchronization state still governs UNKNOWN/STALE.
+495. **Endpoint reliability remains observable without implicit alerting:** offline duration, transitions, and flap counters are retained for troubleshooting but do not independently degrade operational health.
+496. **Endpoint Overview prioritizes reachable population:** the large KPI is REACHABLE; total observed endpoints and unreachable count are secondary statistics.
+497. **Fleet names endpoint state accurately:** `endpointFailures` is replaced by `unreachableEndpoints` and is not assigned warning/critical severity solely because the count is non-zero.
+498. **Capacity uses gauges, utilization over time uses time series:** storage/filesystem capacity is represented by per-volume usage gauges; CPU and memory use recent bounded time-series history.

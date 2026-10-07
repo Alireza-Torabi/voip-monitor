@@ -119,3 +119,7 @@ Telephony remains AMI-event driven through TelephonyStateEngine and SSE. Dashboa
 ## 2026-10-07 — Production live-state verification
 
 Production was rebuilt/restarted on the merged PR #73 release. The backend telephony state is confirmed live: AMI events, reconciliation snapshots, revisions, channels, and call counts change continuously. System metrics are a separate issue: the stored MVM SSH credential currently fails authentication, so no fresh CPU/memory sample can be produced. The UI hotfix consumes metrics-health SSE updates, preserves the bounded authentication error code, and never presents an old persisted metric sample as current while the source is unhealthy.
+
+## 2026-10-07 — Endpoint/statistics and Infrastructure visualization
+
+Endpoint reachability is now treated as availability statistics rather than an operational fault: reachable count is the primary Overview number, total/unreachable counts are secondary, and individual offline endpoints do not degrade PBX health or create Current Problems. Endpoint reliability data remains available for troubleshooting. Infrastructure Overview uses separate CPU and memory time series from the existing bounded history and per-filesystem storage usage gauges with Used/Total capacity.
