@@ -129,6 +129,14 @@ export function DatabaseSourceWorkspace({
         setError(text.databaseSourceVerificationTimeout);
       else if (failure instanceof ApiError && failure.code === 'database_permission_denied')
         setError(text.databaseSourcePermissionDenied);
+      else if (failure instanceof ApiError && failure.code === 'database_authentication_failed')
+        setError(text.databaseSourceAuthenticationFailed);
+      else if (failure instanceof ApiError && failure.code === 'database_not_found')
+        setError(text.databaseSourceDatabaseNotFound);
+      else if (failure instanceof ApiError && failure.code === 'database_host_blocked')
+        setError(text.databaseSourceHostBlocked);
+      else if (failure instanceof ApiError && failure.code === 'database_tls_failed')
+        setError(text.databaseSourceTlsFailed);
       else if (failure instanceof ApiError && failure.code === 'database_verification_failed')
         setError(text.databaseSourceVerificationFailed);
       else setError(text.databaseSourceSaveFailed);

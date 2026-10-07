@@ -878,6 +878,14 @@ export function createApp(
               return send(response, 504, { error: 'database_verification_timeout' });
             if (error.code === 'PERMISSION_DENIED')
               return send(response, 502, { error: 'database_permission_denied' });
+            if (error.code === 'AUTHENTICATION_FAILED')
+              return send(response, 502, { error: 'database_authentication_failed' });
+            if (error.code === 'DATABASE_NOT_FOUND')
+              return send(response, 502, { error: 'database_not_found' });
+            if (error.code === 'HOST_BLOCKED')
+              return send(response, 502, { error: 'database_host_blocked' });
+            if (error.code === 'TLS_FAILED')
+              return send(response, 502, { error: 'database_tls_failed' });
             return send(response, 502, { error: 'database_verification_failed' });
           }
           throw error;

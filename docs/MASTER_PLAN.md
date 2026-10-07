@@ -1221,3 +1221,8 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 - **Resolution:** the adapter still attempts `START TRANSACTION READ ONLY` first. Only when MySQL returns the specific parse/syntax error (`ER_PARSE_ERROR` / errno `1064`) does it fall back to plain `START TRANSACTION`. The prepared query path remains SELECT-only, multiple statements stay disabled, and the configured database account is read-only.
 - **Safety:** non-syntax transaction failures are not hidden by the compatibility fallback.
 - **Regression:** adapter tests cover both the MySQL 5.5 syntax fallback and fail-closed handling for non-syntax transaction failures.
+
+
+## 2026-10-07 — Safe database verification error classification
+
+- Database verification now maps common MySQL/MariaDB connection failures to bounded operator-safe codes: authentication failed, database not found, host blocked, TLS failed, or generic connection failure. Raw driver messages and credentials remain hidden.

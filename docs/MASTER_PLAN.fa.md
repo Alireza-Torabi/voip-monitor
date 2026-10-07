@@ -1243,3 +1243,11 @@ Lint، Format، Typecheck، Backend Test برابر 179/179، Frontend Test بر
 - **Regression:** تست Adapter هم Fallback مربوط به MySQL 5.5 و هم Fail-closed شدن Failureهای غیر Syntax را پوشش می‌دهد.
 
 </div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-07 — تفکیک امن خطاهای Database Verification
+
+- Database Verification اکنون خطاهای رایج MySQL/MariaDB را به کدهای امن و قابل‌فهم برای Operator تفکیک می‌کند: Authentication Failure، Database Not Found، Host Blocked، TLS Failure یا Connection Failure عمومی. Raw Driver Message و Credential همچنان مخفی می‌مانند.
+
+</div>

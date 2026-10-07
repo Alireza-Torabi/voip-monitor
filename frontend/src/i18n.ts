@@ -386,6 +386,14 @@ export const messages = {
       'Database verification timed out. The previous configuration was not changed.',
     databaseSourcePermissionDenied:
       'Database verification was denied by the source. Check the read-only account permissions. The previous configuration was not changed.',
+    databaseSourceAuthenticationFailed:
+      'Database authentication failed. Check the username and password. The previous configuration was not changed.',
+    databaseSourceDatabaseNotFound:
+      'The selected database was not found. Check the database name. The previous configuration was not changed.',
+    databaseSourceHostBlocked:
+      'MySQL has blocked this client host after repeated connection errors. Flush the MySQL host cache before retrying.',
+    databaseSourceTlsFailed:
+      'Database TLS verification failed. Check the TLS policy and server certificate.',
     databaseSourceSave: 'Save database source',
     databaseSourceRemove: 'Remove database source',
     databaseSourceSaved: 'Read-only database source configuration saved.',
@@ -851,6 +859,14 @@ export const messages = {
       'Database Verification Timeout شد و Configuration قبلی تغییر نکرد.',
     databaseSourcePermissionDenied:
       'Database Source اجازه Verification نداد. Permissionهای حساب فقط‌خواندنی را بررسی کنید. Configuration قبلی تغییر نکرد.',
+    databaseSourceAuthenticationFailed:
+      'Authentication دیتابیس ناموفق بود. Username و Password را بررسی کنید. Configuration قبلی تغییر نکرد.',
+    databaseSourceDatabaseNotFound:
+      'Database انتخاب‌شده پیدا نشد. Database Name را بررسی کنید. Configuration قبلی تغییر نکرد.',
+    databaseSourceHostBlocked:
+      'MySQL این Client Host را به‌خاطر Connection Errorهای متعدد Block کرده است. قبل از تلاش مجدد Host Cache را Flush کنید.',
+    databaseSourceTlsFailed:
+      'TLS Verification دیتابیس ناموفق بود. TLS Policy و Certificate سرور را بررسی کنید.',
     databaseSourceSave: 'ذخیره Database Source',
     databaseSourceRemove: 'حذف Database Source',
     databaseSourceSaved: 'پیکربندی Database Source فقط‌خواندنی ذخیره شد.',
