@@ -83,3 +83,7 @@ The default dashboard now prioritizes operator decisions instead of arbitrary wi
 ## 2026-10-06 — Task 54 workspace redesign
 
 The non-dashboard operator surfaces now share the same Modern NOC visual and interaction language. Telephony uses a compact live-status header, unified scope/search toolbar and dense data table; source-backed History uses dataset-aware dense records rather than cards; Security uses compact current/recent alert surfaces and consistent rule panels; Settings uses a responsive sub-navigation rail and consistent NOC form surfaces across PBX, database, SSH, service, storage and account administration. Data/API/PBX behavior is unchanged.
+
+## 2026-10-06 — Task 55 wallboard and accessibility pass
+
+The approved NOC interface now has a dedicated wallboard mode distinct from generic browser fullscreen, mobile bottom-rail navigation, tablet/desktop sidebar fallbacks, skip navigation, explicit focus-visible treatment, reduced-motion behavior, forced-colors fallbacks, and accessible mobile navigation labels. A numeric contrast audit raised the subtle-text token so small metadata text now meets WCAG AA contrast against all three primary dark surfaces. No backend or PBX behavior changed.

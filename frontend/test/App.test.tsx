@@ -45,6 +45,9 @@ describe('bilingual onboarding shell', () => {
     expect(html).toContain('data-app-shell="true"');
     expect(html).toContain('data-app-sidebar="true"');
     expect(html).toContain('data-app-topbar="true"');
+    expect(html).toContain('data-skip-link="true"');
+    expect(html).toContain('href="#main-content"');
+    expect(html).toContain('id="main-content"');
     expect(html).toContain('Overview');
     expect(html).toContain('Live Calls');
     expect(html).toContain('Infrastructure');

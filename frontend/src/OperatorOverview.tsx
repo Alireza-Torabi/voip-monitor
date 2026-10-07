@@ -33,6 +33,7 @@ interface OperatorOverviewProps {
   telephonyLive: LiveState;
   visibleFilesystems: NonNullable<SystemMetricsSample['filesystems']>;
   onNavigate?: ((destination: Destination) => void) | undefined;
+  wallboard?: boolean | undefined;
 }
 
 interface OperationalIssue {
@@ -236,6 +237,7 @@ export function OperatorOverview({
   telephonyLive,
   visibleFilesystems,
   onNavigate,
+  wallboard = false,
 }: OperatorOverviewProps) {
   const sample = metrics?.current ?? null;
   const memoryPercent =
@@ -383,7 +385,12 @@ export function OperatorOverview({
     telephony?.trunks.filter((trunk) => trunk.registrationState === 'REGISTERED').length ?? 0;
 
   return (
-    <Stack gap="4" data-operator-overview>
+    <Stack
+      gap={wallboard ? '5' : '4'}
+      data-operator-overview
+      data-overall-tone={overallTone}
+      data-wallboard-overview={wallboard ? 'true' : 'false'}
+    >
       <NocPanel overflow="hidden">
         <SimpleGrid
           columns={{ base: 2, md: 4, xl: 7 }}
@@ -544,7 +551,7 @@ export function OperatorOverview({
                 align="center"
                 justify="space-between"
                 gap="4"
-                minH="38px"
+                minH={wallboard ? '46px' : '38px'}
                 py="2"
                 borderTopWidth={index === 0 ? '0' : '1px'}
                 borderColor="noc.border"
@@ -607,7 +614,7 @@ export function OperatorOverview({
                   align="center"
                   justify="space-between"
                   gap="3"
-                  minH="38px"
+                  minH={wallboard ? '46px' : '38px'}
                   py="2"
                   borderTopWidth={index === 0 ? '0' : '1px'}
                   borderColor="noc.border"
@@ -647,7 +654,13 @@ export function OperatorOverview({
           <SectionHeader title={text.endpointReachability} />
           <Flex mt="4" align="end" justify="space-between" gap="3">
             <Box>
-              <Text fontSize="28px" lineHeight="1" fontWeight="700" color="noc.text" dir="ltr">
+              <Text
+                fontSize={wallboard ? '34px' : '28px'}
+                lineHeight="1"
+                fontWeight="700"
+                color="noc.text"
+                dir="ltr"
+              >
                 {healthyEndpoints}/{telephony?.endpoints.length ?? 0}
               </Text>
               <Text mt="1.5" fontSize="11px" color="noc.textMuted">
@@ -665,7 +678,13 @@ export function OperatorOverview({
           <SectionHeader title={text.queuePressure} />
           <Flex mt="4" align="end" justify="space-between" gap="3">
             <Box>
-              <Text fontSize="28px" lineHeight="1" fontWeight="700" color="noc.text" dir="ltr">
+              <Text
+                fontSize={wallboard ? '34px' : '28px'}
+                lineHeight="1"
+                fontWeight="700"
+                color="noc.text"
+                dir="ltr"
+              >
                 {waitingCallers}
               </Text>
               <Text mt="1.5" fontSize="11px" color="noc.textMuted">
@@ -683,7 +702,13 @@ export function OperatorOverview({
           <SectionHeader title={text.serviceHealthTitle} />
           <Flex mt="4" align="end" justify="space-between" gap="3">
             <Box>
-              <Text fontSize="28px" lineHeight="1" fontWeight="700" color="noc.text" dir="ltr">
+              <Text
+                fontSize={wallboard ? '34px' : '28px'}
+                lineHeight="1"
+                fontWeight="700"
+                color="noc.text"
+                dir="ltr"
+              >
                 {sample?.services?.filter((service) => service.state === 'ACTIVE').length ?? 0}
               </Text>
               <Text mt="1.5" fontSize="11px" color="noc.textMuted">

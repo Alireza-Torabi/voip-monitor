@@ -658,3 +658,12 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 435. **Credential behavior is untouched by redesign:** database/SSH/admin password inputs remain write-only or secret-safe according to existing API contracts; styling never changes persistence semantics.
 436. **SectionHeader content title is distinct from the HTML title attribute:** its props explicitly omit FlexProps.title to allow renderer-safe ReactNode headings without TypeScript intersection conflicts.
 437. **Task 54 is presentation-only:** no entity drawer, historical query expansion, unified health contract, or alert lifecycle capability is introduced.
+
+## 2026-10-06 — Task 55 NOC/accessibility decisions
+
+438. **Wallboard is a product mode, not just fullscreen:** it has its own state, hides editing/configuration controls, preserves the fixed operator hierarchy, and works even when browser fullscreen is unavailable.
+439. **Mobile navigation becomes a bottom rail:** small screens keep full content width instead of permanently losing 72px to the compact desktop sidebar.
+440. **Keyboard access is first-class:** skip navigation, explicit landmarks, visible focus rings, accessible icon labels, and focus-revealed wallboard controls are required UI contracts.
+441. **Reduced motion and forced colors are supported globally:** accessibility preferences must not depend on individual workspace implementations.
+442. **Small metadata text must meet AA contrast:** the subtle-text token was raised after numeric verification; decorative low-contrast text is not an acceptable default for operational metadata.
+443. **Advanced wallboard rotation remains deferred:** Task 55 provides a stable display mode; playlists/rotation remain Task 73 scope.

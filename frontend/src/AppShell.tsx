@@ -1,4 +1,4 @@
-import { Box, Button, Flex, HStack, Input, Stack, Text } from '@chakra-ui/react';
+import { Box, Button, Flex, HStack, Input, Link, Stack, Text } from '@chakra-ui/react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { PbxProfile, Principal } from './api.js';
 import type { Language } from './i18n.js';
@@ -262,23 +262,46 @@ export function AppShell({
 
   return (
     <Flex minH="100vh" bg="noc.canvas" color="noc.text" data-app-shell>
+      <Link
+        href="#main-content"
+        data-skip-link
+        position="fixed"
+        top="2"
+        insetInlineStart="2"
+        zIndex="tooltip"
+        px="3"
+        py="2"
+        bg="noc.surface3"
+        color="white"
+        borderWidth="1px"
+        borderColor="noc.accent"
+        borderRadius="nocControl"
+        transform="translateY(-160%)"
+        _focusVisible={{ transform: 'translateY(0)' }}
+      >
+        {fa ? 'رفتن به محتوای اصلی' : 'Skip to main content'}
+      </Link>
       <Box
         as="aside"
         data-app-sidebar
         position="fixed"
-        insetBlock="0"
+        top={{ base: 'auto', md: '0' }}
+        bottom="0"
         insetInlineStart="0"
-        w={{ base: '72px', lg: '232px' }}
+        insetInlineEnd={{ base: '0', md: 'auto' }}
+        w={{ base: '100%', md: '72px', lg: '232px' }}
+        h={{ base: '64px', md: '100vh' }}
         bg="noc.sidebar"
         borderInlineEndWidth="1px"
         borderColor="noc.border"
         zIndex="20"
         display="flex"
-        flexDirection="column"
+        flexDirection={{ base: 'row', md: 'column' }}
       >
         <Flex
           h="60px"
           px={{ base: '3', lg: '4' }}
+          display={{ base: 'none', md: 'flex' }}
           align="center"
           gap="3"
           borderBottomWidth="1px"
@@ -312,7 +335,18 @@ export function AppShell({
           </Text>
         </Flex>
 
-        <Stack gap="1" px={{ base: '2', lg: '3' }} py="3" overflowY="auto" flex="1">
+        <Stack
+          as="nav"
+          aria-label={fa ? 'ناوبری اصلی' : 'Primary navigation'}
+          gap="1"
+          px={{ base: '2', lg: '3' }}
+          py={{ base: '2', md: '3' }}
+          overflowX={{ base: 'auto', md: 'visible' }}
+          overflowY={{ base: 'hidden', md: 'auto' }}
+          flex="1"
+          direction={{ base: 'row', md: 'column' }}
+          align={{ base: 'center', md: 'stretch' }}
+        >
           {nav.map((item) => {
             const active = navIsActive(item.destination, workspace, telephonyPage, settingsPage);
             return (
@@ -320,8 +354,9 @@ export function AppShell({
                 key={item.label}
                 type="button"
                 variant="ghost"
-                h="40px"
-                px={{ base: '0', lg: '3' }}
+                h={{ base: '46px', md: '40px' }}
+                minW={{ base: '46px', md: 'auto' }}
+                px={{ base: '2', lg: '3' }}
                 justifyContent={{ base: 'center', lg: 'flex-start' }}
                 gap="3"
                 borderRadius="9px"
@@ -335,6 +370,7 @@ export function AppShell({
                 }}
                 onClick={() => onNavigate(item.destination)}
                 aria-current={active ? 'page' : undefined}
+                aria-label={item.label}
                 title={item.label}
               >
                 <NavIcon name={item.icon} />
@@ -350,7 +386,7 @@ export function AppShell({
           })}
         </Stack>
 
-        <Box px={{ base: '2', lg: '3' }} pb="3">
+        <Box px={{ base: '2', lg: '3' }} pb="3" display={{ base: 'none', md: 'block' }}>
           <Box
             display={{ base: 'none', lg: 'block' }}
             borderWidth="1px"
@@ -410,8 +446,8 @@ export function AppShell({
       </Box>
 
       <Box
-        ms={{ base: '72px', lg: '232px' }}
-        w={{ base: 'calc(100% - 72px)', lg: 'calc(100% - 232px)' }}
+        ms={{ base: '0', md: '72px', lg: '232px' }}
+        w={{ base: '100%', md: 'calc(100% - 72px)', lg: 'calc(100% - 232px)' }}
         minW="0"
       >
         <Flex
@@ -475,6 +511,8 @@ export function AppShell({
               align="center"
               gap="2"
               px="3"
+              role="status"
+              aria-live="polite"
               borderWidth="1px"
               borderColor="noc.border"
               borderRadius="9px"
@@ -546,7 +584,15 @@ export function AppShell({
           </HStack>
         </Flex>
 
-        <Box as="main" px={{ base: '3', md: '5', xl: '6' }} py={{ base: '4', md: '5' }} minW="0">
+        <Box
+          as="main"
+          id="main-content"
+          tabIndex={-1}
+          px={{ base: '3', md: '5', xl: '6' }}
+          pt={{ base: '4', md: '5' }}
+          pb={{ base: '20', md: '5' }}
+          minW="0"
+        >
           {shellError ? <Box mb="4">{shellError}</Box> : null}
           {children}
         </Box>
