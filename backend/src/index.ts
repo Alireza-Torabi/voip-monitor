@@ -9,6 +9,7 @@ import { Ssh2ConnectionVerifier } from './ssh/verification.js';
 import { DatabaseSourceConfigurationService } from './database/configuration.js';
 import { ReadOnlyDatabaseTransport } from './database/transport.js';
 import { ReadOnlyDatabaseSourceVerifier } from './database/verification.js';
+import { DatabaseConnectionBackoff } from './database/backoff.js';
 import { NodeDatabaseAddressResolver } from './database/resolver.js';
 import { AsteriskConventionalSqlHistoryAdapter } from './database/source-schema.js';
 import {
@@ -71,12 +72,17 @@ if (config) {
           secrets,
         );
         const databaseResolver = new NodeDatabaseAddressResolver();
+        const databaseBackoff = new DatabaseConnectionBackoff();
         const databaseTransport = new ReadOnlyDatabaseTransport({
           configuration: databaseSourceConfiguration,
           secrets,
           resolver: databaseResolver,
+          backoff: databaseBackoff,
         });
-        const databaseSourceVerifier = new ReadOnlyDatabaseSourceVerifier(databaseResolver);
+        const databaseSourceVerifier = new ReadOnlyDatabaseSourceVerifier(
+          databaseResolver,
+          databaseBackoff,
+        );
         const historicalSource = new AsteriskConventionalSqlHistoryAdapter({
           configuration: databaseSourceConfiguration,
           transport: databaseTransport,

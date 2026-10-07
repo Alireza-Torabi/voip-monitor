@@ -110,6 +110,10 @@ export function HistoryWorkspace({
       onUnauthorized();
       return;
     }
+    if (cause instanceof ApiError && cause.code === 'database_backoff_active') {
+      setError(text.historyDatabaseBackoff);
+      return;
+    }
     setError(text.historyLoadFailed);
   }
 

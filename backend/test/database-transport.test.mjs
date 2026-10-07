@@ -3,6 +3,7 @@ import { Buffer } from 'node:buffer';
 import { test } from 'node:test';
 import { DatabaseQueryError } from '../dist/database/query.js';
 import { ReadOnlyDatabaseTransport } from '../dist/database/transport.js';
+import { DatabaseConnectionBackoff } from '../dist/database/backoff.js';
 
 const PBX_ID = 'synthetic-pbx';
 
@@ -235,4 +236,46 @@ test('database transport fails closed when configuration or credential is unavai
     missingCredential.query(PBX_ID, { sql: 'SELECT 1 AS value' }),
     (error) => error instanceof DatabaseQueryError && error.code === 'PERMISSION_DENIED',
   );
+});
+
+test('database transport suppresses repeated connection attempts during backoff and resets after success', async () => {
+  let now = 0;
+  const backoff = new DatabaseConnectionBackoff(() => now);
+  let attempts = 0;
+  const failing = new ReadOnlyDatabaseTransport({
+    configuration: { get: () => safeConfig({ host: '10.20.30.40' }) },
+    secrets: { getSecret: () => Buffer.from('synthetic-value') },
+    resolver: { resolve: async () => ['10.20.30.40'] },
+    backoff,
+    adapters: {
+      MYSQL_MARIADB: {
+        async execute() {
+          attempts += 1;
+          throw new DatabaseQueryError('CONNECTION_FAILED');
+        },
+      },
+    },
+  });
+
+  await assert.rejects(
+    failing.query(PBX_ID, { sql: 'SELECT 1 AS value' }),
+    (error) => error instanceof DatabaseQueryError && error.code === 'CONNECTION_FAILED',
+  );
+  assert.equal(attempts, 1);
+  await assert.rejects(
+    failing.query(PBX_ID, { sql: 'SELECT 1 AS value' }),
+    (error) => error instanceof DatabaseQueryError && error.code === 'BACKOFF',
+  );
+  assert.equal(attempts, 1);
+
+  now += 30_000;
+  const succeeding = new ReadOnlyDatabaseTransport({
+    configuration: { get: () => safeConfig({ host: '10.20.30.40' }) },
+    secrets: { getSecret: () => Buffer.from('synthetic-value') },
+    resolver: { resolve: async () => ['10.20.30.40'] },
+    backoff,
+    adapters: { MYSQL_MARIADB: { execute: async () => [{ value: 1 }] } },
+  });
+  await succeeding.query(PBX_ID, { sql: 'SELECT 1 AS value' });
+  assert.equal(backoff.remainingMs(PBX_ID), 0);
 });

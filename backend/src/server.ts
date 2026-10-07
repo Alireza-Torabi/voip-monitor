@@ -864,7 +864,7 @@ export function createApp(
           if (!input) return send(response, 400, { error: 'invalid_request' });
           if (!databaseSourceVerifier)
             return send(response, 503, { error: 'database_verifier_unavailable' });
-          await databaseSourceVerifier.verify(input);
+          await databaseSourceVerifier.verify(id, input);
           return send(response, 200, databaseSourceConfiguration.configure(id, input));
         } catch (error) {
           if (error instanceof DatabaseSourceConfigurationError) {
@@ -872,6 +872,8 @@ export function createApp(
             return send(response, 400, { error: 'invalid_request' });
           }
           if (error instanceof DatabaseQueryError) {
+            if (error.code === 'BACKOFF')
+              return send(response, 429, { error: 'database_backoff_active' });
             if (error.code === 'TIMEOUT')
               return send(response, 504, { error: 'database_verification_timeout' });
             if (error.code === 'PERMISSION_DENIED')
@@ -923,6 +925,8 @@ export function createApp(
             return send(response, 502, { error: 'source_data_invalid' });
           }
           if (error instanceof DatabaseQueryError) {
+            if (error.code === 'BACKOFF')
+              return send(response, 429, { error: 'database_backoff_active' });
             if (error.code === 'NOT_CONFIGURED' || error.code === 'PERMISSION_DENIED')
               return send(response, 409, { error: 'source_unavailable' });
             return send(response, 502, { error: 'source_unavailable' });

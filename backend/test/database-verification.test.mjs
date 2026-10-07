@@ -3,6 +3,8 @@ import { test } from 'node:test';
 import { ReadOnlyDatabaseSourceVerifier } from '../dist/database/verification.js';
 import { DatabaseSourceConfigurationError } from '../dist/database/configuration.js';
 
+const PBX_ID = 'synthetic-pbx';
+
 function candidate(overrides = {}) {
   return {
     dialect: 'MYSQL_MARIADB',
@@ -32,10 +34,11 @@ test('database verifier uses submitted candidate and bounded read-only query', a
   };
   const verifier = new ReadOnlyDatabaseSourceVerifier(
     { resolve: async () => ['203.0.113.10'] },
+    undefined,
     { MYSQL_MARIADB: adapter },
   );
 
-  await verifier.verify(candidate());
+  await verifier.verify(PBX_ID, candidate());
 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].target.host, 'db.example.test');
@@ -58,7 +61,7 @@ test('database verifier rejects malformed candidate before resolver or driver wo
   });
 
   await assert.rejects(
-    verifier.verify(candidate({ databaseName: '' })),
+    verifier.verify(PBX_ID, candidate({ databaseName: '' })),
     (error) => error instanceof DatabaseSourceConfigurationError && error.code === 'INVALID_INPUT',
   );
   assert.equal(resolved, false);

@@ -36,7 +36,8 @@ export type DatabaseQueryErrorCode =
   | 'ROW_LIMIT'
   | 'OUTPUT_LIMIT'
   | 'UNSUPPORTED_VALUE'
-  | 'QUERY_FAILED';
+  | 'QUERY_FAILED'
+  | 'BACKOFF';
 
 export class DatabaseQueryError extends Error {
   constructor(readonly code: DatabaseQueryErrorCode) {

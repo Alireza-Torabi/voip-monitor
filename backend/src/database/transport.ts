@@ -12,6 +12,7 @@ import {
   type DatabaseDialectAdapter,
 } from './adapters.js';
 import type { DatabaseAddressResolver } from './resolver.js';
+import type { DatabaseConnectionBackoff } from './backoff.js';
 import {
   DatabaseQueryError,
   normalizeDatabaseRows,
@@ -26,6 +27,7 @@ export interface ReadOnlyDatabaseTransportOptions {
   secrets: SecretStore;
   resolver: DatabaseAddressResolver;
   adapters?: Partial<Record<DatabaseDialect, DatabaseDialectAdapter>>;
+  backoff?: DatabaseConnectionBackoff;
 }
 
 export interface DatabaseQueryResult {
@@ -52,6 +54,7 @@ export class ReadOnlyDatabaseTransport {
     request: ReadOnlyDatabaseQuery,
     limits?: DatabaseQueryLimits,
   ): Promise<DatabaseQueryResult> {
+    this.options.backoff?.assertAllowed(pbxInstanceId);
     const config = this.options.configuration.get(pbxInstanceId);
     if (!config) throw new DatabaseQueryError('NOT_CONFIGURED');
     if (config.accessMode !== 'READ_ONLY' || !config.hasCredential) {
@@ -108,9 +111,15 @@ export class ReadOnlyDatabaseTransport {
       }
 
       const rows = normalizeDatabaseRows(rawRows, prepared.limits);
+      this.options.backoff?.recordSuccess(pbxInstanceId);
       return { rows, rowCount: rows.length };
     } catch (error) {
-      if (error instanceof DatabaseQueryError) throw error;
+      if (error instanceof DatabaseQueryError) {
+        if (error.code === 'CONNECTION_FAILED' || error.code === 'TIMEOUT')
+          this.options.backoff?.recordFailure(pbxInstanceId);
+        throw error;
+      }
+      this.options.backoff?.recordFailure(pbxInstanceId);
       throw new DatabaseQueryError('CONNECTION_FAILED');
     } finally {
       if (timer) clearTimeout(timer);

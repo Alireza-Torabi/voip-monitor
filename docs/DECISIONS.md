@@ -778,3 +778,6 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 
 382. **Database source writes are verify-before-persist:** submitted database metadata and credential must pass one bounded read-only connection/query verification before replacing the stored configuration. Verification failure is side-effect free.
 383. **Connection verification is intentionally minimal:** the verifier proves network/TLS/auth/database selection and read-only query execution with a fixed bounded `SELECT 1`; dataset/schema support remains the responsibility of the existing source-schema inspection path.
+
+384. **Database connection failures are backoff-protected:** History reads and database verification share one per-PBX in-memory cooldown. Connection/timeout failures escalate through 30s, 60s, 120s, then 300s maximum; requests inside the window fail locally without opening a database socket.
+385. **Successful database access resets connection backoff:** a successful source query or verification clears the per-PBX failure state immediately. Query/schema/data errors are not treated as connection failures.

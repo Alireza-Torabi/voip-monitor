@@ -123,6 +123,8 @@ export function DatabaseSourceWorkspace({
       setStatus(text.databaseSourceSaved);
     } catch (failure) {
       if (failure instanceof ApiError && failure.status === 401) onUnauthorized();
+      else if (failure instanceof ApiError && failure.code === 'database_backoff_active')
+        setError(text.databaseSourceBackoffActive);
       else if (failure instanceof ApiError && failure.code === 'database_verification_timeout')
         setError(text.databaseSourceVerificationTimeout);
       else if (failure instanceof ApiError && failure.code === 'database_permission_denied')

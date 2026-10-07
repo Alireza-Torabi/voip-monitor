@@ -1218,3 +1218,16 @@ Lint، Format، Typecheck، Backend Test برابر 179/179، Frontend Test بر
 - **Regression:** تست Backend تضمین می‌کند Verification ناموفق Config/Credential قبلی را عوض نمی‌کند؛ تست Unit Verifier Target واردشده و Query ثابت محدود را پوشش می‌دهد؛ تست Frontend متن Verify-before-save را بررسی می‌کند.
 
 </div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-07 — Backoff برای Database Connection Failure
+
+- **مشکل:** Refreshهای پشت‌سرهم History یا چند بار زدن Verify & Save بعد از Connection/Timeout Failure می‌توانست هر بار Connection جدیدی به Database باز کند. در MySQL/MariaDB این رفتار می‌تواند با عبور از `max_connect_errors` باعث Block شدن Host شود.
+- **اصلاح:** History Transport و Verify-before-save اکنون یک Backoff مشترک و PBX-scoped در Memory دارند. Connection/Timeout Failureها تلاش بعدی را به‌ترتیب 30، 60، 120 و حداکثر 300 ثانیه متوقف می‌کنند. در زمان Cooldown، درخواست با `database_backoff_active` داخل App Fail می‌شود و Socket جدیدی به Database باز نمی‌شود.
+- **Recovery:** اولین Query یا Verification موفق، Failure State جمع‌شده را فوراً Reset می‌کند.
+- **Scope:** فقط Connection/Timeout Failure روی Backoff اثر می‌گذارد؛ Query/Data/Schema Error باعث طولانی‌تر شدن Cooldown اتصال نمی‌شود. هیچ History یا Retry State جدیدی Persist نمی‌شود.
+- **UI/API:** Verify Database و Source-backed History هنگام Backoff پاسخ مشخص 429 و پیام Operator-friendly می‌دهند و Database را پشت‌سرهم Contact نمی‌کنند.
+- **Regression:** تست‌ها Escalation محدود، جلوگیری از اجرای دوباره Driver در Cooldown و Reset بعد از Success را پوشش می‌دهند.
+
+</div>

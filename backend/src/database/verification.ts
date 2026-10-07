@@ -13,11 +13,12 @@ import {
 } from './configuration.js';
 import { DatabaseQueryError, prepareReadOnlyQuery } from './query.js';
 import type { DatabaseAddressResolver } from './resolver.js';
+import type { DatabaseConnectionBackoff } from './backoff.js';
 
 const VERIFICATION_TIMEOUT_MS = 5_000;
 
 export interface DatabaseSourceVerifier {
-  verify(input: unknown): Promise<void>;
+  verify(pbxInstanceId: string, input: unknown): Promise<void>;
 }
 
 function defaultAdapters(): Record<DatabaseDialect, DatabaseDialectAdapter> {
@@ -32,17 +33,22 @@ export class ReadOnlyDatabaseSourceVerifier implements DatabaseSourceVerifier {
 
   constructor(
     private readonly resolver: DatabaseAddressResolver,
+    private readonly backoff?: DatabaseConnectionBackoff,
     adapters?: Partial<Record<DatabaseDialect, DatabaseDialectAdapter>>,
   ) {
     this.adapters = { ...defaultAdapters(), ...adapters };
   }
 
-  async verify(input: unknown): Promise<void> {
+  async verify(pbxInstanceId: string, input: unknown): Promise<void> {
+    this.backoff?.assertAllowed(pbxInstanceId);
     const candidate = parseDatabaseSourceConfigurationInput(input);
-    await this.verifyCandidate(candidate);
+    await this.verifyCandidate(pbxInstanceId, candidate);
   }
 
-  private async verifyCandidate(candidate: DatabaseSourceConfigurationInput): Promise<void> {
+  private async verifyCandidate(
+    pbxInstanceId: string,
+    candidate: DatabaseSourceConfigurationInput,
+  ): Promise<void> {
     const credential = Buffer.from(candidate.credential, 'utf8');
     const controller = new AbortController();
     let timer: NodeJS.Timeout | undefined;
@@ -84,8 +90,14 @@ export class ReadOnlyDatabaseSourceVerifier implements DatabaseSourceVerifier {
         ),
         timeout,
       ]);
+      this.backoff?.recordSuccess(pbxInstanceId);
     } catch (error) {
-      if (error instanceof DatabaseQueryError) throw error;
+      if (error instanceof DatabaseQueryError) {
+        if (error.code === 'CONNECTION_FAILED' || error.code === 'TIMEOUT')
+          this.backoff?.recordFailure(pbxInstanceId);
+        throw error;
+      }
+      this.backoff?.recordFailure(pbxInstanceId);
       throw new DatabaseQueryError('CONNECTION_FAILED');
     } finally {
       if (timer) clearTimeout(timer);

@@ -318,6 +318,8 @@ export const messages = {
     historyLoad: 'Load recent rows',
     historyInspect: 'Refresh schema support',
     historyLoadFailed: 'Source-backed history could not be loaded.',
+    historyDatabaseBackoff:
+      'Database connection attempts are temporarily paused after repeated failures. Wait before refreshing history again.',
     historyNoRows: 'No rows loaded for this dataset.',
     historySourceTimestampHint:
       'Source timestamps are displayed exactly as supplied by the database; no timezone is invented for naive values.',
@@ -378,6 +380,8 @@ export const messages = {
     databaseSourceVerifyAndSave: 'Verify & Save',
     databaseSourceVerificationFailed:
       'Database verification failed. Check host, port, database name, username, password and TLS policy. The previous configuration was not changed.',
+    databaseSourceBackoffActive:
+      'Database connection attempts are temporarily paused after repeated failures. Wait before trying again; the previous configuration was not changed.',
     databaseSourceVerificationTimeout:
       'Database verification timed out. The previous configuration was not changed.',
     databaseSourcePermissionDenied:
@@ -779,6 +783,8 @@ export const messages = {
     historyLoad: 'بارگذاری Rowهای اخیر',
     historyInspect: 'بازبینی پشتیبانی Schema',
     historyLoadFailed: 'تاریخچه مستقیم از Source قابل بارگذاری نبود.',
+    historyDatabaseBackoff:
+      'بعد از چند Connection Failure، تلاش برای اتصال به Database موقتاً متوقف شده است. کمی صبر کنید و سپس History را Refresh کنید.',
     historyNoRows: 'برای این Dataset هنوز Rowی بارگذاری نشده است.',
     historySourceTimestampHint:
       'Timestampهای Source دقیقاً با مقدار Database نمایش داده می‌شوند؛ برای مقادیر بدون Timezone هیچ منطقه زمانی ساختگی اعمال نمی‌شود.',
@@ -839,6 +845,8 @@ export const messages = {
     databaseSourceVerifyAndSave: 'Verify & Save',
     databaseSourceVerificationFailed:
       'Database Verification ناموفق بود. Host، Port، Database Name، Username، Password و TLS Policy را بررسی کنید. Configuration قبلی تغییر نکرد.',
+    databaseSourceBackoffActive:
+      'بعد از چند Connection Failure، تلاش برای اتصال به Database موقتاً متوقف شده است. کمی صبر کنید و دوباره تلاش کنید؛ Configuration قبلی تغییر نکرد.',
     databaseSourceVerificationTimeout:
       'Database Verification Timeout شد و Configuration قبلی تغییر نکرد.',
     databaseSourcePermissionDenied:

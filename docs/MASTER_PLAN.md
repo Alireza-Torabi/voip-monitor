@@ -1202,3 +1202,13 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 - **UI:** the action is now `Verify & Save`; the old message stating that Save does not test connectivity was removed. Operator-facing messages distinguish timeout and permission failures from general verification failure.
 - **Security:** credentials remain write-only and are zeroed from the verifier buffer after use. No raw driver error is returned to the browser.
 - **Regression:** backend coverage verifies failed candidate verification cannot replace existing metadata or credential; verifier unit coverage confirms the submitted target and fixed bounded query; frontend coverage confirms the new verify-before-save copy.
+
+
+## 2026-10-07 — Database connection failure backoff
+
+- **Problem:** repeated History refreshes or repeated Verify & Save attempts could open new database connections after each connection/timeout failure. On MySQL/MariaDB this can contribute to host blocking when `max_connect_errors` is exceeded.
+- **Resolution:** History transport and verify-before-save now share one PBX-scoped in-memory connection backoff. Connection/timeout failures pause new attempts for 30s, then 60s, 120s, and finally a bounded 300s maximum. Attempts made during the pause fail locally with `database_backoff_active` and do not open a new socket.
+- **Recovery:** a successful database query or successful verification clears the accumulated failure state immediately.
+- **Scope:** only connection/timeout failures affect backoff; query/data/schema errors do not extend the connection-failure cooldown. No history or retry state is persisted.
+- **UI/API:** database verification and source-backed History return a distinct 429/backoff state with operator guidance instead of repeatedly contacting the database.
+- **Regression:** tests verify bounded escalation, no second driver execution during an active cooldown, and reset after success.
