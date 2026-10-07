@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-07. PR #66 merged Task 56. Task 57 is complete locally on feature/fleet-overview and merge is pending. PBX Fleet is now an operational cross-PBX workspace backed only by current normalized state, with severity-first health aggregation, workload/failure summaries, and direct drill-down into the selected PBX Overview. Task 58 follows only after Task 57 merges.
+Status: 2026-10-07. PR #67 merged Task 57. Task 58 is complete locally on feature/trunk-reliability and merge is pending. Trunk state now carries bounded in-memory reliability metadata: availability, last up/down, active outage start/duration, flap/reconnect counters, and recent transitions, with reliability-first Trunks presentation. Task 59 follows only after Task 58 merges.
 
 ## Phase 0 — environment discovery
 
@@ -710,7 +710,7 @@ The product foundation is production-ready, but the monitoring product is not ye
 
 ### Phase 15 — Telephony reliability
 
-- [ ] **Task 58 — Trunk Reliability**
+- [x] **Task 58 — Trunk Reliability**
   - Current state, last up/down timestamps, outage duration, bounded flap/reconnect counters, and recent transitions.
 - [ ] **Task 59 — Endpoint Reliability**
   - Reachability transitions, offline duration, bounded flap count, and problematic-endpoint ranking.
@@ -964,6 +964,37 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 - format check PASS.
 - typecheck PASS.
 - backend tests 170/170 PASS.
+- frontend tests 29/29 PASS.
+- production build PASS.
+- foundation check PASS.
+- license check PASS.
+- git diff check PASS.
+- Existing Chakra/Ark/Zag/Rolldown module-level `use client` warnings remain non-fatal and unchanged in nature.
+
+## 2026-10-07 — Task 58 completion record
+
+- **Result:** Trunk live state now carries bounded reliability metadata without adding duplicate durable monitoring history.
+- **Canonical trunk availability:** added provider-neutral `UP`, `DOWN`, `TRANSITIONING`, and `UNKNOWN`. REGISTERED is UP; REGISTERING is TRANSITIONING; UNREGISTERED/REJECTED/FAILED or explicit UNREACHABLE is DOWN; NOT_APPLICABLE+REACHABLE is UP; ambiguous combinations remain UNKNOWN.
+- **Baseline semantics:** the first authoritative trunk snapshot establishes the observation baseline and last-up/last-down timestamp but does not count as a flap or reconnect.
+- **Transition semantics:** entering DOWN after a previously observed UP starts an outage and increments the bounded flap counter. Returning to UP while an outage is active clears the outage and increments the bounded reconnect counter. Intermediate states such as REGISTERING do not end the outage.
+- **Visibility-loss safety:** provider/PBX disconnect changes synchronization to STALE but does not manufacture a trunk DOWN transition or outage. Reliability changes only from authoritative trunk events or reconciliation snapshots.
+- **Bounded state:** counters saturate at 9,999 and recent transition history retains only the latest 20 transitions per trunk. This state is in-memory/current-operational state and resets on application restart; it is not a second historical database.
+- **Reconciliation:** snapshot-observed state changes participate in reliability transitions, so missed live events can be repaired by the existing reconciliation path without a new collector.
+- **Public telephony state:** each trunk now exposes availability, last up/down timestamps, optional active outage start/current duration, bounded flap/reconnect counts, and the bounded recent transition list. No raw AMI payload is exposed.
+- **UI:** Trunks workspace retains Technology/Kind/Classification/Registration/Reachability and adds Availability, Last Up, Last Down, live Outage duration, Flaps, Reconnects, and the three most recent transitions. Rows are reliability-first: DOWN, TRANSITIONING, flapping, UNKNOWN, then stable UP.
+- **Live outage display:** active outage duration advances client-side once per second from `outageStartedAt`; this creates no API polling and no PBX work.
+- **Regression coverage:** backend suite increased from 170 to 171 tests. The new test proves baseline behavior, disconnect visibility safety, UP→DOWN flap/outage, DOWN→REGISTERING→UP reconnect, and the 20-transition retention bound. Frontend remains 29/29 with trunk reliability rendering covered.
+- **Failures resolved:** initial compilation placed a runtime classifier inside a type-only import; it was split into a runtime import. The first frontend pass also missed the `TelephonyTrunkState` type import. A regression test then caught accidental removal of the existing Classification column; the column was restored before final validation. An i18n insertion initially placed Persian reliability labels in the English block; the language blocks were corrected before validation.
+- **Known limitation:** Task 58 reliability is bounded process-lifetime operational state. It deliberately does not persist outage history across application restarts or create SLA/uptime percentages. Long-range reliability analytics would require an explicitly approved source-owned or application-owned reliability persistence design rather than silently duplicating telemetry.
+- **Exact next task:** Task 59 — Endpoint Reliability.
+
+### Task 58 final validation
+
+- Node v24.21.0 / npm 11.19.0.
+- lint PASS.
+- format check PASS.
+- typecheck PASS.
+- backend tests 171/171 PASS.
 - frontend tests 29/29 PASS.
 - production build PASS.
 - foundation check PASS.

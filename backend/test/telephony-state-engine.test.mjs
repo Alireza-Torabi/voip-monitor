@@ -1207,3 +1207,142 @@ test('agent interactions clear on connection loss and rebuild only from the new 
 
   engine.stop();
 });
+
+test('trunk reliability tracks bounded real transitions without treating provider visibility loss as outage', () => {
+  const source = new FakeStateSource();
+  const engine = new TelephonyStateEngine(source);
+  engine.start();
+
+  source.snapshot(
+    snapshot({
+      trunkState: {
+        capability: 'SUPPORTED',
+        observedAt: '2026-10-07T05:00:00.000Z',
+        streamGeneration: 1,
+        streamStartedSequence: 0,
+        trunks: [
+          {
+            trunkId: 'PJSIP/carrier-a@example.test',
+            kind: 'OUTBOUND_REGISTRATION',
+            technology: 'PJSIP',
+            confidence: 'CONFIRMED',
+            registrationState: 'REGISTERED',
+            streamSequence: 1,
+          },
+        ],
+      },
+    }),
+  );
+
+  let trunk = engine.current('pbx-1').trunks[0];
+  assert.equal(trunk.reliability.availability, 'UP');
+  assert.equal(trunk.reliability.lastUpAt, '2026-10-07T05:00:00.000Z');
+  assert.equal(trunk.reliability.flapCount, 0);
+  assert.equal(trunk.reliability.reconnectCount, 0);
+  assert.deepEqual(trunk.reliability.recentTransitions, []);
+
+  source.connection('pbx-1', 'DISCONNECTED');
+  trunk = engine.current('pbx-1').trunks[0];
+  assert.equal(trunk.reliability.availability, 'UP');
+  assert.equal(trunk.reliability.flapCount, 0);
+  assert.equal(trunk.reliability.outageStartedAt, undefined);
+
+  source.connection('pbx-1', 'CONNECTED');
+  source.snapshot(
+    snapshot({
+      observedAt: '2026-10-07T05:00:10.000Z',
+      trunkState: {
+        capability: 'SUPPORTED',
+        observedAt: '2026-10-07T05:00:10.000Z',
+        streamGeneration: 1,
+        streamStartedSequence: 1,
+        trunks: [
+          {
+            trunkId: 'PJSIP/carrier-a@example.test',
+            kind: 'OUTBOUND_REGISTRATION',
+            technology: 'PJSIP',
+            confidence: 'CONFIRMED',
+            registrationState: 'REGISTERED',
+            streamSequence: 2,
+          },
+        ],
+      },
+    }),
+  );
+
+  source.event(
+    baseEvent('TRUNK_REGISTRATION_CHANGED', {
+      trunkId: 'PJSIP/carrier-a@example.test',
+      kind: 'OUTBOUND_REGISTRATION',
+      technology: 'PJSIP',
+      confidence: 'CONFIRMED',
+      registrationState: 'REJECTED',
+      streamSequence: 3,
+      observedAt: '2026-10-07T05:00:20.000Z',
+    }),
+  );
+  trunk = engine.current('pbx-1').trunks[0];
+  assert.equal(trunk.reliability.availability, 'DOWN');
+  assert.equal(trunk.reliability.lastDownAt, '2026-10-07T05:00:20.000Z');
+  assert.equal(trunk.reliability.outageStartedAt, '2026-10-07T05:00:20.000Z');
+  assert.equal(trunk.reliability.flapCount, 1);
+
+  source.event(
+    baseEvent('TRUNK_REGISTRATION_CHANGED', {
+      trunkId: 'PJSIP/carrier-a@example.test',
+      kind: 'OUTBOUND_REGISTRATION',
+      technology: 'PJSIP',
+      confidence: 'CONFIRMED',
+      registrationState: 'REGISTERING',
+      streamSequence: 4,
+      observedAt: '2026-10-07T05:00:25.000Z',
+    }),
+  );
+  source.event(
+    baseEvent('TRUNK_REGISTRATION_CHANGED', {
+      trunkId: 'PJSIP/carrier-a@example.test',
+      kind: 'OUTBOUND_REGISTRATION',
+      technology: 'PJSIP',
+      confidence: 'CONFIRMED',
+      registrationState: 'REGISTERED',
+      streamSequence: 5,
+      observedAt: '2026-10-07T05:00:30.000Z',
+    }),
+  );
+  trunk = engine.current('pbx-1').trunks[0];
+  assert.equal(trunk.reliability.availability, 'UP');
+  assert.equal(trunk.reliability.lastUpAt, '2026-10-07T05:00:30.000Z');
+  assert.equal(trunk.reliability.outageStartedAt, undefined);
+  assert.equal(trunk.reliability.flapCount, 1);
+  assert.equal(trunk.reliability.reconnectCount, 1);
+  assert.deepEqual(
+    trunk.reliability.recentTransitions.map(({ from, to, source }) => ({ from, to, source })),
+    [
+      { from: 'UP', to: 'DOWN', source: 'EVENT' },
+      { from: 'DOWN', to: 'TRANSITIONING', source: 'EVENT' },
+      { from: 'TRANSITIONING', to: 'UP', source: 'EVENT' },
+    ],
+  );
+
+  let sequence = 6;
+  for (let index = 0; index < 24; index += 1) {
+    source.event(
+      baseEvent('TRUNK_REGISTRATION_CHANGED', {
+        trunkId: 'PJSIP/carrier-a@example.test',
+        kind: 'OUTBOUND_REGISTRATION',
+        technology: 'PJSIP',
+        confidence: 'CONFIRMED',
+        registrationState: index % 2 === 0 ? 'FAILED' : 'REGISTERED',
+        streamSequence: sequence,
+        observedAt: `2026-10-07T05:01:${String(index).padStart(2, '0')}.000Z`,
+      }),
+    );
+    sequence += 1;
+  }
+  trunk = engine.current('pbx-1').trunks[0];
+  assert.equal(trunk.reliability.recentTransitions.length, 20);
+  assert.ok(trunk.reliability.flapCount > 1);
+  assert.ok(trunk.reliability.reconnectCount > 1);
+
+  engine.stop();
+});

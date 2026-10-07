@@ -1,6 +1,6 @@
 # Master Plan
 
-Status: 2026-10-07. PR #66، Task 56 را Merge کرده است. Task 57 روی Branch feature/fleet-overview به‌صورت Local کامل شده و Merge آن Pending است. PBX Fleet اکنون یک Workspace عملیاتی Cross-PBX مبتنی بر Current Normalized State است و Health Aggregation با اولویت Severity، Summary بار/خرابی و Drill-down مستقیم به Overview همان PBX را ارائه می‌کند. Task 58 فقط بعد از Merge شدن Task 57 شروع می‌شود.
+Status: 2026-10-07. PR #67، Task 57 را Merge کرده است. Task 58 روی Branch feature/trunk-reliability به‌صورت Local کامل شده و Merge آن Pending است. Trunk State اکنون Reliability Metadata محدود و In-memory شامل Availability، Last Up/Down، Active Outage Start/Duration، Flap/Reconnect Counter و Recent Transition دارد و Trunks UI بر اساس Reliability مرتب می‌شود. Task 59 فقط بعد از Merge شدن Task 58 شروع می‌شود.
 
 ## Phase 0 - کشف محیط
 
@@ -705,7 +705,7 @@ Foundation پروژه از نظر Production آماده است، اما محصو
 
 ### Phase 15 — Telephony Reliability
 
-- [ ] **Task 58 — Trunk Reliability**
+- [x] **Task 58 — Trunk Reliability**
 - [ ] **Task 59 — Endpoint Reliability**
 - [ ] **Task 60 — Call Outcome Analytics با Source-owned Data**
 
@@ -959,5 +959,34 @@ Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check،
 ### Final Validation مربوط به Task 57
 
 Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check، Typecheck، Backend Test برابر 170/170، Frontend Test برابر 29/29، Production Build، Foundation Check، License Check و Git Diff Check همگی PASS شدند. Warningهای موجود Chakra/Ark/Zag/Rolldown درباره module-level use client همچنان Non-fatal هستند.
+
+</div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-07 — ثبت تکمیل Task 58
+
+- **نتیجه:** Live Trunk State اکنون Reliability Metadata محدود دارد بدون اینکه Monitoring History تکراری و Durable ایجاد شود.
+- **Availability Canonical:** حالت‌های Provider-neutral شامل `UP`، `DOWN`، `TRANSITIONING` و `UNKNOWN` هستند. REGISTERED برابر UP، REGISTERING برابر TRANSITIONING، UNREGISTERED/REJECTED/FAILED یا UNREACHABLE برابر DOWN و NOT_APPLICABLE همراه REACHABLE برابر UP است.
+- **Baseline:** اولین Snapshot معتبر فقط Baseline مشاهده و Last Up/Down را مشخص می‌کند و Flap یا Reconnect محسوب نمی‌شود.
+- **Transition:** ورود به DOWN بعد از UP قبلی Outage را شروع و Flap Counter را افزایش می‌دهد. برگشت به UP در حالی که Outage فعال است Outage را می‌بندد و Reconnect Counter را افزایش می‌دهد. REGISTERING وسط مسیر Outage را تمام نمی‌کند.
+- **Visibility Loss:** قطع Provider/PBX فقط Synchronization را STALE می‌کند و Down/Outage جعلی برای Trunk نمی‌سازد. Reliability فقط از Trunk Event یا Reconciliation Snapshot معتبر تغییر می‌کند.
+- **Bound:** Counterها حداکثر 9,999 و Recent Transition برای هر Trunk حداکثر 20 مورد است. این State فقط In-memory و Operational است و بعد از Restart Reset می‌شود؛ Historical Database دوم ساخته نشده است.
+- **Reconciliation:** تغییر State در Snapshot نیز Reliability Transition ایجاد می‌کند، بنابراین Event از دست‌رفته با مسیر Reconciliation فعلی Repair می‌شود و Collector جدیدی نیاز نیست.
+- **Public State:** هر Trunk اکنون Availability، Last Up/Down، Outage Start/Duration فعال، Flap/Reconnect Count و Recent Transition محدود را expose می‌کند؛ Raw AMI Payload نمایش داده نمی‌شود.
+- **UI:** Workspace مربوط به Trunks ستون‌های قبلی Technology/Kind/Classification/Registration/Reachability را حفظ کرده و Availability، Last Up، Last Down، Outage زنده، Flaps، Reconnects و سه Transition آخر را اضافه کرده است. Sort بر اساس Reliability است: DOWN، TRANSITIONING، Flapping، UNKNOWN و سپس UP پایدار.
+- **Outage Live:** مدت Outage در Browser از outageStartedAt هر ثانیه محاسبه می‌شود و هیچ API Polling یا PBX Work جدیدی ایجاد نمی‌کند.
+- **Regression:** Backend از 170 به 171 تست رسید و Baseline، Visibility Loss، UP→DOWN، DOWN→REGISTERING→UP و Bound بیست Transition پوشش داده شدند. Frontend همچنان 29/29 است.
+- **Failureهای رفع‌شده:** Runtime Classifier ابتدا داخل Type-only Import بود؛ Import اصلاح شد. TelephonyTrunkState Type Import در Frontend جا افتاده بود و اضافه شد. Regression Test حذف ناخواسته Classification Column را پیدا کرد و ستون برگردانده شد. همچنین Persian Labelها ابتدا اشتباهاً در English Block قرار گرفته بودند و قبل از Validation اصلاح شدند.
+- **محدودیت:** Reliability در Task 58 Process-lifetime و bounded است و Outage History را بین Restartها Persist نمی‌کند و SLA/Uptime Percentage نمی‌سازد. Analytics بلندمدت فقط با طراحی صریح Persistence و بدون Duplicate Telemetry باید اضافه شود.
+- **Task دقیق بعدی:** Task 59 — Endpoint Reliability.
+
+</div>
+
+<div dir="rtl" align="right">
+
+### Final Validation مربوط به Task 58
+
+Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check، Typecheck، Backend Test برابر 171/171، Frontend Test برابر 29/29، Production Build، Foundation Check، License Check و Git Diff Check همگی PASS شدند. Warningهای موجود Chakra/Ark/Zag/Rolldown درباره module-level use client همچنان Non-fatal هستند.
 
 </div>

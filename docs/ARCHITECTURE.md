@@ -131,3 +131,7 @@ The dashboard now distinguishes browser fullscreen from application wallboard st
 ## Task 57 Fleet Overview architecture
 
 `FleetOverviewSnapshot` is a shared provider-neutral current-state contract. Backend builds one snapshot from the configured PBX list plus existing ProviderRuntime, TelephonyStateEngine, SystemMetricsRuntime/current sample, current security alerts, and the Task 56 health evaluator. The aggregate endpoint is authenticated, read-only, and free of new network collection. Frontend owns a dedicated Fleet workspace and polls only this application-state endpoint every 15 seconds. PBX selection is shared with DashboardBuilder so Fleet drill-down reuses the existing per-PBX Operator Overview rather than duplicating entity detail logic.
+
+## Task 58 Trunk Reliability architecture
+
+TelephonyStateEngine now owns a per-trunk bounded reliability tracker separate from the normalized trunk entity map. The tracker consumes only accepted `TRUNK_REGISTRATION_CHANGED` events and authoritative trunk reconciliation snapshots. It derives provider-neutral availability, last-up/down markers, active outage start, bounded flap/reconnect counters, and a rolling 20-transition journal. Connection-state loss changes synchronization only and does not modify reliability. Public TelephonyInstanceState embeds the bounded reliability view per trunk; current outage duration is derived at read/render time rather than persisted. The browser ranks trunk rows from most problematic to stable and advances active outage duration locally without polling.

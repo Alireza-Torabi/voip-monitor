@@ -95,3 +95,7 @@ Operational health semantics now have one shared provider-neutral owner. The sha
 ## 2026-10-07 — Task 57 Fleet Overview
 
 PBX Fleet is now a dedicated operational workspace. A single authenticated read-only aggregate endpoint combines only already-current provider/telephony/system/security state and the Task 56 canonical health snapshot for each configured PBX. The frontend refreshes this aggregate state at a bounded 15-second cadence, sorts unhealthy PBXs first, and supports direct drill-down into the existing selected-PBX Operator Overview. PBX configuration remains in Settings and no duplicate monitoring persistence or new PBX work was introduced.
+
+## 2026-10-07 — Task 58 Trunk Reliability
+
+Trunk reliability is now maintained as bounded in-memory operational state inside the existing TelephonyStateEngine. Authoritative live events and reconciliation snapshots classify each trunk as UP/DOWN/TRANSITIONING/UNKNOWN, track last observed up/down, current outage start, bounded flap/reconnect counts, and the latest 20 transitions. Provider visibility loss only makes trunk synchronization stale and never creates a synthetic outage. The Trunks workspace renders and ranks this reliability state while keeping all previous trunk classification metadata. No new PBX collector or durable monitoring-history store was added.
