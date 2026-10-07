@@ -885,48 +885,12 @@ export function App({
           ) : null}
 
           {workspace === 'telephony' ? (
-            <Stack gap="4">
-              <Box
-                borderWidth="1px"
-                borderColor="noc.border"
-                bg="noc.surface"
-                borderRadius="nocPanel"
-                p="2"
-                overflowX="auto"
-              >
-                <HStack gap="1" minW="max-content" data-telephony-navigation>
-                  {(
-                    [
-                      ['calls', text.telephonyCalls],
-                      ['channels', text.telephonyChannels],
-                      ['endpoints', text.telephonyEndpoints],
-                      ['trunks', text.telephonyTrunks],
-                      ['queues', text.telephonyQueues],
-                      ['agents', text.telephonyAgents],
-                    ] as const
-                  ).map(([value, label]) => (
-                    <Button
-                      key={value}
-                      size="sm"
-                      variant="ghost"
-                      borderRadius="nocControl"
-                      color={telephonyPage === value ? 'white' : 'noc.textMuted'}
-                      bg={telephonyPage === value ? 'rgba(45,140,255,.18)' : 'transparent'}
-                      _hover={{ bg: 'rgba(255,255,255,.05)', color: 'white' }}
-                      onClick={() => setTelephonyPage(value)}
-                    >
-                      {label}
-                    </Button>
-                  ))}
-                </HStack>
-              </Box>
-              <TelephonyWorkspace
-                text={text}
-                profiles={profiles}
-                page={telephonyPage}
-                onUnauthorized={unauthorized}
-              />
-            </Stack>
+            <TelephonyWorkspace
+              text={text}
+              profiles={profiles}
+              page={telephonyPage}
+              onUnauthorized={unauthorized}
+            />
           ) : null}
 
           {workspace === 'history' ? (
@@ -934,129 +898,56 @@ export function App({
           ) : null}
 
           {workspace === 'settings' ? (
-            <Stack gap="4" data-workspace="settings">
-              <Box>
-                <Heading size="xl" color="noc.text" letterSpacing="-0.02em">
-                  {text.settingsTitle}
-                </Heading>
-                <Text color="noc.textMuted" mt="1" fontSize="12px">
-                  {text.settingsHint}
-                </Text>
-              </Box>
-
-              <Flex gap="4" align="flex-start" direction={{ base: 'column', xl: 'row' }}>
-                <Box
-                  as="nav"
-                  aria-label={text.settingsTitle}
-                  w={{ base: 'full', xl: '232px' }}
-                  flex="0 0 auto"
-                  borderWidth="1px"
-                  borderColor="noc.border"
-                  bg="noc.surface"
-                  borderRadius="nocPanel"
-                  p="2"
-                  overflowX={{ base: 'auto', xl: 'visible' }}
-                  position={{ xl: 'sticky' }}
-                  top={{ xl: '80px' }}
-                >
-                  <Stack
-                    gap="1"
-                    direction={{ base: 'row', xl: 'column' }}
-                    minW={{ base: 'max-content', xl: '0' }}
-                    data-settings-navigation
-                  >
-                    {(
-                      [
-                        ['pbx', text.pbxTitle],
-                        ['database-source', text.databaseSourceTitle],
-                        ['ssh-metrics', text.sshMetricsTitle],
-                        ['service-monitoring', text.serviceMonitoringTitle],
-                        ['storage', text.dashboardStorageTitle],
-                        ['security', text.securityTitle],
-                        ['accounts', text.accountsTitle],
-                      ] as const
-                    ).map(([value, label]) => (
-                      <Button
-                        key={value}
-                        size="sm"
-                        variant="ghost"
-                        h="38px"
-                        px="3"
-                        justifyContent="flex-start"
-                        borderRadius="nocControl"
-                        color={settingsPage === value ? 'white' : 'noc.textMuted'}
-                        bg={settingsPage === value ? 'rgba(45,140,255,.18)' : 'transparent'}
-                        borderWidth="1px"
-                        borderColor={
-                          settingsPage === value ? 'rgba(45,140,255,.30)' : 'transparent'
-                        }
-                        _hover={{ bg: 'rgba(255,255,255,.05)', color: 'white' }}
-                        onClick={() => setSettingsPage(value)}
-                      >
-                        <Text fontSize="12px" truncate>
-                          {label}
-                        </Text>
-                      </Button>
-                    ))}
-                  </Stack>
-                </Box>
-
-                <Box minW="0" flex="1" data-settings-content>
-                  {settingsPage === 'pbx' ? (
-                    <PbxWorkspace
-                      text={text}
-                      profiles={profiles}
-                      onRefresh={async () => {
-                        await refreshProfiles();
-                      }}
-                      onUnauthorized={unauthorized}
-                    />
-                  ) : null}
-                  {settingsPage === 'database-source' ? (
-                    <DatabaseSourceWorkspace
-                      text={text}
-                      profiles={profiles}
-                      onUnauthorized={unauthorized}
-                    />
-                  ) : null}
-                  {settingsPage === 'ssh-metrics' ? (
-                    <SshMetricsWorkspace
-                      text={text}
-                      profiles={profiles}
-                      onUnauthorized={unauthorized}
-                    />
-                  ) : null}
-                  {settingsPage === 'service-monitoring' ? (
-                    <ServiceMonitoringWorkspace
-                      text={text}
-                      profiles={profiles}
-                      onUnauthorized={unauthorized}
-                    />
-                  ) : null}
-                  {settingsPage === 'storage' ? (
-                    <DashboardStorageWorkspace
-                      text={text}
-                      profiles={profiles}
-                      onUnauthorized={unauthorized}
-                    />
-                  ) : null}
-                  {settingsPage === 'security' ? (
-                    <SecurityWorkspace
-                      text={text}
-                      profiles={profiles}
-                      onUnauthorized={unauthorized}
-                    />
-                  ) : null}
-                  {settingsPage === 'accounts' ? (
-                    <AccountsWorkspace
-                      text={text}
-                      principal={principal}
-                      onUnauthorized={unauthorized}
-                    />
-                  ) : null}
-                </Box>
-              </Flex>
-            </Stack>
+            <Box minW="0" data-workspace="settings">
+              {settingsPage === 'pbx' ? (
+                <PbxWorkspace
+                  text={text}
+                  profiles={profiles}
+                  onRefresh={async () => {
+                    await refreshProfiles();
+                  }}
+                  onUnauthorized={unauthorized}
+                />
+              ) : null}
+              {settingsPage === 'database-source' ? (
+                <DatabaseSourceWorkspace
+                  text={text}
+                  profiles={profiles}
+                  onUnauthorized={unauthorized}
+                />
+              ) : null}
+              {settingsPage === 'ssh-metrics' ? (
+                <SshMetricsWorkspace
+                  text={text}
+                  profiles={profiles}
+                  onUnauthorized={unauthorized}
+                />
+              ) : null}
+              {settingsPage === 'service-monitoring' ? (
+                <ServiceMonitoringWorkspace
+                  text={text}
+                  profiles={profiles}
+                  onUnauthorized={unauthorized}
+                />
+              ) : null}
+              {settingsPage === 'storage' ? (
+                <DashboardStorageWorkspace
+                  text={text}
+                  profiles={profiles}
+                  onUnauthorized={unauthorized}
+                />
+              ) : null}
+              {settingsPage === 'security' ? (
+                <SecurityWorkspace text={text} profiles={profiles} onUnauthorized={unauthorized} />
+              ) : null}
+              {settingsPage === 'accounts' ? (
+                <AccountsWorkspace
+                  text={text}
+                  principal={principal}
+                  onUnauthorized={unauthorized}
+                />
+              ) : null}
+            </Box>
           ) : null}
         </Stack>
       </AppShell>

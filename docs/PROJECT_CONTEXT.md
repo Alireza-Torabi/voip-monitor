@@ -103,3 +103,7 @@ Trunk reliability is now maintained as bounded in-memory operational state insid
 ## 2026-10-07 — Task 59 Endpoint Reliability
 
 Endpoint reliability is now bounded in-memory operational state inside TelephonyStateEngine. Accepted endpoint events and authoritative reconciliation snapshots classify endpoints ONLINE/OFFLINE/UNKNOWN, track last reachable/unreachable timestamps, active offline windows, bounded flap counts, and the latest 20 transitions. Provider visibility loss only marks endpoint synchronization stale and never creates synthetic offline state. Endpoints UI renders and ranks this state without new polling or persistence.
+
+## 2026-10-07 — Navigation hierarchy correction
+
+The UI now follows a single-navigation hierarchy: the persistent AppShell sidebar is the sole route/page navigation surface. Telephony and Settings no longer render secondary nested menus. All previously nested destinations remain accessible directly from the sidebar, while workspace-local selectors, filters, search, and actions remain inside content. This correction changes presentation/navigation only and does not alter backend or monitoring behavior.

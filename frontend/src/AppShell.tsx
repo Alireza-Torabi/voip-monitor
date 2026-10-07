@@ -40,6 +40,7 @@ type IconName =
   | 'overview'
   | 'pbx'
   | 'calls'
+  | 'channels'
   | 'trunks'
   | 'endpoints'
   | 'queues'
@@ -61,6 +62,14 @@ function NavIcon({ name }: { name: IconName }) {
     ),
     calls: (
       <path d="M7.4 3.6 10 8l-2.1 2.1a15.5 15.5 0 0 0 6 6L16 14l4.4 2.6-.7 3.1c-.2.8-.9 1.3-1.7 1.3C9.7 21 3 14.3 3 6c0-.8.5-1.5 1.3-1.7Z" />
+    ),
+    channels: (
+      <>
+        <path d="M4 7h16M4 12h16M4 17h16" />
+        <circle cx="7" cy="7" r="1" />
+        <circle cx="15" cy="12" r="1" />
+        <circle cx="10" cy="17" r="1" />
+      </>
     ),
     trunks: (
       <>
@@ -220,6 +229,11 @@ export function AppShell({
       destination: { workspace: 'telephony', page: 'calls' },
     },
     {
+      icon: 'channels',
+      label: fa ? 'Channelها' : 'Channels',
+      destination: { workspace: 'telephony', page: 'channels' },
+    },
+    {
       icon: 'trunks',
       label: fa ? 'Trunkها' : 'Trunks',
       destination: { workspace: 'telephony', page: 'trunks' },
@@ -245,9 +259,14 @@ export function AppShell({
       destination: { workspace: 'history' },
     },
     {
-      icon: 'security',
-      label: fa ? 'امنیت' : 'Security',
-      destination: { workspace: 'settings', page: 'security' },
+      icon: 'pbx',
+      label: fa ? 'تنظیمات PBX' : 'PBX Settings',
+      destination: { workspace: 'settings', page: 'pbx' },
+    },
+    {
+      icon: 'settings',
+      label: fa ? 'منبع داده' : 'Data Source',
+      destination: { workspace: 'settings', page: 'database-source' },
     },
     {
       icon: 'infra',
@@ -255,8 +274,23 @@ export function AppShell({
       destination: { workspace: 'settings', page: 'ssh-metrics' },
     },
     {
+      icon: 'infra',
+      label: fa ? 'مانیتورینگ سرویس' : 'Service Monitoring',
+      destination: { workspace: 'settings', page: 'service-monitoring' },
+    },
+    {
       icon: 'settings',
-      label: fa ? 'تنظیمات' : 'Settings',
+      label: fa ? 'ذخیره‌سازی داشبورد' : 'Dashboard Storage',
+      destination: { workspace: 'settings', page: 'storage' },
+    },
+    {
+      icon: 'security',
+      label: fa ? 'امنیت' : 'Security',
+      destination: { workspace: 'settings', page: 'security' },
+    },
+    {
+      icon: 'settings',
+      label: fa ? 'حساب‌های کاربری' : 'Accounts',
       destination: { workspace: 'settings', page: 'accounts' },
     },
   ];

@@ -1032,3 +1032,27 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 - license check PASS.
 - git diff check PASS.
 - Existing Chakra/Ark/Zag/Rolldown module-level `use client` warnings remain non-fatal and unchanged in nature.
+
+## 2026-10-07 — UI navigation deduplication before Task 60
+
+- **Issue:** the approved persistent sidebar was followed by a second Telephony navigation bar and a second Settings navigation rail inside page content. Operators saw duplicate/nested navigation with different labels around the same workspace surface.
+- **Resolution:** the persistent application sidebar is now the single navigation owner. The in-content Telephony page switcher and Settings navigation rail were removed.
+- **Reachability preserved:** Channels and all settings destinations that previously depended on nested navigation are now first-class sidebar destinations: PBX Settings, Data Source, Infrastructure/SSH Metrics, Service Monitoring, Dashboard Storage, Security, and Accounts.
+- **Page chrome simplified:** Settings no longer adds a generic Settings heading above the selected workspace header. Each workspace owns exactly one title/header plus its operational toolbar/filter surface.
+- **Non-navigation controls preserved:** PBX selectors, search, filters, status pills, forms, and action toolbars remain inside their workspaces because they operate on the current page rather than navigate to another page.
+- **Regression:** frontend suite remains 30/30; shell coverage asserts the newly reachable sidebar destinations and the absence of the old nested navigation markers.
+- **Task sequencing:** this is a UX correction on top of the merged Task 59 baseline. Task 60 remains the next roadmap task after this fix merges.
+
+### UI navigation deduplication final validation
+
+- Node v24.21.0 / npm 11.19.0.
+- lint PASS.
+- format check PASS.
+- typecheck PASS.
+- backend tests 172/172 PASS.
+- frontend tests 30/30 PASS.
+- production build PASS.
+- foundation check PASS.
+- license check PASS.
+- git diff check PASS.
+- Existing Chakra/Ark/Zag/Rolldown module-level `use client` warnings remain non-fatal and unchanged in nature.

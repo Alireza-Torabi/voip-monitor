@@ -139,3 +139,7 @@ TelephonyStateEngine now owns a per-trunk bounded reliability tracker separate f
 ## Task 59 Endpoint Reliability architecture
 
 TelephonyStateEngine now owns a per-endpoint bounded reliability tracker alongside normalized endpoint state. It consumes only accepted `ENDPOINT_STATUS_CHANGED` events and authoritative endpoint reconciliation snapshots. Reachability is the primary availability signal, with registration used only as fallback when reachability is unknown. The tracker stores last reachable/unreachable timestamps, active offline start, bounded flap count, and a rolling 20-transition journal. Provider connection loss modifies synchronization only. Public TelephonyInstanceState embeds the bounded endpoint reliability view; the browser derives active offline duration locally and ranks problematic endpoints first.
+
+## Single-navigation shell rule
+
+AppShell owns all route/page destinations. Workspace components may expose scope controls, filters, search, status, and actions, but must not render a second route-navigation system. Telephony pages and Settings pages are selected through AppShell state and each selected workspace renders directly with its own single header.
