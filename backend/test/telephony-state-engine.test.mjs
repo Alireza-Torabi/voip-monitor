@@ -1347,6 +1347,73 @@ test('trunk reliability tracks bounded real transitions without treating provide
   engine.stop();
 });
 
+test('authoritative reconciliation removes deleted trunks and prunes their reliability state', () => {
+  const source = new FakeStateSource();
+  const engine = new TelephonyStateEngine(source);
+  engine.start();
+  source.snapshot(
+    snapshot({
+      trunkState: {
+        capability: 'SUPPORTED',
+        observedAt: '2026-10-07T07:00:00.000Z',
+        streamGeneration: 1,
+        streamStartedSequence: 0,
+        trunks: [
+          {
+            trunkId: 'PJSIP/deleted-carrier',
+            kind: 'OUTBOUND_REGISTRATION',
+            technology: 'PJSIP',
+            confidence: 'CONFIRMED',
+            registrationState: 'REGISTERED',
+            streamSequence: 1,
+          },
+        ],
+      },
+    }),
+  );
+  assert.equal(engine.current('pbx-1').trunks.length, 1);
+
+  source.snapshot(
+    snapshot({
+      observedAt: '2026-10-07T07:00:15.000Z',
+      trunkState: {
+        capability: 'SUPPORTED',
+        observedAt: '2026-10-07T07:00:15.000Z',
+        streamGeneration: 1,
+        streamStartedSequence: 1,
+        trunks: [],
+      },
+    }),
+  );
+  assert.deepEqual(engine.current('pbx-1').trunks, []);
+
+  source.snapshot(
+    snapshot({
+      observedAt: '2026-10-07T07:00:30.000Z',
+      trunkState: {
+        capability: 'SUPPORTED',
+        observedAt: '2026-10-07T07:00:30.000Z',
+        streamGeneration: 1,
+        streamStartedSequence: 1,
+        trunks: [
+          {
+            trunkId: 'PJSIP/deleted-carrier',
+            kind: 'OUTBOUND_REGISTRATION',
+            technology: 'PJSIP',
+            confidence: 'CONFIRMED',
+            registrationState: 'REGISTERED',
+            streamSequence: 2,
+          },
+        ],
+      },
+    }),
+  );
+  const trunk = engine.current('pbx-1').trunks[0];
+  assert.equal(trunk.reliability.flapCount, 0);
+  assert.deepEqual(trunk.reliability.recentTransitions, []);
+  engine.stop();
+});
+
 test('endpoint reliability tracks bounded offline transitions without treating provider visibility loss as offline', () => {
   const source = new FakeStateSource();
   const engine = new TelephonyStateEngine(source);

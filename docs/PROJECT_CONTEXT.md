@@ -111,3 +111,7 @@ The UI now follows a single-navigation hierarchy: the persistent AppShell sideba
 ## 2026-10-07 — UX/security correction after Task 59
 
 The primary navigation is now a compact three-choice shell: Overview, Operations, and Settings, with only one level of expandable children and one group open at a time. Infrastructure lives under Settings. SSH configuration is verified by the backend before persistence: pinned host key and authentication must both succeed, and verified provenance is recorded in `ssh_config.last_verified_at`; legacy configs remain UNVERIFIED. Telephony frontend rendering now includes a compatibility path for older responses missing reliability metadata, preventing blank Trunks/Endpoints pages during temporary frontend/backend version skew. Production deployment must rebuild and restart frontend/backend as one merged release.
+
+## 2026-10-07 — Live update resilience
+
+Telephony remains AMI-event driven through TelephonyStateEngine and SSE. Dashboard and Telephony workspaces now also refresh the current in-memory telephony state every 10 seconds as a fallback and immediately on SSE error. Provider reconciliation defaults to 15 seconds so authoritative snapshots remove stale inventory such as PBX-side deleted trunks/endpoints, and reliability maps are pruned with deleted entities. Production must restart the merged backend together with frontend assets to avoid version skew.

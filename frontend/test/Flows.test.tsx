@@ -1080,6 +1080,80 @@ describe('telephony entity workspace', () => {
     expect(container.textContent).toContain('DOWN');
     expect(container.textContent).toContain('UNREGISTERED');
   });
+
+  it('refreshes current telephony state when SSE is silent', async () => {
+    vi.useFakeTimers();
+    try {
+      class FakeEventSource {
+        onopen: (() => void) | null = null;
+        onerror: (() => void) | null = null;
+        addEventListener() {}
+        close() {}
+        constructor(readonly url: string) {}
+      }
+      vi.stubGlobal('EventSource', FakeEventSource);
+      let reads = 0;
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (path: string) => {
+          if (path !== '/api/pbx-instances/entity-pbx/telephony-state')
+            throw new Error('unexpected API route: ' + path);
+          reads += 1;
+          return response({
+            current: {
+              instanceId: 'entity-pbx',
+              revision: reads,
+              synchronization: 'CURRENT',
+              channels: [],
+              calls:
+                reads === 1
+                  ? []
+                  : [
+                      {
+                        callId: 'call-live',
+                        channelIds: ['c1'],
+                        bridgeIds: [],
+                        updatedAt: '2026-10-07T07:00:10.000Z',
+                      },
+                    ],
+              endpointCapability: 'SUPPORTED',
+              endpointSynchronization: 'CURRENT',
+              endpoints: [],
+              trunkCapability: 'SUPPORTED',
+              trunkSynchronization: 'CURRENT',
+              trunks: [],
+              queueCapability: 'SUPPORTED',
+              queueSynchronization: 'CURRENT',
+              queues: [],
+              queueMembers: [],
+              queueCallers: [],
+              agentCapability: 'SUPPORTED',
+              agentSynchronization: 'LIVE_ONLY',
+              agentInteractions: [],
+            },
+          });
+        }),
+      );
+      await act(async () =>
+        root.render(
+          <TelephonyWorkspace
+            text={messages.en}
+            profiles={[profile]}
+            page="calls"
+            onUnauthorized={() => {}}
+          />,
+        ),
+      );
+      expect(container.textContent).not.toContain('call-live');
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10_000);
+      });
+      expect(container.textContent).toContain('call-live');
+      expect(reads).toBeGreaterThanOrEqual(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe('read-only database source workspace', () => {
