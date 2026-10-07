@@ -34,6 +34,7 @@ import type { SecurityEvent } from '@voip-monitor/shared';
 import type { ProviderRuntimeSecurityEventListener } from './providers/runtime/index.js';
 import type { TelephonyInstanceState, TelephonyStateEngine } from './telephony/state-engine.js';
 import { buildOperationalHealthSnapshot } from './operational-health.js';
+import { buildFleetOverviewSnapshot } from './fleet-overview.js';
 
 function send(response: ServerResponse, status: number, data: object, cookie?: string): void {
   response.writeHead(status, {
@@ -443,6 +444,23 @@ export function createApp(
         return updated
           ? send(response, 200, updated)
           : send(response, 409, { error: 'account_update_rejected' });
+      }
+
+      if (path === '/api/fleet-overview') {
+        if (!auth || !storage || !onboarding || !auth.principal(sessionToken(request)))
+          return send(response, 401, { error: 'unauthorized' });
+        if (request.method !== 'GET') return send(response, 404, { error: 'not_found' });
+        return send(
+          response,
+          200,
+          buildFleetOverviewSnapshot({
+            profiles: onboarding.list(),
+            storage,
+            ...(runtime ? { runtime } : {}),
+            ...(telephonyState ? { telephonyState } : {}),
+            ...(systemMetrics ? { systemMetrics } : {}),
+          }),
+        );
       }
 
       const operationalHealthAction = path.match(

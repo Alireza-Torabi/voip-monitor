@@ -14,6 +14,7 @@ import { ServiceMonitoringWorkspace } from '../src/ServiceMonitoringWorkspace.js
 import { AccountsWorkspace } from '../src/AccountsWorkspace.js';
 import { OperatorDashboard } from '../src/OperatorDashboard.js';
 import { TelephonyWorkspace } from '../src/TelephonyWorkspace.js';
+import { FleetOverviewWorkspace } from '../src/FleetOverviewWorkspace.js';
 import { messages } from '../src/i18n.js';
 import { nocSystem } from '../src/theme.js';
 
@@ -1458,5 +1459,74 @@ describe('account management settings', () => {
 
     expect(createBodies).toEqual([{ username: 'UI-Test', password }]);
     expect(container.textContent).not.toContain(password);
+  });
+});
+
+describe('fleet overview', () => {
+  it('renders cross-PBX health and drills into the selected PBX', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string) => {
+        if (path === '/api/fleet-overview')
+          return response({
+            observedAt: '2026-10-07T01:00:00.000Z',
+            healthCounts: { HEALTHY: 1, DEGRADED: 0, CRITICAL: 1, UNKNOWN: 0, STALE: 0 },
+            totalPbx: 2,
+            activeCalls: 3,
+            trunkFailures: 1,
+            endpointFailures: 2,
+            waitingCallers: 4,
+            criticalAlerts: 1,
+            items: [
+              {
+                instanceId: 'critical-id',
+                displayName: 'Critical PBX',
+                enabled: true,
+                health: { instanceId: 'critical-id', overall: 'CRITICAL', components: {} },
+                activeCalls: 2,
+                trunkFailures: 1,
+                endpointFailures: 2,
+                waitingCallers: 4,
+                criticalAlerts: 1,
+              },
+              {
+                instanceId: 'healthy-id',
+                displayName: 'Healthy PBX',
+                enabled: true,
+                health: { instanceId: 'healthy-id', overall: 'HEALTHY', components: {} },
+                activeCalls: 1,
+                trunkFailures: 0,
+                endpointFailures: 0,
+                waitingCallers: 0,
+                criticalAlerts: 0,
+              },
+            ],
+          });
+        return response({}, 404);
+      }),
+    );
+    const opened: string[] = [];
+    await act(async () => {
+      root.render(
+        <FleetOverviewWorkspace
+          text={messages.en}
+          onUnauthorized={() => {}}
+          onOpenPbx={(id) => opened.push(id)}
+        />,
+      );
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(container.textContent).toContain('PBX Fleet');
+    expect(container.textContent).toContain('Critical PBX');
+    expect(container.textContent).toContain('Healthy PBX');
+    expect(container.textContent).toContain('Trunk failures');
+    const open = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent === 'Open PBX',
+    );
+    await act(async () => open?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    expect(opened).toEqual(['critical-id']);
   });
 });

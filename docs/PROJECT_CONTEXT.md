@@ -91,3 +91,7 @@ The approved NOC interface now has a dedicated wallboard mode distinct from gene
 ## 2026-10-07 — Task 56 unified operational health
 
 Operational health semantics now have one shared provider-neutral owner. The shared evaluator normalizes provider, telephony, trunk, endpoint, queue, system, security, and future call-quality dimensions into HEALTHY/DEGRADED/CRITICAL/UNKNOWN/STALE with bounded reason codes. Backend exposes a read-only PBX-scoped snapshot from current state only; frontend realtime presentation uses the same evaluator. UNKNOWN capabilities do not become false incidents, while STALE explicitly represents confidence loss. No monitoring probe, persistence, or PBX behavior was added.
+
+## 2026-10-07 — Task 57 Fleet Overview
+
+PBX Fleet is now a dedicated operational workspace. A single authenticated read-only aggregate endpoint combines only already-current provider/telephony/system/security state and the Task 56 canonical health snapshot for each configured PBX. The frontend refreshes this aggregate state at a bounded 15-second cadence, sorts unhealthy PBXs first, and supports direct drill-down into the existing selected-PBX Operator Overview. PBX configuration remains in Settings and no duplicate monitoring persistence or new PBX work was introduced.

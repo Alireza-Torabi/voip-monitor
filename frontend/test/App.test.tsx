@@ -49,6 +49,7 @@ describe('bilingual onboarding shell', () => {
     expect(html).toContain('href="#main-content"');
     expect(html).toContain('id="main-content"');
     expect(html).toContain('Overview');
+    expect(html).toContain('PBX Fleet');
     expect(html).toContain('Live Calls');
     expect(html).toContain('Infrastructure');
     expect(html).toContain('Call History');

@@ -495,3 +495,5 @@ export interface PbxProvider {
 }
 
 export * from './operational-health.js';
+
+export * from './fleet-overview.js';
