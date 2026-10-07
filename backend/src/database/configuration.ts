@@ -27,7 +27,7 @@ function boundedText(maxLength: number) {
     );
 }
 
-const configurationSchema = z.strictObject({
+export const configurationSchema = z.strictObject({
   dialect: z.enum(['MYSQL_MARIADB', 'POSTGRESQL']),
   host: z.string().refine(validHostSyntax),
   port: z.number().int().min(1).max(65535),
@@ -44,6 +44,16 @@ const configurationSchema = z.strictObject({
 export type SafeDatabaseSourceConfiguration = DatabaseSourceConfigRecord & {
   hasCredential: boolean;
 };
+
+export type DatabaseSourceConfigurationInput = z.infer<typeof configurationSchema>;
+
+export function parseDatabaseSourceConfigurationInput(
+  input: unknown,
+): DatabaseSourceConfigurationInput {
+  const parsed = configurationSchema.safeParse(input);
+  if (!parsed.success) throw new DatabaseSourceConfigurationError('INVALID_INPUT');
+  return parsed.data;
+}
 
 export class DatabaseSourceConfigurationError extends Error {
   constructor(readonly code: 'INVALID_INPUT' | 'PBX_NOT_FOUND') {
@@ -72,27 +82,26 @@ export class DatabaseSourceConfigurationService {
       throw new DatabaseSourceConfigurationError('PBX_NOT_FOUND');
     }
 
-    const parsed = configurationSchema.safeParse(input);
-    if (!parsed.success) throw new DatabaseSourceConfigurationError('INVALID_INPUT');
+    const parsed = parseDatabaseSourceConfigurationInput(input);
 
     const previous = this.storage.databaseSourceConfigs.get(pbxInstanceId);
     const now = new Date().toISOString();
     const record: DatabaseSourceConfigRecord = {
       pbxInstanceId,
-      dialect: parsed.data.dialect,
-      host: parsed.data.host,
-      port: parsed.data.port,
-      databaseName: parsed.data.databaseName,
-      username: parsed.data.username,
+      dialect: parsed.dialect,
+      host: parsed.host,
+      port: parsed.port,
+      databaseName: parsed.databaseName,
+      username: parsed.username,
       accessMode: ACCESS_MODE,
-      tlsMode: parsed.data.tlsMode,
+      tlsMode: parsed.tlsMode,
       createdAt: previous?.createdAt ?? now,
       updatedAt: now,
     };
 
     return this.storage.transaction(() => {
       this.storage.databaseSourceConfigs.put(record);
-      const plaintext = Buffer.from(parsed.data.credential, 'utf8');
+      const plaintext = Buffer.from(parsed.credential, 'utf8');
       try {
         this.secrets.putSecret(pbxInstanceId, DATABASE_PASSWORD_SECRET, plaintext);
       } finally {

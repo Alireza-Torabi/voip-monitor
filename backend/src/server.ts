@@ -25,6 +25,7 @@ import {
   type AsteriskConventionalSqlHistoryAdapter,
 } from './database/source-schema.js';
 import { DatabaseQueryError } from './database/query.js';
+import type { DatabaseSourceVerifier } from './database/verification.js';
 import { ProviderRuntimeError, type ProviderRuntimeManager } from './providers/runtime/index.js';
 import type {
   SystemMetricsHealthListener,
@@ -345,6 +346,7 @@ export function createApp(
   databaseSourceConfiguration?: DatabaseSourceConfigurationService,
   historicalSource?: AsteriskConventionalSqlHistoryAdapter,
   sshVerifier?: SshConnectionVerifier,
+  databaseSourceVerifier?: DatabaseSourceVerifier,
 ): Server {
   const limiter = new AttemptLimiter();
   const metricsStreams = new Set<ServerResponse>();
@@ -860,11 +862,23 @@ export function createApp(
           }
           const input = await body(request);
           if (!input) return send(response, 400, { error: 'invalid_request' });
+          if (!databaseSourceVerifier)
+            return send(response, 503, { error: 'database_verifier_unavailable' });
+          await databaseSourceVerifier.verify(input);
           return send(response, 200, databaseSourceConfiguration.configure(id, input));
         } catch (error) {
-          if (!(error instanceof DatabaseSourceConfigurationError)) throw error;
-          if (error.code === 'PBX_NOT_FOUND') return send(response, 404, { error: 'not_found' });
-          return send(response, 400, { error: 'invalid_request' });
+          if (error instanceof DatabaseSourceConfigurationError) {
+            if (error.code === 'PBX_NOT_FOUND') return send(response, 404, { error: 'not_found' });
+            return send(response, 400, { error: 'invalid_request' });
+          }
+          if (error instanceof DatabaseQueryError) {
+            if (error.code === 'TIMEOUT')
+              return send(response, 504, { error: 'database_verification_timeout' });
+            if (error.code === 'PERMISSION_DENIED')
+              return send(response, 502, { error: 'database_permission_denied' });
+            return send(response, 502, { error: 'database_verification_failed' });
+          }
+          throw error;
         }
       }
 

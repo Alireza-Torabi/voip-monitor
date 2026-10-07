@@ -775,3 +775,6 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 379. **Aggregate at the source:** totals and average duration are computed in one read-only SQL aggregate query. The application must not derive product analytics from only the latest 200 history rows because that would silently skew totals.
 380. **Unknown disposition is a first-class accounting bucket:** normalized known outcomes are ANSWERED, NO_ANSWER, BUSY, and FAILED; all remaining rows contribute to UNKNOWN so known categories plus unknown always reconcile to total.
 381. **Answer ratio denominator is all calls in range:** `answered / total * 100`; an empty range returns zero instead of NaN.
+
+382. **Database source writes are verify-before-persist:** submitted database metadata and credential must pass one bounded read-only connection/query verification before replacing the stored configuration. Verification failure is side-effect free.
+383. **Connection verification is intentionally minimal:** the verifier proves network/TLS/auth/database selection and read-only query execution with a fixed bounded `SELECT 1`; dataset/schema support remains the responsibility of the existing source-schema inspection path.

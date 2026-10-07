@@ -1205,3 +1205,16 @@ Lint، Format، Typecheck، Backend Test برابر 179/179، Frontend Test بر
 - **Exact Next Task:** Task 61 — Call Quality Source Discovery.
 
 </div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-07 — اصلاح Verify-before-save برای Database Source
+
+- **مشکل:** Database Source قبلاً فقط بعد از Syntax Validation، Metadata و Credential را ذخیره می‌کرد. بنابراین Password، Database Name، TLS Policy، Host یا Port اشتباه می‌توانست به‌صورت `CONFIGURED` نمایش داده شود و خرابی فقط هنگام باز کردن History مشخص شود.
+- **اصلاح:** Endpoint مربوط به Database Source اکنون قبل از هر Persist، Candidate واردشده را با یک اتصال محدود و فقط‌خواندنی Verify می‌کند. Verification از همان Network Target Policy و Dialect Adapterهای History استفاده می‌کند، Database واردشده را باز می‌کند، Read-only Transaction می‌سازد و فقط یک Query ثابت و محدود `SELECT 1` اجرا می‌کند.
+- **ایمنی Failure:** Timeout، Connection Failure، Permission Failure یا Query Failure باعث ذخیره‌شدن Config جدید نمی‌شود و Metadata و Credential رمزنگاری‌شده قبلی بدون تغییر باقی می‌مانند.
+- **UI:** دکمه به `Verify & Save` تغییر کرد و متن قدیمی که می‌گفت Save اتصال را تست نمی‌کند حذف شد. پیام‌های Operator برای Timeout و Permission از Failure عمومی Verification تفکیک شده‌اند.
+- **Security:** Credential همچنان Write-only است و Buffer مربوط به Verifier بعد از استفاده Zero می‌شود. Raw Driver Error به Browser برنمی‌گردد.
+- **Regression:** تست Backend تضمین می‌کند Verification ناموفق Config/Credential قبلی را عوض نمی‌کند؛ تست Unit Verifier Target واردشده و Query ثابت محدود را پوشش می‌دهد؛ تست Frontend متن Verify-before-save را بررسی می‌کند.
+
+</div>

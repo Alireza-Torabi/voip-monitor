@@ -1192,3 +1192,13 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 - **UI:** Call History now contains a bilingual Call Outcome Analytics surface with bounded range selection and explicit operator-triggered analysis. Results show Total, Answered, No answer, Busy, Failed, Unknown, Answer ratio, and Average duration.
 - **Regression coverage:** synthetic MySQL/MariaDB and PostgreSQL tests verify source-clock range SQL and aggregate normalization; API coverage verifies authentication and invalid-range rejection; frontend coverage verifies rendered analytics. No real PBX/database compatibility probe was performed as part of implementation.
 - **Exact next task:** Task 61 — Call Quality Source Discovery.
+
+
+## 2026-10-07 — Database source verify-before-save correction
+
+- **Problem:** database-source configuration previously persisted metadata and the write-only credential after syntax validation only. An incorrect password, database name, TLS policy, host, or port could therefore appear `CONFIGURED` and fail only when History was opened.
+- **Resolution:** database-source PUT now performs a bounded read-only connection verification with the submitted candidate before any metadata or credential is persisted. The verification uses the same network target policy and dialect adapters as historical reads, opens the submitted database, starts a read-only transaction, and executes only a fixed bounded `SELECT 1` query.
+- **Failure safety:** verification timeout/connection/permission/query failure returns a bounded error and leaves the previous database metadata and encrypted credential unchanged.
+- **UI:** the action is now `Verify & Save`; the old message stating that Save does not test connectivity was removed. Operator-facing messages distinguish timeout and permission failures from general verification failure.
+- **Security:** credentials remain write-only and are zeroed from the verifier buffer after use. No raw driver error is returned to the browser.
+- **Regression:** backend coverage verifies failed candidate verification cannot replace existing metadata or credential; verifier unit coverage confirms the submitted target and fixed bounded query; frontend coverage confirms the new verify-before-save copy.

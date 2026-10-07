@@ -177,7 +177,14 @@ test('database source removal deletes only its credential and PBX deletion casca
     );
   }));
 
-async function serveApi(storage, secrets, auth, databaseSourceConfiguration, historicalSource) {
+async function serveApi(
+  storage,
+  secrets,
+  auth,
+  databaseSourceConfiguration,
+  historicalSource,
+  databaseSourceVerifier = { verify: async () => undefined },
+) {
   const server = createApp(
     storage,
     secrets,
@@ -188,6 +195,8 @@ async function serveApi(storage, secrets, auth, databaseSourceConfiguration, his
     undefined,
     databaseSourceConfiguration,
     historicalSource,
+    undefined,
+    databaseSourceVerifier,
   );
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
@@ -358,6 +367,45 @@ test('source-backed history API is authenticated and bounded without raw SQL exp
           })
         ).status,
         404,
+      );
+    } finally {
+      await app.close();
+    }
+  }));
+
+test('database source API verifies before persistence and preserves prior config on failure', async () =>
+  fixture(async ({ config, storage, secrets, auth }) => {
+    const service = new DatabaseSourceConfigurationService(storage, secrets);
+    service.configure(PBX_ID, databaseConfiguration());
+    const before = service.get(PBX_ID);
+    const beforeCredential = secrets
+      .getSecret(PBX_ID, DATABASE_SOURCE_SECRET_NAMES.passwordCredential)
+      .toString();
+    const verifier = {
+      verify: async () => {
+        const { DatabaseQueryError } = await import('../dist/database/query.js');
+        throw new DatabaseQueryError('CONNECTION_FAILED');
+      },
+    };
+    const app = await serveApi(storage, secrets, auth, service, undefined, verifier);
+    try {
+      const cookie = await login(app.base, config);
+      const response = await fetch(app.base + '/api/pbx-instances/' + PBX_ID + '/database-source', {
+        method: 'PUT',
+        headers: { cookie, origin: app.base, 'content-type': 'application/json' },
+        body: JSON.stringify(
+          databaseConfiguration({
+            host: 'new-db.example.test',
+            credential: 'synthetic-invalid-value',
+          }),
+        ),
+      });
+      assert.equal(response.status, 502);
+      assert.equal((await response.json()).error, 'database_verification_failed');
+      assert.deepEqual(service.get(PBX_ID), before);
+      assert.equal(
+        secrets.getSecret(PBX_ID, DATABASE_SOURCE_SECRET_NAMES.passwordCredential).toString(),
+        beforeCredential,
       );
     } finally {
       await app.close();

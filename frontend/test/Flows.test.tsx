@@ -1224,7 +1224,9 @@ describe('read-only database source workspace', () => {
 
     expect(container.textContent).toContain('Read-only database source configuration saved.');
     expect(input('database-credential').value).toBe('');
-    expect(container.textContent).toContain('Read-only source; saving does not test connectivity');
+    expect(container.textContent).toContain('Verify before save');
+    expect(container.textContent).toContain('Verify & Save');
+    expect(container.textContent).not.toContain('saving does not test connectivity');
     expect(container.textContent).not.toContain('synthetic-database-password');
   });
 });

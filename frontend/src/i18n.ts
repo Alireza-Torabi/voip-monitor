@@ -370,9 +370,18 @@ export const messages = {
     databaseSourceDatabaseName: 'Database name',
     databaseSourceUsername: 'Database username',
     databaseSourcePassword: 'Database password',
-    databaseSourceReadOnlyTitle: 'Read-only source; saving does not test connectivity',
-    databaseSourceReadOnlyHint:
-      'Saving changes configuration only. The internal query transport is bounded and read-only, but no public database test or historical-query action is exposed here.',
+    databaseSourceReadOnlyTitle: 'Read-only source',
+    databaseSourceReadOnlyHint: 'The internal database transport remains bounded and read-only.',
+    databaseSourceVerifyBeforeSaveTitle: 'Verify before save',
+    databaseSourceVerifyBeforeSaveHint:
+      'Verify & Save opens a bounded read-only connection with the submitted host, database, username, password and TLS policy. Configuration is persisted only after verification succeeds.',
+    databaseSourceVerifyAndSave: 'Verify & Save',
+    databaseSourceVerificationFailed:
+      'Database verification failed. Check host, port, database name, username, password and TLS policy. The previous configuration was not changed.',
+    databaseSourceVerificationTimeout:
+      'Database verification timed out. The previous configuration was not changed.',
+    databaseSourcePermissionDenied:
+      'Database verification was denied by the source. Check the read-only account permissions. The previous configuration was not changed.',
     databaseSourceSave: 'Save database source',
     databaseSourceRemove: 'Remove database source',
     databaseSourceSaved: 'Read-only database source configuration saved.',
@@ -822,10 +831,18 @@ export const messages = {
     databaseSourceDatabaseName: 'Database Name',
     databaseSourceUsername: 'Database Username',
     databaseSourcePassword: 'Database Password',
-    databaseSourceReadOnlyTitle:
-      'Source فقط‌خواندنی است و Save کردن Connectivity Test انجام نمی‌دهد',
-    databaseSourceReadOnlyHint:
-      'Save فقط Configuration را تغییر می‌دهد. Query Transport داخلی محدود و Read-only است، اما در این بخش هیچ Public Database Test یا Historical-query Action ارائه نمی‌شود.',
+    databaseSourceReadOnlyTitle: 'Source فقط‌خواندنی است',
+    databaseSourceReadOnlyHint: 'Database Transport داخلی همچنان محدود و Read-only باقی می‌ماند.',
+    databaseSourceVerifyBeforeSaveTitle: 'Verification قبل از Save',
+    databaseSourceVerifyBeforeSaveHint:
+      'دکمه Verify & Save با Host، Database، Username، Password و TLS Policy واردشده یک اتصال محدود و فقط‌خواندنی برقرار می‌کند و فقط بعد از موفقیت Verification، Configuration ذخیره می‌شود.',
+    databaseSourceVerifyAndSave: 'Verify & Save',
+    databaseSourceVerificationFailed:
+      'Database Verification ناموفق بود. Host، Port، Database Name، Username، Password و TLS Policy را بررسی کنید. Configuration قبلی تغییر نکرد.',
+    databaseSourceVerificationTimeout:
+      'Database Verification Timeout شد و Configuration قبلی تغییر نکرد.',
+    databaseSourcePermissionDenied:
+      'Database Source اجازه Verification نداد. Permissionهای حساب فقط‌خواندنی را بررسی کنید. Configuration قبلی تغییر نکرد.',
     databaseSourceSave: 'ذخیره Database Source',
     databaseSourceRemove: 'حذف Database Source',
     databaseSourceSaved: 'پیکربندی Database Source فقط‌خواندنی ذخیره شد.',

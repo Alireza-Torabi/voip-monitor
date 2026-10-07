@@ -8,6 +8,7 @@ import { SshConfigurationService } from './ssh/configuration.js';
 import { Ssh2ConnectionVerifier } from './ssh/verification.js';
 import { DatabaseSourceConfigurationService } from './database/configuration.js';
 import { ReadOnlyDatabaseTransport } from './database/transport.js';
+import { ReadOnlyDatabaseSourceVerifier } from './database/verification.js';
 import { NodeDatabaseAddressResolver } from './database/resolver.js';
 import { AsteriskConventionalSqlHistoryAdapter } from './database/source-schema.js';
 import {
@@ -69,11 +70,13 @@ if (config) {
           storage,
           secrets,
         );
+        const databaseResolver = new NodeDatabaseAddressResolver();
         const databaseTransport = new ReadOnlyDatabaseTransport({
           configuration: databaseSourceConfiguration,
           secrets,
-          resolver: new NodeDatabaseAddressResolver(),
+          resolver: databaseResolver,
         });
+        const databaseSourceVerifier = new ReadOnlyDatabaseSourceVerifier(databaseResolver);
         const historicalSource = new AsteriskConventionalSqlHistoryAdapter({
           configuration: databaseSourceConfiguration,
           transport: databaseTransport,
@@ -111,6 +114,7 @@ if (config) {
           databaseSourceConfiguration,
           historicalSource,
           sshVerifier,
+          databaseSourceVerifier,
         );
         server.on('error', () => {
           log('error', 'server_error');
