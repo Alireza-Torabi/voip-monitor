@@ -15,7 +15,7 @@ export interface FleetOverviewItem {
   health: OperationalHealthSnapshot;
   activeCalls: number;
   trunkFailures: number;
-  endpointFailures: number;
+  unreachableEndpoints: number;
   waitingCallers: number;
   criticalAlerts: number;
   lastTelephonyUpdate?: string;
@@ -27,7 +27,7 @@ export interface FleetOverviewSnapshot {
   totalPbx: number;
   activeCalls: number;
   trunkFailures: number;
-  endpointFailures: number;
+  unreachableEndpoints: number;
   waitingCallers: number;
   criticalAlerts: number;
   items: FleetOverviewItem[];

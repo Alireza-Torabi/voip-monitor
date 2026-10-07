@@ -1103,3 +1103,19 @@ Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check،
 - **Roadmap:** Task 60 تا Merge و Deploy این Hotfix همچنان Pending است.
 
 </div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-07 — اصلاح Visualization در Overview و Semantics مربوط به Endpoint
+
+- **Storage:** در Overview برای هر Filesystem/Storage انتخاب‌شده Gauge نیم‌دایره نمایش داده می‌شود که درصد مصرف فعلی و ظرفیت Used/Total را نشان می‌دهد. انتخاب Storage همچنان از Dashboard Storage Configuration موجود می‌آید.
+- **CPU/RAM:** CPU و Memory اکنون هرکدام Time Series مستقل بر اساس History محدود و موجود System Metrics دارند و درصد Current کنار نمودار نمایش داده می‌شود. Dependency یا Collector جدیدی اضافه نشده است.
+- **Endpoint KPI:** عدد بزرگ Endpoint در Overview اکنون تعداد `REACHABLE` است و Total Endpoint به‌صورت متن ثانویه زیر آن نمایش داده می‌شود. تعداد Unreachable فقط Statistic اطلاعاتی است.
+- **Semantics:** Offline/Unreachable بودن Endpoint به‌تنهایی Incident محسوب نمی‌شود، چون Softphone یا دستگاه کاربر ممکن است خاموش یا Disconnect باشد. بنابراین اگر Endpoint Capability و Synchronization معتبر و Current باشند، مؤلفه ENDPOINTS بدون توجه به Reachability تک‌تک Endpointها HEALTHY است. از دست رفتن Capability یا Synchronization همچنان UNKNOWN/STALE باقی می‌ماند.
+- **Current Problems:** Endpointهای Unreachable دیگر Warning/Critical نمی‌سازند و Overall Health را Degrade نمی‌کنند.
+- **Fleet:** نام `endpointFailures` به `unreachableEndpoints` تغییر کرد. عدد همچنان به‌عنوان Statistic نمایش داده می‌شود ولی Failure/Incident محسوب نمی‌شود.
+- **Reliability:** Transition، Offline Duration، Flap و جزئیات Endpoint همچنان برای Observation و Troubleshooting باقی می‌مانند، اما خود Offline بودن مشکل عملیاتی تلقی نمی‌شود مگر اینکه بعداً Rule صریحی تعریف شود.
+- **Regression:** Backend اکنون 178/178 و Frontend برابر 34/34 PASS است و حالت همه Endpointها Unreachable ولی Health سالم، Time Series CPU/RAM، Storage Gauge و جابه‌جایی Reachable/Total پوشش داده شده‌اند.
+- **Roadmap:** بعد از Merge این Branch، Task 60 — Call Outcome Analytics همچنان Task بعدی است.
+
+</div>

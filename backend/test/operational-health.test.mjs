@@ -51,9 +51,18 @@ test('critical health outranks stale and degraded components', () => {
   const result = evaluateOperationalHealth(input);
   assert.equal(result.overall, 'CRITICAL');
   assert.equal(result.components.TRUNKS.state, 'CRITICAL');
-  assert.equal(result.components.ENDPOINTS.state, 'DEGRADED');
+  assert.equal(result.components.ENDPOINTS.state, 'HEALTHY');
   assert.equal(result.components.QUEUES.state, 'DEGRADED');
   assert.equal(result.components.SYSTEM.state, 'STALE');
+});
+
+test('unreachable endpoints are availability statistics and do not degrade operational health', () => {
+  const input = healthyInput();
+  input.telephony.endpoints = [{ reachability: 'UNREACHABLE' }, { reachability: 'UNREACHABLE' }];
+  const result = evaluateOperationalHealth(input);
+  assert.equal(result.components.ENDPOINTS.state, 'HEALTHY');
+  assert.deepEqual(result.components.ENDPOINTS.reasons, []);
+  assert.equal(result.overall, 'HEALTHY');
 });
 
 test('stale health outranks degraded when no component is critical', () => {

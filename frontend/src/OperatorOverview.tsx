@@ -57,6 +57,18 @@ function compactPercent(value: number | undefined) {
   return value === undefined ? '—' : value.toFixed(0) + '%';
 }
 
+function formatBytes(value: number | undefined) {
+  if (value === undefined || !Number.isFinite(value)) return '—';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let amount = Math.max(0, value);
+  let index = 0;
+  while (amount >= 1024 && index < units.length - 1) {
+    amount /= 1024;
+    index += 1;
+  }
+  return `${amount >= 100 || index === 0 ? amount.toFixed(0) : amount.toFixed(1)} ${units[index]}`;
+}
+
 function formatUptime(seconds: number | undefined) {
   if (seconds === undefined) return '—';
   const days = Math.floor(seconds / 86400);
@@ -133,97 +145,176 @@ function KpiCell({
   );
 }
 
-function MetricBar({
+function TimeSeries({
+  samples,
   label,
-  value,
-  detail,
+  valueFor,
+  current,
 }: {
+  samples: SystemMetricsSample[];
   label: string;
-  value: number | undefined;
-  detail?: string | undefined;
+  valueFor: (sample: SystemMetricsSample) => number | undefined;
+  current: number | undefined;
 }) {
-  const tone = percentTone(value);
-  const color = {
-    healthy: 'noc.healthy',
-    warning: 'noc.warning',
-    critical: 'noc.critical',
-    info: 'noc.info',
-    unknown: 'noc.unknown',
-  }[tone];
+  const values = useMemo(
+    () =>
+      [...samples]
+        .sort((a, b) => a.observedAt.localeCompare(b.observedAt))
+        .slice(-60)
+        .map((sample) => ({ observedAt: sample.observedAt, value: valueFor(sample) }))
+        .filter((item): item is { observedAt: string; value: number } => item.value !== undefined),
+    [samples, valueFor],
+  );
+  const points = values
+    .map((item, index) => {
+      const x = (index * 100) / Math.max(1, values.length - 1);
+      const y = 42 - (Math.max(0, Math.min(100, item.value)) * 36) / 100;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(' ');
   return (
-    <Box>
-      <Flex justify="space-between" align="baseline" gap="3">
-        <Text fontSize="12px" color="noc.textMuted">
+    <NocInset p="3" data-time-series={label}>
+      <Flex align="baseline" justify="space-between" gap="3">
+        <Text fontSize="11px" color="noc.textMuted" fontWeight="600">
           {label}
         </Text>
-        <Text fontSize="13px" color="noc.text" fontWeight="600" dir="ltr">
-          {compactPercent(value)}
+        <Text fontSize="18px" color="noc.text" fontWeight="700" dir="ltr">
+          {compactPercent(current)}
         </Text>
       </Flex>
-      <Box mt="2" h="6px" bg="noc.surface3" borderRadius="full" overflow="hidden">
-        <Box
-          h="full"
-          w={(value === undefined ? 0 : Math.max(2, Math.min(100, value))) + '%'}
-          bg={color}
-          borderRadius="full"
-        />
+      <Box h="68px" mt="2">
+        {values.length >= 2 ? (
+          <svg
+            viewBox="0 0 100 46"
+            width="100%"
+            height="68"
+            preserveAspectRatio="none"
+            role="img"
+            aria-label={label}
+          >
+            <path d="M0 42 H100" stroke="var(--chakra-colors-noc-border)" strokeWidth="1" />
+            <path
+              d="M0 24 H100"
+              stroke="var(--chakra-colors-noc-border)"
+              strokeWidth=".6"
+              opacity=".65"
+            />
+            <path
+              d="M0 6 H100"
+              stroke="var(--chakra-colors-noc-border)"
+              strokeWidth=".6"
+              opacity=".65"
+            />
+            <polyline
+              points={points}
+              fill="none"
+              stroke="var(--chakra-colors-noc-accent)"
+              strokeWidth="1.8"
+              vectorEffect="non-scaling-stroke"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        ) : (
+          <Flex h="full" align="center" justify="center">
+            <Text fontSize="11px" color="noc.textSubtle">
+              —
+            </Text>
+          </Flex>
+        )}
       </Box>
-      {detail ? (
-        <Text mt="1.5" fontSize="10px" color="noc.textSubtle" dir="ltr">
-          {detail}
+      <Flex justify="space-between" mt="1">
+        <Text fontSize="9px" color="noc.textSubtle">
+          0%
         </Text>
-      ) : null}
-    </Box>
+        <Text fontSize="9px" color="noc.textSubtle">
+          100%
+        </Text>
+      </Flex>
+    </NocInset>
   );
 }
 
-function MiniTrend({ samples, label }: { samples: SystemMetricsSample[]; label: string }) {
-  const points = useMemo(() => {
-    const usable = [...samples]
-      .sort((a, b) => a.observedAt.localeCompare(b.observedAt))
-      .slice(-40)
-      .map((sample) => sample.cpu?.utilizationPercent)
-      .filter((value): value is number => value !== undefined);
-    if (usable.length < 2) return '';
-    return usable
-      .map((value, index) => {
-        const x = (index * 100) / Math.max(1, usable.length - 1);
-        const y = 42 - (Math.max(0, Math.min(100, value)) * 36) / 100;
-        return x.toFixed(1) + ',' + y.toFixed(1);
-      })
-      .join(' ');
-  }, [samples]);
-
+function StorageGauge({
+  filesystem,
+  usedLabel,
+  totalLabel,
+}: {
+  filesystem: NonNullable<SystemMetricsSample['filesystems']>[number];
+  usedLabel: string;
+  totalLabel: string;
+}) {
+  const usedBytes = Math.max(0, filesystem.totalBytes - filesystem.availableBytes);
+  const percent = filesystem.totalBytes > 0 ? (100 * usedBytes) / filesystem.totalBytes : 0;
+  const clamped = Math.max(0, Math.min(100, percent));
+  const pathLength = 100;
+  const tone = percentTone(percent, 90, 97);
+  const color = {
+    healthy: 'var(--chakra-colors-noc-healthy)',
+    warning: 'var(--chakra-colors-noc-warning)',
+    critical: 'var(--chakra-colors-noc-critical)',
+    info: 'var(--chakra-colors-noc-info)',
+    unknown: 'var(--chakra-colors-noc-unknown)',
+  }[tone];
   return (
-    <Box h="52px" mt="2">
-      {points ? (
+    <NocInset p="3" minW="0" data-storage-gauge={filesystem.filesystemId}>
+      <Text fontSize="11px" color="noc.textMuted" fontWeight="600" dir="ltr" truncate>
+        {filesystem.mountPoint}
+      </Text>
+      <Box position="relative" h="92px" mt="1">
         <svg
-          viewBox="0 0 100 46"
+          viewBox="0 0 120 70"
           width="100%"
-          height="52"
-          preserveAspectRatio="none"
+          height="92"
           role="img"
-          aria-label={label}
+          aria-label={filesystem.mountPoint}
         >
-          <path d="M0 42 H100" stroke="var(--chakra-colors-noc-border)" strokeWidth="1" />
-          <polyline
-            points={points}
+          <path
+            d="M15 58 A45 45 0 0 1 105 58"
+            pathLength={pathLength}
             fill="none"
-            stroke="var(--chakra-colors-noc-accent)"
-            strokeWidth="1.8"
-            vectorEffect="non-scaling-stroke"
+            stroke="var(--chakra-colors-noc-surface3)"
+            strokeWidth="10"
             strokeLinecap="round"
-            strokeLinejoin="round"
+          />
+          <path
+            d="M15 58 A45 45 0 0 1 105 58"
+            pathLength={pathLength}
+            fill="none"
+            stroke={color}
+            strokeWidth="10"
+            strokeLinecap="round"
+            strokeDasharray={`${clamped} ${100 - clamped}`}
           />
         </svg>
-      ) : (
-        <Flex h="full" align="center" justify="center">
-          <Text fontSize="11px" color="noc.textSubtle">
-            —
+        <Box
+          position="absolute"
+          inset="0"
+          display="flex"
+          alignItems="end"
+          justifyContent="center"
+          pb="6px"
+        >
+          <Text fontSize="22px" fontWeight="700" color="noc.text" dir="ltr">
+            {compactPercent(percent)}
           </Text>
-        </Flex>
-      )}
-    </Box>
+        </Box>
+      </Box>
+      <Flex justify="space-between" gap="3" mt="1">
+        <Text fontSize="9px" color="noc.textSubtle">
+          {usedLabel}:{' '}
+          <Box as="span" dir="ltr">
+            {formatBytes(usedBytes)}
+          </Box>
+        </Text>
+        <Text fontSize="9px" color="noc.textSubtle">
+          {totalLabel}:{' '}
+          <Box as="span" dir="ltr">
+            {formatBytes(filesystem.totalBytes)}
+          </Box>
+        </Text>
+      </Flex>
+    </NocInset>
   );
 }
 
@@ -382,15 +473,6 @@ export function OperatorOverview({
       destination: 'trunks',
     });
   }
-  if (unreachableEndpoints > 0) {
-    issues.push({
-      id: 'endpoints',
-      tone: health.components.ENDPOINTS.state === 'CRITICAL' ? 'critical' : 'warning',
-      title: text.telephonyEndpoints,
-      detail: String(unreachableEndpoints),
-      destination: 'endpoints',
-    });
-  }
   if (waitingCallers > 0) {
     issues.push({
       id: 'queues',
@@ -517,9 +599,9 @@ export function OperatorOverview({
           />
           <KpiCell
             label={text.telephonyEndpoints}
-            value={(telephony?.endpoints.length ?? 0).toString()}
-            detail={healthyEndpoints + ' ' + text.dashboardReachable}
-            tone={toneFor(health.components.ENDPOINTS.state)}
+            value={healthyEndpoints.toString()}
+            detail={`${telephony?.endpoints.length ?? 0} ${text.dashboardTotalEndpoints}`}
+            tone={telephony ? 'info' : 'unknown'}
             onClick={onNavigate ? () => onNavigate('endpoints') : undefined}
           />
           <KpiCell
@@ -604,13 +686,54 @@ export function OperatorOverview({
         <NocPanel gridColumn={{ xl: 'span 5' }} p="4">
           <SectionHeader title={text.dashboardInfrastructure} description={text.metricsTrendHint} />
           <Stack gap="4" mt="4">
-            <MetricBar label={text.cpuUsage} value={sample?.cpu?.utilizationPercent} />
-            <MetricBar label={text.memoryUsage} value={memoryPercent} />
-            <MetricBar
-              label={text.storageTitle}
-              value={visibleFilesystems.length > 0 ? worstFilesystemPercent : undefined}
-              detail={visibleFilesystems[0]?.mountPoint}
-            />
+            <SimpleGrid columns={{ base: 1, md: 2 }} gap="3">
+              <TimeSeries
+                samples={metricHistory}
+                label={text.cpuUsage}
+                valueFor={(historySample) => historySample.cpu?.utilizationPercent}
+                current={sample?.cpu?.utilizationPercent}
+              />
+              <TimeSeries
+                samples={metricHistory}
+                label={text.memoryUsage}
+                valueFor={(historySample) =>
+                  historySample.memory && historySample.memory.totalBytes > 0
+                    ? (100 *
+                        (historySample.memory.totalBytes - historySample.memory.availableBytes)) /
+                      historySample.memory.totalBytes
+                    : undefined
+                }
+                current={memoryPercent}
+              />
+            </SimpleGrid>
+            <Box>
+              <Flex align="center" justify="space-between" gap="3" mb="2">
+                <Text fontSize="11px" color="noc.textMuted" fontWeight="600">
+                  {text.storageTitle}
+                </Text>
+                <Text fontSize="10px" color="noc.textSubtle">
+                  {visibleFilesystems.length}
+                </Text>
+              </Flex>
+              {visibleFilesystems.length > 0 ? (
+                <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
+                  {visibleFilesystems.map((filesystem) => (
+                    <StorageGauge
+                      key={filesystem.filesystemId}
+                      filesystem={filesystem}
+                      usedLabel={text.storageUsed}
+                      totalLabel={text.storageTotal}
+                    />
+                  ))}
+                </SimpleGrid>
+              ) : (
+                <NocInset p="3">
+                  <Text fontSize="11px" color="noc.textSubtle">
+                    {text.storageNoData}
+                  </Text>
+                </NocInset>
+              )}
+            </Box>
             <Flex align="center" justify="space-between" gap="3">
               <Text fontSize="12px" color="noc.textMuted">
                 {text.uptime}
@@ -619,7 +742,6 @@ export function OperatorOverview({
                 {formatUptime(sample?.uptime?.uptimeSeconds)}
               </Text>
             </Flex>
-            <MiniTrend samples={metricHistory} label={text.metricsTrendTitle} />
           </Stack>
         </NocPanel>
       </SimpleGrid>
@@ -748,7 +870,13 @@ export function OperatorOverview({
       </SimpleGrid>
 
       <SimpleGrid columns={{ base: 1, md: 3 }} gap="4">
-        <NocPanel p="4">
+        <NocPanel
+          p="4"
+          data-endpoint-reachability
+          data-reachable={healthyEndpoints}
+          data-total={telephony?.endpoints.length ?? 0}
+          data-unreachable={unreachableEndpoints}
+        >
           <SectionHeader title={text.endpointReachability} />
           <Flex mt="4" align="end" justify="space-between" gap="3">
             <Box>
@@ -759,15 +887,18 @@ export function OperatorOverview({
                 color="noc.text"
                 dir="ltr"
               >
-                {healthyEndpoints}/{telephony?.endpoints.length ?? 0}
+                {healthyEndpoints}
               </Text>
               <Text mt="1.5" fontSize="11px" color="noc.textMuted">
                 {text.dashboardReachable}
               </Text>
+              <Text mt="1" fontSize="10px" color="noc.textSubtle" dir="ltr">
+                {text.dashboardTotalEndpoints}: {telephony?.endpoints.length ?? 0}
+              </Text>
             </Box>
             <StatusIndicator
-              tone={toneFor(health.components.ENDPOINTS.state)}
-              label={unreachableEndpoints > 0 ? String(unreachableEndpoints) : 'OK'}
+              tone="info"
+              label={`${unreachableEndpoints} ${text.dashboardUnreachable}`}
             />
           </Flex>
         </NocPanel>

@@ -101,9 +101,9 @@ function FleetRow({
         borderColor="noc.border"
         textAlign="end"
         dir="ltr"
-        color={item.endpointFailures > 0 ? 'noc.warning' : 'noc.textMuted'}
+        color={item.unreachableEndpoints > 0 ? 'noc.warning' : 'noc.textMuted'}
       >
-        {item.endpointFailures}
+        {item.unreachableEndpoints}
       </Table.Cell>
       <Table.Cell
         borderColor="noc.border"
@@ -222,9 +222,8 @@ export function FleetOverviewWorkspace({
               state={snapshot.trunkFailures > 0 ? 'CRITICAL' : 'HEALTHY'}
             />
             <SummaryMetric
-              label={text.fleetEndpointFailures}
-              value={snapshot.endpointFailures}
-              state={snapshot.endpointFailures > 0 ? 'DEGRADED' : 'HEALTHY'}
+              label={text.fleetUnreachableEndpoints}
+              value={snapshot.unreachableEndpoints}
             />
             <SummaryMetric
               label={text.securityAlertsSummary}

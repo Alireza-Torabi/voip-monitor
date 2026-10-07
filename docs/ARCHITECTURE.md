@@ -159,3 +159,9 @@ AMI events are the low-latency source for call/channel/live entity changes. Prov
 ## Metrics-health realtime semantics
 
 System-metrics SSE has two data classes: `system-metrics` carries successful samples and `system-metrics-health` carries source freshness/error transitions. The browser consumes both. A persisted current-row is historical last-known operational state, not proof of current freshness; current-value presentation is gated on runtime source freshness `CURRENT`. Restricted SSH connection/authentication/timeout failures remain bounded safe transport codes through collection and runtime health, while arbitrary/private errors are collapsed to generic collection failure.
+
+## Endpoint availability semantics and Overview metric visualization
+
+OperationalHealth treats a supported/current endpoint inventory as HEALTHY independent of individual endpoint reachability. Endpoint capability and synchronization remain authoritative for UNKNOWN/STALE. Reliability state continues to collect bounded endpoint transitions but is not itself an incident rule. Fleet contracts expose `unreachableEndpoints` as statistics rather than failures.
+
+Overview visualization follows metric semantics: CPU and memory are temporal utilization signals rendered from existing bounded metric history as time series; filesystem/storage capacity is a point-in-time saturation signal rendered as per-volume gauges with used/total capacity. No additional persistence or collection path is introduced.

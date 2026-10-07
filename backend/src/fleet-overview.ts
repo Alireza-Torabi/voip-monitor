@@ -39,7 +39,7 @@ export function buildFleetOverviewSnapshot(options: {
           trunk.registrationState === 'FAILED' ||
           trunk.reachability === 'UNREACHABLE',
       ).length ?? 0;
-    const endpointFailures =
+    const unreachableEndpoints =
       telephony?.endpoints.filter((endpoint) => endpoint.reachability === 'UNREACHABLE').length ??
       0;
     const waitingCallers =
@@ -51,7 +51,7 @@ export function buildFleetOverviewSnapshot(options: {
       health,
       activeCalls: telephony?.calls.length ?? 0,
       trunkFailures,
-      endpointFailures,
+      unreachableEndpoints,
       waitingCallers,
       criticalAlerts: securityAlerts.length,
       ...(telephony?.lastEventAt || telephony?.lastSnapshotAt
@@ -68,7 +68,7 @@ export function buildFleetOverviewSnapshot(options: {
     totalPbx: items.length,
     activeCalls: items.reduce((sum, item) => sum + item.activeCalls, 0),
     trunkFailures: items.reduce((sum, item) => sum + item.trunkFailures, 0),
-    endpointFailures: items.reduce((sum, item) => sum + item.endpointFailures, 0),
+    unreachableEndpoints: items.reduce((sum, item) => sum + item.unreachableEndpoints, 0),
     waitingCallers: items.reduce((sum, item) => sum + item.waitingCallers, 0),
     criticalAlerts: items.reduce((sum, item) => sum + item.criticalAlerts, 0),
     items: items.sort((left, right) => {
