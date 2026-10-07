@@ -678,3 +678,13 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 449. **Current security alerts are operationally critical:** one or more current persisted alert records sets Security CRITICAL; Task 56 does not replace the later generic operational-alert model.
 450. **Call quality is represented before it is claimed:** CALL_QUALITY exists as UNKNOWN until source discovery and provider-neutral quality contracts are completed.
 451. **The operational-health API is synthesis-only:** it reads current normalized state and performs no new network operation, query, persistence, or PBX action.
+
+## 2026-10-07 — Task 57 Fleet Overview decisions
+
+452. **PBX Fleet is an operational workspace, not a settings alias:** configuration remains under Settings > PBX.
+453. **Fleet health reuses Task 56 exactly:** no cross-PBX health reinterpretation or duplicate severity engine is allowed.
+454. **Fleet aggregation is current-state only:** one backend aggregate read combines existing normalized state and performs no AMI/SSH/database work.
+455. **Fleet polling is bounded at 15 seconds:** browser refresh reads application state only and avoids one SSE connection per PBX.
+456. **Fleet rows are severity-first:** CRITICAL, STALE, DEGRADED, UNKNOWN, HEALTHY; ties sort by display name.
+457. **Fleet public fields are operationally minimal:** connection configuration, usernames, credential presence, secrets, and raw provider data are excluded.
+458. **Fleet drill-down selects the existing PBX Overview:** no duplicate PBX detail page is created.

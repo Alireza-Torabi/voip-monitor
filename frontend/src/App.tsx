@@ -26,6 +26,7 @@ import { ServiceMonitoringWorkspace } from './ServiceMonitoringWorkspace.js';
 import { AccountsWorkspace } from './AccountsWorkspace.js';
 import type { OperatorDestination } from './OperatorDashboard.js';
 import { DashboardBuilder } from './DashboardBuilder.js';
+import { FleetOverviewWorkspace } from './FleetOverviewWorkspace.js';
 import { TelephonyWorkspace, type TelephonyPage } from './TelephonyWorkspace.js';
 import { AppShell, type ShellDestination } from './AppShell.js';
 import { NocPanel, StatusIndicator } from './NocPrimitives.js';
@@ -33,7 +34,7 @@ import { WorkspaceHeader } from './WorkspacePrimitives.js';
 
 type TextMap = (typeof messages)[Language];
 type Phase = 'loading' | 'setup' | 'login' | 'ready' | 'error';
-type Workspace = 'dashboard' | 'telephony' | 'history' | 'settings';
+type Workspace = 'dashboard' | 'fleet' | 'telephony' | 'history' | 'settings';
 type SettingsPage =
   | 'pbx'
   | 'database-source'
@@ -718,6 +719,7 @@ export function App({
   );
   const [telephonyPage, setTelephonyPage] = useState<TelephonyPage>('calls');
   const [settingsPage, setSettingsPage] = useState<SettingsPage>('pbx');
+  const [selectedPbxId, setSelectedPbxId] = useState('');
   const [shellError, setShellError] = useState('');
   const direction = language === 'fa' ? 'rtl' : 'ltr';
   const text = messages[language];
@@ -725,6 +727,11 @@ export function App({
   async function refreshProfiles() {
     const result = await api.listPbx();
     setProfiles(result.items);
+    setSelectedPbxId((current) =>
+      current && result.items.some((item) => item.id === current)
+        ? current
+        : (result.items[0]?.id ?? ''),
+    );
     return result.items;
   }
 
@@ -777,6 +784,7 @@ export function App({
   function unauthorized() {
     setPrincipal(undefined);
     setProfiles([]);
+    setSelectedPbxId('');
     setWorkspace('dashboard');
     setPhase('login');
   }
@@ -820,6 +828,10 @@ export function App({
       setWorkspace('dashboard');
       return;
     }
+    if (destination.workspace === 'fleet') {
+      setWorkspace('fleet');
+      return;
+    }
     if (destination.workspace === 'history') {
       setWorkspace('history');
       return;
@@ -856,6 +868,19 @@ export function App({
               profiles={profiles}
               onUnauthorized={unauthorized}
               onNavigate={navigate}
+              selectedInstanceId={selectedPbxId}
+              onSelectedInstanceIdChange={setSelectedPbxId}
+            />
+          ) : null}
+
+          {workspace === 'fleet' ? (
+            <FleetOverviewWorkspace
+              text={text}
+              onUnauthorized={unauthorized}
+              onOpenPbx={(instanceId) => {
+                setSelectedPbxId(instanceId);
+                setWorkspace('dashboard');
+              }}
             />
           ) : null}
 

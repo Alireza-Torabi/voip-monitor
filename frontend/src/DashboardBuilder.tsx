@@ -464,15 +464,19 @@ export function DashboardBuilder({
   profiles,
   onUnauthorized,
   onNavigate,
+  selectedInstanceId,
+  onSelectedInstanceIdChange,
 }: {
   text: TextMap;
   profiles: PbxProfile[];
   onUnauthorized: () => void;
   onNavigate?: (destination: DashboardDestination) => void;
+  selectedInstanceId?: string | undefined;
+  onSelectedInstanceIdChange?: ((instanceId: string) => void) | undefined;
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const hideTimer = useRef<number | undefined>(undefined);
-  const [selectedId, setSelectedId] = useState(profiles[0]?.id ?? '');
+  const [selectedId, setSelectedId] = useState(selectedInstanceId ?? profiles[0]?.id ?? '');
   const [connection, setConnection] = useState<PbxConnectionState>(
     profiles[0]?.connectionStatus ?? 'UNVERIFIED',
   );
@@ -502,6 +506,21 @@ export function DashboardBuilder({
   useEffect(() => {
     if (!selected && profiles.length > 0) setSelectedId(profiles[0]?.id ?? '');
   }, [profiles, selected]);
+
+  useEffect(() => {
+    if (!selectedInstanceId) return;
+    if (
+      profiles.some((profile) => profile.id === selectedInstanceId) &&
+      selectedId !== selectedInstanceId
+    ) {
+      setSelectedId(selectedInstanceId);
+    }
+  }, [profiles, selectedId, selectedInstanceId]);
+
+  function chooseInstance(instanceId: string) {
+    setSelectedId(instanceId);
+    onSelectedInstanceIdChange?.(instanceId);
+  }
 
   async function loadDashboards(instanceId: string) {
     const value = await api.listDashboards(instanceId);
@@ -962,7 +981,7 @@ export function DashboardBuilder({
                   <NativeSelect.Field
                     aria-label={text.dashboardPbx}
                     value={selected?.id ?? ''}
-                    onChange={(event) => setSelectedId(event.target.value)}
+                    onChange={(event) => chooseInstance(event.target.value)}
                   >
                     {profiles.map((profile) => (
                       <option key={profile.id} value={profile.id}>

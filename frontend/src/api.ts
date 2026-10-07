@@ -1,4 +1,4 @@
-import type { OperationalHealthSnapshot } from '@voip-monitor/shared';
+import type { FleetOverviewSnapshot, OperationalHealthSnapshot } from '@voip-monitor/shared';
 export interface Principal {
   id: string;
   username: string;
@@ -386,6 +386,7 @@ export const api = {
   deleteAccount: (id: string) => request<{ status: string }>(`/api/admin/accounts/${id}`, 'DELETE'),
   logout: () => request<{ status: string }>('/auth/logout', 'POST'),
   listPbx: () => request<{ items: PbxProfile[] }>('/api/pbx-instances'),
+  fleetOverview: () => request<FleetOverviewSnapshot>('/api/fleet-overview'),
   providerStatus: (id: string) =>
     request<ProviderStatus>(`/api/pbx-instances/${id}/provider-status`),
   operationalHealth: (id: string) =>

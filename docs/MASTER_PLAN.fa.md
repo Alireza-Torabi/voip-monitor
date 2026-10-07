@@ -1,6 +1,6 @@
 # Master Plan
 
-Status: 2026-10-07. PR #65، Task 55 را Merge کرده است. Task 56 روی Branch feature/unified-operational-health به‌صورت Local کامل شده و Merge آن Pending است. Contract/Evaluator مشترک و Provider-neutral برای Operational Health اکنون صاحب Semantics سلامت PBX است، API احراز هویت‌شده PBX-scoped Snapshot را ارائه می‌کند و Operator Overview برای Realtime Presentation از همان Shared Evaluator استفاده می‌کند. Task 57 فقط بعد از Merge شدن Task 56 شروع می‌شود.
+Status: 2026-10-07. PR #66، Task 56 را Merge کرده است. Task 57 روی Branch feature/fleet-overview به‌صورت Local کامل شده و Merge آن Pending است. PBX Fleet اکنون یک Workspace عملیاتی Cross-PBX مبتنی بر Current Normalized State است و Health Aggregation با اولویت Severity، Summary بار/خرابی و Drill-down مستقیم به Overview همان PBX را ارائه می‌کند. Task 58 فقط بعد از Merge شدن Task 57 شروع می‌شود.
 
 ## Phase 0 - کشف محیط
 
@@ -933,5 +933,31 @@ Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check،
 ### Final Validation مربوط به Task 56
 
 Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check، Typecheck، Backend Test برابر 169/169، Frontend Test برابر 28/28، Production Build، Foundation Check، License Check و Git Diff Check همگی PASS شدند. Warningهای موجود Chakra/Ark/Zag/Rolldown درباره module-level use client همچنان Non-fatal هستند.
+
+</div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-07 — ثبت تکمیل Task 57
+
+- **نتیجه:** `PBX Fleet` به یک Workspace عملیاتی مستقل تبدیل شد و دیگر Navigation آن به PBX Settings نمی‌رود.
+- **Shared Contract:** Contract مشترک `FleetOverviewSnapshot` فقط Identity/Display Name، Enabled State، Health canonical، Active Call، Trunk Failure، Endpoint Failure، Waiting Caller، Current Critical Security Alert و Last Telephony Update اختیاری را برمی‌گرداند. AMI Host/User/Credential و Raw Provider Payload وارد Fleet نمی‌شوند.
+- **Backend Aggregation:** Endpoint احراز هویت‌شده و Read-only به نام `GET /api/fleet-overview` اضافه شد. فقط Current Runtime/Storage State موجود را Aggregate می‌کند؛ هیچ AMI/SSH/Source Database Connection جدیدی باز نمی‌کند و چیزی Persist نمی‌کند.
+- **Health:** هر PBX همان `OperationalHealthSnapshot` مربوط به Task 56 را استفاده می‌کند و Health Model موازی ساخته نشده است. Sort بر اساس Severity به ترتیب `CRITICAL`، `STALE`، `DEGRADED`، `UNKNOWN` و `HEALTHY` است.
+- **Fleet Summary:** تعداد کل PBX، توزیع Health، Active Call، Trunk Failure، Endpoint Failure، Waiting Caller و Current Critical Security Alert نمایش داده می‌شوند.
+- **UI:** یک NOC Fleet Surface responsive با Summary Metricهای فشرده و Table متراکم PBX ساخته شد. Refresh هر 15 ثانیه فقط Aggregate Endpoint داخلی را می‌خواند و PBX Work جدید ایجاد نمی‌کند.
+- **Navigation:** `PBX Fleet` اکنون Top-level Workspace مستقل است و PBX Configuration همچنان در Settings > PBX باقی مانده است.
+- **Drill-down:** کلیک روی نام PBX یا `Open PBX` همان Instance را انتخاب و Operator Overview موجود را باز می‌کند. تغییر PBX در Overview نیز Selection مشترک را Sync نگه می‌دارد.
+- **Regression:** Backend از 169 به 170 تست و Frontend از 28 به 29 تست رسید. Aggregation/Severity/Safe-field و Fleet Rendering/Drill-down پوشش داده شدند.
+- **محدودیت:** Fleet فعلی Current-state است و Health Transition، Outage Duration، Flap Counter، Historical Reliability Ranking یا Generic Alert Lifecycle را Persist نمی‌کند. این موارد در Tasks 58–69 باقی مانده‌اند.
+- **Task دقیق بعدی:** Task 58 — Trunk Reliability.
+
+</div>
+
+<div dir="rtl" align="right">
+
+### Final Validation مربوط به Task 57
+
+Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check، Typecheck، Backend Test برابر 170/170، Frontend Test برابر 29/29، Production Build، Foundation Check، License Check و Git Diff Check همگی PASS شدند. Warningهای موجود Chakra/Ark/Zag/Rolldown درباره module-level use client همچنان Non-fatal هستند.
 
 </div>

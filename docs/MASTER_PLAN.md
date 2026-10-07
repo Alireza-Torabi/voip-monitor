@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-07. PR #65 merged Task 55. Task 56 is complete locally on feature/unified-operational-health and merge is pending. A provider-neutral unified health contract/evaluator now owns PBX operational health semantics, an authenticated PBX-scoped API exposes the snapshot, and the Operator Overview uses the same shared evaluator for realtime presentation. Task 57 follows only after Task 56 merges.
+Status: 2026-10-07. PR #66 merged Task 56. Task 57 is complete locally on feature/fleet-overview and merge is pending. PBX Fleet is now an operational cross-PBX workspace backed only by current normalized state, with severity-first health aggregation, workload/failure summaries, and direct drill-down into the selected PBX Overview. Task 58 follows only after Task 57 merges.
 
 ## Phase 0 — environment discovery
 
@@ -705,7 +705,7 @@ The product foundation is production-ready, but the monitoring product is not ye
 
 - [x] **Task 56 — Unified Operational Health Model**
   - Normalize PBX/provider/telephony/trunk/endpoint/queue/system/security/future-call-quality health into HEALTHY, DEGRADED, CRITICAL, UNKNOWN, and STALE.
-- [ ] **Task 57 — Fleet Overview**
+- [x] **Task 57 — Fleet Overview**
   - Cross-PBX health aggregation, active calls, trunk failures, endpoint failures, queue pressure, and critical alerts.
 
 ### Phase 15 — Telephony reliability
@@ -937,6 +937,34 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 - typecheck PASS.
 - backend tests 169/169 PASS.
 - frontend tests 28/28 PASS.
+- production build PASS.
+- foundation check PASS.
+- license check PASS.
+- git diff check PASS.
+- Existing Chakra/Ark/Zag/Rolldown module-level `use client` warnings remain non-fatal and unchanged in nature.
+
+## 2026-10-07 — Task 57 completion record
+
+- **Result:** introduced a dedicated operational `PBX Fleet` workspace instead of routing the Fleet navigation item to PBX Settings.
+- **Shared contract:** added a provider-neutral `FleetOverviewSnapshot` containing only instance identity/display name, enabled state, canonical health, current active-call count, trunk failures, endpoint failures, queue waiting callers, current critical security-alert count, and optional last telephony update. AMI host/user/credential data and raw provider payloads are excluded.
+- **Backend aggregation:** added `GET /api/fleet-overview`, authenticated and read-only. It aggregates existing current runtime/storage state only; it opens no AMI/SSH/source-database connection and persists nothing.
+- **Health semantics:** each PBX row reuses the Task 56 canonical `OperationalHealthSnapshot`; Fleet does not implement a second health model. Rows sort severity-first (`CRITICAL`, `STALE`, `DEGRADED`, `UNKNOWN`, `HEALTHY`) and then by display name.
+- **Fleet summary:** exposes total PBXs, canonical health distribution, active calls, trunk failures, endpoint failures, waiting callers, and current critical security alerts.
+- **UI:** added a responsive NOC Fleet surface with compact summary metrics and a dense per-PBX table. The Fleet view refreshes the aggregate current-state endpoint every 15 seconds; this polling reads application state only and creates no PBX work.
+- **Navigation:** `PBX Fleet` is now its own top-level workspace. PBX configuration remains separately available under Settings > PBX.
+- **Drill-down:** clicking a PBX name or `Open PBX` selects that instance and opens the existing Operator Overview for it. Dashboard selection remains synchronized when the operator changes PBX from the Overview selector.
+- **Regression coverage:** backend suite increased from 169 to 170 tests with deterministic cross-PBX aggregation/severity/safe-field coverage. Frontend suite increased from 28 to 29 tests with Fleet rendering and drill-down callback coverage; shell regression now explicitly includes PBX Fleet navigation.
+- **Known limitation:** Fleet Overview is a current-state operational surface. It does not yet store health transitions, outage duration, flap counters, historical reliability ranking, or generic alert lifecycle state. Those remain Tasks 58–69.
+- **Exact next task:** Task 58 — Trunk Reliability.
+
+### Task 57 final validation
+
+- Node v24.21.0 / npm 11.19.0.
+- lint PASS.
+- format check PASS.
+- typecheck PASS.
+- backend tests 170/170 PASS.
+- frontend tests 29/29 PASS.
 - production build PASS.
 - foundation check PASS.
 - license check PASS.

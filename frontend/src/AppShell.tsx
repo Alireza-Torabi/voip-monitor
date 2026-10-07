@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { PbxProfile, Principal } from './api.js';
 import type { Language } from './i18n.js';
 
-export type ShellWorkspace = 'dashboard' | 'telephony' | 'history' | 'settings';
+export type ShellWorkspace = 'dashboard' | 'fleet' | 'telephony' | 'history' | 'settings';
 export type ShellTelephonyPage =
   'calls' | 'channels' | 'endpoints' | 'trunks' | 'queues' | 'agents';
 export type ShellSettingsPage =
@@ -17,6 +17,7 @@ export type ShellSettingsPage =
 
 type ShellDestination =
   | { workspace: 'dashboard' }
+  | { workspace: 'fleet' }
   | { workspace: 'history' }
   | { workspace: 'telephony'; page: ShellTelephonyPage }
   | { workspace: 'settings'; page: ShellSettingsPage };
@@ -211,7 +212,7 @@ export function AppShell({
     {
       icon: 'pbx',
       label: fa ? 'PBXها' : 'PBX Fleet',
-      destination: { workspace: 'settings', page: 'pbx' },
+      destination: { workspace: 'fleet' },
     },
     {
       icon: 'calls',
