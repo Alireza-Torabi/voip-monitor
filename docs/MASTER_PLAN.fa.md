@@ -1,6 +1,6 @@
 # Master Plan
 
-Status: 2026-10-07. PR #67، Task 57 را Merge کرده است. Task 58 روی Branch feature/trunk-reliability به‌صورت Local کامل شده و Merge آن Pending است. Trunk State اکنون Reliability Metadata محدود و In-memory شامل Availability، Last Up/Down، Active Outage Start/Duration، Flap/Reconnect Counter و Recent Transition دارد و Trunks UI بر اساس Reliability مرتب می‌شود. Task 59 فقط بعد از Merge شدن Task 58 شروع می‌شود.
+Status: 2026-10-07. PR #68، Task 58 را Merge کرده است. Task 59 روی Branch feature/endpoint-reliability به‌صورت Local کامل شده و Merge آن Pending است. Endpoint State اکنون Reliability Metadata محدود و In-memory شامل ONLINE/OFFLINE/UNKNOWN، Last Reachable/Unreachable، Active Offline Duration، Flap Counter و Recent Transition دارد و Endpoints UI به‌صورت Problem-first مرتب می‌شود. Task 60 فقط بعد از Merge شدن Task 59 شروع می‌شود.
 
 ## Phase 0 - کشف محیط
 
@@ -706,7 +706,7 @@ Foundation پروژه از نظر Production آماده است، اما محصو
 ### Phase 15 — Telephony Reliability
 
 - [x] **Task 58 — Trunk Reliability**
-- [ ] **Task 59 — Endpoint Reliability**
+- [x] **Task 59 — Endpoint Reliability**
 - [ ] **Task 60 — Call Outcome Analytics با Source-owned Data**
 
 ### Phase 16 — Call Quality
@@ -988,5 +988,34 @@ Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check،
 ### Final Validation مربوط به Task 58
 
 Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check، Typecheck، Backend Test برابر 171/171، Frontend Test برابر 29/29، Production Build، Foundation Check، License Check و Git Diff Check همگی PASS شدند. Warningهای موجود Chakra/Ark/Zag/Rolldown درباره module-level use client همچنان Non-fatal هستند.
+
+</div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-07 — ثبت تکمیل Task 59
+
+- **نتیجه:** Live Endpoint State اکنون Reliability Metadata محدود دارد بدون ایجاد Monitoring History تکراری و Durable.
+- **Availability Canonical:** حالت‌های `ONLINE`، `OFFLINE` و `UNKNOWN` اضافه شدند. REACHABLE برابر ONLINE و UNREACHABLE برابر OFFLINE است؛ اگر Reachability نامشخص باشد، REGISTERED برابر ONLINE و UNREGISTERED برابر OFFLINE در نظر گرفته می‌شود.
+- **Baseline:** اولین Snapshot معتبر فقط Baseline مربوط به Last Reachable/Unreachable و Offline جاری را ایجاد می‌کند و Flap حساب نمی‌شود.
+- **Transition:** ONLINE→OFFLINE یک Offline Window شروع و Flap Counter را افزایش می‌دهد. OFFLINE→ONLINE Offline Window را می‌بندد و Last Reachable جدید را ثبت می‌کند. UNKNOWN Transitionها نگه داشته می‌شوند اما Flap جعلی نمی‌سازند.
+- **Visibility Loss:** قطع PBX/Provider فقط Endpoint Synchronization را STALE می‌کند و Endpoint را جعلی OFFLINE نمی‌کند.
+- **Bound:** Flap Counter حداکثر 9,999 و Recent Transition برای هر Endpoint حداکثر 20 مورد است. State فقط In-memory و Process-lifetime است و بعد از Restart Reset می‌شود.
+- **Reconciliation:** Snapshot معتبر Endpoint نیز می‌تواند Reliability Transition ایجاد کند و Event از دست‌رفته را با مسیر موجود Repair کند.
+- **Public State:** هر Endpoint اکنون Availability، Last Reachable/Unreachable، Offline Start/Duration فعال، Flap Count و Recent Transition محدود را expose می‌کند؛ Raw AMI Payload نمایش داده نمی‌شود.
+- **UI:** Workspace مربوط به Endpoints ستون‌های Availability، Last Reachable، Last Unreachable، Offline زنده، Flaps و Recent Transitions را اضافه کرده و Registration/Reachability قبلی را حفظ کرده است. Sort به ترتیب OFFLINE، Flapping، UNKNOWN و سپس ONLINE پایدار است.
+- **Offline Live:** مدت Offline در Browser هر ثانیه از offlineStartedAt محاسبه می‌شود و هیچ API Polling یا PBX Work جدیدی ایجاد نمی‌کند. همان Timer اکنون Duration مربوط به Trunk و Endpoint را درست به‌روزرسانی می‌کند.
+- **Regression:** Backend از 171 به 172 تست و Frontend از 29 به 30 تست رسید. Baseline، Visibility Loss، ONLINE→OFFLINE، Recovery، Bound بیست Transition، Rendering و Problem-first Ordering پوشش داده شدند.
+- **Failureهای رفع‌شده:** Strict Typecheck ابتدا Missing Import مربوط به EndpointReliabilityState، implicit-any callback و Fixtureهای قدیمی بدون Reliability را پیدا کرد. Fixtureها با Contract واقعی به‌روزرسانی شدند و Contract شل نشد.
+- **محدودیت:** Reliability مربوط به Endpoint در Task 59 Process-lifetime و bounded است و Uptime/SLA بلندمدت را بین Restartها Persist نمی‌کند.
+- **Task دقیق بعدی:** Task 60 — Call Outcome Analytics.
+
+</div>
+
+<div dir="rtl" align="right">
+
+### Final Validation مربوط به Task 59
+
+Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check، Typecheck، Backend Test برابر 172/172، Frontend Test برابر 30/30، Production Build، Foundation Check، License Check و Git Diff Check همگی PASS شدند. Warningهای موجود Chakra/Ark/Zag/Rolldown درباره module-level use client همچنان Non-fatal هستند.
 
 </div>

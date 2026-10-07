@@ -560,6 +560,12 @@ describe('operator dashboard', () => {
                   registrationState: 'REGISTERED',
                   reachability: 'REACHABLE',
                   updatedAt: '2026-10-05T04:00:01.000Z',
+                  reliability: {
+                    availability: 'ONLINE',
+                    lastReachableAt: '2026-10-05T04:00:01.000Z',
+                    flapCount: 0,
+                    recentTransitions: [],
+                  },
                 },
               ],
               trunkCapability: 'SUPPORTED',
@@ -794,6 +800,106 @@ describe('telephony entity workspace', () => {
     expect(container.textContent).toContain('Results: 1');
     expect(container.textContent).toContain('active-03');
     expect(container.textContent).not.toContain('active-25');
+  });
+
+  it('renders endpoint reliability and ranks offline endpoints first', async () => {
+    class FakeEventSource {
+      onopen: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      addEventListener() {}
+      close() {}
+      constructor(readonly url: string) {}
+    }
+    vi.stubGlobal('EventSource', FakeEventSource);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string) => {
+        if (path === '/api/pbx-instances/entity-pbx/telephony-state') {
+          return response({
+            current: {
+              instanceId: 'entity-pbx',
+              revision: 3,
+              synchronization: 'CURRENT',
+              lastSnapshotAt: '2026-10-07T06:10:00.000Z',
+              channels: [],
+              calls: [],
+              endpointCapability: 'SUPPORTED',
+              endpointSynchronization: 'CURRENT',
+              endpoints: [
+                {
+                  endpointId: 'PJSIP/200',
+                  registrationState: 'REGISTERED',
+                  reachability: 'REACHABLE',
+                  updatedAt: '2026-10-07T06:10:00.000Z',
+                  reliability: {
+                    availability: 'ONLINE',
+                    lastReachableAt: '2026-10-07T06:10:00.000Z',
+                    flapCount: 0,
+                    recentTransitions: [],
+                  },
+                },
+                {
+                  endpointId: 'PJSIP/100',
+                  registrationState: 'UNREGISTERED',
+                  reachability: 'UNREACHABLE',
+                  updatedAt: '2026-10-07T06:09:00.000Z',
+                  reliability: {
+                    availability: 'OFFLINE',
+                    lastReachableAt: '2026-10-07T06:00:00.000Z',
+                    lastUnreachableAt: '2026-10-07T06:09:00.000Z',
+                    offlineStartedAt: '2026-10-07T06:09:00.000Z',
+                    offlineDurationSeconds: 60,
+                    flapCount: 4,
+                    recentTransitions: [
+                      {
+                        observedAt: '2026-10-07T06:09:00.000Z',
+                        from: 'ONLINE',
+                        to: 'OFFLINE',
+                        registrationState: 'UNREGISTERED',
+                        reachability: 'UNREACHABLE',
+                        source: 'EVENT',
+                      },
+                    ],
+                  },
+                },
+              ],
+              trunkCapability: 'SUPPORTED',
+              trunkSynchronization: 'CURRENT',
+              trunks: [],
+              queueCapability: 'SUPPORTED',
+              queueSynchronization: 'CURRENT',
+              queues: [],
+              queueMembers: [],
+              queueCallers: [],
+              agentCapability: 'SUPPORTED',
+              agentSynchronization: 'LIVE_ONLY',
+              agentInteractions: [],
+            },
+          });
+        }
+        throw new Error('unexpected API route: ' + path);
+      }),
+    );
+
+    await act(async () =>
+      root.render(
+        <TelephonyWorkspace
+          text={messages.en}
+          profiles={[profile]}
+          page="endpoints"
+          onUnauthorized={() => {}}
+        />,
+      ),
+    );
+    expect(container.textContent).toContain('Availability');
+    expect(container.textContent).toContain('Last reachable');
+    expect(container.textContent).toContain('Last unreachable');
+    expect(container.textContent).toContain('Offline');
+    expect(container.textContent).toContain('Flaps');
+    expect(container.textContent).toContain('Recent transitions');
+    expect(container.textContent).toContain('ONLINE→OFFLINE');
+    const text = container.textContent ?? '';
+    expect(text.indexOf('PJSIP/100')).toBeLessThan(text.indexOf('PJSIP/200'));
   });
 
   it('renders confirmed registrations separately from candidate peer trunks', async () => {

@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-07. PR #67 merged Task 57. Task 58 is complete locally on feature/trunk-reliability and merge is pending. Trunk state now carries bounded in-memory reliability metadata: availability, last up/down, active outage start/duration, flap/reconnect counters, and recent transitions, with reliability-first Trunks presentation. Task 59 follows only after Task 58 merges.
+Status: 2026-10-07. PR #68 merged Task 58. Task 59 is complete locally on feature/endpoint-reliability and merge is pending. Endpoint state now carries bounded in-memory reliability metadata: online/offline/unknown availability, last reachable/unreachable timestamps, active offline duration, flap counter, and recent transitions, with problem-first Endpoints presentation. Task 60 follows only after Task 59 merges.
 
 ## Phase 0 — environment discovery
 
@@ -712,7 +712,7 @@ The product foundation is production-ready, but the monitoring product is not ye
 
 - [x] **Task 58 — Trunk Reliability**
   - Current state, last up/down timestamps, outage duration, bounded flap/reconnect counters, and recent transitions.
-- [ ] **Task 59 — Endpoint Reliability**
+- [x] **Task 59 — Endpoint Reliability**
   - Reachability transitions, offline duration, bounded flap count, and problematic-endpoint ranking.
 - [ ] **Task 60 — Call Outcome Analytics**
   - Source-owned total/answered/no-answer/busy/failed calls, answer ratio, average duration, and bounded time-range analysis.
@@ -996,6 +996,37 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 - typecheck PASS.
 - backend tests 171/171 PASS.
 - frontend tests 29/29 PASS.
+- production build PASS.
+- foundation check PASS.
+- license check PASS.
+- git diff check PASS.
+- Existing Chakra/Ark/Zag/Rolldown module-level `use client` warnings remain non-fatal and unchanged in nature.
+
+## 2026-10-07 — Task 59 completion record
+
+- **Result:** Endpoint live state now carries bounded reliability metadata without adding durable duplicate monitoring history.
+- **Canonical availability:** `ONLINE`, `OFFLINE`, `UNKNOWN`. REACHABLE wins as ONLINE, UNREACHABLE wins as OFFLINE; when reachability is unknown, REGISTERED maps to ONLINE and UNREGISTERED maps to OFFLINE. Ambiguous state remains UNKNOWN.
+- **Baseline semantics:** the first authoritative endpoint snapshot establishes last reachable/unreachable and active offline baseline but does not count as a flap.
+- **Transition semantics:** ONLINE→OFFLINE starts an offline window and increments the bounded flap counter. OFFLINE→ONLINE closes the offline window and records the new last-reachable timestamp. UNKNOWN transitions are retained but do not fabricate flap counts.
+- **Visibility-loss safety:** provider/PBX disconnect changes endpoint synchronization to STALE but does not manufacture endpoint OFFLINE transitions or offline duration.
+- **Bounded state:** endpoint flap counters saturate at 9,999 and only the latest 20 endpoint transitions are retained in memory per endpoint. The state is process-lifetime operational context and resets after application restart.
+- **Reconciliation:** authoritative endpoint snapshots participate in reliability transitions and can repair missed live events through the existing reconciliation path.
+- **Public telephony state:** each endpoint now exposes availability, last reachable/unreachable timestamps, optional active offline start/current duration, flap count, and recent transition list. No raw AMI payload is exposed.
+- **UI:** Endpoints workspace adds Availability, Last reachable, Last unreachable, live Offline duration, Flaps, and Recent transitions while retaining Registration/Reachability. Rows sort problem-first: OFFLINE, flapping, UNKNOWN, then stable ONLINE.
+- **Live offline display:** active offline duration advances client-side once per second from `offlineStartedAt`; no API polling or PBX work is introduced. The same timer now correctly updates both active Trunk outage and Endpoint offline durations.
+- **Regression coverage:** backend suite increased from 171 to 172 tests; frontend suite increased from 29 to 30. Coverage includes baseline, provider visibility loss, ONLINE→OFFLINE, recovery, 20-transition retention, endpoint rendering, and problem-first ordering.
+- **Failures resolved:** the first frontend strict pass caught a missing EndpointReliabilityState import, an implicit-any transition callback caused by that missing type, and old fixtures missing the new required reliability field. Fixtures were upgraded instead of weakening the contract.
+- **Known limitation:** Task 59 endpoint reliability is bounded process-lifetime state and does not persist long-range endpoint uptime or SLA statistics across restarts.
+- **Exact next task:** Task 60 — Call Outcome Analytics.
+
+### Task 59 final validation
+
+- Node v24.21.0 / npm 11.19.0.
+- lint PASS.
+- format check PASS.
+- typecheck PASS.
+- backend tests 172/172 PASS.
+- frontend tests 30/30 PASS.
 - production build PASS.
 - foundation check PASS.
 - license check PASS.

@@ -698,3 +698,12 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 463. **Reliability history is bounded in memory:** latest 20 transitions per trunk; flap/reconnect counters saturate at 9,999; process restart resets this operational history.
 464. **Snapshots may repair reliability state:** reconciliation changes are valid transitions when they differ from the previous authoritative observation.
 465. **No long-range uptime claim is made:** Task 58 does not persist SLA/outage history or calculate durable availability percentages.
+
+## 2026-10-07 — Task 59 Endpoint Reliability decisions
+
+466. **Endpoint reliability is owned by TelephonyStateEngine:** no parallel endpoint poller or persistence path is introduced.
+467. **Reachability is authoritative when known:** REACHABLE=ONLINE and UNREACHABLE=OFFLINE; registration is fallback only when reachability is UNKNOWN.
+468. **Provider disconnect is not endpoint offline:** loss of PBX visibility produces STALE synchronization only.
+469. **First endpoint observation is a baseline:** flap counts begin only after a previously observed ONLINE endpoint transitions OFFLINE.
+470. **Endpoint reliability is bounded in memory:** latest 20 transitions and flap counter capped at 9,999; restart resets operational reliability history.
+471. **Endpoint UI is problem-first:** OFFLINE, flapping, UNKNOWN, then stable ONLINE.

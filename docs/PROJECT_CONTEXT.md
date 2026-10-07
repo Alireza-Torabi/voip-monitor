@@ -99,3 +99,7 @@ PBX Fleet is now a dedicated operational workspace. A single authenticated read-
 ## 2026-10-07 — Task 58 Trunk Reliability
 
 Trunk reliability is now maintained as bounded in-memory operational state inside the existing TelephonyStateEngine. Authoritative live events and reconciliation snapshots classify each trunk as UP/DOWN/TRANSITIONING/UNKNOWN, track last observed up/down, current outage start, bounded flap/reconnect counts, and the latest 20 transitions. Provider visibility loss only makes trunk synchronization stale and never creates a synthetic outage. The Trunks workspace renders and ranks this reliability state while keeping all previous trunk classification metadata. No new PBX collector or durable monitoring-history store was added.
+
+## 2026-10-07 — Task 59 Endpoint Reliability
+
+Endpoint reliability is now bounded in-memory operational state inside TelephonyStateEngine. Accepted endpoint events and authoritative reconciliation snapshots classify endpoints ONLINE/OFFLINE/UNKNOWN, track last reachable/unreachable timestamps, active offline windows, bounded flap counts, and the latest 20 transitions. Provider visibility loss only marks endpoint synchronization stale and never creates synthetic offline state. Endpoints UI renders and ranks this state without new polling or persistence.
