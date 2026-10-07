@@ -282,6 +282,22 @@ test('source-backed history API is authenticated and bounded without raw SQL exp
         callEvents: { availability: 'NOT_FOUND' },
         queueEvents: { availability: 'SCHEMA_MISMATCH' },
       }),
+      callOutcomeAnalytics: async (id, range) => {
+        calls.push({ id, range });
+        return {
+          instanceId: id,
+          source: 'DATABASE',
+          range,
+          totalCalls: 10,
+          answeredCalls: 6,
+          noAnswerCalls: 2,
+          busyCalls: 1,
+          failedCalls: 0,
+          unknownCalls: 1,
+          answerRatioPercent: 60,
+          averageDurationSeconds: 31.5,
+        };
+      },
       listRecentCalls: async (id, limit) => {
         calls.push({ id, limit });
         return [
@@ -317,6 +333,18 @@ test('source-backed history API is authenticated and bounded without raw SQL exp
       assert.equal(body.items.length, 1);
       assert.equal(body.items[0].recordId, 'synthetic-call-1');
       assert.deepEqual(calls, [{ id: PBX_ID, limit: 3 }]);
+
+      const outcomes = await fetch(app.base + basePath + '/call-outcomes?range=24H', {
+        headers: { cookie },
+      });
+      assert.equal(outcomes.status, 200);
+      assert.equal((await outcomes.json()).answerRatioPercent, 60);
+      assert.deepEqual(calls.at(-1), { id: PBX_ID, range: '24H' });
+      assert.equal(
+        (await fetch(app.base + basePath + '/call-outcomes?range=365D', { headers: { cookie } }))
+          .status,
+        400,
+      );
 
       assert.equal(
         (await fetch(app.base + basePath + '/calls?limit=201', { headers: { cookie } })).status,

@@ -38,6 +38,16 @@ function fakeTransport({
   callRows = fixture.callRows,
   celRows = fixture.celRows,
   queueRows = fixture.queueRows,
+  outcomeRows = [
+    {
+      total_calls: '10',
+      answered_calls: '6',
+      no_answer_calls: '2',
+      busy_calls: '1',
+      failed_calls: '0',
+      average_duration_seconds: '31.5',
+    },
+  ],
 } = {}) {
   const calls = [];
   return {
@@ -45,6 +55,7 @@ function fakeTransport({
     async query(pbxInstanceId, request, limits) {
       calls.push({ pbxInstanceId, request, limits });
       if (request.sql.includes('information_schema.columns')) return result(schemaRows);
+      if (request.sql.includes('COUNT(*) AS total_calls')) return result(outcomeRows);
       if (request.sql.includes(' AS record_id')) return result(callRows);
       if (request.sql.includes(' AS extension')) return result(celRows);
       if (request.sql.includes(' AS queue_id')) return result(queueRows);
@@ -117,6 +128,49 @@ test('Asterisk conventional schema inspection and row normalization are provider
   assert.equal(inspection.pbxInstanceId, PBX_ID);
   assert.deepEqual(inspection.request.parameters, ['pbx_reporting', 'cdr', 'cel', 'queue_log']);
   assert.equal(transport.calls.at(-1).limits.maxRows, 25);
+});
+
+test('call outcome analytics aggregate directly in the source over bounded ranges', async () => {
+  const transport = fakeTransport();
+  const adapter = adapterFor(configuration(), transport);
+
+  const analytics = await adapter.callOutcomeAnalytics(PBX_ID, '24H');
+  assert.deepEqual(analytics, {
+    instanceId: PBX_ID,
+    source: 'DATABASE',
+    range: '24H',
+    totalCalls: 10,
+    answeredCalls: 6,
+    noAnswerCalls: 2,
+    busyCalls: 1,
+    failedCalls: 0,
+    unknownCalls: 1,
+    answerRatioPercent: 60,
+    averageDurationSeconds: 31.5,
+  });
+  const query = transport.calls.find((entry) =>
+    entry.request.sql.includes('COUNT(*) AS total_calls'),
+  );
+  assert.ok(query);
+  assert.match(query.request.sql, /CURRENT_TIMESTAMP - INTERVAL 24 HOUR/u);
+  assert.equal(query.limits.maxRows, 1);
+
+  await assert.rejects(
+    adapter.callOutcomeAnalytics(PBX_ID, '365D'),
+    (error) => error instanceof HistoricalSourceSchemaError && error.code === 'INVALID_RANGE',
+  );
+});
+
+test('PostgreSQL call outcome analytics use a bounded source-clock interval', async () => {
+  const schemaRows = fixture.schemaRows.map((row) => ({ ...row, table_schema: 'public' }));
+  const transport = fakeTransport({ schemaRows });
+  const adapter = adapterFor(configuration({ dialect: 'POSTGRESQL', port: 5432 }), transport);
+  await adapter.callOutcomeAnalytics(PBX_ID, '7D');
+  const query = transport.calls.find((entry) =>
+    entry.request.sql.includes('COUNT(*) AS total_calls'),
+  );
+  assert.ok(query);
+  assert.match(query.request.sql, /CURRENT_TIMESTAMP - INTERVAL '7 days'/u);
 });
 
 test('schema discovery distinguishes missing, mismatched and ambiguous datasets', async () => {

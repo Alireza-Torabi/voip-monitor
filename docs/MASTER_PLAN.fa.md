@@ -1,6 +1,6 @@
 # Master Plan
 
-Status: 2026-10-07. PR #68، Task 58 را Merge کرده است. Task 59 روی Branch feature/endpoint-reliability به‌صورت Local کامل شده و Merge آن Pending است. Endpoint State اکنون Reliability Metadata محدود و In-memory شامل ONLINE/OFFLINE/UNKNOWN، Last Reachable/Unreachable، Active Offline Duration، Flap Counter و Recent Transition دارد و Endpoints UI به‌صورت Problem-first مرتب می‌شود. Task 60 فقط بعد از Merge شدن Task 59 شروع می‌شود.
+Status: 2026-10-07. Taskهای 58 و 59 Merge شده‌اند. Task 60 — Call Outcome Analytics روی Branch feature/call-outcome-analytics کامل شده و قبل از Merge منتظر بررسی Operator روی محیط Development است. بعد از Merge شدن Task 60، Task 61 — Call Quality Source Discovery تسک بعدی Roadmap خواهد بود.
 
 ## Phase 0 - کشف محیط
 
@@ -1188,5 +1188,20 @@ Lint، Format، Typecheck، Backend Test برابر 179/179، Frontend Test بر
 - **رفتار اصلی تغییر نکرد:** Cadence فقط زمان اعمال State روی UI است و Frequency مربوط به PBX Polling یا Collector را تغییر نمی‌دهد.
 - **Validation:** Lint، Format Check، Typecheck، Backend Test برابر 179/179، Frontend Test برابر 35/35، Build، Foundation، License و Diff Check همگی PASS شدند.
 - **Exact Next Task:** ابتدا این اصلاح UX Merge/Deploy شود و سپس Task 60 — Call Outcome Analytics ادامه پیدا کند.
+
+</div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-07 — Task 60: تحلیل نتیجه تماس‌ها
+
+- **مالکیت Source حفظ شد:** Analytics نتیجه تماس مستقیماً روی CDR فقط‌خواندنی پیکربندی‌شده محاسبه می‌شود. VoIP Monitor هیچ Call History جدیدی را Persist، Cache، Warehouse یا Duplicate نمی‌کند.
+- **Range محدود:** API فقط `1H`، `24H`، `7D` و `30D` را قبول می‌کند. مرز بازه با Clock خود Database Source محاسبه می‌شود تا برای Timestampهای Naive مربوط به Asterisk منطقه زمانی ساختگی اعمال نشود.
+- **Aggregate مستقیم:** Total، Answered، No Answer، Busy، Failed، Unknown، Average Duration و Answer Ratio با یک Aggregate Query مستقیم روی Source محاسبه می‌شوند؛ App برای Analytics یک Sample دلخواه از Rowها دانلود و جمع نمی‌زند.
+- **Unknown پنهان نمی‌شود:** Dispositionهایی که Adapter نمی‌شناسد داخل `unknownCalls` باقی می‌مانند تا جمع Categoryها نسبت به Total قابل Audit باشد.
+- **ایمنی Read-only:** Query فقط از Identifierهای کشف‌شده/Quoteشده و Allowlist ثابت Range ساخته می‌شود. Arbitrary SQL یا Interval دلخواه کاربر وارد Adapter نمی‌شود.
+- **UI:** در Call History یک Surface دو‌زبانه برای Call Outcome Analytics اضافه شد؛ Operator یک Range محدود را انتخاب و تحلیل را صریحاً اجرا می‌کند. خروجی شامل Total، Answered، No Answer، Busy، Failed، Unknown، Answer Ratio و Average Duration است.
+- **Regression:** تست Synthetic برای MySQL/MariaDB و PostgreSQL، SQL مربوط به Source Clock و Normalize شدن Aggregate را پوشش می‌دهد؛ API احراز هویت و رد Range نامعتبر را تست می‌کند و Frontend نمایش Analytics را پوشش می‌دهد. در این Task هیچ Real PBX/Database Compatibility Probe انجام نشد.
+- **Exact Next Task:** Task 61 — Call Quality Source Discovery.
 
 </div>

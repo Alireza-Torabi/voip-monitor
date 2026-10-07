@@ -179,3 +179,8 @@ The production gateway serves `frontend/dist` directly. Therefore the default re
 ## Overview presentation and customization boundary
 
 Fullscreen is the sole alternate presentation state for OperatorOverview and passes the compact-layout flag directly to the current Overview. There is no separate Wallboard state machine. The legacy dashboard-definition builder is not part of the active presentation path: its backend contracts may remain for compatibility, but the frontend must not expose them as if they edit OperatorOverview. Future layout editing must operate on the current Overview component model.
+
+
+## Call outcome analytics
+
+Task 60 extends the source-owned history boundary with bounded CDR aggregation. The application sends one generated read-only aggregate query to the configured source database for a fixed allowlisted range (`1H`, `24H`, `7D`, or `30D`). The source database clock defines the relative range boundary. Only normalized aggregate counters and duration are returned; no raw SQL input, unbounded interval, local CDR copy, or analytics persistence is introduced. Unknown source dispositions remain explicit rather than being discarded.

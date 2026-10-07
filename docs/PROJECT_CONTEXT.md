@@ -139,3 +139,6 @@ The default Full Gate build is non-deploying: frontend output goes to `/tmp/voip
 ## 2026-10-07 — Overview mode/editor simplification
 
 Overview has one special presentation mode: Fullscreen. It automatically applies the compact, responsive, one-screen NOC layout and auto-hiding exit control; separate Wallboard UI is removed. The old Edit dashboard frontend builder is also removed because it edited a separate legacy widget model rather than the current OperatorOverview. Existing dashboard-definition backend persistence is retained but dormant. Any future drag/resize/reorder must edit OperatorOverview itself.
+
+
+Task 60 adds source-owned call outcome analytics over the configured read-only CDR dataset. Operators can request only 1-hour, 24-hour, 7-day, or 30-day aggregates. The backend returns total/answered/no-answer/busy/failed/unknown counts, answer ratio, and average duration without persisting historical call data locally. Task 61 is next.

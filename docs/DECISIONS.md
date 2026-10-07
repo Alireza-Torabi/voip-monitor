@@ -766,3 +766,12 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 510. **Fullscreen is the only special Overview presentation mode:** separate Wallboard mode/control is removed; fullscreen inherits the compact one-screen NOC layout and control auto-hide behavior.
 511. **Legacy dashboard builder is not an editor for OperatorOverview:** remove Edit dashboard and the legacy frontend builder from the current Overview rather than exposing two conflicting dashboard models.
 512. **Future dashboard customization must target OperatorOverview directly:** drag/reorder/resize may return only through a new implementation that edits the current dashboard layout; legacy dashboard-definition UI remains dormant.
+
+
+## 2026-10-07 — Task 60 call outcome analytics
+
+377. **Call analytics remain source-owned:** aggregate call outcomes are queried from the configured external CDR source and are never copied into application telemetry storage.
+378. **Time analysis is bounded by enum, not arbitrary timestamps:** Task 60 supports only `1H`, `24H`, `7D`, and `30D`; the source database clock evaluates the relative boundary so naive CDR timestamps do not receive an invented timezone.
+379. **Aggregate at the source:** totals and average duration are computed in one read-only SQL aggregate query. The application must not derive product analytics from only the latest 200 history rows because that would silently skew totals.
+380. **Unknown disposition is a first-class accounting bucket:** normalized known outcomes are ANSWERED, NO_ANSWER, BUSY, and FAILED; all remaining rows contribute to UNKNOWN so known categories plus unknown always reconcile to total.
+381. **Answer ratio denominator is all calls in range:** `answered / total * 100`; an empty range returns zero instead of NaN.

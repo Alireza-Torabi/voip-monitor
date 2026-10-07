@@ -1256,6 +1256,20 @@ describe('source-backed history workspace', () => {
             callEvents: { availability: 'NOT_FOUND' },
             queueEvents: { availability: 'SCHEMA_MISMATCH' },
           });
+        if (path === '/api/pbx-instances/history-pbx/history/call-outcomes?range=24H')
+          return response({
+            instanceId: 'history-pbx',
+            source: 'DATABASE',
+            range: '24H',
+            totalCalls: 10,
+            answeredCalls: 6,
+            noAnswerCalls: 2,
+            busyCalls: 1,
+            failedCalls: 0,
+            unknownCalls: 1,
+            answerRatioPercent: 60,
+            averageDurationSeconds: 31.5,
+          });
         if (path === '/api/pbx-instances/history-pbx/history/calls?limit=100')
           return response({
             items: [
@@ -1284,6 +1298,15 @@ describe('source-backed history workspace', () => {
     expect(container.textContent).toContain('Source-backed history');
     expect(container.textContent).toContain('SUPPORTED');
     expect(container.textContent).toContain('NOT_FOUND');
+    expect(container.textContent).toContain('Call outcome analytics');
+
+    const analyzeButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Analyze calls'),
+    );
+    await act(async () => analyzeButton?.click());
+    expect(container.textContent).toContain('60.0%');
+    expect(container.textContent).toContain('31.5s');
+    expect(container.textContent).toContain('Unknown');
 
     const loadButton = Array.from(container.querySelectorAll('button')).find((button) =>
       button.textContent?.includes('Load recent rows'),

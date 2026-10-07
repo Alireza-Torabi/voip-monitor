@@ -869,7 +869,7 @@ export function createApp(
       }
 
       const historyAction = path.match(
-        /^\/api\/pbx-instances\/([^/]+)\/history(?:\/(calls|call-events|queue-events))?$/,
+        /^\/api\/pbx-instances\/([^/]+)\/history(?:\/(calls|call-events|queue-events|call-outcomes))?$/,
       );
       if (historyAction) {
         if (!auth || !historicalSource || !auth.principal(sessionToken(request)))
@@ -881,6 +881,12 @@ export function createApp(
         try {
           if (!dataset) return send(response, 200, await historicalSource.inspect(id));
           const url = new URL(request.url ?? '/', 'http://localhost');
+          if (dataset === 'call-outcomes') {
+            const range = url.searchParams.get('range') ?? '24H';
+            if (!/^(?:1H|24H|7D|30D)$/u.test(range))
+              return send(response, 400, { error: 'invalid_request' });
+            return send(response, 200, await historicalSource.callOutcomeAnalytics(id, range));
+          }
           const rawLimit = url.searchParams.get('limit') ?? '100';
           if (!/^(?:[1-9]|[1-9]\d|1\d\d|200)$/u.test(rawLimit))
             return send(response, 400, { error: 'invalid_request' });
@@ -894,7 +900,7 @@ export function createApp(
           return send(response, 200, { items });
         } catch (error) {
           if (error instanceof HistoricalSourceSchemaError) {
-            if (error.code === 'INVALID_LIMIT')
+            if (error.code === 'INVALID_LIMIT' || error.code === 'INVALID_RANGE')
               return send(response, 400, { error: 'invalid_request' });
             if (error.code === 'NOT_CONFIGURED')
               return send(response, 409, { error: 'source_not_configured' });

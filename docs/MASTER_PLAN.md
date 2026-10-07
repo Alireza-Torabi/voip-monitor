@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-07. PR #68 merged Task 58. Task 59 is complete locally on feature/endpoint-reliability and merge is pending. Endpoint state now carries bounded in-memory reliability metadata: online/offline/unknown availability, last reachable/unreachable timestamps, active offline duration, flap counter, and recent transitions, with problem-first Endpoints presentation. Task 60 follows only after Task 59 merges.
+Status: 2026-10-07. Tasks 58 and 59 are merged. Task 60 — Call Outcome Analytics is complete on feature/call-outcome-analytics and awaits operator review on the Development environment before merge. The next roadmap task after Task 60 merges is Task 61 — Call Quality Source Discovery.
 
 ## Phase 0 — environment discovery
 
@@ -714,7 +714,7 @@ The product foundation is production-ready, but the monitoring product is not ye
   - Current state, last up/down timestamps, outage duration, bounded flap/reconnect counters, and recent transitions.
 - [x] **Task 59 — Endpoint Reliability**
   - Reachability transitions, offline duration, bounded flap count, and problematic-endpoint ranking.
-- [ ] **Task 60 — Call Outcome Analytics**
+- [x] **Task 60 — Call Outcome Analytics**
   - Source-owned total/answered/no-answer/busy/failed calls, answer ratio, average duration, and bounded time-range analysis.
 
 ### Phase 16 — Call quality
@@ -1180,3 +1180,15 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 - **Behavior unchanged:** cadence is still PBX-scoped presentation timing only and does not alter PBX polling or collector frequency.
 - **Validation:** lint PASS, format check PASS, typecheck PASS, backend 179/179 PASS, frontend 35/35 PASS, build PASS, foundation PASS, license PASS, diff check PASS.
 - **Exact next task:** merge/deploy this UX correction, then resume Task 60 — Call Outcome Analytics.
+
+
+## 2026-10-07 — Task 60: Call Outcome Analytics
+
+- **Source ownership preserved:** call outcome analytics are computed directly in the configured read-only CDR source. VoIP Monitor does not persist, cache, warehouse, or duplicate call-history telemetry.
+- **Bounded ranges:** the public API accepts only `1H`, `24H`, `7D`, or `30D`. Range boundaries are evaluated against the source database clock, avoiding invented timezone conversion for naive Asterisk CDR timestamps.
+- **Direct aggregation:** total, answered, no-answer, busy, failed, unknown, average duration, and answer ratio are derived by one aggregate source query rather than by downloading an arbitrary row sample into the application.
+- **Unknown visibility:** source dispositions outside the normalized adapter set remain counted as `unknownCalls`; they are never silently dropped, so category totals remain auditable against total calls.
+- **Read-only safety:** the query is generated from discovered/quoted schema identifiers and a fixed range allowlist. No arbitrary SQL or caller-supplied interval text crosses the adapter boundary.
+- **UI:** Call History now contains a bilingual Call Outcome Analytics surface with bounded range selection and explicit operator-triggered analysis. Results show Total, Answered, No answer, Busy, Failed, Unknown, Answer ratio, and Average duration.
+- **Regression coverage:** synthetic MySQL/MariaDB and PostgreSQL tests verify source-clock range SQL and aggregate normalization; API coverage verifies authentication and invalid-range rejection; frontend coverage verifies rendered analytics. No real PBX/database compatibility probe was performed as part of implementation.
+- **Exact next task:** Task 61 — Call Quality Source Discovery.
