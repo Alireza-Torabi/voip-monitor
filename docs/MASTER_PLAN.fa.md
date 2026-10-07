@@ -1019,3 +1019,25 @@ Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check،
 Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check، Typecheck، Backend Test برابر 172/172، Frontend Test برابر 30/30، Production Build، Foundation Check، License Check و Git Diff Check همگی PASS شدند. Warningهای موجود Chakra/Ark/Zag/Rolldown درباره module-level use client همچنان Non-fatal هستند.
 
 </div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-07 — حذف Navigation تکراری قبل از Task 60
+
+- **مشکل:** بعد از Sidebar اصلی، داخل Telephony یک Navigation دوم و داخل Settings یک Navigation Rail دوم نمایش داده می‌شد و UI حالت تو‌در‌تو و تکراری پیدا کرده بود.
+- **اصلاح:** Sidebar اصلی اکنون تنها مالک Navigation برنامه است. منوی داخلی Telephony و منوی داخلی Settings کامل حذف شدند.
+- **حفظ دسترسی:** Channels و تمام صفحه‌های تنظیماتی که قبلاً فقط از منوی داخلی قابل دسترسی بودند به Sidebar اصلی منتقل شدند: PBX Settings، Data Source، Infrastructure/SSH Metrics، Service Monitoring، Dashboard Storage، Security و Accounts.
+- **Header:** عنوان عمومی Settings که بالای Header خود Workspace دوباره تکرار می‌شد حذف شد. هر Workspace فقط یک Header دارد.
+- **کنترل‌های داخل صفحه:** PBX Selector، Search، Filter، Status، Form و Action Toolbar باقی ماندند چون Navigation نیستند و فقط روی همان صفحه عمل می‌کنند.
+- **Regression:** تست Frontend همچنان 30/30 است و دسترسی Sidebar و نبود Navigationهای داخلی قبلی verify می‌شود.
+- **ترتیب Roadmap:** این اصلاح UX روی Baseline Merge‌شده Task 59 است و بعد از Merge آن، Task 60 همچنان Task بعدی است.
+
+</div>
+
+<div dir="rtl" align="right">
+
+### Final Validation حذف Navigation تکراری
+
+Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check، Typecheck، Backend Test برابر 172/172، Frontend Test برابر 30/30، Production Build، Foundation Check، License Check و Git Diff Check همگی PASS شدند. Warningهای موجود Chakra/Ark/Zag/Rolldown درباره module-level use client همچنان Non-fatal هستند.
+
+</div>

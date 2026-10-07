@@ -707,3 +707,10 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 469. **First endpoint observation is a baseline:** flap counts begin only after a previously observed ONLINE endpoint transitions OFFLINE.
 470. **Endpoint reliability is bounded in memory:** latest 20 transitions and flap counter capped at 9,999; restart resets operational reliability history.
 471. **Endpoint UI is problem-first:** OFFLINE, flapping, UNKNOWN, then stable ONLINE.
+
+## 2026-10-07 — Single-navigation UI decision
+
+472. **The persistent sidebar is the only application navigation surface:** workspace content must not repeat route/page navigation already represented by the shell.
+473. **Workspace toolbars are not navigation:** PBX scope, search, filters, status, and actions remain local to the current page.
+474. **All real destinations must stay reachable from the shell:** removing nested navigation requires promoting previously hidden destinations such as Channels and configuration workspaces into the primary sidebar.
+475. **A workspace owns one page header:** wrapper-level duplicate headings such as the generic Settings heading are removed when the selected workspace already provides its own title and description.

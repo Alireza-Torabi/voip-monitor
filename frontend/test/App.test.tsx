@@ -51,8 +51,17 @@ describe('bilingual onboarding shell', () => {
     expect(html).toContain('Overview');
     expect(html).toContain('PBX Fleet');
     expect(html).toContain('Live Calls');
-    expect(html).toContain('Infrastructure');
+    expect(html).toContain('Channels');
     expect(html).toContain('Call History');
+    expect(html).toContain('PBX Settings');
+    expect(html).toContain('Data Source');
+    expect(html).toContain('Infrastructure');
+    expect(html).toContain('Service Monitoring');
+    expect(html).toContain('Dashboard Storage');
+    expect(html).toContain('Security');
+    expect(html).toContain('Accounts');
+    expect(html).not.toContain('data-telephony-navigation');
+    expect(html).not.toContain('data-settings-navigation');
   });
 
   it('keeps the approved shell RTL-aware in Persian', () => {
