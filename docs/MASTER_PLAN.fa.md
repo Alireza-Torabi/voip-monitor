@@ -1148,3 +1148,8 @@ Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check،
 <div dir="rtl" align="right">
 - **تفکیک Build و Deploy:** دستور عادی `npm run build` دیگر داخل `frontend/dist` که Production Gateway مستقیماً سرو می‌کند چیزی نمی‌نویسد و Frontend Verification را در `/tmp/voip-monitor-frontend-build` می‌سازد. فقط `npm run build:production` اجازه دارد `frontend/dist` را تولید کند. بنابراین Full Gate یک Branch Merge‌نشده دیگر نمی‌تواند Frontend زنده را عوض کند در حالی که Backend Production هنوز نسخه Merge‌شده قبلی است.
 </div>
+<div dir="rtl" align="right">
+- **ساده‌سازی حالت نمایش Overview:** دکمه و Mode مستقل Wallboard حذف شد. از این به بعد Fullscreen تنها حالت نمایشی ویژه است و همان Layout فشرده NOC، ارتفاع مبتنی بر Viewport، Auto-hide کنترل‌ها و Gaugeهای Compact را فعال می‌کند که قبلاً مخصوص Wallboard بود.
+- **حذف Dashboard Editor قدیمی از Overview:** دکمه `Edit dashboard` دیگر Builder قدیمی را باز نمی‌کند. آن Builder در حقیقت یک Dashboard دوم و قدیمی با Widgetهای متفاوت مثل CPU Gauge، Memory Gauge و Calls/Trunks قدیمی بود و Overview فعلی را Edit نمی‌کرد؛ بنابراین گمراه‌کننده بود. Overview فعلی اکنون تنها UI Source of Truth است. Persistence/API قدیمی Dashboard Definition برای Backward Compatibility فعلاً باقی می‌ماند ولی در Frontend فعلی نمایش داده نمی‌شود.
+- **مرز Customization آینده:** Drag/Resize/Reorder فقط زمانی برمی‌گردد که مستقیماً روی Layout فعلی OperatorOverview پیاده‌سازی شود؛ Builder قدیمی نباید دوباره به‌عنوان میانبر فعال شود.
+</div>

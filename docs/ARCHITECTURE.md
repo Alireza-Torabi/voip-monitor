@@ -175,3 +175,7 @@ Wallboard rendering is a responsive four-row grid sized to the viewport: KPI str
 ## Verification build isolation
 
 The production gateway serves `frontend/dist` directly. Therefore the default repository build used by lint/test/full-gate workflows must not write that directory. Frontend verification output is written to `/tmp/voip-monitor-frontend-build`; production deployment explicitly uses `npm run build:production` to generate `frontend/dist`. This preserves frontend/backend release atomicity and prevents unmerged branch verification from creating contract skew in the live service.
+
+## Overview presentation and customization boundary
+
+Fullscreen is the sole alternate presentation state for OperatorOverview and passes the compact-layout flag directly to the current Overview. There is no separate Wallboard state machine. The legacy dashboard-definition builder is not part of the active presentation path: its backend contracts may remain for compatibility, but the frontend must not expose them as if they edit OperatorOverview. Future layout editing must operate on the current Overview component model.
