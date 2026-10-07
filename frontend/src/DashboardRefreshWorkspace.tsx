@@ -147,17 +147,32 @@ export function DashboardRefreshWorkspace({
             ] as const
           ).map(([key, label]) => (
             <WorkspaceField key={key} label={label}>
-              <WorkspaceSelect
-                value={String(draft[key])}
-                onChange={(value) => setDraft((current) => ({ ...current, [key]: Number(value) }))}
-                ariaLabel={label}
+              <Flex
+                gap="1.5"
+                flexWrap="wrap"
+                role="group"
+                aria-label={label}
+                data-dashboard-cadence-control={key}
               >
-                {DASHBOARD_REFRESH_RATE_OPTIONS.map((value) => (
-                  <option key={value} value={value}>
-                    {value < 1000 ? `${value} ms` : `${value / 1000} s`}
-                  </option>
-                ))}
-              </WorkspaceSelect>
+                {DASHBOARD_REFRESH_RATE_OPTIONS.map((value) => {
+                  const selected = draft[key] === value;
+                  return (
+                    <Button
+                      key={value}
+                      type="button"
+                      size="xs"
+                      minW="48px"
+                      variant={selected ? 'solid' : 'outline'}
+                      colorPalette={selected ? 'blue' : 'gray'}
+                      aria-pressed={selected}
+                      disabled={pending || !selectedId}
+                      onClick={() => setDraft((current) => ({ ...current, [key]: value }))}
+                    >
+                      {value < 1000 ? `${value} ms` : `${value / 1000} s`}
+                    </Button>
+                  );
+                })}
+              </Flex>
             </WorkspaceField>
           ))}
         </SimpleGrid>
