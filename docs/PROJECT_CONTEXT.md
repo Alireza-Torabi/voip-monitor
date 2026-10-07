@@ -135,3 +135,7 @@ Storage / Filesystems and Dashboard Settings are separate Settings destinations.
 ## 2026-10-07 — Build isolation
 
 The default Full Gate build is non-deploying: frontend output goes to `/tmp/voip-monitor-frontend-build`. Only explicit `npm run build:production` writes the live `frontend/dist` served by the production gateway. Never use an unmerged branch build as a production UI preview.
+
+## 2026-10-07 — Overview mode/editor simplification
+
+Overview has one special presentation mode: Fullscreen. It automatically applies the compact, responsive, one-screen NOC layout and auto-hiding exit control; separate Wallboard UI is removed. The old Edit dashboard frontend builder is also removed because it edited a separate legacy widget model rather than the current OperatorOverview. Existing dashboard-definition backend persistence is retained but dormant. Any future drag/resize/reorder must edit OperatorOverview itself.

@@ -763,3 +763,6 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 507. **Storage selection and dashboard cadence are independent workspaces:** Storage / Filesystems must load and save without any dependency on dashboard-refresh APIs; Dashboard Settings owns cadence configuration separately.
 508. **Verification builds must not mutate live frontend assets:** default `npm run build` writes frontend output outside the production static root; only explicit `build:production` may write `frontend/dist`.
 509. **Frontend/backend production release is atomic by workflow:** preview/verification of unmerged branches must not change the static assets served by the production gateway.
+510. **Fullscreen is the only special Overview presentation mode:** separate Wallboard mode/control is removed; fullscreen inherits the compact one-screen NOC layout and control auto-hide behavior.
+511. **Legacy dashboard builder is not an editor for OperatorOverview:** remove Edit dashboard and the legacy frontend builder from the current Overview rather than exposing two conflicting dashboard models.
+512. **Future dashboard customization must target OperatorOverview directly:** drag/reorder/resize may return only through a new implementation that edits the current dashboard layout; legacy dashboard-definition UI remains dormant.

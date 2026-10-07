@@ -1722,7 +1722,8 @@ describe('dashboard builder', () => {
     expect(container.textContent).toContain('Current problems');
     expect(container.textContent).toContain('Infrastructure health');
     expect(container.textContent).toContain('Full screen');
-    expect(container.textContent).toContain('Wallboard');
+    expect(container.textContent).not.toContain('Wallboard');
+    expect(container.textContent).not.toContain('Edit dashboard');
     expect(container.textContent).toContain('12%');
 
     const metricsStream = FakeEventSource.instances.find((source) =>
@@ -1746,38 +1747,6 @@ describe('dashboard builder', () => {
     expect(container.textContent).toContain('Infrastructure health');
     expect(container.textContent).toContain('ERROR');
 
-    const wallboard = [...container.querySelectorAll('button')].find(
-      (button) => button.textContent === 'Wallboard',
-    );
-    await act(async () => wallboard?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
-    expect(container.querySelector('[data-dashboard-root]')?.getAttribute('data-wallboard')).toBe(
-      'true',
-    );
-    expect(container.querySelector('[data-dashboard-toolbar]')).toBeNull();
-    expect(container.textContent).toContain('Exit wallboard');
-    const exitWallboard = [...container.querySelectorAll('button')].find(
-      (button) => button.textContent === 'Exit wallboard',
-    );
-    await act(async () => exitWallboard?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
-    expect(container.querySelector('[data-dashboard-root]')?.getAttribute('data-wallboard')).toBe(
-      'false',
-    );
-    expect(container.querySelector('[data-dashboard-toolbar]')).not.toBeNull();
-
-    const edit = [...container.querySelectorAll('button')].find(
-      (button) => button.textContent === 'Edit dashboard',
-    );
-    await act(async () => edit?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
-    expect(container.querySelector('[data-operator-overview]')).toBeNull();
-    expect(container.querySelectorAll('[data-dashboard-widget]')).toHaveLength(3);
-    expect(container.textContent).toContain('TV');
-    expect(container.textContent).toContain('Drag widgets to reorder them.');
-    const remove = [...container.querySelectorAll('button')].find(
-      (button) => button.textContent === '×',
-    );
-    await act(async () => remove?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
-    expect(container.querySelectorAll('[data-dashboard-widget]')).toHaveLength(2);
-
     const dashboardRoot = container.querySelector('[data-dashboard-root]');
     expect(dashboardRoot).not.toBeNull();
     Object.defineProperty(document, 'fullscreenElement', {
@@ -1788,6 +1757,12 @@ describe('dashboard builder', () => {
 
     expect(container.querySelector('[data-dashboard-toolbar]')).toBeNull();
     expect(container.querySelector('[data-dashboard-fullscreen-exit]')).not.toBeNull();
+    expect(
+      container.querySelector('[data-dashboard-root]')?.getAttribute('data-fullscreen-dashboard'),
+    ).toBe('true');
+    expect(
+      container.querySelector('[data-operator-overview]')?.getAttribute('data-wallboard-overview'),
+    ).toBe('true');
     expect(container.textContent).not.toContain('New dashboard');
     expect(container.textContent).not.toContain('Edit dashboard');
     expect(container.textContent).not.toContain('Dashboard PBX');
