@@ -1,5 +1,6 @@
 import { Badge, Box, Button, Flex, SimpleGrid, Stack, Text } from '@chakra-ui/react';
 import { useMemo } from 'react';
+import { evaluateOperationalHealth, type OperationalHealthState } from '@voip-monitor/shared';
 import type {
   PbxConnectionState,
   SecurityAlertRecord,
@@ -23,6 +24,7 @@ type Destination = TelephonyPage | 'security';
 
 interface OperatorOverviewProps {
   text: TextMap;
+  instanceId: string;
   connection: PbxConnectionState;
   metrics?: SystemMetricsResponse | undefined;
   metricHistory: SystemMetricsSample[];
@@ -227,6 +229,7 @@ function MiniTrend({ samples, label }: { samples: SystemMetricsSample[]; label: 
 
 export function OperatorOverview({
   text,
+  instanceId,
   connection,
   metrics,
   metricHistory,
@@ -270,6 +273,65 @@ export function OperatorOverview({
     (state) => state === 'connected',
   );
 
+  const health = evaluateOperationalHealth({
+    instanceId,
+    providerState: connection,
+    ...(telephony
+      ? {
+          telephony: {
+            synchronization: telephony.synchronization,
+            trunkCapability: telephony.trunkCapability,
+            trunkSynchronization: telephony.trunkSynchronization,
+            trunks: telephony.trunks.map((trunk) => ({
+              registrationState: trunk.registrationState,
+              ...(trunk.reachability ? { reachability: trunk.reachability } : {}),
+            })),
+            endpointCapability: telephony.endpointCapability,
+            endpointSynchronization: telephony.endpointSynchronization,
+            endpoints: telephony.endpoints.map((endpoint) => ({
+              reachability: endpoint.reachability,
+            })),
+            queueCapability: telephony.queueCapability,
+            queueSynchronization: telephony.queueSynchronization,
+            queues: telephony.queues.map((queue) => ({ waitingCount: queue.waitingCount })),
+          },
+        }
+      : {}),
+    ...(metrics?.source
+      ? {
+          system: {
+            freshness: metrics.source.health.freshness,
+            ...(sample?.cpu ? { cpuPercent: sample.cpu.utilizationPercent } : {}),
+            ...(memoryPercent !== undefined ? { memoryPercent } : {}),
+            ...(visibleFilesystems.length > 0
+              ? { maxFilesystemPercent: worstFilesystemPercent }
+              : {}),
+            ...(sample?.services ? { services: sample.services } : {}),
+          },
+        }
+      : {}),
+    security: { currentAlertCount: alerts.length },
+  });
+
+  const toneFor = (state: OperationalHealthState): OperationalTone =>
+    state === 'HEALTHY'
+      ? 'healthy'
+      : state === 'CRITICAL'
+        ? 'critical'
+        : state === 'DEGRADED' || state === 'STALE'
+          ? 'warning'
+          : 'unknown';
+  const labelFor = (state: OperationalHealthState): string =>
+    state === 'HEALTHY'
+      ? text.dashboardHealthLabel.healthy
+      : state === 'CRITICAL'
+        ? text.dashboardHealthLabel.critical
+        : state === 'DEGRADED'
+          ? text.dashboardHealthLabel.warning
+          : state === 'STALE'
+            ? text.telephonyStale
+            : text.dashboardHealthLabel.unknown;
+
   const issues: OperationalIssue[] = [];
   if (connection === 'ERROR' || connection === 'DISCONNECTED') {
     issues.push({
@@ -278,7 +340,7 @@ export function OperatorOverview({
       title: text.providerConnection,
       detail: connection,
     });
-  } else if (connection === 'DEGRADED') {
+  } else if (connection === 'DEGRADED' || connection === 'CONNECTING') {
     issues.push({
       id: 'provider-degraded',
       tone: 'warning',
@@ -323,7 +385,7 @@ export function OperatorOverview({
   if (unreachableEndpoints > 0) {
     issues.push({
       id: 'endpoints',
-      tone: 'warning',
+      tone: health.components.ENDPOINTS.state === 'CRITICAL' ? 'critical' : 'warning',
       title: text.telephonyEndpoints,
       detail: String(unreachableEndpoints),
       destination: 'endpoints',
@@ -332,18 +394,51 @@ export function OperatorOverview({
   if (waitingCallers > 0) {
     issues.push({
       id: 'queues',
-      tone: waitingCallers >= 5 ? 'warning' : 'unknown',
+      tone: 'warning',
       title: text.queuePressure,
       detail: String(waitingCallers),
       destination: 'queues',
     });
   }
+  const inactiveServices =
+    sample?.services?.filter((service) => service.state === 'INACTIVE').length ?? 0;
   if (failedServices > 0) {
     issues.push({
       id: 'services',
       tone: 'critical',
       title: text.serviceHealthTitle,
       detail: String(failedServices),
+    });
+  } else if (inactiveServices > 0) {
+    issues.push({
+      id: 'services-inactive',
+      tone: 'warning',
+      title: text.serviceHealthTitle,
+      detail: String(inactiveServices),
+    });
+  }
+  if (metrics?.source?.health.freshness === 'STALE') {
+    issues.push({
+      id: 'system-stale',
+      tone: 'warning',
+      title: text.dashboardInfrastructure,
+      detail: 'STALE',
+    });
+  } else if (metrics?.source?.health.freshness === 'ERROR') {
+    issues.push({
+      id: 'system-error',
+      tone: 'critical',
+      title: text.dashboardInfrastructure,
+      detail: 'ERROR',
+    });
+  }
+  if (health.components.TRUNKS.state === 'DEGRADED' && unhealthyTrunks === 0) {
+    issues.push({
+      id: 'trunks-degraded',
+      tone: 'warning',
+      title: text.telephonyTrunks,
+      detail: labelFor(health.components.TRUNKS.state),
+      destination: 'trunks',
     });
   }
   if ((sample?.cpu?.utilizationPercent ?? 0) >= 85) {
@@ -371,13 +466,16 @@ export function OperatorOverview({
     });
   }
 
-  const overallTone: OperationalTone = issues.some((issue) => issue.tone === 'critical')
-    ? 'critical'
-    : issues.some((issue) => issue.tone === 'warning')
-      ? 'warning'
-      : connection === 'CONNECTED' && telephony?.synchronization === 'CURRENT'
-        ? 'healthy'
-        : 'unknown';
+  if (issues.length === 0 && !['HEALTHY', 'UNKNOWN'].includes(health.overall)) {
+    issues.push({
+      id: 'unified-health',
+      tone: health.overall === 'CRITICAL' ? 'critical' : 'warning',
+      title: text.dashboardHealth,
+      detail: labelFor(health.overall),
+    });
+  }
+
+  const overallTone = toneFor(health.overall);
 
   const healthyEndpoints =
     telephony?.endpoints.filter((endpoint) => endpoint.reachability === 'REACHABLE').length ?? 0;
@@ -399,7 +497,7 @@ export function OperatorOverview({
         >
           <KpiCell
             label={text.dashboardHealth}
-            value={text.dashboardHealthLabel[overallTone]}
+            value={labelFor(health.overall)}
             detail={connection}
             tone={overallTone}
           />
@@ -414,28 +512,28 @@ export function OperatorOverview({
             label={text.telephonyTrunks}
             value={(telephony?.trunks.length ?? 0).toString()}
             detail={registeredTrunks + ' ' + text.dashboardRegistered}
-            tone={unhealthyTrunks > 0 ? 'critical' : telephony ? 'healthy' : 'unknown'}
+            tone={toneFor(health.components.TRUNKS.state)}
             onClick={onNavigate ? () => onNavigate('trunks') : undefined}
           />
           <KpiCell
             label={text.telephonyEndpoints}
             value={(telephony?.endpoints.length ?? 0).toString()}
             detail={healthyEndpoints + ' ' + text.dashboardReachable}
-            tone={unreachableEndpoints > 0 ? 'warning' : telephony ? 'healthy' : 'unknown'}
+            tone={toneFor(health.components.ENDPOINTS.state)}
             onClick={onNavigate ? () => onNavigate('endpoints') : undefined}
           />
           <KpiCell
             label={text.telephonyQueues}
             value={(telephony?.queues.length ?? 0).toString()}
             detail={waitingCallers + ' ' + text.telephonyWaiting.toLowerCase()}
-            tone={waitingCallers > 0 ? 'warning' : telephony ? 'healthy' : 'unknown'}
+            tone={toneFor(health.components.QUEUES.state)}
             onClick={onNavigate ? () => onNavigate('queues') : undefined}
           />
           <KpiCell
             label={text.securityAlertsSummary}
             value={alerts.length}
             detail={alerts.length === 0 ? text.noAlerts : text.dashboardNeedsAttention}
-            tone={alerts.length > 0 ? 'critical' : 'healthy'}
+            tone={toneFor(health.components.SECURITY.state)}
             onClick={onNavigate ? () => onNavigate('security') : undefined}
           />
           <KpiCell
@@ -668,7 +766,7 @@ export function OperatorOverview({
               </Text>
             </Box>
             <StatusIndicator
-              tone={unreachableEndpoints > 0 ? 'warning' : telephony ? 'healthy' : 'unknown'}
+              tone={toneFor(health.components.ENDPOINTS.state)}
               label={unreachableEndpoints > 0 ? String(unreachableEndpoints) : 'OK'}
             />
           </Flex>
@@ -692,7 +790,7 @@ export function OperatorOverview({
               </Text>
             </Box>
             <StatusIndicator
-              tone={waitingCallers > 0 ? 'warning' : telephony ? 'healthy' : 'unknown'}
+              tone={toneFor(health.components.QUEUES.state)}
               label={telephony?.queues.length ?? 0}
             />
           </Flex>
@@ -716,7 +814,7 @@ export function OperatorOverview({
               </Text>
             </Box>
             <StatusIndicator
-              tone={failedServices > 0 ? 'critical' : sample?.services ? 'healthy' : 'unknown'}
+              tone={toneFor(health.components.SYSTEM.state)}
               label={failedServices > 0 ? String(failedServices) : 'OK'}
             />
           </Flex>

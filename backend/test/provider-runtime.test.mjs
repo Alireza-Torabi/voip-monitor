@@ -1108,6 +1108,17 @@ test('authenticated connection-test API is same-origin, secret-safe, and does no
       assert.equal(providerStatus.networkEnabled, true);
       assert.equal(providerStatus.managed, false);
       assert.equal(providerStatus.connectionStatus, 'DISCONNECTED');
+
+      const operationalHealthResponse = await fetch(
+        `${app.base}/api/pbx-instances/${profile.id}/operational-health`,
+        { headers: { cookie } },
+      );
+      assert.equal(operationalHealthResponse.status, 200);
+      const operationalHealth = await operationalHealthResponse.json();
+      assert.equal(operationalHealth.instanceId, profile.id);
+      assert.equal(operationalHealth.components.PROVIDER.state, 'CRITICAL');
+      assert.equal(operationalHealth.components.CALL_QUALITY.state, 'UNKNOWN');
+      assert.ok(!JSON.stringify(operationalHealth).includes('synthetic-ami-secret'));
     } finally {
       await app.close();
     }

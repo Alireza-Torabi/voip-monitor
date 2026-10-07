@@ -493,3 +493,5 @@ export interface PbxProvider {
   subscribeSecurityEvents(listener: SecurityEventListener): () => void;
   reconcile(): Promise<ProviderStateSnapshot>;
 }
+
+export * from './operational-health.js';

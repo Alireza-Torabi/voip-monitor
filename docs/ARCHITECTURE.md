@@ -123,3 +123,7 @@ Frontend workspaces now share WorkspacePrimitives layered on the Task 52 NOC pri
 ## Task 55 wallboard and accessibility architecture
 
 The dashboard now distinguishes browser fullscreen from application wallboard state. Wallboard is presentation-only and can operate without fullscreen support. The application shell uses a responsive navigation topology: bottom rail on mobile, compact sidebar on tablet, full sidebar on desktop. Accessibility behavior is centralized in shell/global CSS: skip-to-content, focus-visible styling, reduced-motion handling, forced-colors fallbacks, minimum mobile control height, and semantic navigation/status landmarks. Dark-theme contrast tokens are centrally verified rather than adjusted ad hoc per component.
+
+## Task 56 unified operational health architecture
+
+`@voip-monitor/shared` now owns the operational-health state machine, component dimensions, bounded reason codes, aggregation precedence, and deterministic evaluator. Backend adapts current provider connection state, normalized telephony state, current system metrics/source freshness, and current persisted security alerts into this shared input and exposes the resulting PBX-scoped snapshot at `/api/pbx-instances/:id/operational-health`. Frontend imports the same internal workspace package and evaluates its realtime local state through the identical contract, preventing API/UI semantic drift without adding extra realtime HTTP polling. Future call-quality health already has a canonical dimension but remains UNKNOWN until real source capability is established.

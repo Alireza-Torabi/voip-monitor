@@ -87,3 +87,7 @@ The non-dashboard operator surfaces now share the same Modern NOC visual and int
 ## 2026-10-06 — Task 55 wallboard and accessibility pass
 
 The approved NOC interface now has a dedicated wallboard mode distinct from generic browser fullscreen, mobile bottom-rail navigation, tablet/desktop sidebar fallbacks, skip navigation, explicit focus-visible treatment, reduced-motion behavior, forced-colors fallbacks, and accessible mobile navigation labels. A numeric contrast audit raised the subtle-text token so small metadata text now meets WCAG AA contrast against all three primary dark surfaces. No backend or PBX behavior changed.
+
+## 2026-10-07 — Task 56 unified operational health
+
+Operational health semantics now have one shared provider-neutral owner. The shared evaluator normalizes provider, telephony, trunk, endpoint, queue, system, security, and future call-quality dimensions into HEALTHY/DEGRADED/CRITICAL/UNKNOWN/STALE with bounded reason codes. Backend exposes a read-only PBX-scoped snapshot from current state only; frontend realtime presentation uses the same evaluator. UNKNOWN capabilities do not become false incidents, while STALE explicitly represents confidence loss. No monitoring probe, persistence, or PBX behavior was added.

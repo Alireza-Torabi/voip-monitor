@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-06. PR #64 merged Task 54. Task 55 is complete locally on feature/noc-wallboard-accessibility and merge is pending. Wallboard mode, mobile bottom navigation, keyboard/focus affordances, reduced-motion/high-contrast handling, skip navigation, and verified dark-theme contrast are implemented. Task 56 follows only after Task 55 merges.
+Status: 2026-10-07. PR #65 merged Task 55. Task 56 is complete locally on feature/unified-operational-health and merge is pending. A provider-neutral unified health contract/evaluator now owns PBX operational health semantics, an authenticated PBX-scoped API exposes the snapshot, and the Operator Overview uses the same shared evaluator for realtime presentation. Task 57 follows only after Task 56 merges.
 
 ## Phase 0 — environment discovery
 
@@ -703,7 +703,7 @@ The product foundation is production-ready, but the monitoring product is not ye
 
 ### Phase 14 — Unified operational health
 
-- [ ] **Task 56 — Unified Operational Health Model**
+- [x] **Task 56 — Unified Operational Health Model**
   - Normalize PBX/provider/telephony/trunk/endpoint/queue/system/security/future-call-quality health into HEALTHY, DEGRADED, CRITICAL, UNKNOWN, and STALE.
 - [ ] **Task 57 — Fleet Overview**
   - Cross-PBX health aggregation, active calls, trunk failures, endpoint failures, queue pressure, and critical alerts.
@@ -901,6 +901,41 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 - format check PASS.
 - typecheck PASS.
 - backend tests 165/165 PASS.
+- frontend tests 28/28 PASS.
+- production build PASS.
+- foundation check PASS.
+- license check PASS.
+- git diff check PASS.
+- Existing Chakra/Ark/Zag/Rolldown module-level `use client` warnings remain non-fatal and unchanged in nature.
+
+## 2026-10-07 — Task 56 completion record
+
+- **Result:** introduced one provider-neutral operational-health model for provider, telephony, trunks, endpoints, queues, system, security, and future call-quality dimensions.
+- **Canonical states:** `HEALTHY`, `DEGRADED`, `CRITICAL`, `UNKNOWN`, and `STALE`.
+- **Aggregation precedence:** `CRITICAL > STALE > DEGRADED > HEALTHY > UNKNOWN`. `UNKNOWN` does not poison an otherwise healthy PBX because unsupported/not-configured/future capabilities must not become false incidents. `STALE` outranks `DEGRADED` because stale monitoring data weakens confidence in the current operational picture.
+- **Bounded reason codes:** each component carries only allowlisted reason codes plus optional bounded count/value context. Raw provider errors, payloads, credentials, or arbitrary messages are never part of the health snapshot.
+- **Provider semantics:** CONNECTED=HEALTHY, DEGRADED/CONNECTING=DEGRADED, DISCONNECTED/ERROR=CRITICAL, UNVERIFIED=UNKNOWN.
+- **Telephony semantics:** CURRENT=HEALTHY, STALE=STALE, AWAITING_SNAPSHOT=UNKNOWN, absent state=UNKNOWN.
+- **Trunk semantics:** unavailable capability/synchronization is UNKNOWN/STALE; REGISTERING is DEGRADED; UNREGISTERED/REJECTED/FAILED/UNREACHABLE is CRITICAL; an empty supported inventory is UNKNOWN rather than falsely healthy.
+- **Endpoint semantics:** any unreachable endpoint is DEGRADED; all observed endpoints unreachable is CRITICAL; unavailable/no observed inventory is UNKNOWN; stale synchronization is STALE.
+- **Queue semantics:** any current waiting caller produces DEGRADED queue health. Task 56 intentionally does not invent a universal critical queue-depth threshold because capacity/SLA varies by deployment.
+- **System semantics:** source freshness maps to UNKNOWN/STALE/CRITICAL as appropriate. Current samples use centralized thresholds: CPU >=85% degraded / >=95% critical, memory >=90% degraded / >=97% critical, filesystem >=90% degraded / >=97% critical; failed monitored services are critical and inactive monitored services are degraded.
+- **Security semantics:** one or more current persisted security alerts makes Security CRITICAL; zero current alerts is HEALTHY.
+- **Call-quality forward compatibility:** the CALL_QUALITY dimension exists now but is UNKNOWN with a bounded unavailable reason until Tasks 61–64 establish a real provider-neutral quality capability.
+- **Backend:** added `GET /api/pbx-instances/:id/operational-health`. It is authenticated, PBX-scoped, read-only, and computes only from current runtime/storage state; it performs no PBX/database/SSH probe and persists nothing.
+- **Frontend:** added `@voip-monitor/shared` as an internal workspace dependency and moved Operator Overview health state/tone decisions onto the same shared evaluator. Current-problem presentation remains descriptive, but it can no longer claim “no active problems” when canonical health is degraded/stale/critical.
+- **Regression coverage:** backend suite increased from 165 to 169 tests. New tests cover healthy-with-unknown-future-capability behavior, critical precedence, stale precedence, deterministic system/security reasons, and the authenticated API response. Frontend remains 28/28.
+- **Implementation failures resolved:** initial strict compilation rejected optional numeric reason values that could still be undefined and the first call-quality input shape omitted the required dimension. The threshold values were narrowed before reason construction and call-quality input is now converted through the canonical component constructor. No compiler settings were loosened.
+- **Known limitation:** Task 56 is current-state normalization only. It does not create fleet aggregation, transition history, outage duration, flap counters, generic operational alerts, or notification lifecycle. Those remain Tasks 57–69.
+- **Exact next task:** Task 57 — Fleet Overview.
+
+### Task 56 final validation
+
+- Node v24.21.0 / npm 11.19.0.
+- lint PASS.
+- format check PASS.
+- typecheck PASS.
+- backend tests 169/169 PASS.
 - frontend tests 28/28 PASS.
 - production build PASS.
 - foundation check PASS.

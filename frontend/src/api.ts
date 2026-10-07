@@ -1,3 +1,4 @@
+import type { OperationalHealthSnapshot } from '@voip-monitor/shared';
 export interface Principal {
   id: string;
   username: string;
@@ -256,18 +257,25 @@ export interface TelephonyCallState {
 
 export interface TelephonyEndpointState {
   endpointId: string;
-  registrationState: string;
-  reachability: string;
+  registrationState: 'REGISTERED' | 'UNREGISTERED' | 'UNKNOWN';
+  reachability: 'REACHABLE' | 'UNREACHABLE' | 'UNKNOWN';
   updatedAt: string;
 }
 
 export interface TelephonyTrunkState {
   trunkId: string;
-  kind: string;
-  technology: string;
-  confidence: string;
-  registrationState: string;
-  reachability?: string;
+  kind: 'OUTBOUND_REGISTRATION' | 'PEER';
+  technology: 'CHAN_SIP' | 'PJSIP';
+  confidence: 'CONFIRMED' | 'CANDIDATE';
+  registrationState:
+    | 'REGISTERED'
+    | 'UNREGISTERED'
+    | 'REGISTERING'
+    | 'REJECTED'
+    | 'FAILED'
+    | 'NOT_APPLICABLE'
+    | 'UNKNOWN';
+  reachability?: 'REACHABLE' | 'UNREACHABLE' | 'UNKNOWN';
   updatedAt: string;
 }
 
@@ -380,6 +388,8 @@ export const api = {
   listPbx: () => request<{ items: PbxProfile[] }>('/api/pbx-instances'),
   providerStatus: (id: string) =>
     request<ProviderStatus>(`/api/pbx-instances/${id}/provider-status`),
+  operationalHealth: (id: string) =>
+    request<OperationalHealthSnapshot>(`/api/pbx-instances/${id}/operational-health`),
   systemMetrics: (id: string) =>
     request<SystemMetricsResponse>(`/api/pbx-instances/${id}/system-metrics`),
   dashboardStorage: (id: string) =>
