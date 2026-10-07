@@ -22,6 +22,7 @@ import { SshMetricsWorkspace } from './SshMetricsWorkspace.js';
 import { DatabaseSourceWorkspace } from './DatabaseSourceWorkspace.js';
 import { HistoryWorkspace } from './HistoryWorkspace.js';
 import { DashboardStorageWorkspace } from './DashboardStorageWorkspace.js';
+import { DashboardRefreshWorkspace } from './DashboardRefreshWorkspace.js';
 import { ServiceMonitoringWorkspace } from './ServiceMonitoringWorkspace.js';
 import { AccountsWorkspace } from './AccountsWorkspace.js';
 import type { OperatorDestination } from './OperatorDashboard.js';
@@ -41,6 +42,7 @@ type SettingsPage =
   | 'ssh-metrics'
   | 'service-monitoring'
   | 'storage'
+  | 'dashboard-refresh'
   | 'security'
   | 'accounts';
 
@@ -932,6 +934,13 @@ export function App({
               ) : null}
               {settingsPage === 'storage' ? (
                 <DashboardStorageWorkspace
+                  text={text}
+                  profiles={profiles}
+                  onUnauthorized={unauthorized}
+                />
+              ) : null}
+              {settingsPage === 'dashboard-refresh' ? (
+                <DashboardRefreshWorkspace
                   text={text}
                   profiles={profiles}
                   onUnauthorized={unauthorized}

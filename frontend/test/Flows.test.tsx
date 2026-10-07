@@ -9,6 +9,7 @@ import { SshMetricsWorkspace } from '../src/SshMetricsWorkspace.js';
 import { DatabaseSourceWorkspace } from '../src/DatabaseSourceWorkspace.js';
 import { HistoryWorkspace } from '../src/HistoryWorkspace.js';
 import { DashboardStorageWorkspace } from '../src/DashboardStorageWorkspace.js';
+import { DashboardRefreshWorkspace } from '../src/DashboardRefreshWorkspace.js';
 import { DashboardBuilder } from '../src/DashboardBuilder.js';
 import { ServiceMonitoringWorkspace } from '../src/ServiceMonitoringWorkspace.js';
 import { AccountsWorkspace } from '../src/AccountsWorkspace.js';
@@ -1445,7 +1446,6 @@ describe('dashboard storage settings', () => {
       updatedAt: '',
     } as const;
     const putBodies: unknown[] = [];
-    const refreshBodies: unknown[] = [];
     vi.stubGlobal(
       'fetch',
       vi.fn(async (path: string, init?: RequestInit) => {
@@ -1487,24 +1487,6 @@ describe('dashboard storage settings', () => {
         if (path === '/api/pbx-instances/storage-pbx/dashboard-storage' && init?.method === 'GET') {
           return response({ selectedFilesystemIds: null });
         }
-        if (path === '/api/pbx-instances/storage-pbx/dashboard-refresh' && init?.method === 'GET') {
-          return response({
-            rates: {
-              activeCallsMs: 1000,
-              endpointsMs: 5000,
-              queuesMs: 3000,
-              problemsMs: 3000,
-              cpuMemoryMs: 30000,
-              storageMs: 30000,
-              servicesMs: 10000,
-            },
-          });
-        }
-        if (path === '/api/pbx-instances/storage-pbx/dashboard-refresh' && init?.method === 'PUT') {
-          const rates = JSON.parse(String(init.body));
-          refreshBodies.push(rates);
-          return response({ rates });
-        }
         if (path === '/api/pbx-instances/storage-pbx/dashboard-storage' && init?.method === 'PUT') {
           putBodies.push(JSON.parse(String(init.body)));
           return response({ selectedFilesystemIds: ['/dev/root', '/dev/recording'] });
@@ -1542,20 +1524,73 @@ describe('dashboard storage settings', () => {
     await act(async () => save?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
     expect(putBodies).toEqual([{ selectedFilesystemIds: ['/dev/root', '/dev/recording'] }]);
     expect(container.querySelector('[data-dashboard-storage-settings]')).toBeTruthy();
-    expect(container.querySelector('[data-dashboard-refresh-settings]')).toBeTruthy();
-    const refreshSelects = [
-      ...container.querySelectorAll<HTMLSelectElement>('[data-dashboard-refresh-settings] select'),
-    ];
-    expect(refreshSelects).toHaveLength(7);
+    expect(container.querySelector('[data-dashboard-refresh-settings]')).toBeNull();
+  });
+});
+
+describe('dashboard refresh settings', () => {
+  it('loads and saves update cadence independently from storage settings', async () => {
+    const profile = {
+      id: 'refresh-pbx',
+      displayName: 'Refresh PBX',
+      providerType: 'ASTERISK',
+      enabled: true,
+      amiHost: 'pbx.example.test',
+      amiPort: 5038,
+      amiUsername: 'synthetic-user',
+      hasAmiPassword: true,
+      connectionStatus: 'CONNECTED',
+      createdAt: '',
+      updatedAt: '',
+    } as const;
+    const putBodies: unknown[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string, init?: RequestInit) => {
+        if (path === '/api/pbx-instances/refresh-pbx/dashboard-refresh' && !init?.method)
+          return response({
+            rates: {
+              activeCallsMs: 1000,
+              endpointsMs: 5000,
+              queuesMs: 3000,
+              problemsMs: 3000,
+              cpuMemoryMs: 30000,
+              storageMs: 30000,
+              servicesMs: 10000,
+            },
+          });
+        if (path === '/api/pbx-instances/refresh-pbx/dashboard-refresh' && init?.method === 'PUT') {
+          const rates = JSON.parse(String(init.body));
+          putBodies.push(rates);
+          return response({ rates });
+        }
+        throw new Error('unexpected API route: ' + path);
+      }),
+    );
+    await act(async () =>
+      root.render(
+        <DashboardRefreshWorkspace
+          text={messages.en}
+          profiles={[profile]}
+          onUnauthorized={() => {}}
+        />,
+      ),
+    );
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(container.querySelector('[data-dashboard-storage-settings]')).toBeNull();
+    const refresh = container.querySelector('[data-dashboard-refresh-settings]');
+    expect(refresh).toBeTruthy();
+    const selects = [...refresh!.querySelectorAll<HTMLSelectElement>('select')];
+    expect(selects).toHaveLength(7);
     await act(async () => {
-      refreshSelects[0]!.value = '500';
-      refreshSelects[0]!.dispatchEvent(new Event('change', { bubbles: true }));
+      selects[0]!.value = '500';
+      selects[0]!.dispatchEvent(new Event('change', { bubbles: true }));
     });
-    const saveRefresh = [...container.querySelectorAll('button')].find(
+    const save = [...container.querySelectorAll('button')].find(
       (button) => button.textContent === 'Save update cadence',
     );
-    await act(async () => saveRefresh?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
-    expect(refreshBodies[0]).toMatchObject({ activeCallsMs: 500, cpuMemoryMs: 30000 });
+    await act(async () => save?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    expect(putBodies[0]).toMatchObject({ activeCallsMs: 500, cpuMemoryMs: 30000 });
   });
 });
 

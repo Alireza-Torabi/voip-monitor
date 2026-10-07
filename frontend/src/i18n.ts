@@ -165,7 +165,7 @@ export const messages = {
     settingsHint: 'PBX, monitoring, dashboard and security configuration.',
     dashboardStorageTitle: 'Storage / filesystems',
     dashboardStorageHint:
-      'Choose which current filesystems from this PBX are visible on the dashboard. Update cadence is configured separately below.',
+      'Choose which current filesystems from this PBX are visible on the dashboard.',
     dashboardStorageAvailable: 'Storage / filesystems',
     dashboardStorageAvailableHint:
       'The list comes from current SSH system metrics and is not hardcoded for any deployment.',
@@ -195,6 +195,7 @@ export const messages = {
     dashboardRefreshReset: 'Reset update cadence',
     dashboardRefreshSaved: 'Dashboard update cadence saved.',
     dashboardRefreshResetDone: 'Dashboard update cadence reset to recommended defaults.',
+    dashboardRefreshLoadFailed: 'Dashboard update settings could not be loaded.',
     dashboardRefreshSaveFailed: 'Dashboard update cadence could not be saved.',
     dashboardRefreshSavedState: 'SAVED',
     dashboardRefreshUnsavedState: 'UNSAVED',
@@ -599,8 +600,7 @@ export const messages = {
     settingsTitle: 'تنظیمات',
     settingsHint: 'تنظیمات PBX، Monitoring، Dashboard و Security.',
     dashboardStorageTitle: 'Storage / Filesystems',
-    dashboardStorageHint:
-      'مشخص کنید کدام Filesystemهای فعلی این PBX در Dashboard نمایش داده شوند. نرخ Update به‌صورت یک بخش جدا در پایین همین صفحه تنظیم می‌شود.',
+    dashboardStorageHint: 'مشخص کنید کدام Filesystemهای فعلی این PBX در Dashboard نمایش داده شوند.',
     dashboardStorageAvailable: 'Storage / Filesystems',
     dashboardStorageAvailableHint:
       'این لیست از System Metrics فعلی SSH می‌آید و برای هیچ Deploymentی Hardcode نشده است.',
@@ -629,6 +629,7 @@ export const messages = {
     dashboardRefreshReset: 'بازگشت نرخ Update به پیش‌فرض',
     dashboardRefreshSaved: 'نرخ Update داشبورد ذخیره شد.',
     dashboardRefreshResetDone: 'نرخ Update داشبورد به مقادیر پیشنهادی پیش‌فرض برگشت.',
+    dashboardRefreshLoadFailed: 'تنظیمات Update داشبورد قابل بارگذاری نبود.',
     dashboardRefreshSaveFailed: 'نرخ Update داشبورد قابل ذخیره نبود.',
     dashboardRefreshSavedState: 'ذخیره‌شده',
     dashboardRefreshUnsavedState: 'ذخیره‌نشده',

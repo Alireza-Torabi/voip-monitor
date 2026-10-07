@@ -760,3 +760,4 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 504. **Storage saturation uses progressive color:** gauge fill follows green-to-amber-to-red along the arc; higher utilization reveals more of the critical end of the scale.
 505. **Wallboard is one-screen first:** compact four-row layout, viewport-height sizing, responsive breakpoints, and hidden wallboard overflow take precedence over normal dashboard spacing.
 506. **Filesystem visibility remains explicitly discoverable:** the Settings child is named `Storage / Filesystems`; refresh cadence is a separate panel in the same workspace and must never visually replace or obscure filesystem selection.
+507. **Storage selection and dashboard cadence are independent workspaces:** Storage / Filesystems must load and save without any dependency on dashboard-refresh APIs; Dashboard Settings owns cadence configuration separately.
