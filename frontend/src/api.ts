@@ -1,4 +1,8 @@
-import type { FleetOverviewSnapshot, OperationalHealthSnapshot } from '@voip-monitor/shared';
+import type {
+  FleetOverviewSnapshot,
+  OperationalHealthSnapshot,
+  TrunkReliabilityState,
+} from '@voip-monitor/shared';
 export interface Principal {
   id: string;
   username: string;
@@ -277,6 +281,7 @@ export interface TelephonyTrunkState {
     | 'UNKNOWN';
   reachability?: 'REACHABLE' | 'UNREACHABLE' | 'UNKNOWN';
   updatedAt: string;
+  reliability: TrunkReliabilityState;
 }
 
 export interface TelephonyQueueState {

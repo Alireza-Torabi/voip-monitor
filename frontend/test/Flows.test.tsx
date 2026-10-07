@@ -572,6 +572,13 @@ describe('operator dashboard', () => {
                   confidence: 'CONFIRMED',
                   registrationState: 'REGISTERED',
                   updatedAt: '2026-10-05T04:00:01.000Z',
+                  reliability: {
+                    availability: 'UP',
+                    lastUpAt: '2026-10-05T04:00:01.000Z',
+                    flapCount: 0,
+                    reconnectCount: 0,
+                    recentTransitions: [],
+                  },
                 },
               ],
               queueCapability: 'SUPPORTED',
@@ -821,8 +828,26 @@ describe('telephony entity workspace', () => {
                   technology: 'PJSIP',
                   kind: 'OUTBOUND_REGISTRATION',
                   confidence: 'CONFIRMED',
-                  registrationState: 'REGISTERED',
-                  updatedAt: '2026-10-05T04:00:01.000Z',
+                  registrationState: 'FAILED',
+                  updatedAt: '2026-10-05T04:00:05.000Z',
+                  reliability: {
+                    availability: 'DOWN',
+                    lastUpAt: '2026-10-05T03:59:00.000Z',
+                    lastDownAt: '2026-10-05T04:00:05.000Z',
+                    outageStartedAt: '2026-10-05T04:00:05.000Z',
+                    outageDurationSeconds: 10,
+                    flapCount: 3,
+                    reconnectCount: 2,
+                    recentTransitions: [
+                      {
+                        observedAt: '2026-10-05T04:00:05.000Z',
+                        from: 'UP',
+                        to: 'DOWN',
+                        registrationState: 'FAILED',
+                        source: 'EVENT',
+                      },
+                    ],
+                  },
                 },
                 {
                   trunkId: 'SIP/static-carrier',
@@ -832,6 +857,13 @@ describe('telephony entity workspace', () => {
                   registrationState: 'NOT_APPLICABLE',
                   reachability: 'REACHABLE',
                   updatedAt: '2026-10-05T04:00:01.000Z',
+                  reliability: {
+                    availability: 'UP',
+                    lastUpAt: '2026-10-05T04:00:01.000Z',
+                    flapCount: 0,
+                    reconnectCount: 0,
+                    recentTransitions: [],
+                  },
                 },
               ],
               queueCapability: 'SUPPORTED',
@@ -868,6 +900,15 @@ describe('telephony entity workspace', () => {
     expect(container.textContent).toContain('CANDIDATE');
     expect(container.textContent).toContain('NOT_APPLICABLE');
     expect(container.textContent).toContain('REACHABLE');
+    expect(container.textContent).toContain('Availability');
+    expect(container.textContent).toContain('Last down');
+    expect(container.textContent).toContain('Outage');
+    expect(container.textContent).toContain('Flaps');
+    expect(container.textContent).toContain('Reconnects');
+    expect(container.textContent).toContain('Recent transitions');
+    expect(container.textContent).toContain('DOWN');
+    expect(container.textContent).toContain('3');
+    expect(container.textContent).toContain('UP→DOWN');
     expect(container.textContent).toContain('Trunk discovery uses explicit confidence');
   });
 });

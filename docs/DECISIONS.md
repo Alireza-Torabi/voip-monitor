@@ -688,3 +688,13 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 456. **Fleet rows are severity-first:** CRITICAL, STALE, DEGRADED, UNKNOWN, HEALTHY; ties sort by display name.
 457. **Fleet public fields are operationally minimal:** connection configuration, usernames, credential presence, secrets, and raw provider data are excluded.
 458. **Fleet drill-down selects the existing PBX Overview:** no duplicate PBX detail page is created.
+
+## 2026-10-07 — Task 58 Trunk Reliability decisions
+
+459. **Trunk reliability is owned by TelephonyStateEngine:** no parallel collector or polling path is introduced.
+460. **Provider disconnect is not trunk downtime:** visibility loss produces STALE synchronization, not fabricated trunk DOWN transitions.
+461. **First observation is a baseline, not a flap:** counters begin only after an observed state change from the baseline.
+462. **Outage lifetime survives transitional registration states:** an outage starts on DOWN and closes only when UP is observed.
+463. **Reliability history is bounded in memory:** latest 20 transitions per trunk; flap/reconnect counters saturate at 9,999; process restart resets this operational history.
+464. **Snapshots may repair reliability state:** reconciliation changes are valid transitions when they differ from the previous authoritative observation.
+465. **No long-range uptime claim is made:** Task 58 does not persist SLA/outage history or calculate durable availability percentages.

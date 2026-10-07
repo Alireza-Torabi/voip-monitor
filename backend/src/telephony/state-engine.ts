@@ -19,7 +19,11 @@ import type {
   TrunkKind,
   TrunkRegistrationState,
   TrunkTechnology,
+  TrunkReliabilityState,
+  TrunkReliabilityTransition,
+  TrunkTransitionSource,
 } from '@voip-monitor/shared';
+import { classifyTrunkAvailability } from '@voip-monitor/shared';
 
 export type TelephonySynchronization = 'CURRENT' | 'AWAITING_SNAPSHOT' | 'STALE';
 export type AgentInteractionSynchronization = 'LIVE_ONLY' | 'STALE';
@@ -48,6 +52,7 @@ export interface TelephonyTrunkState {
   registrationState: TrunkRegistrationState;
   reachability?: EndpointReachability;
   updatedAt: string;
+  reliability: TrunkReliabilityState;
 }
 
 export interface TelephonyQueueState {
@@ -145,8 +150,18 @@ interface MutableEndpoint extends TelephonyEndpointState {
   order: ChannelOrder;
 }
 
-interface MutableTrunk extends TelephonyTrunkState {
+interface MutableTrunk extends Omit<TelephonyTrunkState, 'reliability'> {
   order: ChannelOrder;
+}
+
+interface MutableTrunkReliability {
+  availability: TrunkReliabilityState['availability'];
+  lastUpAt?: string;
+  lastDownAt?: string;
+  outageStartedAt?: string;
+  flapCount: number;
+  reconnectCount: number;
+  recentTransitions: TrunkReliabilityTransition[];
 }
 
 interface MutableQueue extends Omit<TelephonyQueueState, 'waitingCount'> {
@@ -181,6 +196,7 @@ interface EngineEntry {
   endpointCapability: CapabilityState;
   endpointSynchronization: TelephonySynchronization | 'UNAVAILABLE';
   trunks: Map<string, MutableTrunk>;
+  trunkReliability: Map<string, MutableTrunkReliability>;
   trunkCapability: CapabilityState;
   trunkSynchronization: TelephonySynchronization | 'UNAVAILABLE';
   queues: Map<string, MutableQueue>;
@@ -301,6 +317,100 @@ function callStates(channels: Iterable<MutableChannel>): TelephonyCallState[] {
     }));
 }
 
+const MAX_TRUNK_TRANSITIONS = 20;
+const MAX_TRUNK_COUNTER = 9999;
+
+function boundedIncrement(value: number): number {
+  return Math.min(MAX_TRUNK_COUNTER, value + 1);
+}
+
+function observeTrunkReliability(
+  entry: EngineEntry,
+  trunk: Pick<MutableTrunk, 'trunkId' | 'registrationState' | 'reachability'>,
+  observedAt: string,
+  source: TrunkTransitionSource,
+): void {
+  const next = classifyTrunkAvailability(trunk.registrationState, trunk.reachability);
+  const current = entry.trunkReliability.get(trunk.trunkId);
+  if (!current) {
+    entry.trunkReliability.set(trunk.trunkId, {
+      availability: next,
+      ...(next === 'UP' ? { lastUpAt: observedAt } : {}),
+      ...(next === 'DOWN' ? { lastDownAt: observedAt, outageStartedAt: observedAt } : {}),
+      flapCount: 0,
+      reconnectCount: 0,
+      recentTransitions: [],
+    });
+    return;
+  }
+  if (current.availability === next) return;
+  const transition: TrunkReliabilityTransition = {
+    observedAt,
+    from: current.availability,
+    to: next,
+    registrationState: trunk.registrationState,
+    ...(trunk.reachability === undefined ? {} : { reachability: trunk.reachability }),
+    source,
+  };
+  current.recentTransitions = [...current.recentTransitions, transition].slice(
+    -MAX_TRUNK_TRANSITIONS,
+  );
+  if (next === 'DOWN') {
+    current.lastDownAt = observedAt;
+    if (!current.outageStartedAt) {
+      current.outageStartedAt = observedAt;
+      if (current.lastUpAt) current.flapCount = boundedIncrement(current.flapCount);
+    }
+  }
+  if (next === 'UP') {
+    current.lastUpAt = observedAt;
+    if (current.outageStartedAt) {
+      current.reconnectCount = boundedIncrement(current.reconnectCount);
+      delete current.outageStartedAt;
+    }
+  }
+  current.availability = next;
+}
+
+function publicTrunkReliability(
+  current: MutableTrunkReliability | undefined,
+  trunk: Pick<MutableTrunk, 'registrationState' | 'reachability' | 'updatedAt'>,
+): TrunkReliabilityState {
+  const fallbackAvailability = classifyTrunkAvailability(
+    trunk.registrationState,
+    trunk.reachability,
+  );
+  if (!current) {
+    return {
+      availability: fallbackAvailability,
+      ...(fallbackAvailability === 'UP' ? { lastUpAt: trunk.updatedAt } : {}),
+      ...(fallbackAvailability === 'DOWN'
+        ? {
+            lastDownAt: trunk.updatedAt,
+            outageStartedAt: trunk.updatedAt,
+            outageDurationSeconds: 0,
+          }
+        : {}),
+      flapCount: 0,
+      reconnectCount: 0,
+      recentTransitions: [],
+    };
+  }
+  const outageDurationSeconds = current.outageStartedAt
+    ? Math.max(0, Math.floor((Date.now() - Date.parse(current.outageStartedAt)) / 1000))
+    : undefined;
+  return {
+    availability: current.availability,
+    ...(current.lastUpAt ? { lastUpAt: current.lastUpAt } : {}),
+    ...(current.lastDownAt ? { lastDownAt: current.lastDownAt } : {}),
+    ...(current.outageStartedAt ? { outageStartedAt: current.outageStartedAt } : {}),
+    ...(outageDurationSeconds === undefined ? {} : { outageDurationSeconds }),
+    flapCount: current.flapCount,
+    reconnectCount: current.reconnectCount,
+    recentTransitions: current.recentTransitions.map((transition) => ({ ...transition })),
+  };
+}
+
 function publicState(entry: EngineEntry): TelephonyInstanceState | undefined {
   if (!entry.initialized || !entry.lastSnapshotAt) return undefined;
   const channels = [...entry.channels.values()]
@@ -331,6 +441,7 @@ function publicState(entry: EngineEntry): TelephonyInstanceState | undefined {
       registrationState: trunk.registrationState,
       ...(trunk.reachability === undefined ? {} : { reachability: trunk.reachability }),
       updatedAt: trunk.updatedAt,
+      reliability: publicTrunkReliability(entry.trunkReliability.get(trunk.trunkId), trunk),
     }));
   const queueMembers = [...entry.queueMembers.values()]
     .sort(
@@ -758,6 +869,7 @@ function mergeTrunk(
     existing.confidence !== next.confidence ||
     existing.registrationState !== next.registrationState;
   entry.trunks.set(event.trunkId, next);
+  observeTrunkReliability(entry, next, event.observedAt, 'EVENT');
   return changed;
 }
 
@@ -1125,6 +1237,7 @@ export class TelephonyStateEngine {
       endpointCapability: 'UNKNOWN',
       endpointSynchronization: 'AWAITING_SNAPSHOT',
       trunks: new Map(),
+      trunkReliability: new Map(),
       trunkCapability: 'UNKNOWN',
       trunkSynchronization: 'AWAITING_SNAPSHOT',
       queues: new Map(),
@@ -1363,6 +1476,16 @@ export class TelephonyStateEngine {
           updatedAt: trunkState.observedAt,
           order: trunkSnapshotOrder(snapshot, trunk),
         });
+        observeTrunkReliability(
+          entry,
+          {
+            trunkId: trunk.trunkId,
+            registrationState: trunk.registrationState,
+            ...(trunk.reachability === undefined ? {} : { reachability: trunk.reachability }),
+          },
+          trunkState.observedAt,
+          'SNAPSHOT',
+        );
       }
       entry.trunks = trunks;
       entry.trunkCapability = 'SUPPORTED';
