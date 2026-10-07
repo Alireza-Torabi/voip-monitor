@@ -1445,6 +1445,7 @@ describe('dashboard storage settings', () => {
       updatedAt: '',
     } as const;
     const putBodies: unknown[] = [];
+    const refreshBodies: unknown[] = [];
     vi.stubGlobal(
       'fetch',
       vi.fn(async (path: string, init?: RequestInit) => {
@@ -1486,6 +1487,24 @@ describe('dashboard storage settings', () => {
         if (path === '/api/pbx-instances/storage-pbx/dashboard-storage' && init?.method === 'GET') {
           return response({ selectedFilesystemIds: null });
         }
+        if (path === '/api/pbx-instances/storage-pbx/dashboard-refresh' && init?.method === 'GET') {
+          return response({
+            rates: {
+              activeCallsMs: 1000,
+              endpointsMs: 5000,
+              queuesMs: 3000,
+              problemsMs: 3000,
+              cpuMemoryMs: 30000,
+              storageMs: 30000,
+              servicesMs: 10000,
+            },
+          });
+        }
+        if (path === '/api/pbx-instances/storage-pbx/dashboard-refresh' && init?.method === 'PUT') {
+          const rates = JSON.parse(String(init.body));
+          refreshBodies.push(rates);
+          return response({ rates });
+        }
         if (path === '/api/pbx-instances/storage-pbx/dashboard-storage' && init?.method === 'PUT') {
           putBodies.push(JSON.parse(String(init.body)));
           return response({ selectedFilesystemIds: ['/dev/root', '/dev/recording'] });
@@ -1522,6 +1541,20 @@ describe('dashboard storage settings', () => {
     );
     await act(async () => save?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
     expect(putBodies).toEqual([{ selectedFilesystemIds: ['/dev/root', '/dev/recording'] }]);
+    expect(container.querySelector('[data-dashboard-refresh-settings]')).toBeTruthy();
+    const refreshSelects = [
+      ...container.querySelectorAll<HTMLSelectElement>('[data-dashboard-refresh-settings] select'),
+    ];
+    expect(refreshSelects).toHaveLength(7);
+    await act(async () => {
+      refreshSelects[0]!.value = '500';
+      refreshSelects[0]!.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    const saveRefresh = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent === 'Save update cadence',
+    );
+    await act(async () => saveRefresh?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    expect(refreshBodies[0]).toMatchObject({ activeCallsMs: 500, cpuMemoryMs: 30000 });
   });
 });
 
@@ -1578,6 +1611,18 @@ describe('dashboard builder', () => {
           });
         if (path === '/api/pbx-instances/builder-pbx/dashboard-storage')
           return response({ selectedFilesystemIds: null });
+        if (path === '/api/pbx-instances/builder-pbx/dashboard-refresh')
+          return response({
+            rates: {
+              activeCallsMs: 1000,
+              endpointsMs: 5000,
+              queuesMs: 3000,
+              problemsMs: 3000,
+              cpuMemoryMs: 30000,
+              storageMs: 30000,
+              servicesMs: 10000,
+            },
+          });
         if (path.startsWith('/api/pbx-instances/builder-pbx/system-metrics/history?'))
           return response({ items: [] });
         if (path === '/api/pbx-instances/builder-pbx/security-alerts')

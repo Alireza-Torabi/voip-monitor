@@ -1,5 +1,10 @@
 import { Box, Button, Checkbox, Flex, SimpleGrid, Stack, Text } from '@chakra-ui/react';
 import { useEffect, useMemo, useState } from 'react';
+import {
+  DASHBOARD_REFRESH_RATE_OPTIONS,
+  DEFAULT_DASHBOARD_REFRESH_RATES,
+  type DashboardRefreshRates,
+} from '@voip-monitor/shared';
 import { api, ApiError, type PbxProfile, type SystemMetricsSample } from './api.js';
 import { messages, type Language } from './i18n.js';
 import { NocInset, NocPanel, SectionHeader, StatusIndicator } from './NocPrimitives.js';
@@ -28,6 +33,12 @@ export function DashboardStorageWorkspace({
   );
   const [selection, setSelection] = useState<string[] | null>(null);
   const [draft, setDraft] = useState<string[]>([]);
+  const [refreshRates, setRefreshRates] = useState<DashboardRefreshRates>(
+    DEFAULT_DASHBOARD_REFRESH_RATES,
+  );
+  const [refreshDraft, setRefreshDraft] = useState<DashboardRefreshRates>(
+    DEFAULT_DASHBOARD_REFRESH_RATES,
+  );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
@@ -49,9 +60,10 @@ export function DashboardStorageWorkspace({
     setError('');
     setStatus('');
     try {
-      const [metrics, config] = await Promise.all([
+      const [metrics, config, refreshConfig] = await Promise.all([
         api.systemMetrics(instanceId),
         api.dashboardStorage(instanceId),
+        api.dashboardRefresh(instanceId),
       ]);
       const currentFilesystems = metrics.current?.filesystems ?? [];
       setFilesystems(currentFilesystems);
@@ -60,6 +72,8 @@ export function DashboardStorageWorkspace({
         config.selectedFilesystemIds ??
           currentFilesystems.map((filesystem) => filesystem.filesystemId),
       );
+      setRefreshRates(refreshConfig.rates);
+      setRefreshDraft(refreshConfig.rates);
     } catch (failure) {
       if (failure instanceof ApiError && failure.status === 401) onUnauthorized();
       else setError(text.dashboardStorageLoadFailed);
@@ -114,6 +128,42 @@ export function DashboardStorageWorkspace({
     } catch (failure) {
       if (failure instanceof ApiError && failure.status === 401) onUnauthorized();
       else setError(text.dashboardStorageSaveFailed);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function saveRefresh() {
+    if (!selected) return;
+    setPending(true);
+    setError('');
+    setStatus('');
+    try {
+      const saved = await api.putDashboardRefresh(selected.id, refreshDraft);
+      setRefreshRates(saved.rates);
+      setRefreshDraft(saved.rates);
+      setStatus(text.dashboardRefreshSaved);
+    } catch (failure) {
+      if (failure instanceof ApiError && failure.status === 401) onUnauthorized();
+      else setError(text.dashboardRefreshSaveFailed);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function resetRefresh() {
+    if (!selected) return;
+    setPending(true);
+    setError('');
+    setStatus('');
+    try {
+      const saved = await api.resetDashboardRefresh(selected.id);
+      setRefreshRates(saved.rates);
+      setRefreshDraft(saved.rates);
+      setStatus(text.dashboardRefreshResetDone);
+    } catch (failure) {
+      if (failure instanceof ApiError && failure.status === 401) onUnauthorized();
+      else setError(text.dashboardRefreshSaveFailed);
     } finally {
       setPending(false);
     }
@@ -248,6 +298,79 @@ export function DashboardStorageWorkspace({
             </Flex>
           </Stack>
         </Box>
+      </NocPanel>
+
+      <NocPanel p="4" data-dashboard-refresh-settings>
+        <SectionHeader
+          title={text.dashboardRefreshTitle}
+          description={text.dashboardRefreshHint}
+          action={
+            <StatusIndicator
+              tone={
+                JSON.stringify(refreshDraft) === JSON.stringify(refreshRates)
+                  ? 'healthy'
+                  : 'warning'
+              }
+              label={
+                JSON.stringify(refreshDraft) === JSON.stringify(refreshRates)
+                  ? text.dashboardRefreshSavedState
+                  : text.dashboardRefreshUnsavedState
+              }
+            />
+          }
+        />
+        <SimpleGrid columns={{ base: 1, md: 2, xl: 3 }} gap="3" mt="4">
+          {(
+            [
+              ['activeCallsMs', text.dashboardRefreshActiveCalls],
+              ['endpointsMs', text.dashboardRefreshEndpoints],
+              ['queuesMs', text.dashboardRefreshQueues],
+              ['problemsMs', text.dashboardRefreshProblems],
+              ['cpuMemoryMs', text.dashboardRefreshCpuMemory],
+              ['storageMs', text.dashboardRefreshStorage],
+              ['servicesMs', text.dashboardRefreshServices],
+            ] as const
+          ).map(([key, label]) => (
+            <WorkspaceField key={key} label={label}>
+              <WorkspaceSelect
+                value={String(refreshDraft[key])}
+                onChange={(value) =>
+                  setRefreshDraft((current) => ({ ...current, [key]: Number(value) }))
+                }
+                ariaLabel={label}
+              >
+                {DASHBOARD_REFRESH_RATE_OPTIONS.map((value) => (
+                  <option key={value} value={value}>
+                    {value < 1000 ? `${value} ms` : `${value / 1000} s`}
+                  </option>
+                ))}
+              </WorkspaceSelect>
+            </WorkspaceField>
+          ))}
+        </SimpleGrid>
+        <NocInset mt="4" p="3">
+          <Text fontSize="11px" color="noc.textMuted">
+            {text.dashboardRefreshSoftHint}
+          </Text>
+        </NocInset>
+        <Flex gap="2" flexWrap="wrap" mt="4">
+          <Button
+            size="sm"
+            colorPalette="blue"
+            disabled={pending || !selected}
+            onClick={() => void saveRefresh()}
+          >
+            {text.dashboardRefreshSave}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={pending || !selected}
+            onClick={() => void resetRefresh()}
+          >
+            {text.dashboardRefreshReset}
+          </Button>
+        </Flex>
       </NocPanel>
     </Stack>
   );

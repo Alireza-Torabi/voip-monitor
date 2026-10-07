@@ -1126,3 +1126,16 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 - **Regression:** backend suite increased to 178/178 with explicit all-endpoints-unreachable-but-healthy coverage. Frontend remains 34/34 and verifies CPU/RAM time series, storage gauge rendering, and Reachable/Total endpoint hierarchy.
 - **Roadmap:** Task 60 — Call Outcome Analytics remains next after this UI/semantics branch merges.
 - **Overview density follow-up:** removed the large Active calls and Trunks detail panels from the default Overview to keep the dashboard compact. Their top KPI cells and dedicated navigation/workspaces remain available.
+
+## 2026-10-07 — Live dashboard cadence, chart consolidation, and responsive wallboard
+
+- **Per-element visual cadence:** Settings > Dashboard Settings now persists PBX-scoped update cadence independently for Active Calls, Endpoints, Queues, Current Problems, CPU/RAM, Storage, and Services. Allowed values are bounded from 500 ms to 60 s and reset to recommended defaults.
+- **No extra PBX polling:** refresh preferences control when each widget applies the latest already-received application state. AMI/SSE and system-metrics collection remain the data sources; changing a dashboard cadence does not create a PBX request loop or alter collector cadence.
+- **Smooth updates:** widgets update in place without page reloads. The first valid sample and any transition to ERROR/UNAVAILABLE are applied immediately; subsequent healthy visual changes follow each configured cadence.
+- **Active Calls chart:** Current Problems moved below the operational summaries. Its previous main-panel position now hosts a bounded in-memory live Active Calls time-series sampled from current telephony state. No call history is persisted.
+- **CPU/RAM chart:** CPU and memory now share one time-series panel with distinct semantic colors and a common 0-100% scale.
+- **Storage gauges:** filesystem gauges use a progressive green -> amber -> red arc so the visible filled segment becomes increasingly red as utilization approaches 100%. Used/Total capacity remains visible outside compact wallboard mode.
+- **Dashboard density:** redundant top-level Calls and Trunks KPI cells are removed; Active Calls is represented by the live chart and Trunks remains available in its dedicated workspace and in operational-problem semantics.
+- **Wallboard:** Overview is now a four-row responsive layout: compact KPI strip, Active Calls + Infrastructure, Endpoint/Queue/Service summaries, and Current Problems at the bottom. Wallboard uses viewport height, tighter gaps/padding, compact gauges, and no page scrolling so the operational view fits one screen while responsive breakpoints continue to reflow normal dashboard mode.
+- **Persistence:** migration 18 adds `dashboard_refresh_config`, app-owned configuration only; no monitoring telemetry is duplicated.
+- **Regression:** backend suite is 179/179 and frontend 34/34. Coverage includes authenticated bounded refresh configuration, reset behavior, Settings UI persistence, dashboard loading, combined CPU/RAM chart, Active Calls chart ordering, and stale-metrics immediate suppression.

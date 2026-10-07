@@ -1,4 +1,5 @@
 import type {
+  DashboardRefreshRates,
   EndpointReliabilityState,
   FleetOverviewSnapshot,
   OperationalHealthSnapshot,
@@ -113,6 +114,10 @@ export interface SystemMetricsResponse {
 
 export interface DashboardStorageConfig {
   selectedFilesystemIds: string[] | null;
+}
+
+export interface DashboardRefreshConfig {
+  rates: DashboardRefreshRates;
 }
 
 export interface ServiceMonitoringConfig {
@@ -409,6 +414,12 @@ export const api = {
     }),
   resetDashboardStorage: (id: string) =>
     request<DashboardStorageConfig>(`/api/pbx-instances/${id}/dashboard-storage`, 'DELETE'),
+  dashboardRefresh: (id: string) =>
+    request<DashboardRefreshConfig>(`/api/pbx-instances/${id}/dashboard-refresh`),
+  putDashboardRefresh: (id: string, rates: DashboardRefreshRates) =>
+    request<DashboardRefreshConfig>(`/api/pbx-instances/${id}/dashboard-refresh`, 'PUT', rates),
+  resetDashboardRefresh: (id: string) =>
+    request<DashboardRefreshConfig>(`/api/pbx-instances/${id}/dashboard-refresh`, 'DELETE'),
   serviceMonitoring: (id: string) =>
     request<ServiceMonitoringConfig>(`/api/pbx-instances/${id}/service-monitoring`),
   putServiceMonitoring: (id: string, serviceIds: string[]) =>

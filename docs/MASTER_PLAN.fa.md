@@ -1122,3 +1122,20 @@ Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check،
 <div dir="rtl" align="right">
 - **اصلاح تراکم Overview:** پنل‌های بزرگ Active calls و Trunks از بدنه Overview حذف شدند تا داشبورد جمع‌وجور بماند. KPIهای بالایی و Workspaceهای مستقل آن‌ها همچنان در دسترس هستند.
 </div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-07 — Live Dashboard Cadence، Chart Consolidation و Responsive Wallboard
+
+- **Cadence مستقل:** در Settings > Dashboard Settings برای Active Calls، Endpoints، Queues، Current Problems، CPU/RAM، Storage و Services نرخ Update مستقل و PBX-scoped ذخیره می‌شود. مقادیر مجاز از 500ms تا 60s محدود شده‌اند و Reset به مقادیر پیشنهادی وجود دارد.
+- **بدون PBX Polling اضافه:** این تنظیم فقط مشخص می‌کند هر Widget چه زمانی آخرین State دریافت‌شده داخل اپ را روی UI اعمال کند. AMI/SSE و System Metrics Collector همچنان Source اصلی هستند و تغییر Refresh Rate هیچ Loop جدیدی به سمت PBX ایجاد نمی‌کند.
+- **Update نرم:** صفحه Reload نمی‌شود و Widgetها In-place به‌روزرسانی می‌شوند. اولین Sample معتبر و تغییر به ERROR/UNAVAILABLE فوراً اعمال می‌شود؛ Updateهای سالم بعدی Cadence انتخابی همان Widget را رعایت می‌کنند.
+- **Active Calls:** Current Problems به پایین Dashboard منتقل شد و جای قبلی آن یک Time Series زنده و محدود در Memory برای تعداد Active Calls قرار گرفت. هیچ Call History جدیدی Persist نمی‌شود.
+- **CPU/RAM:** CPU و RAM داخل یک نمودار مشترک با دو رنگ مجزا و Scale مشترک 0 تا 100 درصد نمایش داده می‌شوند.
+- **Storage Gauge:** Arc هر Gauge به‌صورت Green -> Amber -> Red است و هرچه مصرف به 100% نزدیک می‌شود بخش قرمز بیشتری از Gauge دیده می‌شود. Used/Total در حالت عادی نمایش داده می‌شود و در Wallboard برای کاهش تراکم Compact می‌شود.
+- **کاهش تکرار:** KPIهای تکراری Calls و Trunks از بالای Overview حذف شدند؛ Active Calls با نمودار Live نمایش داده می‌شود و Trunks همچنان Workspace مستقل و Semantics مربوط به Current Problems را دارد.
+- **Wallboard:** Overview چهار ردیف Responsive دارد: KPIهای فشرده، Active Calls + Infrastructure، Summaryهای Endpoint/Queue/Service و Current Problems در پایین. در Wallboard از Viewport Height، Gap/Padding کمتر، Gaugeهای Compact و بدون Page Scroll استفاده می‌شود تا در یک صفحه جا بگیرد؛ حالت عادی همچنان با Breakpointهای Responsive Reflow می‌شود.
+- **Persistence:** Migration شماره 18 جدول `dashboard_refresh_config` را اضافه می‌کند؛ این فقط App-owned Configuration است و Telemetry جدیدی Duplicate نمی‌شود.
+- **Regression:** Backend برابر 179/179 و Frontend برابر 34/34 PASS است.
+
+</div>

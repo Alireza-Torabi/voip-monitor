@@ -2,7 +2,12 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, chmod } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import type { PbxInstanceMetadata, SecurityEvent, SystemMetricsSample } from '@voip-monitor/shared';
+import type {
+  DashboardRefreshRates,
+  PbxInstanceMetadata,
+  SecurityEvent,
+  SystemMetricsSample,
+} from '@voip-monitor/shared';
 import type { AppConfig } from '../config.js';
 import { migrations } from './migrations.js';
 
@@ -207,6 +212,12 @@ export interface DashboardStorageConfigRepository {
   delete(instanceId: string): boolean;
 }
 
+export interface DashboardRefreshConfigRepository {
+  get(instanceId: string): DashboardRefreshRates | undefined;
+  put(instanceId: string, rates: DashboardRefreshRates): void;
+  delete(instanceId: string): boolean;
+}
+
 export interface ServiceMonitoringConfigRepository {
   get(instanceId: string): string[] | undefined;
   put(instanceId: string, serviceIds: string[]): void;
@@ -248,6 +259,7 @@ export interface AppStorage {
   readonly databaseSourceConfigs: DatabaseSourceConfigRepository;
   readonly systemMetrics: SystemMetricsRepository;
   readonly dashboardStorageConfig: DashboardStorageConfigRepository;
+  readonly dashboardRefreshConfig: DashboardRefreshConfigRepository;
   readonly serviceMonitoringConfig: ServiceMonitoringConfigRepository;
   readonly operatorDashboards: OperatorDashboardRepository;
   readonly securityEvents: SecurityEventRepository;
@@ -368,6 +380,7 @@ export class SqliteStorage implements AppStorage {
   readonly databaseSourceConfigs: DatabaseSourceConfigRepository;
   readonly systemMetrics: SystemMetricsRepository;
   readonly dashboardStorageConfig: DashboardStorageConfigRepository;
+  readonly dashboardRefreshConfig: DashboardRefreshConfigRepository;
   readonly serviceMonitoringConfig: ServiceMonitoringConfigRepository;
   readonly operatorDashboards: OperatorDashboardRepository;
   readonly securityEvents: SecurityEventRepository;
@@ -810,6 +823,33 @@ export class SqliteStorage implements AppStorage {
       delete: (instanceId) =>
         this.db
           .prepare('DELETE FROM dashboard_storage_config WHERE pbx_instance_id = ?')
+          .run(instanceId).changes > 0,
+    };
+    this.dashboardRefreshConfig = {
+      get: (instanceId) => {
+        const row = this.db
+          .prepare('SELECT rates_json FROM dashboard_refresh_config WHERE pbx_instance_id = ?')
+          .get(instanceId) as { rates_json: string } | undefined;
+        if (!row) return undefined;
+        try {
+          return JSON.parse(row.rates_json) as DashboardRefreshRates;
+        } catch {
+          throw new StorageError();
+        }
+      },
+      put: (instanceId, rates) => {
+        this.db
+          .prepare(
+            `INSERT INTO dashboard_refresh_config (pbx_instance_id, rates_json, updated_at)
+             VALUES (?, ?, ?)
+             ON CONFLICT(pbx_instance_id) DO UPDATE SET
+             rates_json=excluded.rates_json, updated_at=excluded.updated_at`,
+          )
+          .run(instanceId, JSON.stringify(rates), new Date().toISOString());
+      },
+      delete: (instanceId) =>
+        this.db
+          .prepare('DELETE FROM dashboard_refresh_config WHERE pbx_instance_id = ?')
           .run(instanceId).changes > 0,
     };
     this.serviceMonitoringConfig = {

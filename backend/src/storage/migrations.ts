@@ -306,4 +306,15 @@ export const migrations = [
       ALTER TABLE ssh_config ADD COLUMN last_verified_at TEXT;
     `,
   },
+  {
+    version: 18,
+    name: 'dashboard_refresh_preferences',
+    sql: `
+      CREATE TABLE dashboard_refresh_config (
+        pbx_instance_id TEXT PRIMARY KEY REFERENCES pbx_instance(id) ON DELETE CASCADE,
+        rates_json TEXT NOT NULL CHECK (json_valid(rates_json)),
+        updated_at TEXT NOT NULL
+      ) STRICT;
+    `,
+  },
 ] as const;

@@ -487,6 +487,61 @@ test('dashboard storage API is authenticated, PBX-scoped, same-origin protected,
     }
   }));
 
+test('dashboard refresh API is authenticated, PBX-scoped, bounded, and resettable', async () =>
+  fixture(async ({ config, storage, secrets, auth }) => {
+    const app = await serveSshApi(storage, secrets, auth, undefined, undefined);
+    try {
+      const path = '/api/pbx-instances/' + PBX_ID + '/dashboard-refresh';
+      assert.equal((await fetch(app.base + path)).status, 401);
+      const cookie = await loginForSshApi(app.base, config);
+      const initial = await (await fetch(app.base + path, { headers: { cookie } })).json();
+      assert.equal(initial.rates.activeCallsMs, 1000);
+      assert.equal(initial.rates.cpuMemoryMs, 30000);
+
+      const blocked = await fetch(app.base + path, {
+        method: 'PUT',
+        headers: { cookie, origin: 'https://evil.example', 'content-type': 'application/json' },
+        body: JSON.stringify(initial.rates),
+      });
+      assert.equal(blocked.status, 403);
+
+      const rates = {
+        activeCallsMs: 500,
+        endpointsMs: 2000,
+        queuesMs: 1000,
+        problemsMs: 5000,
+        cpuMemoryMs: 15000,
+        storageMs: 30000,
+        servicesMs: 10000,
+      };
+      const saved = await fetch(app.base + path, {
+        method: 'PUT',
+        headers: { cookie, origin: app.base, 'content-type': 'application/json' },
+        body: JSON.stringify(rates),
+      });
+      assert.equal(saved.status, 200);
+      assert.deepEqual((await saved.json()).rates, rates);
+      assert.deepEqual(storage.dashboardRefreshConfig.get(PBX_ID), rates);
+
+      const invalid = await fetch(app.base + path, {
+        method: 'PUT',
+        headers: { cookie, origin: app.base, 'content-type': 'application/json' },
+        body: JSON.stringify({ ...rates, activeCallsMs: 333 }),
+      });
+      assert.equal(invalid.status, 400);
+
+      const reset = await fetch(app.base + path, {
+        method: 'DELETE',
+        headers: { cookie, origin: app.base },
+      });
+      assert.equal(reset.status, 200);
+      assert.equal((await reset.json()).rates.activeCallsMs, 1000);
+      assert.equal(storage.dashboardRefreshConfig.get(PBX_ID), undefined);
+    } finally {
+      await app.close();
+    }
+  }));
+
 test('service monitoring API is authenticated, bounded, same-origin protected, and resyncs metrics', async () =>
   fixture(async ({ config, storage, secrets, auth }) => {
     const syncCalls = [];
