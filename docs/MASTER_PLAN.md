@@ -1234,3 +1234,8 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 - **Root cause in query shape:** the read-only query wrapper previously enforced row bounds by wrapping every SELECT in a derived table and applying `LIMIT` outside it. For recent CDR reads this produced `SELECT * FROM (SELECT ... ORDER BY calldate DESC, uniqueid DESC) ... LIMIT N`, which can force legacy MySQL to materialize/sort substantially more history before applying the outer limit.
 - **Resolution:** bounded queries now append the synthetic `LIMIT maxRows+1` directly to the validated SELECT. The same row-limit detection and SELECT-only safety remain intact, while MySQL can optimize `ORDER BY ... LIMIT` directly and stop early.
 - **Regression:** query-preparation tests for MySQL and PostgreSQL now assert direct bounded SELECTs; adapter and source-schema suites remain green.
+
+
+## 2026-10-07 — History database error classification
+
+- Source-backed History now preserves bounded database failure categories instead of collapsing every query failure into `source_unavailable`. Operator-safe codes distinguish timeout, query failure, row/output safety limits, unsupported values, authentication, database-not-found, host-blocked, and TLS failures without exposing raw SQL, driver messages, or credentials.

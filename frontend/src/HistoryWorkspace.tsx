@@ -110,8 +110,19 @@ export function HistoryWorkspace({
       onUnauthorized();
       return;
     }
-    if (cause instanceof ApiError && cause.code === 'database_backoff_active') {
-      setError(text.historyDatabaseBackoff);
+    if (cause instanceof ApiError) {
+      if (cause.code === 'database_backoff_active') setError(text.historyDatabaseBackoff);
+      else if (cause.code === 'history_database_timeout') setError(text.historyDatabaseTimeout);
+      else if (cause.code === 'history_query_failed') setError(text.historyQueryFailed);
+      else if (cause.code === 'history_row_limit') setError(text.historyRowLimit);
+      else if (cause.code === 'history_output_limit') setError(text.historyOutputLimit);
+      else if (cause.code === 'history_unsupported_value') setError(text.historyUnsupportedValue);
+      else if (cause.code === 'database_authentication_failed')
+        setError(text.databaseSourceAuthenticationFailed);
+      else if (cause.code === 'database_not_found') setError(text.databaseSourceDatabaseNotFound);
+      else if (cause.code === 'database_host_blocked') setError(text.databaseSourceHostBlocked);
+      else if (cause.code === 'database_tls_failed') setError(text.databaseSourceTlsFailed);
+      else setError(text.historyLoadFailed);
       return;
     }
     setError(text.historyLoadFailed);

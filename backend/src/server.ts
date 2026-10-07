@@ -935,6 +935,24 @@ export function createApp(
           if (error instanceof DatabaseQueryError) {
             if (error.code === 'BACKOFF')
               return send(response, 429, { error: 'database_backoff_active' });
+            if (error.code === 'TIMEOUT')
+              return send(response, 504, { error: 'history_database_timeout' });
+            if (error.code === 'ROW_LIMIT')
+              return send(response, 502, { error: 'history_row_limit' });
+            if (error.code === 'OUTPUT_LIMIT')
+              return send(response, 502, { error: 'history_output_limit' });
+            if (error.code === 'UNSUPPORTED_VALUE')
+              return send(response, 502, { error: 'history_unsupported_value' });
+            if (error.code === 'QUERY_FAILED')
+              return send(response, 502, { error: 'history_query_failed' });
+            if (error.code === 'AUTHENTICATION_FAILED')
+              return send(response, 502, { error: 'database_authentication_failed' });
+            if (error.code === 'DATABASE_NOT_FOUND')
+              return send(response, 502, { error: 'database_not_found' });
+            if (error.code === 'HOST_BLOCKED')
+              return send(response, 502, { error: 'database_host_blocked' });
+            if (error.code === 'TLS_FAILED')
+              return send(response, 502, { error: 'database_tls_failed' });
             if (error.code === 'NOT_CONFIGURED' || error.code === 'PERMISSION_DENIED')
               return send(response, 409, { error: 'source_unavailable' });
             return send(response, 502, { error: 'source_unavailable' });

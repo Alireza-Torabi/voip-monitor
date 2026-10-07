@@ -318,6 +318,12 @@ export const messages = {
     historyLoad: 'Load recent rows',
     historyInspect: 'Refresh schema support',
     historyLoadFailed: 'Source-backed history could not be loaded.',
+    historyDatabaseTimeout: 'The history query timed out at the database source.',
+    historyQueryFailed: 'The database accepted the connection but the history query failed.',
+    historyRowLimit: 'The database returned more history rows than the configured safety bound.',
+    historyOutputLimit: 'The history result exceeded the configured output-size safety bound.',
+    historyUnsupportedValue:
+      'The history source returned a value type that cannot be normalized safely.',
     historyDatabaseBackoff:
       'Database connection attempts are temporarily paused after repeated failures. Wait before refreshing history again.',
     historyNoRows: 'No rows loaded for this dataset.',
@@ -791,6 +797,11 @@ export const messages = {
     historyLoad: 'بارگذاری Rowهای اخیر',
     historyInspect: 'بازبینی پشتیبانی Schema',
     historyLoadFailed: 'تاریخچه مستقیم از Source قابل بارگذاری نبود.',
+    historyDatabaseTimeout: 'Query مربوط به History روی Database Source Timeout شد.',
+    historyQueryFailed: 'اتصال Database برقرار شد اما Query مربوط به History Fail شد.',
+    historyRowLimit: 'تعداد Rowهای History از Safety Bound تعریف‌شده بیشتر بود.',
+    historyOutputLimit: 'حجم خروجی History از Safety Bound تعریف‌شده بیشتر بود.',
+    historyUnsupportedValue: 'Database Source مقداری برگرداند که به‌صورت امن قابل Normalize نیست.',
     historyDatabaseBackoff:
       'بعد از چند Connection Failure، تلاش برای اتصال به Database موقتاً متوقف شده است. کمی صبر کنید و سپس History را Refresh کنید.',
     historyNoRows: 'برای این Dataset هنوز Rowی بارگذاری نشده است.',

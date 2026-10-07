@@ -1262,3 +1262,11 @@ Lint، Format، Typecheck، Backend Test برابر 179/179، Frontend Test بر
 - **Regression:** تست Query Preparation برای MySQL و PostgreSQL، Direct Bounded SELECT را بررسی می‌کند و تست‌های Adapter و Source Schema همچنان PASS هستند.
 
 </div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-07 — تفکیک خطاهای Database در History
+
+- Source-backed History دیگر همه Failureهای Query را به `source_unavailable` عمومی تبدیل نمی‌کند. کدهای امن و محدود برای Timeout، Query Failure، Row/Output Safety Limit، Unsupported Value، Authentication، Database Not Found، Host Blocked و TLS Failure نمایش داده می‌شوند؛ Raw SQL، Driver Message و Credential همچنان مخفی می‌مانند.
+
+</div>
