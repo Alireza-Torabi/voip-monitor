@@ -1251,3 +1251,14 @@ Lint، Format، Typecheck، Backend Test برابر 179/179، Frontend Test بر
 - Database Verification اکنون خطاهای رایج MySQL/MariaDB را به کدهای امن و قابل‌فهم برای Operator تفکیک می‌کند: Authentication Failure، Database Not Found، Host Blocked، TLS Failure یا Connection Failure عمومی. Raw Driver Message و Credential همچنان مخفی می‌مانند.
 
 </div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-07 — بهینه‌سازی Recent Row Query برای MySQL 5.5
+
+- **رفتار مشاهده‌شده:** Call Outcome Analytics درست کار می‌کند، اما `Load recent rows` روی CDR قدیمی MySQL 5.5 می‌تواند Timeout/Abort شود و تکرار Connectionهای Abortشده به Block شدن Host در MySQL کمک کند.
+- **ریشه در Query Shape:** Query Engine قبلاً برای enforce کردن Row Bound هر SELECT را داخل Derived Table می‌گذاشت و `LIMIT` را بیرون آن اعمال می‌کرد. برای Recent CDR این یعنی `SELECT * FROM (SELECT ... ORDER BY calldate DESC, uniqueid DESC) ... LIMIT N` و روی MySQL قدیمی ممکن بود قبل از Limit بخش بزرگی از History Sort/Materialize شود.
+- **اصلاح:** Queryهای محدود اکنون `LIMIT maxRows+1` را مستقیم به همان SELECT معتبر اضافه می‌کنند. Row-limit detection و SELECT-only safety حفظ شده، ولی MySQL می‌تواند `ORDER BY ... LIMIT` را مستقیم Optimize کند و زودتر متوقف شود.
+- **Regression:** تست Query Preparation برای MySQL و PostgreSQL، Direct Bounded SELECT را بررسی می‌کند و تست‌های Adapter و Source Schema همچنان PASS هستند.
+
+</div>

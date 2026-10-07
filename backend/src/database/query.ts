@@ -209,7 +209,7 @@ export function prepareReadOnlyQuery(
   const placeholders = assertSelectOnly(query.sql);
   if (placeholders !== parameters.length) invalidQuery();
 
-  const boundedSql = `SELECT * FROM (${query.sql.trim()}) AS vm_source_query LIMIT ?`;
+  const boundedSql = `${query.sql.trim()} LIMIT ?`;
   const boundedParameters = [...parameters, validatedLimits.maxRows + 1];
 
   return {

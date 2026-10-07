@@ -47,7 +47,7 @@ test('database verifier uses submitted candidate and bounded read-only query', a
   assert.equal(calls[0].target.username, 'readonly_monitor');
   assert.equal(calls[0].target.tlsMode, 'REQUIRED');
   assert.equal(calls[0].credential, 'synthetic-value');
-  assert.match(calls[0].statement, /^SELECT \* FROM \(SELECT 1 AS verification_value\)/u);
+  assert.match(calls[0].statement, /^SELECT 1 AS verification_value LIMIT \?/u);
   assert.deepEqual(calls[0].limits, { timeoutMs: 5000, maxRows: 1, maxOutputBytes: 1024 });
 });
 

@@ -1226,3 +1226,11 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 ## 2026-10-07 — Safe database verification error classification
 
 - Database verification now maps common MySQL/MariaDB connection failures to bounded operator-safe codes: authentication failed, database not found, host blocked, TLS failed, or generic connection failure. Raw driver messages and credentials remain hidden.
+
+
+## 2026-10-07 — MySQL 5.5 recent-row query optimization
+
+- **Observed behavior:** Call Outcome Analytics succeeds, while `Load recent rows` can time out/abort against the legacy MySQL 5.5 CDR source and repeated aborted connections can contribute to MySQL host blocking.
+- **Root cause in query shape:** the read-only query wrapper previously enforced row bounds by wrapping every SELECT in a derived table and applying `LIMIT` outside it. For recent CDR reads this produced `SELECT * FROM (SELECT ... ORDER BY calldate DESC, uniqueid DESC) ... LIMIT N`, which can force legacy MySQL to materialize/sort substantially more history before applying the outer limit.
+- **Resolution:** bounded queries now append the synthetic `LIMIT maxRows+1` directly to the validated SELECT. The same row-limit detection and SELECT-only safety remain intact, while MySQL can optimize `ORDER BY ... LIMIT` directly and stop early.
+- **Regression:** query-preparation tests for MySQL and PostgreSQL now assert direct bounded SELECTs; adapter and source-schema suites remain green.

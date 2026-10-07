@@ -100,7 +100,7 @@ test('database transport resolves once, validates the numeric address and preser
     username: 'readonly_monitor',
     tlsMode: 'REQUIRED',
   });
-  assert.match(value.query.statement, /^SELECT \* FROM \(SELECT linkedid/u);
+  assert.match(value.query.statement, /^SELECT linkedid FROM cdr/u);
   assert.deepEqual(value.query.parameters, ['ANSWERED', 11]);
   assert.equal(value.signal.aborted, true);
   assert.ok(value.credential.every((byte) => byte === 0));

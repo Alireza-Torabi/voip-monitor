@@ -18,14 +18,14 @@ test('read-only query preparation accepts one bounded SELECT and converts Postgr
   const mysql = prepareReadOnlyQuery('MYSQL_MARIADB', query, limits);
   assert.equal(
     mysql.statement,
-    'SELECT * FROM (SELECT linkedid, disposition FROM cdr WHERE calldate >= ? AND calldate < ? ORDER BY calldate DESC) AS vm_source_query LIMIT ?',
+    'SELECT linkedid, disposition FROM cdr WHERE calldate >= ? AND calldate < ? ORDER BY calldate DESC LIMIT ?',
   );
   assert.deepEqual(mysql.parameters, ['2026-10-01T00:00:00Z', '2026-10-02T00:00:00Z', 3]);
 
   const postgres = prepareReadOnlyQuery('POSTGRESQL', query, limits);
   assert.equal(
     postgres.statement,
-    'SELECT * FROM (SELECT linkedid, disposition FROM cdr WHERE calldate >= $1 AND calldate < $2 ORDER BY calldate DESC) AS vm_source_query LIMIT $3',
+    'SELECT linkedid, disposition FROM cdr WHERE calldate >= $1 AND calldate < $2 ORDER BY calldate DESC LIMIT $3',
   );
   assert.deepEqual(postgres.parameters, mysql.parameters);
 });
