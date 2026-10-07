@@ -45,7 +45,7 @@ export interface DashboardRefreshRates {
 }
 
 export const DASHBOARD_REFRESH_RATE_OPTIONS = [
-  500, 1000, 2000, 5000, 10000, 15000, 30000, 60000,
+  500, 1000, 2000, 3000, 5000, 10000, 15000, 30000, 60000,
 ] as const;
 
 export const DEFAULT_DASHBOARD_REFRESH_RATES: DashboardRefreshRates = {

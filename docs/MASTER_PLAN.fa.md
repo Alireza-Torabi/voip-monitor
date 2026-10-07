@@ -1153,3 +1153,27 @@ Node برابر v24.21.0 و npm برابر 11.19.0 بود. Lint، Format Check،
 - **حذف Dashboard Editor قدیمی از Overview:** دکمه `Edit dashboard` دیگر Builder قدیمی را باز نمی‌کند. آن Builder در حقیقت یک Dashboard دوم و قدیمی با Widgetهای متفاوت مثل CPU Gauge، Memory Gauge و Calls/Trunks قدیمی بود و Overview فعلی را Edit نمی‌کرد؛ بنابراین گمراه‌کننده بود. Overview فعلی اکنون تنها UI Source of Truth است. Persistence/API قدیمی Dashboard Definition برای Backward Compatibility فعلاً باقی می‌ماند ولی در Frontend فعلی نمایش داده نمی‌شود.
 - **مرز Customization آینده:** Drag/Resize/Reorder فقط زمانی برمی‌گردد که مستقیماً روی Layout فعلی OperatorOverview پیاده‌سازی شود؛ Builder قدیمی نباید دوباره به‌عنوان میانبر فعال شود.
 </div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-07 — اصلاح قابلیت تغییر Dashboard Cadence
+
+- **مشکل مشاهده‌شده:** Operator نمی‌توانست Refresh/Cadence هر Widget، از جمله CPU / Memory، را به‌شکل قابل اتکا از Dashboard Settings تغییر دهد.
+- **Root Cause اول:** کنترل‌ها به Native Select فشرده متکی بودند و Interaction آن در Workflow واقعی Settings به‌اندازه کافی واضح و قابل اتکا نبود. کنترل‌ها به Buttonهای صریح برای هر Rate تبدیل شدند و مقدار انتخاب‌شده به‌صورت واضح مشخص می‌شود.
+- **Root Cause دوم:** مقدار پیش‌فرض 3 ثانیه برای Queues و Current Problems در Shared Allowlist وجود نداشت؛ بنابراین Default موجود خارج از گزینه‌های Selectable بود. مقدار `3000 ms` اکنون به Allowlist اضافه شد.
+- **Fix:** برای Active Calls، Endpoints، Queues، Current Problems، CPU / Memory، Storage و Services گزینه‌های 500ms، 1s، 2s، 3s، 5s، 10s، 15s، 30s و 60s به‌صورت مستقیم قابل انتخاب هستند. Save همان Config کامل PBX-scoped را Persist می‌کند.
+- **Regression:** تست Frontend اکنون علاوه بر Active Calls، مقدار CPU / Memory را نیز تغییر می‌دهد، انتخاب 5s را تأیید می‌کند، وجود Default سه‌ثانیه‌ای Queue را بررسی می‌کند و Payload ذخیره‌شده را Validate می‌کند.
+- **Failure Log:** اجرای اولیه تست با Flag نامعتبر `--runInBand` شکست خورد؛ این خطای Command بود نه Application. اجرای بعدی Frontend Test نیز قبل از Rebuild شدن Shared Workspace انجام شد و Allowlist قبلی را دید؛ پس از Build مجدد `@voip-monitor/shared`، تست Frontend PASS شد.
+- **Known Limitation:** این تنظیمات فقط Presentation Cadence هستند و Frequency خود SSH/System Metrics Collector را افزایش نمی‌دهند؛ مثلاً Cadence پنج‌ثانیه‌ای CPU / Memory نمی‌تواند بدون Sample جدید Collector داده تازه بسازد.
+- **Safety:** در این Branch هیچ PBX Access/Probe/Write، تغییر Collector Frequency یا Production Deployment انجام نمی‌شود.
+- **Exact Next Task:** ابتدا این Fix Merge و Deploy شود، سپس Task 60 — Call Outcome Analytics ادامه پیدا کند.
+
+</div>
+
+<div dir="rtl" align="right">
+
+### Final Validation اصلاح Dashboard Cadence
+
+Lint، Format، Typecheck، Backend Test برابر 179/179، Frontend Test برابر 35/35، Build غیرDeploying، Foundation Check، License Check و Git Diff Check همگی PASS شدند. Foundation Check با `safe.directory` فقط در Environment همان Process اجرا شد و هیچ Global Git Configuration تغییر نکرد. بررسی Public Diff نیز هیچ Credential، Key، Token یا Deployment Address جدیدی پیدا نکرد. Warningهای موجود Chakra/Ark/Zag/Rolldown درباره `use client` همچنان Non-fatal هستند.
+
+</div>

@@ -1145,3 +1145,29 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 - **Overview mode simplification:** the separate Wallboard control is removed. Fullscreen is now the single presentation mode and automatically uses the compact one-screen NOC layout, responsive viewport sizing, auto-hidden controls, and compact gauges that were previously Wallboard-only.
 - **Legacy dashboard editor removed from Overview:** `Edit dashboard` no longer opens the obsolete widget builder. That builder rendered a second, older dashboard model (CPU gauge, memory gauge, legacy Calls/Trunks widgets) rather than editing the current OperatorOverview, so exposing it was misleading. The current Overview is now the single UI source of truth. Existing dashboard-definition persistence/API is left intact for backward compatibility but is not exposed by the current frontend.
 - **Future customization boundary:** drag/resize/reorder should only return as a dedicated implementation against the current OperatorOverview layout; the legacy builder must not be re-enabled as a shortcut.
+
+## 2026-10-07 — Dashboard cadence control usability fix
+
+- **Observed issue:** operators could not reliably change per-widget dashboard cadence, including CPU / Memory, from the Dashboard Settings UI.
+- **Root cause 1:** cadence controls used a compact native select interaction that was not sufficiently obvious/reliable in the production settings workflow. The UI has been changed to explicit per-rate buttons with visible selected state for every widget.
+- **Root cause 2:** the recommended 3-second defaults for Queues and Current Problems were missing from the shared allowed-rate list, leaving those persisted/default values outside the selectable allowlist. `3000 ms` is now an allowed option.
+- **Fix:** Active Calls, Endpoints, Queues, Current Problems, CPU / Memory, Storage, and Services each expose explicit 500 ms / 1 s / 2 s / 3 s / 5 s / 10 s / 15 s / 30 s / 60 s controls. Selection updates draft state and the existing Save action persists the complete PBX-scoped cadence configuration.
+- **Regression:** frontend coverage now changes both Active Calls and CPU / Memory, verifies the selected CPU / Memory value, verifies the 3-second Queue default is selectable, and confirms the persisted PUT payload contains the changed CPU / Memory cadence.
+- **Validation failure log:** an initial frontend test command used unsupported Vitest flag `--runInBand`; this was a command error, not an application failure. A subsequent direct frontend test ran before rebuilding the shared workspace and therefore loaded the previous shared allowlist; after rebuilding `@voip-monitor/shared`, the frontend suite passed.
+- **Known limitation:** these settings remain presentation cadence only. They do not increase the underlying SSH/system-metrics collection frequency; a 5-second CPU / Memory paint cadence cannot manufacture new metric samples if the collector itself has not produced one.
+- **Safety:** no PBX access, probe, write, collector-frequency change, or production deployment is part of this branch.
+- **Exact next task:** merge and deploy this cadence-control fix, then resume Task 60 — Call Outcome Analytics.
+
+### Dashboard cadence control final validation
+
+- lint PASS.
+- format PASS.
+- typecheck PASS.
+- backend tests 179/179 PASS.
+- frontend tests 35/35 PASS.
+- non-deploying build PASS.
+- foundation check PASS after process-local `safe.directory` injection; no global Git configuration changed.
+- license check PASS.
+- git diff check PASS.
+- public diff secret/private-network scan found no credential, key, token, or deployment-address additions.
+- Existing Chakra/Ark/Zag/Rolldown module-level `use client` warnings remain non-fatal.
