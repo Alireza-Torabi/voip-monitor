@@ -20,7 +20,7 @@ test('read-only query preparation accepts one bounded SELECT and converts Postgr
     mysql.statement,
     'SELECT linkedid, disposition FROM cdr WHERE calldate >= ? AND calldate < ? ORDER BY calldate DESC LIMIT ?',
   );
-  assert.deepEqual(mysql.parameters, ['2026-10-01T00:00:00Z', '2026-10-02T00:00:00Z', 3]);
+  assert.deepEqual(mysql.parameters, ['2026-10-01T00:00:00Z', '2026-10-02T00:00:00Z', 2]);
 
   const postgres = prepareReadOnlyQuery('POSTGRESQL', query, limits);
   assert.equal(

@@ -101,7 +101,7 @@ test('database transport resolves once, validates the numeric address and preser
     tlsMode: 'REQUIRED',
   });
   assert.match(value.query.statement, /^SELECT linkedid FROM cdr/u);
-  assert.deepEqual(value.query.parameters, ['ANSWERED', 11]);
+  assert.deepEqual(value.query.parameters, ['ANSWERED', 10]);
   assert.equal(value.signal.aborted, true);
   assert.ok(value.credential.every((byte) => byte === 0));
 });

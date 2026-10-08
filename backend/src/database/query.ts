@@ -210,7 +210,7 @@ export function prepareReadOnlyQuery(
   if (placeholders !== parameters.length) invalidQuery();
 
   const boundedSql = `${query.sql.trim()} LIMIT ?`;
-  const boundedParameters = [...parameters, validatedLimits.maxRows + 1];
+  const boundedParameters = [...parameters, validatedLimits.maxRows];
 
   return {
     statement: dialect === 'POSTGRESQL' ? postgresPlaceholders(boundedSql) : boundedSql,

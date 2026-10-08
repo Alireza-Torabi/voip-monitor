@@ -367,7 +367,7 @@ function callQuery(dialect: DatabaseDialect, table: SourceTable): ReadOnlyDataba
             ${castText(dialect, billsec)} AS billable_seconds,
             ${castText(dialect, disposition)} AS disposition
           FROM ${tableReference(dialect, table)}
-          ORDER BY ${calldate} DESC, ${uniqueid} DESC`,
+          ORDER BY ${calldate} DESC`,
   };
 }
 

@@ -1270,3 +1270,14 @@ Lint، Format، Typecheck، Backend Test برابر 179/179، Frontend Test بر
 - Source-backed History دیگر همه Failureهای Query را به `source_unavailable` عمومی تبدیل نمی‌کند. کدهای امن و محدود برای Timeout، Query Failure، Row/Output Safety Limit، Unsupported Value، Authentication، Database Not Found، Host Blocked و TLS Failure نمایش داده می‌شوند؛ Raw SQL، Driver Message و Credential همچنان مخفی می‌مانند.
 
 </div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-08 — رفع ریشه‌ای Timeout در Recent CDR
+
+- **تأیید Read-only روی Source واقعی:** جدول `asteriskcdrdb.cdr` روی `calldate` و `uniqueid` Index جدا دارد، اما Composite Index روی `(calldate, uniqueid)` ندارد و جدول بسیار بزرگ است.
+- **ریشه اول:** `ORDER BY calldate DESC, uniqueid DESC` روی MySQL 5.5 مسیر استفاده مؤثر از Index `calldate` را خراب می‌کرد و می‌توانست Timeout ایجاد کند. Call History اکنون فقط با `calldate DESC` مرتب می‌شود تا بدون تغییر Schema روی PBX از Index موجود استفاده شود.
+- **ریشه دوم:** Query Bound قبلاً `LIMIT maxRows+1` می‌گذاشت و Row اضافه را `ROW_LIMIT` حساب می‌کرد؛ در نتیجه هر Source با بیش از تعداد درخواستی Row می‌توانست با وجود Query محدود Fail شود. اکنون SQL دقیقاً `LIMIT maxRows` دارد و Validation بعد از Query همچنان به‌عنوان Defense-in-depth باقی مانده است.
+- **نتیجه واقعی:** مسیر واقعی `listRecentCalls(..., 100)` روی Source پیکربندی‌شده در حدود 45ms اجرا شد و 100 Row برگرداند. هیچ Raw Row یا Credential در Probe نمایش داده نشد.
+
+</div>

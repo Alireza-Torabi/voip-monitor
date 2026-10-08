@@ -1239,3 +1239,11 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 ## 2026-10-07 — History database error classification
 
 - Source-backed History now preserves bounded database failure categories instead of collapsing every query failure into `source_unavailable`. Operator-safe codes distinguish timeout, query failure, row/output safety limits, unsupported values, authentication, database-not-found, host-blocked, and TLS failures without exposing raw SQL, driver messages, or credentials.
+
+
+## 2026-10-08 — Recent CDR load timeout root-cause fix
+
+- **Real read-only verification:** the configured `asteriskcdrdb.cdr` source exposes separate indexes on `calldate` and `uniqueid`, but no composite `(calldate, uniqueid)` index. The table is very large.
+- **Root cause 1:** `ORDER BY calldate DESC, uniqueid DESC` forced legacy MySQL 5.5 away from the efficient `calldate` index path and could time out. Calls history now orders by `calldate DESC` only, allowing indexed recent-row retrieval without changing the PBX schema.
+- **Root cause 2:** the query bound used `LIMIT maxRows+1`, then treated the extra sentinel row as `ROW_LIMIT`; on any source with more than the requested number of rows that made a successful bounded read fail. SQL now enforces exactly `LIMIT maxRows`; post-query row validation remains as a defense-in-depth check.
+- **Real result:** the exact `listRecentCalls(..., 100)` path completed against the real configured source in about 45 ms and returned 100 rows. No raw row data or credential was emitted during verification.
