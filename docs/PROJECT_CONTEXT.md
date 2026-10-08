@@ -176,3 +176,8 @@ Task 60B adds no local telephony-history persistence or database/PBX write path.
 ## 2026-10-08 — Queue report presentation/export context
 
 Task 60B operator review now includes a graphical queue-outcome report and browser-side PDF/XLSX export. The displayed donut uses normalized aggregate counts only. Export buttons operate on the already-loaded report and never trigger a second historical query. PDF includes the localized report card and chart; XLSX contains structured filter/KPI cells and an embedded chart image, with RTL worksheet direction in Persian mode. No generated report is stored by the backend.
+
+
+## 2026-10-08 — Export reliability follow-up
+
+The Task 60B Excel hang observed during operator review was isolated to the DOM-rendering stage that preceded workbook creation, not to the source query or XLSX writer. Report exports now draw graphics directly from the already-loaded analytics using Canvas, XLSX resolves to a Blob before download, and async export stages are bounded by a 15-second timeout. A remote headless Chrome validation completed the real Excel path successfully without any PBX/database query.

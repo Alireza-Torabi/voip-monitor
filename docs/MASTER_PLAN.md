@@ -1322,8 +1322,18 @@ Current merge gate: `feature/call-outcome-analytics` must merge first. Do not be
 ## 2026-10-08 — Task 60B report visualization and client-side export
 
 - **Queue outcome visualization:** the analyzed queue report now includes a responsive donut chart below the KPI summary. The chart uses connected, caller-abandoned, queue-timeout, and residual/other exits so the visible composition remains part-to-whole when known terminal outcomes do not fully reconcile to queue entries.
-- **PDF export:** operators can export the already-loaded queue report to a real `.pdf`. The browser renders the localized report card (filters, KPIs, and chart) to an image and places it on a landscape A4 PDF. Rendering the localized DOM preserves Persian shaping without bundling or exposing a separate font asset.
+- **PDF export:** operators can export the already-loaded queue report to a real `.pdf`. The browser renders a deterministic report canvas from the already-loaded filters, KPIs, and chart data and packages it as a landscape A4 PDF. Canvas text rendering preserves Persian shaping without bundling or exposing a separate font asset.
 - **Excel export:** operators can export a real `.xlsx` with filter/KPI values as spreadsheet cells plus the same rendered chart embedded as an image in the worksheet. Persian exports use right-to-left sheet direction.
 - **No source re-query:** export actions operate only on the analytics response already present in browser memory. Clicking PDF/Excel never opens another database connection and never increases PBX/database query load.
-- **Dependency posture:** `html2canvas` and `write-excel-file` are MIT-licensed; the report renderer and XLSX implementation are dynamically imported. PDF packaging uses the project's small internal image-only PDF writer, avoiding an additional PDF runtime dependency. A candidate Excel library with a moderate transitive vulnerability was rejected before commit. `npm audit --omit=dev` reports zero known vulnerabilities after the final dependency selection.
+- **Dependency posture:** `write-excel-file` is MIT-licensed and dynamically imported only for XLSX generation. PDF packaging uses the project's small internal image-only PDF writer, while both PDF and XLSX chart images are drawn directly from report data using the browser Canvas API; no DOM screenshot dependency is required. A candidate Excel library with a moderate transitive vulnerability was rejected before commit. `npm audit --omit=dev` reports zero known vulnerabilities after the final dependency selection.
 - **Regression coverage:** the History flow test asserts the graphical queue report and PDF/Excel export controls in both English and Persian. Browser production build/typecheck validates the dynamically imported export modules.
+
+
+## 2026-10-08 — Task 60B export hang fix
+
+- **Observed defect:** after a successful queue analysis, Excel export could remain indefinitely in the “Creating Excel…” state.
+- **Root cause boundary:** the spreadsheet writer itself was validated independently and completed with an embedded image in milliseconds; the unreliable stage was DOM-to-canvas rendering before workbook generation.
+- **Resolution:** PDF/Excel export no longer depends on DOM screenshot rendering. Export graphics are drawn deterministically from the loaded analytics payload with the browser Canvas API. XLSX generation uses `toBlob()` plus the project-owned download helper so completion is explicit and testable.
+- **Hang protection:** every asynchronous image/workbook stage is guarded by a 15-second client-side timeout so the UI always leaves the exporting state on failure.
+- **Browser validation:** a temporary Vite harness executed the real Excel export path in remote headless Chrome and completed successfully in about 148 ms. The temporary harness was removed and was never committed.
+- **Source safety:** the fix remains entirely client-side and issues no new PBX/database query.

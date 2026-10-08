@@ -1387,10 +1387,25 @@ Task 60 — Call Outcome Analytics به‌همراه اصلاح‌های ساز�
 ## 2026-10-08 — نمودار و خروجی PDF/Excel برای گزارش Task 60B
 
 - بعد از KPIهای گزارش صف، یک نمودار Donut واکنش‌گرا نمایش داده می‌شود که تماس‌های وصل‌شده، ترک صف توسط تماس‌گیرنده، پایان مهلت انتظار صف و در صورت نیاز «سایر خروجی‌ها» را به‌صورت سهم از کل نمایش می‌دهد.
-- خروجی **PDF واقعی** از همان گزارش Load‌شده شامل مشخصات فیلتر، KPIها و نمودار ساخته می‌شود. Report Card محلی Browser Render می‌شود تا شکل‌دهی متن فارسی در PDF صحیح بماند و نیازی به قراردادن Font جداگانه در Repository نباشد.
+- خروجی **PDF واقعی** از همان گزارش Load‌شده شامل مشخصات فیلتر، KPIها و نمودار ساخته می‌شود. Report Canvas به‌صورت مستقیم از فیلترها، KPIها و داده نمودار موجود در Browser ساخته می‌شود تا شکل‌دهی متن فارسی در PDF صحیح بماند و نیازی به قراردادن Font جداگانه در Repository نباشد.
 - خروجی **Excel واقعی (`.xlsx`)** فیلترها و KPIها را به‌صورت Cellهای قابل استفاده نگه می‌دارد و تصویر همان نمودار را نیز داخل Sheet قرار می‌دهد. Sheet در حالت فارسی RTL است.
 - Export هیچ Query جدیدی به PBX یا Database ارسال نمی‌کند و فقط از Analytics موجود در حافظه Browser استفاده می‌کند؛ بنابراین گرفتن PDF/Excel بار جدیدی روی سرور VoIP ایجاد نمی‌کند.
-- Dependencyهای نهایی Export یعنی `html2canvas` و `write-excel-file` مجوز MIT دارند و بسته‌بندی PDF با Writer داخلی کوچک پروژه انجام می‌شود تا Dependency اضافه‌ای برای PDF وارد نشود. Library اولیه Excel که Dependency آسیب‌پذیر داشت قبل از Commit حذف شد و `npm audit --omit=dev` برای ترکیب نهایی صفر Vulnerability گزارش می‌دهد.
+- Dependency نهایی XLSX یعنی `write-excel-file` مجوز MIT دارد و فقط هنگام ساخت Excel به‌صورت Dynamic Import لود می‌شود. نمودار و Report Canvas برای PDF/Excel مستقیماً با Canvas API مرورگر ساخته می‌شوند و بسته‌بندی PDF با Writer داخلی کوچک پروژه انجام می‌شود؛ بنابراین هیچ Dependency برای Screenshot گرفتن از DOM لازم نیست. Library اولیه Excel که Dependency آسیب‌پذیر داشت قبل از Commit حذف شد و `npm audit --omit=dev` برای ترکیب نهایی صفر Vulnerability گزارش می‌دهد.
 - Regression Test وجود نمودار و دکمه‌های PDF/Excel را در هر دو حالت انگلیسی و فارسی بررسی می‌کند و Production Browser Build نیز Dynamic Importها را Validate می‌کند.
+
+</div>
+
+
+<div dir="rtl" align="right">
+
+## 2026-10-08 — رفع Hang خروجی Excel در Task 60B
+
+- پس از تحلیل موفق صف، خروجی Excel ممکن بود برای همیشه روی وضعیت «در حال ساخت Excel…» باقی بماند.
+- Writer خود فایل XLSX به‌صورت مستقل با تصویر Embedded آزمایش شد و در چند میلی‌ثانیه پاسخ داد؛ مرحله ناپایدار، تبدیل DOM به Canvas قبل از ساخت Workbook بود.
+- مسیر Export بازطراحی شد: نمودار و Report Canvas مستقیماً از داده Analytics موجود در Browser رسم می‌شوند و دیگر هیچ Screenshot از DOM گرفته نمی‌شود.
+- ساخت Excel اکنون ابتدا `Blob` واقعی Workbook را می‌گیرد و سپس با Download Helper داخلی برنامه فایل را دانلود می‌کند؛ بنابراین پایان عملیات صریح و قابل‌کنترل است.
+- برای تمام مرحله‌های Async مربوط به تصویر و Workbook یک Timeout پانزده‌ثانیه‌ای اضافه شد تا UI در صورت خطا هیچ‌وقت در وضعیت Export قفل نماند.
+- مسیر واقعی Excel با یک Harness موقت Vite در Chrome Headless ریموت تست شد و حدود ۱۴۸ میلی‌ثانیه‌ای با موفقیت پایان یافت. Harness موقت پاک شد و وارد Git نشد.
+- این Fix کاملاً Client-side است و هیچ Query جدیدی به PBX یا Database ارسال نمی‌کند.
 
 </div>

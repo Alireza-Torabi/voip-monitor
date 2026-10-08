@@ -16,7 +16,6 @@
     "@emotion/cache": "^11.14.0",
     "@emotion/react": "^11.14.0",
     "@voip-monitor/shared": "0.1.0",
-    "html2canvas": "^1.4.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "write-excel-file": "^4.1.1"

@@ -1,5 +1,5 @@
 import { Badge, Box, Button, HStack, Input, SimpleGrid, Stack, Text } from '@chakra-ui/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type {
   HistoricalCallOutcomeAnalytics,
   HistoricalQueueAbandonmentAnalytics,
@@ -136,8 +136,6 @@ export function HistoryWorkspace({
   );
   const [queueAnalyticsLoading, setQueueAnalyticsLoading] = useState(false);
   const [queueExporting, setQueueExporting] = useState<'pdf' | 'excel' | null>(null);
-  const queueReportRef = useRef<HTMLDivElement>(null);
-  const queueChartRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -259,8 +257,7 @@ export function HistoryWorkspace({
   }
 
   function queueReportPayload() {
-    if (!queueAnalytics || !selected || !queueReportRef.current || !queueChartRef.current)
-      return null;
+    if (!queueAnalytics || !selected) return null;
     const percentValue =
       queueAnalytics.abandonmentRatePercent === undefined
         ? '—'
@@ -275,8 +272,6 @@ export function HistoryWorkspace({
         ? '—'
         : `P50 ${queueAnalytics.p50WaitBeforeAbandonSeconds.toFixed(1)}s / P90 ${queueAnalytics.p90WaitBeforeAbandonSeconds.toFixed(1)}s`;
     return {
-      reportElement: queueReportRef.current,
-      chartElement: queueChartRef.current,
       fileBaseName: reportFileBaseName(
         queueAnalytics.queueId,
         queueAnalytics.from,
@@ -307,6 +302,36 @@ export function HistoryWorkspace({
         { label: text.historyQueueAverageWait, value: averageWait },
         { label: text.historyQueueLongWait, value: queueAnalytics.longWaitAbandonedCalls },
         { label: text.historyQueuePercentiles, value: percentiles },
+      ],
+      chartTotal: queueAnalytics.enteredCalls,
+      chartTotalLabel: text.historyQueueChartTotal,
+      chartSegments: [
+        {
+          label: text.historyQueueConnected,
+          value: queueAnalytics.connectedCalls,
+          color: '#38A0FF',
+        },
+        {
+          label: text.historyQueueAbandoned,
+          value: queueAnalytics.abandonedCalls,
+          color: '#FF5C8A',
+        },
+        {
+          label: text.historyQueueTimedOut,
+          value: queueAnalytics.timedOutCalls,
+          color: '#F6B94A',
+        },
+        {
+          label: text.historyQueueChartOther,
+          value: Math.max(
+            0,
+            queueAnalytics.enteredCalls -
+              queueAnalytics.connectedCalls -
+              queueAnalytics.abandonedCalls -
+              queueAnalytics.timedOutCalls,
+          ),
+          color: '#72849D',
+        },
       ],
     };
   }
@@ -647,7 +672,6 @@ export function HistoryWorkspace({
             ) : queueAnalytics ? (
               <Stack gap="4">
                 <Box
-                  ref={queueReportRef}
                   borderWidth="1px"
                   borderColor="rgba(91, 130, 172, .24)"
                   borderRadius="nocControl"
@@ -754,7 +778,7 @@ export function HistoryWorkspace({
                         ltr
                       />
                     </SimpleGrid>
-                    <Box ref={queueChartRef}>
+                    <Box>
                       <QueueOutcomeChart analytics={queueAnalytics} text={text} />
                     </Box>
                   </Stack>

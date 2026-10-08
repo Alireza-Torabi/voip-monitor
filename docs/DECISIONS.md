@@ -822,6 +822,9 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 
 407. **Report exports are client-side snapshots of loaded analytics:** PDF/XLSX generation must not re-query the PBX/database or create report persistence on the monitor backend.
 408. **Queue composition chart must reconcile the visible whole:** connected, caller-abandoned, queue-timeout, and nonnegative residual/other exits are used for the donut rather than treating the long-wait subset as an independent slice.
-409. **PDF uses rendered localized report content:** rasterizing the browser-rendered report preserves Persian shaping without adding repository font binaries; the exported PDF contains the same visible KPI/chart snapshot.
+409. **PDF uses a deterministic localized report canvas:** the browser draws the loaded filters, KPIs, and chart data directly to Canvas, preserving Persian shaping without adding repository font binaries or depending on DOM screenshot behavior.
 410. **XLSX remains structured:** queue filters and KPIs are exported as spreadsheet cells and the chart is embedded as an image; Persian worksheets use RTL direction.
 411. **Reject vulnerable convenience dependencies:** export dependencies must pass the project license gate and runtime audit. The selected export stack is MIT-licensed and showed zero production audit findings at implementation time.
+
+412. **Do not use DOM screenshotting for report export:** queue PDF/XLSX graphics are generated directly from normalized analytics through Canvas so export completion does not depend on layout/screenshot engines.
+413. **Export operations must fail bounded:** asynchronous report image/workbook stages have a 15-second client-side timeout, and XLSX generation resolves to a Blob before the download is triggered.
