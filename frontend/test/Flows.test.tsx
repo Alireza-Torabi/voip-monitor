@@ -1261,6 +1261,7 @@ describe('source-backed history workspace', () => {
             calls: { availability: 'SUPPORTED' },
             callEvents: { availability: 'NOT_FOUND' },
             queueEvents: { availability: 'SCHEMA_MISMATCH' },
+            queueAbandonment: { availability: 'SUPPORTED' },
           });
         if (path === '/api/pbx-instances/history-pbx/history/call-outcomes?range=24H')
           return response({
@@ -1275,6 +1276,26 @@ describe('source-backed history workspace', () => {
             unknownCalls: 1,
             answerRatioPercent: 60,
             averageDurationSeconds: 31.5,
+          });
+        if (
+          path ===
+          '/api/pbx-instances/history-pbx/history/queue-abandonment?queue=support&range=24H&longWaitSeconds=40'
+        )
+          return response({
+            instanceId: 'history-pbx',
+            source: 'DATABASE',
+            range: '24H',
+            queueId: 'support',
+            longWaitThresholdSeconds: 40,
+            enteredCalls: 20,
+            connectedCalls: 14,
+            abandonedCalls: 4,
+            timedOutCalls: 2,
+            longWaitAbandonedCalls: 2,
+            abandonmentRatePercent: 20,
+            averageWaitBeforeAbandonSeconds: 37.5,
+            p50WaitBeforeAbandonSeconds: 25,
+            p90WaitBeforeAbandonSeconds: 70,
           });
         if (path === '/api/pbx-instances/history-pbx/history/calls?limit=100')
           return response({
@@ -1313,6 +1334,18 @@ describe('source-backed history workspace', () => {
     expect(container.textContent).toContain('60.0%');
     expect(container.textContent).toContain('31.5s');
     expect(container.textContent).toContain('Unknown');
+
+    await enter('history-queue-id', 'support');
+    await enter('history-long-wait-seconds', '40');
+    const queueAnalyzeButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Analyze queue'),
+    );
+    await act(async () => queueAnalyzeButton?.click());
+    expect(container.textContent).toContain('Caller abandoned');
+    expect(container.textContent).toContain('Queue timeout');
+    expect(container.textContent).toContain('20.0%');
+    expect(container.textContent).toContain('37.5s');
+    expect(container.textContent).toContain('P50 25.0s / P90 70.0s');
 
     const loadButton = Array.from(container.querySelectorAll('button')).find((button) =>
       button.textContent?.includes('Load recent rows'),

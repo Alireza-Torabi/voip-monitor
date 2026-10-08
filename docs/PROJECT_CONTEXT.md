@@ -162,3 +162,12 @@ Database-source configuration now models one connection identity plus a bounded 
 Migration 19 preserves existing source metadata and credentials. Existing MySQL/MariaDB rows gain their primary database as the initial scope; PostgreSQL rows gain `public` as the conservative initial schema scope. New or edited MySQL configurations automatically include the primary database even if the operator lists only additional databases. A configuration may expose at most 16 scopes.
 
 Task 60A does not itself add Queue Abandonment analytics. It prepares the source boundary so Task 60B can use queue history/configuration datasets across approved scopes without introducing a second credential or duplicate history store.
+
+
+## 2026-10-08 — Task 60B implementation context
+
+Queue Abandonment Analytics is implemented as a source-owned read-only History feature. The conventional SQL adapter exposes a distinct `queueAbandonment` capability requiring queue-log wait-time data (`data3`) in addition to the generic queue-event columns. The feature accepts one bounded queue ID, one bounded range, and a 1–3600 second long-wait threshold.
+
+Product semantics are explicit: `ABANDON` is caller abandonment; `EXITWITHTIMEOUT` is queue/system timeout and is shown separately. KPIs include entries, connected calls, caller abandons, queue timeouts, abandonment rate, average wait before caller abandon, and long-wait abandon count. Exact P50/P90 are returned only when the complete abandon wait sample is within the 1000-row transient read limit; otherwise percentile fields stay unavailable.
+
+Task 60B adds no local telephony-history persistence or database/PBX write path. After Task 60B is merged, the next roadmap item is Task 61 — Call Quality Source Discovery.

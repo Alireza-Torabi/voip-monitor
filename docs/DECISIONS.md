@@ -798,3 +798,13 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 392. **Bound scope cardinality:** at most 16 scopes may be configured for one PBX database source. MySQL/MariaDB always includes the primary database automatically.
 393. **Discovery stays inside verified scope:** source-schema discovery may inspect only persisted verified scopes. Multiple matching candidate datasets across those scopes are ambiguous and must fail closed rather than choosing arbitrarily.
 394. **Backward migration does not touch secrets:** migration 19 seeds scope metadata only; encrypted credentials are not decrypted, rewritten, or re-encrypted as part of the schema migration.
+
+
+## 2026-10-08 — Task 60B queue-abandonment analytics decisions
+
+395. **Separate generic queue history from abandonment capability:** `queueEvents` can remain supported with the basic `queue_log` columns, while `queueAbandonment` additionally requires `data3` for standard wait-time semantics.
+396. **Do not collapse caller abandon and timeout:** `ABANDON` is caller-driven abandonment; `EXITWITHTIMEOUT` is reported as a separate queue/system timeout KPI and never contributes to the caller-abandon count.
+397. **Use queue entries as the abandonment-rate denominator:** rate is `ABANDON / ENTERQUEUE` within the selected source-clock range when entries are nonzero. A zero denominator yields an unavailable rate, not a fabricated zero percentage.
+398. **Bound operator inputs:** queue identifier is a printable string up to 128 characters; analytics range is one of `1H`, `24H`, `7D`, `30D`; long-wait threshold is an integer from 1 through 3600 seconds.
+399. **Percentiles must be exact or absent:** P50/P90 use exact nearest-rank calculation only when the full abandon-wait sample fits the 1000-row read bound. Above that bound they are omitted rather than estimated from partial data.
+400. **No local queue warehouse:** Task 60B adds only transient bounded reads and product analytics over the authoritative source. It does not persist queue history or create a raw-SQL/public query surface.

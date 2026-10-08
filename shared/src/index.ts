@@ -74,6 +74,23 @@ export interface HistoricalCallOutcomeAnalytics {
   answerRatioPercent: number;
   averageDurationSeconds: number;
 }
+
+export interface HistoricalQueueAbandonmentAnalytics {
+  instanceId: PbxInstanceId;
+  source: 'DATABASE';
+  range: HistoricalCallOutcomeRange;
+  queueId: string;
+  longWaitThresholdSeconds: number;
+  enteredCalls: number;
+  connectedCalls: number;
+  abandonedCalls: number;
+  timedOutCalls: number;
+  longWaitAbandonedCalls: number;
+  abandonmentRatePercent?: number;
+  averageWaitBeforeAbandonSeconds?: number;
+  p50WaitBeforeAbandonSeconds?: number;
+  p90WaitBeforeAbandonSeconds?: number;
+}
 export type HistoricalCallEventType =
   | 'CHANNEL_STARTED'
   | 'CHANNEL_ENDED'
@@ -110,6 +127,7 @@ export interface HistoricalSourceCapabilities {
   calls: HistoricalDatasetCapability;
   callEvents: HistoricalDatasetCapability;
   queueEvents: HistoricalDatasetCapability;
+  queueAbandonment: HistoricalDatasetCapability;
 }
 
 /** Source timestamps are preserved without inventing a timezone for naive PBX database values. */

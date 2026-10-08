@@ -361,6 +361,29 @@ export const messages = {
     historyOutcomeEmpty: 'Choose a bounded range and analyze calls from the configured source.',
     historyOutcomeUnknownHint:
       'Unknown dispositions remain visible so category totals never hide source values the adapter does not recognize.',
+    historyQueueAbandonmentTitle: 'Queue abandonment analytics',
+    historyQueueAbandonmentSourceHint: 'Aggregated directly from source queue history',
+    historyQueueAbandonmentSemanticsHint:
+      'Caller ABANDON and queue/system EXITWITHTIMEOUT remain separate. Percentiles are shown only when the complete bounded abandon sample can be read safely.',
+    historyQueueAbandonmentUnavailable:
+      'Queue abandonment analytics is unavailable for this source:',
+    historyQueueAbandonmentQueue: 'Queue ID',
+    historyQueueAbandonmentQueuePlaceholder: 'support',
+    historyQueueAbandonmentRange: 'Analysis range',
+    historyQueueAbandonmentThreshold: 'Long-wait threshold (seconds)',
+    historyQueueAbandonmentLoad: 'Analyze queue',
+    historyQueueAbandonmentInvalidInput:
+      'Enter a queue ID and a long-wait threshold from 1 to 3600 seconds.',
+    historyQueueEntered: 'Entered',
+    historyQueueConnected: 'Connected',
+    historyQueueAbandoned: 'Caller abandoned',
+    historyQueueTimedOut: 'Queue timeout',
+    historyQueueAbandonmentRate: 'Abandonment rate',
+    historyQueueAverageWait: 'Avg wait before abandon',
+    historyQueueLongWait: 'Long-wait abandons',
+    historyQueuePercentiles: 'Wait percentiles',
+    historyQueueAbandonmentEmpty:
+      'Enter a queue ID, choose a bounded range and analyze queue abandonment directly from the source.',
     databaseSourceTitle: 'Read-only database',
     databaseSourceHint:
       'Configure the PBX-scoped source database that will remain authoritative for historical/reporting data.',
@@ -848,6 +871,29 @@ export const messages = {
     historyOutcomeEmpty: 'یک بازه محدود انتخاب کنید و تماس‌ها را مستقیماً از Source تحلیل کنید.',
     historyOutcomeUnknownHint:
       'Dispositionهای ناشناخته جدا نمایش داده می‌شوند تا مقدارهای Source که Adapter نمی‌شناسد پنهان نشوند.',
+    historyQueueAbandonmentTitle: 'تحلیل Abandonment صف',
+    historyQueueAbandonmentSourceHint: 'Aggregate مستقیم از Queue History منبع',
+    historyQueueAbandonmentSemanticsHint:
+      'Caller ABANDON از EXITWITHTIMEOUT مربوط به Queue/System جدا می‌ماند. Percentile فقط وقتی نمایش داده می‌شود که کل Sample محدود Abandon به‌صورت امن قابل خواندن باشد.',
+    historyQueueAbandonmentUnavailable:
+      'Queue Abandonment Analytics برای این Source در دسترس نیست:',
+    historyQueueAbandonmentQueue: 'Queue ID',
+    historyQueueAbandonmentQueuePlaceholder: 'support',
+    historyQueueAbandonmentRange: 'بازه تحلیل',
+    historyQueueAbandonmentThreshold: 'Long-wait Threshold (ثانیه)',
+    historyQueueAbandonmentLoad: 'تحلیل صف',
+    historyQueueAbandonmentInvalidInput:
+      'Queue ID را وارد کنید و Long-wait Threshold را بین ۱ تا ۳۶۰۰ ثانیه قرار دهید.',
+    historyQueueEntered: 'ورودی صف',
+    historyQueueConnected: 'وصل‌شده به Agent',
+    historyQueueAbandoned: 'Caller Abandon',
+    historyQueueTimedOut: 'Queue Timeout',
+    historyQueueAbandonmentRate: 'نرخ Abandonment',
+    historyQueueAverageWait: 'میانگین Wait قبل از Abandon',
+    historyQueueLongWait: 'Long-wait Abandon',
+    historyQueuePercentiles: 'Wait Percentile',
+    historyQueueAbandonmentEmpty:
+      'Queue ID و بازه محدود را انتخاب کنید و Queue Abandonment را مستقیماً از Source تحلیل کنید.',
     databaseSourceTitle: 'Database فقط‌خواندنی',
     databaseSourceHint:
       'Database Source مربوط به این PBX را برای History/Reporting پیکربندی کنید؛ خود Source مرجع اصلی داده باقی می‌ماند.',

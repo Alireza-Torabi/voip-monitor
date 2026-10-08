@@ -39,6 +39,22 @@ function fakeTransport({
   callRows = fixture.callRows,
   celRows = fixture.celRows,
   queueRows = fixture.queueRows,
+  queueAnalyticsRows = [
+    {
+      entered_calls: '20',
+      connected_calls: '14',
+      abandoned_calls: '4',
+      timed_out_calls: '2',
+      long_wait_abandoned_calls: '2',
+      average_wait_before_abandon_seconds: '37.5',
+    },
+  ],
+  queueWaitRows = [
+    { wait_seconds: '10' },
+    { wait_seconds: '25' },
+    { wait_seconds: '45' },
+    { wait_seconds: '70' },
+  ],
   outcomeRows = [
     {
       total_calls: '10',
@@ -57,6 +73,8 @@ function fakeTransport({
       calls.push({ pbxInstanceId, request, limits });
       if (request.sql.includes('information_schema.columns')) return result(schemaRows);
       if (request.sql.includes('COUNT(*) AS total_calls')) return result(outcomeRows);
+      if (request.sql.includes(' AS entered_calls')) return result(queueAnalyticsRows);
+      if (request.sql.includes(' AS wait_seconds')) return result(queueWaitRows);
       if (request.sql.includes(' AS record_id')) return result(callRows);
       if (request.sql.includes(' AS extension')) return result(celRows);
       if (request.sql.includes(' AS queue_id')) return result(queueRows);
@@ -84,6 +102,7 @@ test('Asterisk conventional schema inspection and row normalization are provider
     calls: { availability: 'SUPPORTED' },
     callEvents: { availability: 'SUPPORTED' },
     queueEvents: { availability: 'SUPPORTED' },
+    queueAbandonment: { availability: 'SUPPORTED' },
   });
 
   const calls = await adapter.listRecentCalls(PBX_ID, 50);
@@ -177,6 +196,93 @@ test('PostgreSQL call outcome analytics use a bounded source-clock interval', as
   assert.match(query.request.sql, /CURRENT_TIMESTAMP - INTERVAL '7 days'/u);
 });
 
+test('queue abandonment analytics keep caller abandon separate from queue timeout', async () => {
+  const transport = fakeTransport();
+  const adapter = adapterFor(configuration(), transport);
+
+  const analytics = await adapter.queueAbandonmentAnalytics(PBX_ID, 'support', '24H', 40);
+  assert.deepEqual(analytics, {
+    instanceId: PBX_ID,
+    source: 'DATABASE',
+    range: '24H',
+    queueId: 'support',
+    longWaitThresholdSeconds: 40,
+    enteredCalls: 20,
+    connectedCalls: 14,
+    abandonedCalls: 4,
+    timedOutCalls: 2,
+    longWaitAbandonedCalls: 2,
+    abandonmentRatePercent: 20,
+    averageWaitBeforeAbandonSeconds: 37.5,
+    p50WaitBeforeAbandonSeconds: 25,
+    p90WaitBeforeAbandonSeconds: 70,
+  });
+
+  const aggregate = transport.calls.find((entry) =>
+    entry.request.sql.includes(' AS entered_calls'),
+  );
+  assert.ok(aggregate);
+  assert.match(aggregate.request.sql, /ABANDON/u);
+  assert.match(aggregate.request.sql, /EXITWITHTIMEOUT/u);
+  assert.deepEqual(aggregate.request.parameters, [40, 'support']);
+  assert.match(aggregate.request.sql, /CURRENT_TIMESTAMP - INTERVAL 24 HOUR/u);
+  assert.equal(aggregate.limits.maxRows, 1);
+
+  const waits = transport.calls.find((entry) => entry.request.sql.includes(' AS wait_seconds'));
+  assert.ok(waits);
+  assert.deepEqual(waits.request.parameters, ['support']);
+  assert.equal(waits.limits.maxRows, 4);
+});
+
+test('queue abandonment percentiles are omitted rather than sampled when abandon volume exceeds the bound', async () => {
+  const transport = fakeTransport({
+    queueAnalyticsRows: [
+      {
+        entered_calls: '1500',
+        connected_calls: '400',
+        abandoned_calls: '1001',
+        timed_out_calls: '99',
+        long_wait_abandoned_calls: '500',
+        average_wait_before_abandon_seconds: '52.5',
+      },
+    ],
+  });
+  const adapter = adapterFor(configuration(), transport);
+  const analytics = await adapter.queueAbandonmentAnalytics(PBX_ID, 'support', '30D', 60);
+  assert.equal(analytics.abandonedCalls, 1001);
+  assert.equal(analytics.averageWaitBeforeAbandonSeconds, 52.5);
+  assert.equal('p50WaitBeforeAbandonSeconds' in analytics, false);
+  assert.equal('p90WaitBeforeAbandonSeconds' in analytics, false);
+  assert.equal(
+    transport.calls.some((entry) => entry.request.sql.includes(' AS wait_seconds')),
+    false,
+  );
+});
+
+test('queue abandonment analytics fail closed without wait-time schema and validate inputs', async () => {
+  const schemaRows = fixture.schemaRows.filter(
+    (row) => !(row.table_name === 'queue_log' && row.column_name === 'data3'),
+  );
+  const adapter = adapterFor(configuration(), fakeTransport({ schemaRows }));
+  const capabilities = await adapter.inspect(PBX_ID);
+  assert.equal(capabilities.queueEvents.availability, 'SUPPORTED');
+  assert.equal(capabilities.queueAbandonment.availability, 'SCHEMA_MISMATCH');
+  await assert.rejects(
+    adapter.queueAbandonmentAnalytics(PBX_ID, 'support', '24H', 60),
+    (error) => error instanceof HistoricalSourceSchemaError && error.code === 'DATASET_UNAVAILABLE',
+  );
+
+  const valid = adapterFor(configuration(), fakeTransport());
+  await assert.rejects(
+    valid.queueAbandonmentAnalytics(PBX_ID, '', '24H', 60),
+    (error) => error instanceof HistoricalSourceSchemaError && error.code === 'INVALID_QUEUE',
+  );
+  await assert.rejects(
+    valid.queueAbandonmentAnalytics(PBX_ID, 'support', '24H', 0),
+    (error) => error instanceof HistoricalSourceSchemaError && error.code === 'INVALID_THRESHOLD',
+  );
+});
+
 test('schema discovery distinguishes missing, mismatched and ambiguous datasets', async () => {
   const base = fixture.schemaRows
     .map((row) => ({ ...row, table_schema: 'public' }))
@@ -195,6 +301,7 @@ test('schema discovery distinguishes missing, mismatched and ambiguous datasets'
   assert.equal(capabilities.calls.availability, 'SCHEMA_MISMATCH');
   assert.equal(capabilities.callEvents.availability, 'AMBIGUOUS');
   assert.equal(capabilities.queueEvents.availability, 'NOT_FOUND');
+  assert.equal(capabilities.queueAbandonment.availability, 'NOT_FOUND');
 
   const inspection = transport.calls[0];
   assert.match(inspection.request.sql, /table_catalog = \?/u);

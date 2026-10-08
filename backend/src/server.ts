@@ -895,7 +895,7 @@ export function createApp(
       }
 
       const historyAction = path.match(
-        /^\/api\/pbx-instances\/([^/]+)\/history(?:\/(calls|call-events|queue-events|call-outcomes))?$/,
+        /^\/api\/pbx-instances\/([^/]+)\/history(?:\/(calls|call-events|queue-events|call-outcomes|queue-abandonment))?$/,
       );
       if (historyAction) {
         if (!auth || !historicalSource || !auth.principal(sessionToken(request)))
@@ -913,6 +913,33 @@ export function createApp(
               return send(response, 400, { error: 'invalid_request' });
             return send(response, 200, await historicalSource.callOutcomeAnalytics(id, range));
           }
+          if (dataset === 'queue-abandonment') {
+            const queueId = url.searchParams.get('queue') ?? '';
+            const range = url.searchParams.get('range') ?? '24H';
+            const rawThreshold = url.searchParams.get('longWaitSeconds') ?? '60';
+            if (
+              !queueId ||
+              queueId.length > 128 ||
+              [...queueId].some((character) => {
+                const code = character.charCodeAt(0);
+                return code < 32 || code === 127;
+              }) ||
+              !/^(?:1H|24H|7D|30D)$/u.test(range) ||
+              !/^(?:[1-9]|[1-9]\d{1,2}|[1-2]\d{3}|3[0-5]\d{2}|3600)$/u.test(rawThreshold)
+            ) {
+              return send(response, 400, { error: 'invalid_request' });
+            }
+            return send(
+              response,
+              200,
+              await historicalSource.queueAbandonmentAnalytics(
+                id,
+                queueId,
+                range,
+                Number(rawThreshold),
+              ),
+            );
+          }
           const rawLimit = url.searchParams.get('limit') ?? '100';
           if (!/^(?:[1-9]|[1-9]\d|1\d\d|200)$/u.test(rawLimit))
             return send(response, 400, { error: 'invalid_request' });
@@ -926,7 +953,12 @@ export function createApp(
           return send(response, 200, { items });
         } catch (error) {
           if (error instanceof HistoricalSourceSchemaError) {
-            if (error.code === 'INVALID_LIMIT' || error.code === 'INVALID_RANGE')
+            if (
+              error.code === 'INVALID_LIMIT' ||
+              error.code === 'INVALID_RANGE' ||
+              error.code === 'INVALID_QUEUE' ||
+              error.code === 'INVALID_THRESHOLD'
+            )
               return send(response, 400, { error: 'invalid_request' });
             if (error.code === 'NOT_CONFIGURED')
               return send(response, 409, { error: 'source_not_configured' });

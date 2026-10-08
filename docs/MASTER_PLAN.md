@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-08. Task 60 is merged. Task 60A — Multi-database Data Source Scope is complete on `feature/multi-database-source-scope` and awaits operator review on the Development environment before merge. The next task after Task 60A merges is Task 60B — Queue Abandonment Analytics/KPI, followed by Task 61 — Call Quality Source Discovery.
+Status: 2026-10-08. Tasks 60 and 60A are merged. Task 60B — Queue Abandonment Analytics/KPI is complete on `feature/queue-abandonment-analytics` and awaits operator review on the Development environment before merge. The next task after Task 60B merges is Task 61 — Call Quality Source Discovery.
 
 ## Phase 0 — environment discovery
 
@@ -721,7 +721,7 @@ The product foundation is production-ready, but the monitoring product is not ye
   - Preserve write-only credentials, verify-before-save, bounded connection backoff, SSRF/network policy, and source-owned/no-duplicate-data rules.
   - Separate connection identity from database/schema scope in the UI and never imply access that the source account has not verified.
   - Migrate existing single-database configurations compatibly without exposing or unnecessarily rewriting credentials.
-- [ ] **Task 60B — Queue Abandonment Analytics / KPI**
+- [x] **Task 60B — Queue Abandonment Analytics / KPI**
   - Add bounded source-owned Queue analytics for a selected queue and time range using supported queue-event data, distinguishing caller `ABANDON` from system-driven timeout/exit outcomes.
   - KPI set: queue entries, connected/answered calls, abandoned calls, abandonment rate, average wait before abandon, configurable long-wait-abandon threshold/count, and P50/P90 wait where supported by source data.
   - Discover and validate queue identity/event semantics from the source schema; do not infer unsupported fields or collapse `ABANDON` and `EXITWITHTIMEOUT`.
@@ -1279,3 +1279,16 @@ Current merge gate: `feature/call-outcome-analytics` must merge first. Do not be
 - **Safety:** scope count is bounded to 16; no arbitrary SQL endpoint, no broader write permission, no local history warehouse, and no source credential disclosure were introduced.
 - **Validation:** targeted backend configuration/verification/migration/schema tests and frontend flow/type tests pass. A controlled read-only real-source check confirmed that the currently approved account can see both operator-requested source scopes; real names remain private and are not tracked in Git.
 - **Exact next task after merge:** Task 60B — Queue Abandonment Analytics / KPI.
+
+
+## 2026-10-08 — Task 60B: Queue Abandonment Analytics / KPI
+
+- **Source semantics:** Queue analytics use the discovered conventional `queue_log` dataset. The analytics capability is separate from generic queue-event history and requires `time`, `callid`, `queuename`, `event`, and `data3`; generic Queue Events can remain supported even when wait-time analytics is unavailable.
+- **Bounded selection:** operators select one queue ID, one allowlisted range (`1H`, `24H`, `7D`, `30D`), and a long-wait threshold from 1 to 3600 seconds. Queue ID is bounded to 128 printable characters.
+- **KPI semantics:** `ENTERQUEUE` counts entries, `CONNECT` counts calls connected to an agent, `ABANDON` counts caller-driven abandonment, and `EXITWITHTIMEOUT` is reported independently as queue/system timeout. Abandonment rate is `ABANDON / ENTERQUEUE` for the same selected source range when the denominator is nonzero.
+- **Wait metrics:** average wait before abandon and long-wait-abandon count use the documented `ABANDON` wait-time parameter (`data3`). Missing denominator/average data is omitted rather than manufactured as zero.
+- **Percentiles:** exact nearest-rank P50/P90 are calculated only when the complete abandon wait sample is at most 1000 rows. Above that safety bound, percentiles are omitted rather than estimated from a partial sample; aggregate KPIs remain available.
+- **Read-only/source-owned:** aggregate and percentile reads are generated, parameterized and bounded through the existing read-only database transport. No local queue-history table, warehouse, arbitrary SQL surface, background polling, or PBX/database mutation is introduced.
+- **API/UI:** `GET /api/pbx-instances/:id/history/queue-abandonment` accepts only bounded queue/range/threshold inputs. History now exposes a bilingual Queue Abandonment Analytics surface with explicit Caller Abandon versus Queue Timeout KPIs.
+- **Regression coverage:** synthetic adapter tests cover event separation, wait metrics, exact percentile calculation, percentile safety-bound omission, schema fail-closed behavior, and input validation. Authenticated API tests cover valid and invalid query parameters. Frontend flow coverage verifies rendering and operator-triggered analysis. No new real PBX/database probe was performed for Task 60B implementation.
+- **Exact next task after merge:** Task 61 — Call Quality Source Discovery.

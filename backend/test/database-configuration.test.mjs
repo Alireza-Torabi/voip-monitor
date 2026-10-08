@@ -312,6 +312,7 @@ test('source-backed history API is authenticated and bounded without raw SQL exp
         calls: { availability: 'SUPPORTED' },
         callEvents: { availability: 'NOT_FOUND' },
         queueEvents: { availability: 'SCHEMA_MISMATCH' },
+        queueAbandonment: { availability: 'SUPPORTED' },
       }),
       callOutcomeAnalytics: async (id, range) => {
         calls.push({ id, range });
@@ -327,6 +328,25 @@ test('source-backed history API is authenticated and bounded without raw SQL exp
           unknownCalls: 1,
           answerRatioPercent: 60,
           averageDurationSeconds: 31.5,
+        };
+      },
+      queueAbandonmentAnalytics: async (id, queueId, range, longWaitThresholdSeconds) => {
+        calls.push({ id, queueId, range, longWaitThresholdSeconds });
+        return {
+          instanceId: id,
+          source: 'DATABASE',
+          range,
+          queueId,
+          longWaitThresholdSeconds,
+          enteredCalls: 20,
+          connectedCalls: 14,
+          abandonedCalls: 4,
+          timedOutCalls: 2,
+          longWaitAbandonedCalls: 2,
+          abandonmentRatePercent: 20,
+          averageWaitBeforeAbandonSeconds: 37.5,
+          p50WaitBeforeAbandonSeconds: 25,
+          p90WaitBeforeAbandonSeconds: 70,
         };
       },
       listRecentCalls: async (id, limit) => {
@@ -374,6 +394,37 @@ test('source-backed history API is authenticated and bounded without raw SQL exp
       assert.equal(
         (await fetch(app.base + basePath + '/call-outcomes?range=365D', { headers: { cookie } }))
           .status,
+        400,
+      );
+
+      const queueAnalytics = await fetch(
+        app.base + basePath + '/queue-abandonment?queue=support&range=24H&longWaitSeconds=40',
+        { headers: { cookie } },
+      );
+      assert.equal(queueAnalytics.status, 200);
+      assert.equal((await queueAnalytics.json()).abandonedCalls, 4);
+      assert.deepEqual(calls.at(-1), {
+        id: PBX_ID,
+        queueId: 'support',
+        range: '24H',
+        longWaitThresholdSeconds: 40,
+      });
+      assert.equal(
+        (
+          await fetch(
+            app.base + basePath + '/queue-abandonment?queue=&range=24H&longWaitSeconds=40',
+            { headers: { cookie } },
+          )
+        ).status,
+        400,
+      );
+      assert.equal(
+        (
+          await fetch(
+            app.base + basePath + '/queue-abandonment?queue=support&range=24H&longWaitSeconds=3601',
+            { headers: { cookie } },
+          )
+        ).status,
         400,
       );
 

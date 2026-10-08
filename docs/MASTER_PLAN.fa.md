@@ -1298,7 +1298,7 @@ Task 60 — Call Outcome Analytics به‌همراه اصلاح‌های ساز�
   - UI باید Connection Identity را از Database/Schema Scope جدا نمایش دهد و فقط Scope واقعاً Verify‌شده را قابل استفاده بداند.
   - Configurationهای تک‌Database فعلی باید بدون افشای Credential به شکل سازگار Migration شوند.
 
-- [ ] **Task 60B — Queue Abandonment Analytics / KPI**
+- [x] **Task 60B — Queue Abandonment Analytics / KPI**
   - Analytics فقط‌خواندنی و Source-owned برای Queue انتخاب‌شده و بازه زمانی مشخص اضافه می‌شود.
   - `ABANDON` Caller باید از Exit/Timeout سیستم مثل `EXITWITHTIMEOUT` جدا باقی بماند.
   - KPIها: تعداد ورود به Queue، Connected/Answered، Abandoned، Abandonment Rate، Average Wait Before Abandon، Long-wait Abandon با Threshold قابل تنظیم، و در صورت کافی بودن Source Data، P50/P90 زمان انتظار.
@@ -1324,5 +1324,22 @@ Task 60 — Call Outcome Analytics به‌همراه اصلاح‌های ساز�
 - حداکثر 16 Scope مجاز است و هیچ Arbitrary SQL، Write Permission، Local History Warehouse یا Credential Disclosure اضافه نشده است.
 - تست‌های Targeted Backend/Frontend و Migration پاس شدند. Probe واقعی فقط‌خواندنی نیز تأیید کرد Account فعلی هر دو Scope موردنیاز Operator را می‌بیند؛ نام‌های واقعی فقط در Context خصوصی باقی می‌مانند.
 - Task بعدی بعد از Merge: **Task 60B — Queue Abandonment Analytics / KPI**.
+
+</div>
+
+
+<div dir="rtl" align="right">
+
+## 2026-10-08 — تکمیل Task 60B: Queue Abandonment Analytics / KPI
+
+- Queue Analytics از Dataset متعارف و Discover‌شده `queue_log` استفاده می‌کند. Capability مربوط به Analytics از Queue Event History جداست و برای Wait-time به ستون `data3` نیاز دارد؛ بنابراین ممکن است Queue Events پشتیبانی شود ولی Analytics به‌صورت صریح Unsupported باشد.
+- Operator یک Queue ID، یکی از Rangeهای محدود `1H`، `24H`، `7D` یا `30D` و Long-wait Threshold بین ۱ تا ۳۶۰۰ ثانیه انتخاب می‌کند.
+- `ENTERQUEUE` تعداد ورود، `CONNECT` تعداد اتصال به Agent، `ABANDON` فقط Caller-driven Abandon و `EXITWITHTIMEOUT` فقط Queue/System Timeout را می‌شمارد. این دو Outcome عمداً با هم ادغام نمی‌شوند.
+- Average Wait Before Abandon و Long-wait Abandon از Wait-time استاندارد رویداد `ABANDON` در `data3` محاسبه می‌شوند. اگر Denominator یا Average واقعاً وجود نداشته باشد، مقدار ساختگی صفر تولید نمی‌شود.
+- P50/P90 به روش Exact Nearest-rank فقط وقتی محاسبه می‌شود که کل Sample مربوط به Abandon حداکثر ۱۰۰۰ Row باشد. بالاتر از این Bound، Percentile حذف می‌شود و از Sample ناقص تخمین زده نمی‌شود؛ Aggregate KPIها همچنان قابل استفاده هستند.
+- تمام Queryها Source-owned، Parameterized، محدود و Read-only هستند. هیچ Queue History محلی، Warehouse، Arbitrary SQL، Background Polling یا Write روی PBX/Database اضافه نشده است.
+- API جدید `history/queue-abandonment` و UI دو‌زبانه History اضافه شد و Caller Abandon را جدا از Queue Timeout نمایش می‌دهد.
+- تست‌های Synthetic Adapter/API/UI برای Event Separation، Wait Metrics، Percentile، Safety Bound، Schema Fail-closed و Input Validation پاس شده‌اند. در پیاده‌سازی Task 60B هیچ Probe جدیدی به PBX/Database واقعی انجام نشد.
+- Task بعدی بعد از Merge: **Task 61 — Call Quality Source Discovery**.
 
 </div>

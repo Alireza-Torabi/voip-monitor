@@ -1,8 +1,9 @@
-import { Badge, Box, Button, HStack, SimpleGrid, Stack, Text } from '@chakra-ui/react';
+import { Badge, Box, Button, HStack, Input, SimpleGrid, Stack, Text } from '@chakra-ui/react';
 import { useEffect, useMemo, useState } from 'react';
 import type {
   HistoricalCallOutcomeAnalytics,
   HistoricalCallOutcomeRange,
+  HistoricalQueueAbandonmentAnalytics,
 } from '@voip-monitor/shared';
 import {
   api,
@@ -91,6 +92,13 @@ export function HistoryWorkspace({
   const [outcomeRange, setOutcomeRange] = useState<HistoricalCallOutcomeRange>('24H');
   const [outcomes, setOutcomes] = useState<HistoricalCallOutcomeAnalytics | null>(null);
   const [outcomesLoading, setOutcomesLoading] = useState(false);
+  const [queueRange, setQueueRange] = useState<HistoricalCallOutcomeRange>('24H');
+  const [queueId, setQueueId] = useState('');
+  const [longWaitSeconds, setLongWaitSeconds] = useState('60');
+  const [queueAnalytics, setQueueAnalytics] = useState<HistoricalQueueAbandonmentAnalytics | null>(
+    null,
+  );
+  const [queueAnalyticsLoading, setQueueAnalyticsLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -133,6 +141,7 @@ export function HistoryWorkspace({
     setError('');
     setRows([]);
     setOutcomes(null);
+    setQueueAnalytics(null);
     try {
       const next = await api.historyCapabilities(id);
       setCapabilities(next);
@@ -163,6 +172,26 @@ export function HistoryWorkspace({
       await handleError(cause);
     } finally {
       setOutcomesLoading(false);
+    }
+  }
+
+  async function loadQueueAbandonment(id: string) {
+    const threshold = Number(longWaitSeconds);
+    if (!queueId.trim() || !Number.isSafeInteger(threshold) || threshold < 1 || threshold > 3600) {
+      setError(text.historyQueueAbandonmentInvalidInput);
+      return;
+    }
+    setQueueAnalyticsLoading(true);
+    setError('');
+    try {
+      setQueueAnalytics(
+        await api.historyQueueAbandonment(id, queueId.trim(), queueRange, threshold),
+      );
+    } catch (cause) {
+      setQueueAnalytics(null);
+      await handleError(cause);
+    } finally {
+      setQueueAnalyticsLoading(false);
     }
   }
 
@@ -362,6 +391,153 @@ export function HistoryWorkspace({
               </Text>
             )}
           </Stack>
+        </DataSurface>
+      ) : null}
+
+      {capabilities ? (
+        <DataSurface
+          title={text.historyQueueAbandonmentTitle}
+          meta={text.historyQueueAbandonmentSourceHint}
+          footer={
+            <Text fontSize="10px" color="noc.textSubtle">
+              {text.historyQueueAbandonmentSemanticsHint}
+            </Text>
+          }
+        >
+          {capabilities.queueAbandonment.availability !== 'SUPPORTED' ? (
+            <Text color="noc.textSubtle" p="4" fontSize="12px">
+              {text.historyQueueAbandonmentUnavailable} {capabilities.queueAbandonment.availability}
+            </Text>
+          ) : (
+            <Stack gap="4" p="4">
+              <SimpleGrid columns={{ base: 1, md: 3 }} gap="3">
+                <Box>
+                  <Text fontSize="10px" color="noc.textSubtle" fontWeight="700" mb="1.5">
+                    {text.historyQueueAbandonmentQueue}
+                  </Text>
+                  <Input
+                    name="history-queue-id"
+                    value={queueId}
+                    onChange={(event) => {
+                      setQueueId(event.target.value);
+                      setQueueAnalytics(null);
+                    }}
+                    placeholder={text.historyQueueAbandonmentQueuePlaceholder}
+                    maxLength={128}
+                    dir="ltr"
+                  />
+                </Box>
+                <Box>
+                  <Text fontSize="10px" color="noc.textSubtle" fontWeight="700" mb="1.5">
+                    {text.historyQueueAbandonmentRange}
+                  </Text>
+                  <WorkspaceSelect
+                    value={queueRange}
+                    onChange={(value) => {
+                      setQueueRange(value as HistoricalCallOutcomeRange);
+                      setQueueAnalytics(null);
+                    }}
+                    ariaLabel={text.historyQueueAbandonmentRange}
+                  >
+                    <option value="1H">{text.historyOutcomeRange1h}</option>
+                    <option value="24H">{text.historyOutcomeRange24h}</option>
+                    <option value="7D">{text.historyOutcomeRange7d}</option>
+                    <option value="30D">{text.historyOutcomeRange30d}</option>
+                  </WorkspaceSelect>
+                </Box>
+                <Box>
+                  <Text fontSize="10px" color="noc.textSubtle" fontWeight="700" mb="1.5">
+                    {text.historyQueueAbandonmentThreshold}
+                  </Text>
+                  <Input
+                    name="history-long-wait-seconds"
+                    type="number"
+                    min={1}
+                    max={3600}
+                    value={longWaitSeconds}
+                    onChange={(event) => {
+                      setLongWaitSeconds(event.target.value);
+                      setQueueAnalytics(null);
+                    }}
+                    dir="ltr"
+                  />
+                </Box>
+              </SimpleGrid>
+              <HStack gap="2">
+                <Button
+                  size="sm"
+                  colorPalette="blue"
+                  disabled={queueAnalyticsLoading}
+                  onClick={() => void loadQueueAbandonment(selected.id)}
+                >
+                  {text.historyQueueAbandonmentLoad}
+                </Button>
+              </HStack>
+              {queueAnalyticsLoading ? (
+                <WorkspaceState tone="info" title={text.loading} loading role="status" />
+              ) : queueAnalytics ? (
+                <SimpleGrid columns={{ base: 2, md: 4, xl: 8 }} gap="3">
+                  <HistoryDatum
+                    label={text.historyQueueEntered}
+                    value={queueAnalytics.enteredCalls}
+                    ltr
+                  />
+                  <HistoryDatum
+                    label={text.historyQueueConnected}
+                    value={queueAnalytics.connectedCalls}
+                    ltr
+                  />
+                  <HistoryDatum
+                    label={text.historyQueueAbandoned}
+                    value={queueAnalytics.abandonedCalls}
+                    ltr
+                  />
+                  <HistoryDatum
+                    label={text.historyQueueTimedOut}
+                    value={queueAnalytics.timedOutCalls}
+                    ltr
+                  />
+                  <HistoryDatum
+                    label={text.historyQueueAbandonmentRate}
+                    value={
+                      queueAnalytics.abandonmentRatePercent === undefined
+                        ? '—'
+                        : `${queueAnalytics.abandonmentRatePercent.toFixed(1)}%`
+                    }
+                    ltr
+                  />
+                  <HistoryDatum
+                    label={text.historyQueueAverageWait}
+                    value={
+                      queueAnalytics.averageWaitBeforeAbandonSeconds === undefined
+                        ? '—'
+                        : `${queueAnalytics.averageWaitBeforeAbandonSeconds.toFixed(1)}s`
+                    }
+                    ltr
+                  />
+                  <HistoryDatum
+                    label={text.historyQueueLongWait}
+                    value={queueAnalytics.longWaitAbandonedCalls}
+                    ltr
+                  />
+                  <HistoryDatum
+                    label={text.historyQueuePercentiles}
+                    value={
+                      queueAnalytics.p50WaitBeforeAbandonSeconds === undefined ||
+                      queueAnalytics.p90WaitBeforeAbandonSeconds === undefined
+                        ? '—'
+                        : `P50 ${queueAnalytics.p50WaitBeforeAbandonSeconds.toFixed(1)}s / P90 ${queueAnalytics.p90WaitBeforeAbandonSeconds.toFixed(1)}s`
+                    }
+                    ltr
+                  />
+                </SimpleGrid>
+              ) : (
+                <Text color="noc.textSubtle" fontSize="12px">
+                  {text.historyQueueAbandonmentEmpty}
+                </Text>
+              )}
+            </Stack>
+          )}
         </DataSurface>
       ) : null}
 

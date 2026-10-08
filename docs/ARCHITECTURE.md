@@ -191,3 +191,12 @@ Task 60 extends the source-owned history boundary with bounded CDR aggregation. 
 A PBX database source has one verified connection identity: dialect, host, port, primary connection database, username, TLS policy, and encrypted write-only credential. Separately, it owns a bounded allowlist of verified database/schema scopes. MySQL/MariaDB scopes are database names reachable through that connection; PostgreSQL scopes are schemas inside the primary connection database.
 
 Verification uses one bounded read-only source query against `information_schema.schemata` and persists configuration only if every requested scope is visible. Generated source-schema discovery is constrained to those persisted scopes. This is an application allowlist, not a substitute for source-side least-privilege grants. No arbitrary SQL interface is exposed and source data remains authoritative/non-persisted locally.
+
+
+## Queue abandonment analytics boundary
+
+Task 60B extends the source-owned history adapter with a separate queue-abandonment capability over conventional Asterisk `queue_log`. Generic queue-event history still requires only the basic queue-log columns; abandonment analytics additionally requires `data3` because standard Asterisk `ABANDON` and `EXITWITHTIMEOUT` records carry wait time there. Capability discovery therefore fails closed without converting a missing wait-time dimension into zero.
+
+The analytics path accepts one bounded queue identifier, an allowlisted source-clock range, and a bounded long-wait threshold. It aggregates `ENTERQUEUE`, `CONNECT`, `ABANDON`, and `EXITWITHTIMEOUT` directly in the source. Caller abandonment and system/queue timeout are different product dimensions and are never collapsed. Abandonment rate uses queue entries as the denominator when nonzero. Average abandon wait and long-wait count use the `ABANDON` wait-time field.
+
+Exact nearest-rank P50/P90 wait values are computed transiently only when all abandon wait values for the selected queue/range fit the 1000-row safety bound. Above that bound the application omits percentiles instead of sampling or persisting history. No queue-history persistence, arbitrary SQL, background source polling, or write path is introduced.

@@ -6,6 +6,7 @@ import type {
   HistoricalCallEventType,
   HistoricalCallRecord,
   HistoricalDatasetAvailability,
+  HistoricalQueueAbandonmentAnalytics,
   HistoricalQueueEventRecord,
   HistoricalQueueEventType,
   HistoricalSourceCapabilities,
@@ -20,7 +21,9 @@ const ADAPTER_ID = 'ASTERISK_CONVENTIONAL_SQL_V1' as const;
 const MAX_HISTORY_ROWS = 200;
 const HISTORY_OUTPUT_BYTES = 512 * 1024;
 const HISTORY_TIMEOUT_MS = 5_000;
-const CALL_OUTCOME_RANGES: readonly HistoricalCallOutcomeRange[] = ['1H', '24H', '7D', '30D'];
+const HISTORY_ANALYTICS_RANGES: readonly HistoricalCallOutcomeRange[] = ['1H', '24H', '7D', '30D'];
+const MAX_QUEUE_PERCENTILE_ROWS = 1_000;
+const MAX_LONG_WAIT_THRESHOLD_SECONDS = 3_600;
 
 const DATASETS = {
   calls: {
@@ -36,6 +39,11 @@ const DATASETS = {
   queueEvents: {
     table: 'queue_log',
     required: ['time', 'callid', 'queuename', 'agent', 'event'],
+    optional: [],
+  },
+  queueAbandonment: {
+    table: 'queue_log',
+    required: ['time', 'callid', 'queuename', 'event', 'data3'],
     optional: [],
   },
 } as const;
@@ -75,6 +83,7 @@ interface Inspection {
   calls: InspectedDataset;
   callEvents: InspectedDataset;
   queueEvents: InspectedDataset;
+  queueAbandonment: InspectedDataset;
 }
 
 export type HistoricalSourceSchemaErrorCode =
@@ -82,7 +91,9 @@ export type HistoricalSourceSchemaErrorCode =
   | 'DATASET_UNAVAILABLE'
   | 'INVALID_SOURCE_ROW'
   | 'INVALID_LIMIT'
-  | 'INVALID_RANGE';
+  | 'INVALID_RANGE'
+  | 'INVALID_QUEUE'
+  | 'INVALID_THRESHOLD';
 
 export class HistoricalSourceSchemaError extends Error {
   constructor(readonly code: HistoricalSourceSchemaErrorCode) {
@@ -100,7 +111,7 @@ function historyLimits(maxRows: number): DatabaseQueryLimits {
 }
 
 function validateCallOutcomeRange(range: string): HistoricalCallOutcomeRange {
-  if (!CALL_OUTCOME_RANGES.includes(range as HistoricalCallOutcomeRange)) {
+  if (!HISTORY_ANALYTICS_RANGES.includes(range as HistoricalCallOutcomeRange)) {
     throw new HistoricalSourceSchemaError('INVALID_RANGE');
   }
   return range as HistoricalCallOutcomeRange;
@@ -111,6 +122,29 @@ function validateLimit(limit: number): number {
     throw new HistoricalSourceSchemaError('INVALID_LIMIT');
   }
   return limit;
+}
+
+function validateQueueId(queueId: string): string {
+  if (typeof queueId !== 'string') throw new HistoricalSourceSchemaError('INVALID_QUEUE');
+  const normalized = queueId.trim();
+  if (
+    !normalized ||
+    normalized.length > 128 ||
+    [...normalized].some((character) => {
+      const code = character.charCodeAt(0);
+      return code < 32 || code === 127;
+    })
+  ) {
+    throw new HistoricalSourceSchemaError('INVALID_QUEUE');
+  }
+  return normalized;
+}
+
+function validateLongWaitThreshold(seconds: number): number {
+  if (!Number.isSafeInteger(seconds) || seconds < 1 || seconds > MAX_LONG_WAIT_THRESHOLD_SECONDS) {
+    throw new HistoricalSourceSchemaError('INVALID_THRESHOLD');
+  }
+  return seconds;
 }
 
 function boundedText(value: unknown, maxLength: number, required = true): string | undefined {
@@ -372,10 +406,7 @@ function callQuery(dialect: DatabaseDialect, table: SourceTable): ReadOnlyDataba
   };
 }
 
-function callOutcomeRangeStart(
-  dialect: DatabaseDialect,
-  range: HistoricalCallOutcomeRange,
-): string {
+function historyRangeStart(dialect: DatabaseDialect, range: HistoricalCallOutcomeRange): string {
   const mysql = { '1H': '1 HOUR', '24H': '24 HOUR', '7D': '7 DAY', '30D': '30 DAY' } as const;
   const postgres = {
     '1H': "INTERVAL '1 hour'",
@@ -407,7 +438,7 @@ function callOutcomeQuery(
             SUM(CASE WHEN ${normalized} IN ('FAILED', 'CONGESTION', 'CHANUNAVAIL', 'CHANNEL UNAVAILABLE') THEN 1 ELSE 0 END) AS failed_calls,
             AVG(${numericDuration}) AS average_duration_seconds
           FROM ${tableReference(dialect, table)}
-          WHERE ${calldate} >= ${callOutcomeRangeStart(dialect, range)}`,
+          WHERE ${calldate} >= ${historyRangeStart(dialect, range)}`,
   };
 }
 
@@ -453,6 +484,106 @@ function parseCallOutcomeAnalytics(
     answerRatioPercent: totalCalls === 0 ? 0 : (answeredCalls / totalCalls) * 100,
     averageDurationSeconds,
   };
+}
+
+function queueAbandonmentQuery(
+  dialect: DatabaseDialect,
+  table: SourceTable,
+  range: HistoricalCallOutcomeRange,
+  queueId: string,
+  longWaitThresholdSeconds: number,
+): ReadOnlyDatabaseQuery {
+  const time = requiredColumn(dialect, table, 'time');
+  const queuename = requiredColumn(dialect, table, 'queuename');
+  const event = requiredColumn(dialect, table, 'event');
+  const data3 = requiredColumn(dialect, table, 'data3');
+  const normalizedEvent = `UPPER(TRIM(${castText(dialect, event)}))`;
+  const waitSeconds = `CAST(NULLIF(TRIM(${castText(dialect, data3)}), '') AS DECIMAL(20,3))`;
+  return {
+    sql: `SELECT
+            SUM(CASE WHEN ${normalizedEvent} = 'ENTERQUEUE' THEN 1 ELSE 0 END) AS entered_calls,
+            SUM(CASE WHEN ${normalizedEvent} = 'CONNECT' THEN 1 ELSE 0 END) AS connected_calls,
+            SUM(CASE WHEN ${normalizedEvent} = 'ABANDON' THEN 1 ELSE 0 END) AS abandoned_calls,
+            SUM(CASE WHEN ${normalizedEvent} = 'EXITWITHTIMEOUT' THEN 1 ELSE 0 END) AS timed_out_calls,
+            SUM(CASE WHEN ${normalizedEvent} = 'ABANDON' AND ${waitSeconds} >= ? THEN 1 ELSE 0 END) AS long_wait_abandoned_calls,
+            AVG(CASE WHEN ${normalizedEvent} = 'ABANDON' THEN ${waitSeconds} ELSE NULL END) AS average_wait_before_abandon_seconds
+          FROM ${tableReference(dialect, table)}
+          WHERE ${queuename} = ?
+            AND ${time} >= ${historyRangeStart(dialect, range)}
+            AND ${normalizedEvent} IN ('ENTERQUEUE', 'CONNECT', 'ABANDON', 'EXITWITHTIMEOUT')`,
+    parameters: [longWaitThresholdSeconds, queueId],
+  };
+}
+
+function queueAbandonWaitsQuery(
+  dialect: DatabaseDialect,
+  table: SourceTable,
+  range: HistoricalCallOutcomeRange,
+  queueId: string,
+): ReadOnlyDatabaseQuery {
+  const time = requiredColumn(dialect, table, 'time');
+  const queuename = requiredColumn(dialect, table, 'queuename');
+  const event = requiredColumn(dialect, table, 'event');
+  const data3 = requiredColumn(dialect, table, 'data3');
+  const normalizedEvent = `UPPER(TRIM(${castText(dialect, event)}))`;
+  const waitSeconds = `CAST(NULLIF(TRIM(${castText(dialect, data3)}), '') AS DECIMAL(20,3))`;
+  return {
+    sql: `SELECT ${castText(dialect, data3)} AS wait_seconds
+          FROM ${tableReference(dialect, table)}
+          WHERE ${queuename} = ?
+            AND ${time} >= ${historyRangeStart(dialect, range)}
+            AND ${normalizedEvent} = 'ABANDON'
+          ORDER BY ${waitSeconds} ASC`,
+    parameters: [queueId],
+  };
+}
+
+function percentileNearestRank(sorted: readonly number[], percentile: number): number | undefined {
+  if (sorted.length === 0) return undefined;
+  const index = Math.max(0, Math.ceil(percentile * sorted.length) - 1);
+  return sorted[index];
+}
+
+function parseQueueAbandonmentAnalytics(
+  pbxInstanceId: PbxInstanceId,
+  range: HistoricalCallOutcomeRange,
+  queueId: string,
+  longWaitThresholdSeconds: number,
+  row: DatabaseResultRow | undefined,
+  percentileWaits?: readonly number[],
+): HistoricalQueueAbandonmentAnalytics {
+  const enteredCalls = aggregateInteger(row?.entered_calls);
+  const connectedCalls = aggregateInteger(row?.connected_calls);
+  const abandonedCalls = aggregateInteger(row?.abandoned_calls);
+  const timedOutCalls = aggregateInteger(row?.timed_out_calls);
+  const longWaitAbandonedCalls = aggregateInteger(row?.long_wait_abandoned_calls);
+  if (longWaitAbandonedCalls > abandonedCalls) {
+    throw new HistoricalSourceSchemaError('INVALID_SOURCE_ROW');
+  }
+  const averageRaw = row?.average_wait_before_abandon_seconds;
+  const averageWaitBeforeAbandonSeconds =
+    averageRaw === null || averageRaw === undefined ? undefined : nonNegativeFinite(averageRaw);
+  const result: HistoricalQueueAbandonmentAnalytics = {
+    instanceId: pbxInstanceId,
+    source: 'DATABASE',
+    range,
+    queueId,
+    longWaitThresholdSeconds,
+    enteredCalls,
+    connectedCalls,
+    abandonedCalls,
+    timedOutCalls,
+    longWaitAbandonedCalls,
+    ...(enteredCalls > 0 ? { abandonmentRatePercent: (abandonedCalls / enteredCalls) * 100 } : {}),
+    ...(averageWaitBeforeAbandonSeconds === undefined ? {} : { averageWaitBeforeAbandonSeconds }),
+  };
+  if (percentileWaits) {
+    const p50 = percentileNearestRank(percentileWaits, 0.5);
+    const p90 = percentileNearestRank(percentileWaits, 0.9);
+    if (p50 !== undefined) result.p50WaitBeforeAbandonSeconds = p50;
+    if (p90 !== undefined) result.p90WaitBeforeAbandonSeconds = p90;
+  }
+  return result;
 }
 
 function callEventQuery(dialect: DatabaseDialect, table: SourceTable): ReadOnlyDatabaseQuery {
@@ -552,6 +683,7 @@ export class AsteriskConventionalSqlHistoryAdapter {
       calls: safeCapability(inspection.calls),
       callEvents: safeCapability(inspection.callEvents),
       queueEvents: safeCapability(inspection.queueEvents),
+      queueAbandonment: safeCapability(inspection.queueAbandonment),
     };
   }
 
@@ -568,6 +700,51 @@ export class AsteriskConventionalSqlHistoryAdapter {
       historyLimits(1),
     );
     return parseCallOutcomeAnalytics(pbxInstanceId, validatedRange, result.rows[0]);
+  }
+
+  async queueAbandonmentAnalytics(
+    pbxInstanceId: PbxInstanceId,
+    queueId: string,
+    range: string,
+    longWaitThresholdSeconds: number,
+  ): Promise<HistoricalQueueAbandonmentAnalytics> {
+    const validatedQueueId = validateQueueId(queueId);
+    const validatedRange = validateCallOutcomeRange(range);
+    const validatedThreshold = validateLongWaitThreshold(longWaitThresholdSeconds);
+    const inspection = await this.inspectInternal(pbxInstanceId);
+    const table = this.requireDataset(inspection.queueAbandonment);
+    const result = await this.options.transport.query(
+      pbxInstanceId,
+      queueAbandonmentQuery(
+        inspection.config.dialect,
+        table,
+        validatedRange,
+        validatedQueueId,
+        validatedThreshold,
+      ),
+      historyLimits(1),
+    );
+    const abandonedCalls = aggregateInteger(result.rows[0]?.abandoned_calls);
+    let percentileWaits: number[] | undefined;
+    if (abandonedCalls > 0 && abandonedCalls <= MAX_QUEUE_PERCENTILE_ROWS) {
+      const waits = await this.options.transport.query(
+        pbxInstanceId,
+        queueAbandonWaitsQuery(inspection.config.dialect, table, validatedRange, validatedQueueId),
+        historyLimits(abandonedCalls),
+      );
+      if (waits.rows.length !== abandonedCalls) {
+        throw new HistoricalSourceSchemaError('INVALID_SOURCE_ROW');
+      }
+      percentileWaits = waits.rows.map((wait) => nonNegativeFinite(wait.wait_seconds));
+    }
+    return parseQueueAbandonmentAnalytics(
+      pbxInstanceId,
+      validatedRange,
+      validatedQueueId,
+      validatedThreshold,
+      result.rows[0],
+      percentileWaits,
+    );
   }
 
   async listRecentCalls(
@@ -629,6 +806,7 @@ export class AsteriskConventionalSqlHistoryAdapter {
       calls: inspectDataset(tables, DATASETS.calls),
       callEvents: inspectDataset(tables, DATASETS.callEvents),
       queueEvents: inspectDataset(tables, DATASETS.queueEvents),
+      queueAbandonment: inspectDataset(tables, DATASETS.queueAbandonment),
     };
   }
 
