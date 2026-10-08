@@ -1,6 +1,6 @@
 # Master Plan
 
-Status: 2026-10-07. PR #68، Task 58 را Merge کرده است. Task 59 روی Branch feature/endpoint-reliability به‌صورت Local کامل شده و Merge آن Pending است. Endpoint State اکنون Reliability Metadata محدود و In-memory شامل ONLINE/OFFLINE/UNKNOWN، Last Reachable/Unreachable، Active Offline Duration، Flap Counter و Recent Transition دارد و Endpoints UI به‌صورت Problem-first مرتب می‌شود. Task 60 فقط بعد از Merge شدن Task 59 شروع می‌شود.
+Status: 2026-10-07. Taskهای 58 و 59 Merge شده‌اند. Task 60 — Call Outcome Analytics روی Branch feature/call-outcome-analytics کامل شده و قبل از Merge منتظر بررسی Operator روی محیط Development است. بعد از Merge شدن Task 60، Task 61 — Call Quality Source Discovery تسک بعدی Roadmap خواهد بود.
 
 ## Phase 0 - کشف محیط
 
@@ -1188,5 +1188,124 @@ Lint، Format، Typecheck، Backend Test برابر 179/179، Frontend Test بر
 - **رفتار اصلی تغییر نکرد:** Cadence فقط زمان اعمال State روی UI است و Frequency مربوط به PBX Polling یا Collector را تغییر نمی‌دهد.
 - **Validation:** Lint، Format Check، Typecheck، Backend Test برابر 179/179، Frontend Test برابر 35/35، Build، Foundation، License و Diff Check همگی PASS شدند.
 - **Exact Next Task:** ابتدا این اصلاح UX Merge/Deploy شود و سپس Task 60 — Call Outcome Analytics ادامه پیدا کند.
+
+</div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-07 — Task 60: تحلیل نتیجه تماس‌ها
+
+- **مالکیت Source حفظ شد:** Analytics نتیجه تماس مستقیماً روی CDR فقط‌خواندنی پیکربندی‌شده محاسبه می‌شود. VoIP Monitor هیچ Call History جدیدی را Persist، Cache، Warehouse یا Duplicate نمی‌کند.
+- **Range محدود:** API فقط `1H`، `24H`، `7D` و `30D` را قبول می‌کند. مرز بازه با Clock خود Database Source محاسبه می‌شود تا برای Timestampهای Naive مربوط به Asterisk منطقه زمانی ساختگی اعمال نشود.
+- **Aggregate مستقیم:** Total، Answered، No Answer، Busy، Failed، Unknown، Average Duration و Answer Ratio با یک Aggregate Query مستقیم روی Source محاسبه می‌شوند؛ App برای Analytics یک Sample دلخواه از Rowها دانلود و جمع نمی‌زند.
+- **Unknown پنهان نمی‌شود:** Dispositionهایی که Adapter نمی‌شناسد داخل `unknownCalls` باقی می‌مانند تا جمع Categoryها نسبت به Total قابل Audit باشد.
+- **ایمنی Read-only:** Query فقط از Identifierهای کشف‌شده/Quoteشده و Allowlist ثابت Range ساخته می‌شود. Arbitrary SQL یا Interval دلخواه کاربر وارد Adapter نمی‌شود.
+- **UI:** در Call History یک Surface دو‌زبانه برای Call Outcome Analytics اضافه شد؛ Operator یک Range محدود را انتخاب و تحلیل را صریحاً اجرا می‌کند. خروجی شامل Total، Answered، No Answer، Busy، Failed، Unknown، Answer Ratio و Average Duration است.
+- **Regression:** تست Synthetic برای MySQL/MariaDB و PostgreSQL، SQL مربوط به Source Clock و Normalize شدن Aggregate را پوشش می‌دهد؛ API احراز هویت و رد Range نامعتبر را تست می‌کند و Frontend نمایش Analytics را پوشش می‌دهد. در این Task هیچ Real PBX/Database Compatibility Probe انجام نشد.
+- **Exact Next Task:** Task 61 — Call Quality Source Discovery.
+
+</div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-07 — اصلاح Verify-before-save برای Database Source
+
+- **مشکل:** Database Source قبلاً فقط بعد از Syntax Validation، Metadata و Credential را ذخیره می‌کرد. بنابراین Password، Database Name، TLS Policy، Host یا Port اشتباه می‌توانست به‌صورت `CONFIGURED` نمایش داده شود و خرابی فقط هنگام باز کردن History مشخص شود.
+- **اصلاح:** Endpoint مربوط به Database Source اکنون قبل از هر Persist، Candidate واردشده را با یک اتصال محدود و فقط‌خواندنی Verify می‌کند. Verification از همان Network Target Policy و Dialect Adapterهای History استفاده می‌کند، Database واردشده را باز می‌کند، Read-only Transaction می‌سازد و فقط یک Query ثابت و محدود `SELECT 1` اجرا می‌کند.
+- **ایمنی Failure:** Timeout، Connection Failure، Permission Failure یا Query Failure باعث ذخیره‌شدن Config جدید نمی‌شود و Metadata و Credential رمزنگاری‌شده قبلی بدون تغییر باقی می‌مانند.
+- **UI:** دکمه به `Verify & Save` تغییر کرد و متن قدیمی که می‌گفت Save اتصال را تست نمی‌کند حذف شد. پیام‌های Operator برای Timeout و Permission از Failure عمومی Verification تفکیک شده‌اند.
+- **Security:** Credential همچنان Write-only است و Buffer مربوط به Verifier بعد از استفاده Zero می‌شود. Raw Driver Error به Browser برنمی‌گردد.
+- **Regression:** تست Backend تضمین می‌کند Verification ناموفق Config/Credential قبلی را عوض نمی‌کند؛ تست Unit Verifier Target واردشده و Query ثابت محدود را پوشش می‌دهد؛ تست Frontend متن Verify-before-save را بررسی می‌کند.
+
+</div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-07 — Backoff برای Database Connection Failure
+
+- **مشکل:** Refreshهای پشت‌سرهم History یا چند بار زدن Verify & Save بعد از Connection/Timeout Failure می‌توانست هر بار Connection جدیدی به Database باز کند. در MySQL/MariaDB این رفتار می‌تواند با عبور از `max_connect_errors` باعث Block شدن Host شود.
+- **اصلاح:** History Transport و Verify-before-save اکنون یک Backoff مشترک و PBX-scoped در Memory دارند. Connection/Timeout Failureها تلاش بعدی را به‌ترتیب 30، 60، 120 و حداکثر 300 ثانیه متوقف می‌کنند. در زمان Cooldown، درخواست با `database_backoff_active` داخل App Fail می‌شود و Socket جدیدی به Database باز نمی‌شود.
+- **Recovery:** اولین Query یا Verification موفق، Failure State جمع‌شده را فوراً Reset می‌کند.
+- **Scope:** فقط Connection/Timeout Failure روی Backoff اثر می‌گذارد؛ Query/Data/Schema Error باعث طولانی‌تر شدن Cooldown اتصال نمی‌شود. هیچ History یا Retry State جدیدی Persist نمی‌شود.
+- **UI/API:** Verify Database و Source-backed History هنگام Backoff پاسخ مشخص 429 و پیام Operator-friendly می‌دهند و Database را پشت‌سرهم Contact نمی‌کنند.
+- **Regression:** تست‌ها Escalation محدود، جلوگیری از اجرای دوباره Driver در Cooldown و Reset بعد از Success را پوشش می‌دهند.
+
+</div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-07 — سازگاری Read-only Transaction با MySQL 5.5
+
+- **مشاهده واقعی:** بعد از Flush شدن Host Block، Database واقعی PBX نسخه `5.5.62-0+deb8u1` را در MySQL Handshake اعلام کرد.
+- **مشکل:** Adapter همیشه قبل از Query دستور `START TRANSACTION READ ONLY` را اجرا می‌کرد؛ این Syntax روی Server قدیمی موجود قابل قبول نیست و می‌تواند Credential صحیح را هم در Verification/History به‌شکل Failure نشان دهد.
+- **اصلاح:** Adapter همچنان ابتدا `START TRANSACTION READ ONLY` را امتحان می‌کند. فقط اگر MySQL خطای Syntax مشخص `ER_PARSE_ERROR` / errno `1064` بدهد، به `START TRANSACTION` عادی Fall back می‌کند. مسیر Prepared Query همچنان فقط SELECT را قبول می‌کند، Multiple Statement غیرفعال است و Account دیتابیس Read-only باقی می‌ماند.
+- **Safety:** Failureهای غیر Syntax در Transaction پنهان نمی‌شوند و Fail-closed باقی می‌مانند.
+- **Regression:** تست Adapter هم Fallback مربوط به MySQL 5.5 و هم Fail-closed شدن Failureهای غیر Syntax را پوشش می‌دهد.
+
+</div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-07 — تفکیک امن خطاهای Database Verification
+
+- Database Verification اکنون خطاهای رایج MySQL/MariaDB را به کدهای امن و قابل‌فهم برای Operator تفکیک می‌کند: Authentication Failure، Database Not Found، Host Blocked، TLS Failure یا Connection Failure عمومی. Raw Driver Message و Credential همچنان مخفی می‌مانند.
+
+</div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-07 — بهینه‌سازی Recent Row Query برای MySQL 5.5
+
+- **رفتار مشاهده‌شده:** Call Outcome Analytics درست کار می‌کند، اما `Load recent rows` روی CDR قدیمی MySQL 5.5 می‌تواند Timeout/Abort شود و تکرار Connectionهای Abortشده به Block شدن Host در MySQL کمک کند.
+- **ریشه در Query Shape:** Query Engine قبلاً برای enforce کردن Row Bound هر SELECT را داخل Derived Table می‌گذاشت و `LIMIT` را بیرون آن اعمال می‌کرد. برای Recent CDR این یعنی `SELECT * FROM (SELECT ... ORDER BY calldate DESC, uniqueid DESC) ... LIMIT N` و روی MySQL قدیمی ممکن بود قبل از Limit بخش بزرگی از History Sort/Materialize شود.
+- **اصلاح:** Queryهای محدود اکنون `LIMIT maxRows+1` را مستقیم به همان SELECT معتبر اضافه می‌کنند. Row-limit detection و SELECT-only safety حفظ شده، ولی MySQL می‌تواند `ORDER BY ... LIMIT` را مستقیم Optimize کند و زودتر متوقف شود.
+- **Regression:** تست Query Preparation برای MySQL و PostgreSQL، Direct Bounded SELECT را بررسی می‌کند و تست‌های Adapter و Source Schema همچنان PASS هستند.
+
+</div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-07 — تفکیک خطاهای Database در History
+
+- Source-backed History دیگر همه Failureهای Query را به `source_unavailable` عمومی تبدیل نمی‌کند. کدهای امن و محدود برای Timeout، Query Failure، Row/Output Safety Limit، Unsupported Value، Authentication، Database Not Found، Host Blocked و TLS Failure نمایش داده می‌شوند؛ Raw SQL، Driver Message و Credential همچنان مخفی می‌مانند.
+
+</div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-08 — رفع ریشه‌ای Timeout در Recent CDR
+
+- **تأیید Read-only روی Source واقعی:** جدول `asteriskcdrdb.cdr` روی `calldate` و `uniqueid` Index جدا دارد، اما Composite Index روی `(calldate, uniqueid)` ندارد و جدول بسیار بزرگ است.
+- **ریشه اول:** `ORDER BY calldate DESC, uniqueid DESC` روی MySQL 5.5 مسیر استفاده مؤثر از Index `calldate` را خراب می‌کرد و می‌توانست Timeout ایجاد کند. Call History اکنون فقط با `calldate DESC` مرتب می‌شود تا بدون تغییر Schema روی PBX از Index موجود استفاده شود.
+- **ریشه دوم:** Query Bound قبلاً `LIMIT maxRows+1` می‌گذاشت و Row اضافه را `ROW_LIMIT` حساب می‌کرد؛ در نتیجه هر Source با بیش از تعداد درخواستی Row می‌توانست با وجود Query محدود Fail شود. اکنون SQL دقیقاً `LIMIT maxRows` دارد و Validation بعد از Query همچنان به‌عنوان Defense-in-depth باقی مانده است.
+- **نتیجه واقعی:** مسیر واقعی `listRecentCalls(..., 100)` روی Source پیکربندی‌شده در حدود 45ms اجرا شد و 100 Row برگرداند. هیچ Raw Row یا Credential در Probe نمایش داده نشد.
+
+</div>
+
+
+<div dir="rtl" align="right">
+
+## 2026-10-08 — تغییر اولویت بلافاصله بعد از Task 60
+
+Task 60 — Call Outcome Analytics به‌همراه اصلاح‌های سازگاری Database/History روی Branch `feature/call-outcome-analytics` کامل شده و در محیط Development توسط Operator تأیید شده است؛ این Branch اکنون باید قبل از شروع Feature بعدی Merge شود.
+
+پس از Merge، دو Task جدید قبل از Task 61 قرار می‌گیرند:
+
+- [ ] **Task 60A — Multi-database Data Source Scope**
+  - فرض فعلی «یک Database Name برای هر Data Source» به مدل «یک Connection فقط‌خواندنی Verify‌شده با چند Database/Schema مجاز» تغییر می‌کند.
+  - Host، Port، Dialect، Credential و TLS یک Connection واحد باقی می‌مانند و Database/Schema Scope به‌صورت Allowlist جدا تعریف می‌شود.
+  - Verify-before-save، Credentialهای Write-only، Backoff، Network Policy و Non-duplication Policy حفظ می‌شوند.
+  - UI باید Connection Identity را از Database/Schema Scope جدا نمایش دهد و فقط Scope واقعاً Verify‌شده را قابل استفاده بداند.
+  - Configurationهای تک‌Database فعلی باید بدون افشای Credential به شکل سازگار Migration شوند.
+
+- [ ] **Task 60B — Queue Abandonment Analytics / KPI**
+  - Analytics فقط‌خواندنی و Source-owned برای Queue انتخاب‌شده و بازه زمانی مشخص اضافه می‌شود.
+  - `ABANDON` Caller باید از Exit/Timeout سیستم مثل `EXITWITHTIMEOUT` جدا باقی بماند.
+  - KPIها: تعداد ورود به Queue، Connected/Answered، Abandoned، Abandonment Rate، Average Wait Before Abandon، Long-wait Abandon با Threshold قابل تنظیم، و در صورت کافی بودن Source Data، P50/P90 زمان انتظار.
+  - هیچ Queue History محلی، Warehouse، Arbitrary SQL یا Write روی PBX/Database اضافه نمی‌شود.
+
+**ترتیب جدید:** Merge Task 60 → Task 60A → Task 60B → Task 61 (Call Quality Source Discovery).
+
+دلیل این اولویت این است که محدودیت Single-database یک بدهی معماری واقعی در Source Model است و Queue Abandonment همین الآن Source قابل بررسی دارد؛ در مقابل Call Quality هنوز در مرحله Source Discovery است و Support آن تضمین‌شده نیست.
 
 </div>

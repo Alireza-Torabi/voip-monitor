@@ -1,5 +1,9 @@
 import { Badge, Box, Button, HStack, SimpleGrid, Stack, Text } from '@chakra-ui/react';
 import { useEffect, useMemo, useState } from 'react';
+import type {
+  HistoricalCallOutcomeAnalytics,
+  HistoricalCallOutcomeRange,
+} from '@voip-monitor/shared';
 import {
   api,
   ApiError,
@@ -84,6 +88,9 @@ export function HistoryWorkspace({
   const [dataset, setDataset] = useState<Dataset>('calls');
   const [capabilities, setCapabilities] = useState<HistoricalSourceCapabilities | null>(null);
   const [rows, setRows] = useState<readonly Row[]>([]);
+  const [outcomeRange, setOutcomeRange] = useState<HistoricalCallOutcomeRange>('24H');
+  const [outcomes, setOutcomes] = useState<HistoricalCallOutcomeAnalytics | null>(null);
+  const [outcomesLoading, setOutcomesLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -103,6 +110,21 @@ export function HistoryWorkspace({
       onUnauthorized();
       return;
     }
+    if (cause instanceof ApiError) {
+      if (cause.code === 'database_backoff_active') setError(text.historyDatabaseBackoff);
+      else if (cause.code === 'history_database_timeout') setError(text.historyDatabaseTimeout);
+      else if (cause.code === 'history_query_failed') setError(text.historyQueryFailed);
+      else if (cause.code === 'history_row_limit') setError(text.historyRowLimit);
+      else if (cause.code === 'history_output_limit') setError(text.historyOutputLimit);
+      else if (cause.code === 'history_unsupported_value') setError(text.historyUnsupportedValue);
+      else if (cause.code === 'database_authentication_failed')
+        setError(text.databaseSourceAuthenticationFailed);
+      else if (cause.code === 'database_not_found') setError(text.databaseSourceDatabaseNotFound);
+      else if (cause.code === 'database_host_blocked') setError(text.databaseSourceHostBlocked);
+      else if (cause.code === 'database_tls_failed') setError(text.databaseSourceTlsFailed);
+      else setError(text.historyLoadFailed);
+      return;
+    }
     setError(text.historyLoadFailed);
   }
 
@@ -110,6 +132,7 @@ export function HistoryWorkspace({
     setLoading(true);
     setError('');
     setRows([]);
+    setOutcomes(null);
     try {
       const next = await api.historyCapabilities(id);
       setCapabilities(next);
@@ -127,6 +150,19 @@ export function HistoryWorkspace({
       await handleError(cause);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadCallOutcomes(id: string) {
+    setOutcomesLoading(true);
+    setError('');
+    try {
+      setOutcomes(await api.historyCallOutcomes(id, outcomeRange));
+    } catch (cause) {
+      setOutcomes(null);
+      await handleError(cause);
+    } finally {
+      setOutcomesLoading(false);
     }
   }
 
@@ -240,6 +276,94 @@ export function HistoryWorkspace({
 
       {error ? <WorkspaceState tone="critical" title={error} role="alert" /> : null}
       {loading ? <WorkspaceState tone="info" title={text.loading} loading role="status" /> : null}
+
+      {capabilities?.calls.availability === 'SUPPORTED' ? (
+        <DataSurface
+          title={text.historyOutcomeTitle}
+          meta={text.historyOutcomeSourceHint}
+          footer={
+            <Text fontSize="10px" color="noc.textSubtle">
+              {text.historyOutcomeUnknownHint}
+            </Text>
+          }
+        >
+          <Stack gap="4" p="4">
+            <HStack gap="2" align="end" flexWrap="wrap">
+              <Box minW="180px">
+                <Text
+                  fontSize="10px"
+                  color="noc.textSubtle"
+                  fontWeight="700"
+                  letterSpacing=".06em"
+                  textTransform="uppercase"
+                  mb="1.5"
+                >
+                  {text.historyOutcomeRange}
+                </Text>
+                <WorkspaceSelect
+                  value={outcomeRange}
+                  onChange={(value) => {
+                    setOutcomeRange(value as HistoricalCallOutcomeRange);
+                    setOutcomes(null);
+                  }}
+                  ariaLabel={text.historyOutcomeRange}
+                >
+                  <option value="1H">{text.historyOutcomeRange1h}</option>
+                  <option value="24H">{text.historyOutcomeRange24h}</option>
+                  <option value="7D">{text.historyOutcomeRange7d}</option>
+                  <option value="30D">{text.historyOutcomeRange30d}</option>
+                </WorkspaceSelect>
+              </Box>
+              <Button
+                size="sm"
+                colorPalette="blue"
+                disabled={outcomesLoading}
+                onClick={() => void loadCallOutcomes(selected.id)}
+              >
+                {text.historyOutcomeLoad}
+              </Button>
+            </HStack>
+            {outcomesLoading ? (
+              <WorkspaceState tone="info" title={text.loading} loading role="status" />
+            ) : outcomes ? (
+              <SimpleGrid columns={{ base: 2, md: 4, xl: 8 }} gap="3">
+                <HistoryDatum label={text.historyOutcomeTotal} value={outcomes.totalCalls} ltr />
+                <HistoryDatum
+                  label={text.historyOutcomeAnswered}
+                  value={outcomes.answeredCalls}
+                  ltr
+                />
+                <HistoryDatum
+                  label={text.historyOutcomeNoAnswer}
+                  value={outcomes.noAnswerCalls}
+                  ltr
+                />
+                <HistoryDatum label={text.historyOutcomeBusy} value={outcomes.busyCalls} ltr />
+                <HistoryDatum label={text.historyOutcomeFailed} value={outcomes.failedCalls} ltr />
+                <HistoryDatum
+                  label={text.historyOutcomeUnknown}
+                  value={outcomes.unknownCalls}
+                  ltr
+                />
+                <HistoryDatum
+                  label={text.historyOutcomeAnswerRatio}
+                  value={`${outcomes.answerRatioPercent.toFixed(1)}%`}
+                  ltr
+                />
+                <HistoryDatum
+                  label={text.historyOutcomeAverageDuration}
+                  value={`${outcomes.averageDurationSeconds.toFixed(1)}s`}
+                  ltr
+                />
+              </SimpleGrid>
+            ) : (
+              <Text color="noc.textSubtle" fontSize="12px">
+                {text.historyOutcomeEmpty}
+              </Text>
+            )}
+          </Stack>
+        </DataSurface>
+      ) : null}
 
       <DataSurface
         title={

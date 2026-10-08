@@ -318,6 +318,14 @@ export const messages = {
     historyLoad: 'Load recent rows',
     historyInspect: 'Refresh schema support',
     historyLoadFailed: 'Source-backed history could not be loaded.',
+    historyDatabaseTimeout: 'The history query timed out at the database source.',
+    historyQueryFailed: 'The database accepted the connection but the history query failed.',
+    historyRowLimit: 'The database returned more history rows than the configured safety bound.',
+    historyOutputLimit: 'The history result exceeded the configured output-size safety bound.',
+    historyUnsupportedValue:
+      'The history source returned a value type that cannot be normalized safely.',
+    historyDatabaseBackoff:
+      'Database connection attempts are temporarily paused after repeated failures. Wait before refreshing history again.',
     historyNoRows: 'No rows loaded for this dataset.',
     historySourceTimestampHint:
       'Source timestamps are displayed exactly as supplied by the database; no timezone is invented for naive values.',
@@ -334,6 +342,25 @@ export const messages = {
     historyCaller: 'Caller',
     historyQueue: 'Queue',
     historyAgent: 'Agent',
+    historyOutcomeTitle: 'Call outcome analytics',
+    historyOutcomeSourceHint: 'Aggregated directly from the source CDR',
+    historyOutcomeRange: 'Analysis range',
+    historyOutcomeRange1h: 'Last 1 hour',
+    historyOutcomeRange24h: 'Last 24 hours',
+    historyOutcomeRange7d: 'Last 7 days',
+    historyOutcomeRange30d: 'Last 30 days',
+    historyOutcomeLoad: 'Analyze calls',
+    historyOutcomeTotal: 'Total',
+    historyOutcomeAnswered: 'Answered',
+    historyOutcomeNoAnswer: 'No answer',
+    historyOutcomeBusy: 'Busy',
+    historyOutcomeFailed: 'Failed',
+    historyOutcomeUnknown: 'Unknown',
+    historyOutcomeAnswerRatio: 'Answer ratio',
+    historyOutcomeAverageDuration: 'Avg duration',
+    historyOutcomeEmpty: 'Choose a bounded range and analyze calls from the configured source.',
+    historyOutcomeUnknownHint:
+      'Unknown dispositions remain visible so category totals never hide source values the adapter does not recognize.',
     databaseSourceTitle: 'Read-only database',
     databaseSourceHint:
       'Configure the PBX-scoped source database that will remain authoritative for historical/reporting data.',
@@ -351,9 +378,28 @@ export const messages = {
     databaseSourceDatabaseName: 'Database name',
     databaseSourceUsername: 'Database username',
     databaseSourcePassword: 'Database password',
-    databaseSourceReadOnlyTitle: 'Read-only source; saving does not test connectivity',
-    databaseSourceReadOnlyHint:
-      'Saving changes configuration only. The internal query transport is bounded and read-only, but no public database test or historical-query action is exposed here.',
+    databaseSourceReadOnlyTitle: 'Read-only source',
+    databaseSourceReadOnlyHint: 'The internal database transport remains bounded and read-only.',
+    databaseSourceVerifyBeforeSaveTitle: 'Verify before save',
+    databaseSourceVerifyBeforeSaveHint:
+      'Verify & Save opens a bounded read-only connection with the submitted host, database, username, password and TLS policy. Configuration is persisted only after verification succeeds.',
+    databaseSourceVerifyAndSave: 'Verify & Save',
+    databaseSourceVerificationFailed:
+      'Database verification failed. Check host, port, database name, username, password and TLS policy. The previous configuration was not changed.',
+    databaseSourceBackoffActive:
+      'Database connection attempts are temporarily paused after repeated failures. Wait before trying again; the previous configuration was not changed.',
+    databaseSourceVerificationTimeout:
+      'Database verification timed out. The previous configuration was not changed.',
+    databaseSourcePermissionDenied:
+      'Database verification was denied by the source. Check the read-only account permissions. The previous configuration was not changed.',
+    databaseSourceAuthenticationFailed:
+      'Database authentication failed. Check the username and password. The previous configuration was not changed.',
+    databaseSourceDatabaseNotFound:
+      'The selected database was not found. Check the database name. The previous configuration was not changed.',
+    databaseSourceHostBlocked:
+      'MySQL has blocked this client host after repeated connection errors. Flush the MySQL host cache before retrying.',
+    databaseSourceTlsFailed:
+      'Database TLS verification failed. Check the TLS policy and server certificate.',
     databaseSourceSave: 'Save database source',
     databaseSourceRemove: 'Remove database source',
     databaseSourceSaved: 'Read-only database source configuration saved.',
@@ -751,6 +797,13 @@ export const messages = {
     historyLoad: 'بارگذاری Rowهای اخیر',
     historyInspect: 'بازبینی پشتیبانی Schema',
     historyLoadFailed: 'تاریخچه مستقیم از Source قابل بارگذاری نبود.',
+    historyDatabaseTimeout: 'Query مربوط به History روی Database Source Timeout شد.',
+    historyQueryFailed: 'اتصال Database برقرار شد اما Query مربوط به History Fail شد.',
+    historyRowLimit: 'تعداد Rowهای History از Safety Bound تعریف‌شده بیشتر بود.',
+    historyOutputLimit: 'حجم خروجی History از Safety Bound تعریف‌شده بیشتر بود.',
+    historyUnsupportedValue: 'Database Source مقداری برگرداند که به‌صورت امن قابل Normalize نیست.',
+    historyDatabaseBackoff:
+      'بعد از چند Connection Failure، تلاش برای اتصال به Database موقتاً متوقف شده است. کمی صبر کنید و سپس History را Refresh کنید.',
     historyNoRows: 'برای این Dataset هنوز Rowی بارگذاری نشده است.',
     historySourceTimestampHint:
       'Timestampهای Source دقیقاً با مقدار Database نمایش داده می‌شوند؛ برای مقادیر بدون Timezone هیچ منطقه زمانی ساختگی اعمال نمی‌شود.',
@@ -767,6 +820,25 @@ export const messages = {
     historyCaller: 'تماس‌گیرنده',
     historyQueue: 'صف',
     historyAgent: 'Agent',
+    historyOutcomeTitle: 'تحلیل نتیجه تماس‌ها',
+    historyOutcomeSourceHint: 'Aggregate مستقیم از CDR منبع',
+    historyOutcomeRange: 'بازه تحلیل',
+    historyOutcomeRange1h: '۱ ساعت اخیر',
+    historyOutcomeRange24h: '۲۴ ساعت اخیر',
+    historyOutcomeRange7d: '۷ روز اخیر',
+    historyOutcomeRange30d: '۳۰ روز اخیر',
+    historyOutcomeLoad: 'تحلیل تماس‌ها',
+    historyOutcomeTotal: 'کل تماس‌ها',
+    historyOutcomeAnswered: 'پاسخ‌داده‌شده',
+    historyOutcomeNoAnswer: 'بدون پاسخ',
+    historyOutcomeBusy: 'مشغول',
+    historyOutcomeFailed: 'ناموفق',
+    historyOutcomeUnknown: 'ناشناخته',
+    historyOutcomeAnswerRatio: 'نرخ پاسخ',
+    historyOutcomeAverageDuration: 'میانگین مدت',
+    historyOutcomeEmpty: 'یک بازه محدود انتخاب کنید و تماس‌ها را مستقیماً از Source تحلیل کنید.',
+    historyOutcomeUnknownHint:
+      'Dispositionهای ناشناخته جدا نمایش داده می‌شوند تا مقدارهای Source که Adapter نمی‌شناسد پنهان نشوند.',
     databaseSourceTitle: 'Database فقط‌خواندنی',
     databaseSourceHint:
       'Database Source مربوط به این PBX را برای History/Reporting پیکربندی کنید؛ خود Source مرجع اصلی داده باقی می‌ماند.',
@@ -784,10 +856,28 @@ export const messages = {
     databaseSourceDatabaseName: 'Database Name',
     databaseSourceUsername: 'Database Username',
     databaseSourcePassword: 'Database Password',
-    databaseSourceReadOnlyTitle:
-      'Source فقط‌خواندنی است و Save کردن Connectivity Test انجام نمی‌دهد',
-    databaseSourceReadOnlyHint:
-      'Save فقط Configuration را تغییر می‌دهد. Query Transport داخلی محدود و Read-only است، اما در این بخش هیچ Public Database Test یا Historical-query Action ارائه نمی‌شود.',
+    databaseSourceReadOnlyTitle: 'Source فقط‌خواندنی است',
+    databaseSourceReadOnlyHint: 'Database Transport داخلی همچنان محدود و Read-only باقی می‌ماند.',
+    databaseSourceVerifyBeforeSaveTitle: 'Verification قبل از Save',
+    databaseSourceVerifyBeforeSaveHint:
+      'دکمه Verify & Save با Host، Database، Username، Password و TLS Policy واردشده یک اتصال محدود و فقط‌خواندنی برقرار می‌کند و فقط بعد از موفقیت Verification، Configuration ذخیره می‌شود.',
+    databaseSourceVerifyAndSave: 'Verify & Save',
+    databaseSourceVerificationFailed:
+      'Database Verification ناموفق بود. Host، Port، Database Name، Username، Password و TLS Policy را بررسی کنید. Configuration قبلی تغییر نکرد.',
+    databaseSourceBackoffActive:
+      'بعد از چند Connection Failure، تلاش برای اتصال به Database موقتاً متوقف شده است. کمی صبر کنید و دوباره تلاش کنید؛ Configuration قبلی تغییر نکرد.',
+    databaseSourceVerificationTimeout:
+      'Database Verification Timeout شد و Configuration قبلی تغییر نکرد.',
+    databaseSourcePermissionDenied:
+      'Database Source اجازه Verification نداد. Permissionهای حساب فقط‌خواندنی را بررسی کنید. Configuration قبلی تغییر نکرد.',
+    databaseSourceAuthenticationFailed:
+      'Authentication دیتابیس ناموفق بود. Username و Password را بررسی کنید. Configuration قبلی تغییر نکرد.',
+    databaseSourceDatabaseNotFound:
+      'Database انتخاب‌شده پیدا نشد. Database Name را بررسی کنید. Configuration قبلی تغییر نکرد.',
+    databaseSourceHostBlocked:
+      'MySQL این Client Host را به‌خاطر Connection Errorهای متعدد Block کرده است. قبل از تلاش مجدد Host Cache را Flush کنید.',
+    databaseSourceTlsFailed:
+      'TLS Verification دیتابیس ناموفق بود. TLS Policy و Certificate سرور را بررسی کنید.',
     databaseSourceSave: 'ذخیره Database Source',
     databaseSourceRemove: 'حذف Database Source',
     databaseSourceSaved: 'پیکربندی Database Source فقط‌خواندنی ذخیره شد.',

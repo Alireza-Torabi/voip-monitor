@@ -39,10 +39,35 @@ export type PostgresClientLike = {
 
 export type PostgresClientFactory = (options: ClientConfig) => PostgresClientLike;
 
+function mysqlConnectionError(error: unknown, signal: AbortSignal): DatabaseQueryError {
+  if (signal.aborted) return new DatabaseQueryError('TIMEOUT');
+  if (error instanceof DatabaseQueryError) return error;
+  if (typeof error === 'object' && error !== null) {
+    const candidate = error as { code?: unknown; errno?: unknown; message?: unknown };
+    if (candidate.code === 'ER_ACCESS_DENIED_ERROR' || candidate.errno === 1045)
+      return new DatabaseQueryError('AUTHENTICATION_FAILED');
+    if (candidate.code === 'ER_BAD_DB_ERROR' || candidate.errno === 1049)
+      return new DatabaseQueryError('DATABASE_NOT_FOUND');
+    if (candidate.code === 'ER_HOST_IS_BLOCKED' || candidate.errno === 1129)
+      return new DatabaseQueryError('HOST_BLOCKED');
+    const code = typeof candidate.code === 'string' ? candidate.code : '';
+    const message = typeof candidate.message === 'string' ? candidate.message : '';
+    if (/ssl|tls|certificate/i.test(code) || /ssl|tls|certificate/i.test(message))
+      return new DatabaseQueryError('TLS_FAILED');
+  }
+  return new DatabaseQueryError('CONNECTION_FAILED');
+}
+
 function queryError(error: unknown, signal: AbortSignal): DatabaseQueryError {
   if (signal.aborted) return new DatabaseQueryError('TIMEOUT');
   if (error instanceof DatabaseQueryError) return error;
   return new DatabaseQueryError('QUERY_FAILED');
+}
+
+function isMysqlReadOnlyTransactionSyntaxUnsupported(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const candidate = error as { code?: unknown; errno?: unknown };
+  return candidate.code === 'ER_PARSE_ERROR' || candidate.errno === 1064;
 }
 
 async function safeMysqlEnd(connection: mysql.Connection | undefined): Promise<void> {
@@ -100,7 +125,12 @@ export class MysqlMariadbReadOnlyAdapter implements DatabaseDialectAdapter {
       const abort = (): void => connection?.destroy();
       signal.addEventListener('abort', abort, { once: true });
       try {
-        await connection.query('START TRANSACTION READ ONLY');
+        try {
+          await connection.query('START TRANSACTION READ ONLY');
+        } catch (error) {
+          if (!isMysqlReadOnlyTransactionSyntaxUnsupported(error)) throw error;
+          await connection.query('START TRANSACTION');
+        }
         transactionStarted = true;
         const [rows] = await connection.query<mysql.RowDataPacket[]>(
           {
@@ -122,10 +152,7 @@ export class MysqlMariadbReadOnlyAdapter implements DatabaseDialectAdapter {
         }
       }
     } catch (error) {
-      if (!connection) {
-        if (signal.aborted) throw new DatabaseQueryError('TIMEOUT');
-        throw new DatabaseQueryError('CONNECTION_FAILED');
-      }
+      if (!connection) throw mysqlConnectionError(error, signal);
       throw queryError(error, signal);
     } finally {
       await safeMysqlEnd(connection);

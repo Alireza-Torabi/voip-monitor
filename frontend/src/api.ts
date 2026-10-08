@@ -2,6 +2,8 @@ import type {
   DashboardRefreshRates,
   EndpointReliabilityState,
   FleetOverviewSnapshot,
+  HistoricalCallOutcomeAnalytics,
+  HistoricalCallOutcomeRange,
   OperationalHealthSnapshot,
   TrunkReliabilityState,
 } from '@voip-monitor/shared';
@@ -458,6 +460,10 @@ export const api = {
   historyCalls: (id: string, limit = 100) =>
     request<{ items: HistoricalCallRecord[] }>(
       `/api/pbx-instances/${id}/history/calls?limit=${limit}`,
+    ),
+  historyCallOutcomes: (id: string, range: HistoricalCallOutcomeRange = '24H') =>
+    request<HistoricalCallOutcomeAnalytics>(
+      `/api/pbx-instances/${id}/history/call-outcomes?range=${encodeURIComponent(range)}`,
     ),
   historyCallEvents: (id: string, limit = 100) =>
     request<{ items: HistoricalCallEventRecord[] }>(

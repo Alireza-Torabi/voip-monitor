@@ -123,6 +123,22 @@ export function DatabaseSourceWorkspace({
       setStatus(text.databaseSourceSaved);
     } catch (failure) {
       if (failure instanceof ApiError && failure.status === 401) onUnauthorized();
+      else if (failure instanceof ApiError && failure.code === 'database_backoff_active')
+        setError(text.databaseSourceBackoffActive);
+      else if (failure instanceof ApiError && failure.code === 'database_verification_timeout')
+        setError(text.databaseSourceVerificationTimeout);
+      else if (failure instanceof ApiError && failure.code === 'database_permission_denied')
+        setError(text.databaseSourcePermissionDenied);
+      else if (failure instanceof ApiError && failure.code === 'database_authentication_failed')
+        setError(text.databaseSourceAuthenticationFailed);
+      else if (failure instanceof ApiError && failure.code === 'database_not_found')
+        setError(text.databaseSourceDatabaseNotFound);
+      else if (failure instanceof ApiError && failure.code === 'database_host_blocked')
+        setError(text.databaseSourceHostBlocked);
+      else if (failure instanceof ApiError && failure.code === 'database_tls_failed')
+        setError(text.databaseSourceTlsFailed);
+      else if (failure instanceof ApiError && failure.code === 'database_verification_failed')
+        setError(text.databaseSourceVerificationFailed);
       else setError(text.databaseSourceSaveFailed);
     } finally {
       setPending(false);
@@ -322,9 +338,9 @@ export function DatabaseSourceWorkspace({
               </SimpleGrid>
 
               <NocInset p="3">
-                <StatusIndicator tone="info" label={text.databaseSourceReadOnlyTitle} />
+                <StatusIndicator tone="info" label={text.databaseSourceVerifyBeforeSaveTitle} />
                 <Text fontSize="11px" color="noc.textMuted" mt="2">
-                  {text.databaseSourceReadOnlyHint}
+                  {text.databaseSourceVerifyBeforeSaveHint}
                 </Text>
               </NocInset>
 
@@ -333,7 +349,7 @@ export function DatabaseSourceWorkspace({
 
               <HStack gap="2" flexWrap="wrap">
                 <Button type="submit" colorPalette="blue" disabled={pending}>
-                  {text.databaseSourceSave}
+                  {text.databaseSourceVerifyAndSave}
                 </Button>
                 {current ? (
                   <Button

@@ -95,6 +95,71 @@ test('MySQL/MariaDB adapter connects only to the approved numeric address and ru
   assert.equal(destroyed, false);
 });
 
+test('MySQL/MariaDB adapter falls back for MySQL 5.5 read-only transaction syntax', async () => {
+  const calls = [];
+  let rolledBack = false;
+  const connection = {
+    async query(statement) {
+      calls.push(statement);
+      if (statement === 'START TRANSACTION READ ONLY') {
+        const error = new Error('synthetic parse failure');
+        error.code = 'ER_PARSE_ERROR';
+        error.errno = 1064;
+        throw error;
+      }
+      if (statement === 'START TRANSACTION') return [[], []];
+      return [[{ value: 1 }], []];
+    },
+    async rollback() {
+      rolledBack = true;
+    },
+    async end() {},
+    destroy() {},
+  };
+  const adapter = new MysqlMariadbReadOnlyAdapter(async () => connection);
+
+  const rows = await adapter.execute(
+    target({ tlsMode: 'DISABLED' }),
+    Buffer.from('synthetic-database-credential'),
+    prepareReadOnlyQuery('MYSQL_MARIADB', { sql: 'SELECT 1 AS value' }, limits),
+    new globalThis.AbortController().signal,
+  );
+
+  assert.deepEqual(rows, [{ value: 1 }]);
+  assert.equal(calls[0], 'START TRANSACTION READ ONLY');
+  assert.equal(calls[1], 'START TRANSACTION');
+  assert.equal(typeof calls[2], 'object');
+  assert.equal(rolledBack, true);
+});
+
+test('MySQL/MariaDB adapter does not hide non-syntax read-only transaction failures', async () => {
+  const connection = {
+    async query(statement) {
+      if (statement === 'START TRANSACTION READ ONLY') {
+        const error = new Error('synthetic permission failure');
+        error.code = 'ER_ACCESS_DENIED_ERROR';
+        error.errno = 1045;
+        throw error;
+      }
+      return [[], []];
+    },
+    async rollback() {},
+    async end() {},
+    destroy() {},
+  };
+  const adapter = new MysqlMariadbReadOnlyAdapter(async () => connection);
+
+  await assert.rejects(
+    adapter.execute(
+      target({ tlsMode: 'DISABLED' }),
+      Buffer.from('synthetic-database-credential'),
+      prepareReadOnlyQuery('MYSQL_MARIADB', { sql: 'SELECT 1 AS value' }, limits),
+      new globalThis.AbortController().signal,
+    ),
+    (error) => error instanceof DatabaseQueryError && error.code === 'QUERY_FAILED',
+  );
+});
+
 test('MySQL/MariaDB adapter omits TLS only for the explicit disabled policy', async () => {
   let options;
   const connection = {
@@ -211,4 +276,32 @@ test('dialect adapters map connection failures to bounded errors without driver 
       error.code === 'CONNECTION_FAILED' &&
       !error.message.includes('private postgres driver detail'),
   );
+});
+
+test('MySQL/MariaDB adapter classifies common connection failures without exposing raw details', async () => {
+  const cases = [
+    ['ER_ACCESS_DENIED_ERROR', 1045, 'AUTHENTICATION_FAILED'],
+    ['ER_BAD_DB_ERROR', 1049, 'DATABASE_NOT_FOUND'],
+    ['ER_HOST_IS_BLOCKED', 1129, 'HOST_BLOCKED'],
+  ];
+  for (const [code, errno, expected] of cases) {
+    const adapter = new MysqlMariadbReadOnlyAdapter(async () => {
+      const error = new Error('synthetic private driver detail');
+      error.code = code;
+      error.errno = errno;
+      throw error;
+    });
+    await assert.rejects(
+      adapter.execute(
+        target({ tlsMode: 'DISABLED' }),
+        Buffer.from('synthetic-database-credential'),
+        prepareReadOnlyQuery('MYSQL_MARIADB', { sql: 'SELECT 1 AS value' }, limits),
+        new globalThis.AbortController().signal,
+      ),
+      (error) =>
+        error instanceof DatabaseQueryError &&
+        error.code === expected &&
+        !error.message.includes('synthetic private driver detail'),
+    );
+  }
 });

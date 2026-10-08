@@ -1,5 +1,7 @@
 import type {
   HistoricalCallDisposition,
+  HistoricalCallOutcomeAnalytics,
+  HistoricalCallOutcomeRange,
   HistoricalCallEventRecord,
   HistoricalCallEventType,
   HistoricalCallRecord,
@@ -18,6 +20,7 @@ const ADAPTER_ID = 'ASTERISK_CONVENTIONAL_SQL_V1' as const;
 const MAX_HISTORY_ROWS = 200;
 const HISTORY_OUTPUT_BYTES = 512 * 1024;
 const HISTORY_TIMEOUT_MS = 5_000;
+const CALL_OUTCOME_RANGES: readonly HistoricalCallOutcomeRange[] = ['1H', '24H', '7D', '30D'];
 
 const DATASETS = {
   calls: {
@@ -75,7 +78,11 @@ interface Inspection {
 }
 
 export type HistoricalSourceSchemaErrorCode =
-  'NOT_CONFIGURED' | 'DATASET_UNAVAILABLE' | 'INVALID_SOURCE_ROW' | 'INVALID_LIMIT';
+  | 'NOT_CONFIGURED'
+  | 'DATASET_UNAVAILABLE'
+  | 'INVALID_SOURCE_ROW'
+  | 'INVALID_LIMIT'
+  | 'INVALID_RANGE';
 
 export class HistoricalSourceSchemaError extends Error {
   constructor(readonly code: HistoricalSourceSchemaErrorCode) {
@@ -90,6 +97,13 @@ function historyLimits(maxRows: number): DatabaseQueryLimits {
     maxRows,
     maxOutputBytes: HISTORY_OUTPUT_BYTES,
   };
+}
+
+function validateCallOutcomeRange(range: string): HistoricalCallOutcomeRange {
+  if (!CALL_OUTCOME_RANGES.includes(range as HistoricalCallOutcomeRange)) {
+    throw new HistoricalSourceSchemaError('INVALID_RANGE');
+  }
+  return range as HistoricalCallOutcomeRange;
 }
 
 function validateLimit(limit: number): number {
@@ -353,7 +367,90 @@ function callQuery(dialect: DatabaseDialect, table: SourceTable): ReadOnlyDataba
             ${castText(dialect, billsec)} AS billable_seconds,
             ${castText(dialect, disposition)} AS disposition
           FROM ${tableReference(dialect, table)}
-          ORDER BY ${calldate} DESC, ${uniqueid} DESC`,
+          ORDER BY ${calldate} DESC`,
+  };
+}
+
+function callOutcomeRangeStart(
+  dialect: DatabaseDialect,
+  range: HistoricalCallOutcomeRange,
+): string {
+  const mysql = { '1H': '1 HOUR', '24H': '24 HOUR', '7D': '7 DAY', '30D': '30 DAY' } as const;
+  const postgres = {
+    '1H': "INTERVAL '1 hour'",
+    '24H': "INTERVAL '24 hours'",
+    '7D': "INTERVAL '7 days'",
+    '30D': "INTERVAL '30 days'",
+  } as const;
+  return dialect === 'MYSQL_MARIADB'
+    ? `CURRENT_TIMESTAMP - INTERVAL ${mysql[range]}`
+    : `CURRENT_TIMESTAMP - ${postgres[range]}`;
+}
+
+function callOutcomeQuery(
+  dialect: DatabaseDialect,
+  table: SourceTable,
+  range: HistoricalCallOutcomeRange,
+): ReadOnlyDatabaseQuery {
+  const calldate = requiredColumn(dialect, table, 'calldate');
+  const duration = requiredColumn(dialect, table, 'duration');
+  const disposition = requiredColumn(dialect, table, 'disposition');
+  const normalized = `UPPER(TRIM(${castText(dialect, disposition)}))`;
+  const numericDuration = `CAST(${duration} AS DECIMAL(20,3))`;
+  return {
+    sql: `SELECT
+            COUNT(*) AS total_calls,
+            SUM(CASE WHEN ${normalized} = 'ANSWERED' THEN 1 ELSE 0 END) AS answered_calls,
+            SUM(CASE WHEN ${normalized} IN ('NO ANSWER', 'NOANSWER', 'NO_ANSWER') THEN 1 ELSE 0 END) AS no_answer_calls,
+            SUM(CASE WHEN ${normalized} = 'BUSY' THEN 1 ELSE 0 END) AS busy_calls,
+            SUM(CASE WHEN ${normalized} IN ('FAILED', 'CONGESTION', 'CHANUNAVAIL', 'CHANNEL UNAVAILABLE') THEN 1 ELSE 0 END) AS failed_calls,
+            AVG(${numericDuration}) AS average_duration_seconds
+          FROM ${tableReference(dialect, table)}
+          WHERE ${calldate} >= ${callOutcomeRangeStart(dialect, range)}`,
+  };
+}
+
+function aggregateInteger(value: unknown): number {
+  if (value === null || value === undefined) return 0;
+  return nonNegativeInteger(value);
+}
+
+function nonNegativeFinite(value: unknown): number {
+  if (value === null || value === undefined) return 0;
+  const parsed =
+    typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new HistoricalSourceSchemaError('INVALID_SOURCE_ROW');
+  }
+  return parsed;
+}
+
+function parseCallOutcomeAnalytics(
+  pbxInstanceId: PbxInstanceId,
+  range: HistoricalCallOutcomeRange,
+  row: DatabaseResultRow | undefined,
+): HistoricalCallOutcomeAnalytics {
+  const totalCalls = aggregateInteger(row?.total_calls);
+  const answeredCalls = aggregateInteger(row?.answered_calls);
+  const noAnswerCalls = aggregateInteger(row?.no_answer_calls);
+  const busyCalls = aggregateInteger(row?.busy_calls);
+  const failedCalls = aggregateInteger(row?.failed_calls);
+  const knownCalls = answeredCalls + noAnswerCalls + busyCalls + failedCalls;
+  if (knownCalls > totalCalls) throw new HistoricalSourceSchemaError('INVALID_SOURCE_ROW');
+  const unknownCalls = totalCalls - knownCalls;
+  const averageDurationSeconds = nonNegativeFinite(row?.average_duration_seconds);
+  return {
+    instanceId: pbxInstanceId,
+    source: 'DATABASE',
+    range,
+    totalCalls,
+    answeredCalls,
+    noAnswerCalls,
+    busyCalls,
+    failedCalls,
+    unknownCalls,
+    answerRatioPercent: totalCalls === 0 ? 0 : (answeredCalls / totalCalls) * 100,
+    averageDurationSeconds,
   };
 }
 
@@ -455,6 +552,21 @@ export class AsteriskConventionalSqlHistoryAdapter {
       callEvents: safeCapability(inspection.callEvents),
       queueEvents: safeCapability(inspection.queueEvents),
     };
+  }
+
+  async callOutcomeAnalytics(
+    pbxInstanceId: PbxInstanceId,
+    range: string,
+  ): Promise<HistoricalCallOutcomeAnalytics> {
+    const validatedRange = validateCallOutcomeRange(range);
+    const inspection = await this.inspectInternal(pbxInstanceId);
+    const table = this.requireDataset(inspection.calls);
+    const result = await this.options.transport.query(
+      pbxInstanceId,
+      callOutcomeQuery(inspection.config.dialect, table, validatedRange),
+      historyLimits(1),
+    );
+    return parseCallOutcomeAnalytics(pbxInstanceId, validatedRange, result.rows[0]);
   }
 
   async listRecentCalls(

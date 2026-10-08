@@ -177,7 +177,14 @@ test('database source removal deletes only its credential and PBX deletion casca
     );
   }));
 
-async function serveApi(storage, secrets, auth, databaseSourceConfiguration, historicalSource) {
+async function serveApi(
+  storage,
+  secrets,
+  auth,
+  databaseSourceConfiguration,
+  historicalSource,
+  databaseSourceVerifier = { verify: async () => undefined },
+) {
   const server = createApp(
     storage,
     secrets,
@@ -188,6 +195,8 @@ async function serveApi(storage, secrets, auth, databaseSourceConfiguration, his
     undefined,
     databaseSourceConfiguration,
     historicalSource,
+    undefined,
+    databaseSourceVerifier,
   );
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
@@ -282,6 +291,22 @@ test('source-backed history API is authenticated and bounded without raw SQL exp
         callEvents: { availability: 'NOT_FOUND' },
         queueEvents: { availability: 'SCHEMA_MISMATCH' },
       }),
+      callOutcomeAnalytics: async (id, range) => {
+        calls.push({ id, range });
+        return {
+          instanceId: id,
+          source: 'DATABASE',
+          range,
+          totalCalls: 10,
+          answeredCalls: 6,
+          noAnswerCalls: 2,
+          busyCalls: 1,
+          failedCalls: 0,
+          unknownCalls: 1,
+          answerRatioPercent: 60,
+          averageDurationSeconds: 31.5,
+        };
+      },
       listRecentCalls: async (id, limit) => {
         calls.push({ id, limit });
         return [
@@ -318,6 +343,18 @@ test('source-backed history API is authenticated and bounded without raw SQL exp
       assert.equal(body.items[0].recordId, 'synthetic-call-1');
       assert.deepEqual(calls, [{ id: PBX_ID, limit: 3 }]);
 
+      const outcomes = await fetch(app.base + basePath + '/call-outcomes?range=24H', {
+        headers: { cookie },
+      });
+      assert.equal(outcomes.status, 200);
+      assert.equal((await outcomes.json()).answerRatioPercent, 60);
+      assert.deepEqual(calls.at(-1), { id: PBX_ID, range: '24H' });
+      assert.equal(
+        (await fetch(app.base + basePath + '/call-outcomes?range=365D', { headers: { cookie } }))
+          .status,
+        400,
+      );
+
       assert.equal(
         (await fetch(app.base + basePath + '/calls?limit=201', { headers: { cookie } })).status,
         400,
@@ -330,6 +367,45 @@ test('source-backed history API is authenticated and bounded without raw SQL exp
           })
         ).status,
         404,
+      );
+    } finally {
+      await app.close();
+    }
+  }));
+
+test('database source API verifies before persistence and preserves prior config on failure', async () =>
+  fixture(async ({ config, storage, secrets, auth }) => {
+    const service = new DatabaseSourceConfigurationService(storage, secrets);
+    service.configure(PBX_ID, databaseConfiguration());
+    const before = service.get(PBX_ID);
+    const beforeCredential = secrets
+      .getSecret(PBX_ID, DATABASE_SOURCE_SECRET_NAMES.passwordCredential)
+      .toString();
+    const verifier = {
+      verify: async () => {
+        const { DatabaseQueryError } = await import('../dist/database/query.js');
+        throw new DatabaseQueryError('CONNECTION_FAILED');
+      },
+    };
+    const app = await serveApi(storage, secrets, auth, service, undefined, verifier);
+    try {
+      const cookie = await login(app.base, config);
+      const response = await fetch(app.base + '/api/pbx-instances/' + PBX_ID + '/database-source', {
+        method: 'PUT',
+        headers: { cookie, origin: app.base, 'content-type': 'application/json' },
+        body: JSON.stringify(
+          databaseConfiguration({
+            host: 'new-db.example.test',
+            credential: 'synthetic-invalid-value',
+          }),
+        ),
+      });
+      assert.equal(response.status, 502);
+      assert.equal((await response.json()).error, 'database_verification_failed');
+      assert.deepEqual(service.get(PBX_ID), before);
+      assert.equal(
+        secrets.getSecret(PBX_ID, DATABASE_SOURCE_SECRET_NAMES.passwordCredential).toString(),
+        beforeCredential,
       );
     } finally {
       await app.close();

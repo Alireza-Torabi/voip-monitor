@@ -32,11 +32,16 @@ export type DatabaseQueryErrorCode =
   | 'NOT_CONFIGURED'
   | 'PERMISSION_DENIED'
   | 'CONNECTION_FAILED'
+  | 'AUTHENTICATION_FAILED'
+  | 'DATABASE_NOT_FOUND'
+  | 'HOST_BLOCKED'
+  | 'TLS_FAILED'
   | 'TIMEOUT'
   | 'ROW_LIMIT'
   | 'OUTPUT_LIMIT'
   | 'UNSUPPORTED_VALUE'
-  | 'QUERY_FAILED';
+  | 'QUERY_FAILED'
+  | 'BACKOFF';
 
 export class DatabaseQueryError extends Error {
   constructor(readonly code: DatabaseQueryErrorCode) {
@@ -204,8 +209,8 @@ export function prepareReadOnlyQuery(
   const placeholders = assertSelectOnly(query.sql);
   if (placeholders !== parameters.length) invalidQuery();
 
-  const boundedSql = `SELECT * FROM (${query.sql.trim()}) AS vm_source_query LIMIT ?`;
-  const boundedParameters = [...parameters, validatedLimits.maxRows + 1];
+  const boundedSql = `${query.sql.trim()} LIMIT ?`;
+  const boundedParameters = [...parameters, validatedLimits.maxRows];
 
   return {
     statement: dialect === 'POSTGRESQL' ? postgresPlaceholders(boundedSql) : boundedSql,

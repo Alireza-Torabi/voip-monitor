@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-07. PR #68 merged Task 58. Task 59 is complete locally on feature/endpoint-reliability and merge is pending. Endpoint state now carries bounded in-memory reliability metadata: online/offline/unknown availability, last reachable/unreachable timestamps, active offline duration, flap counter, and recent transitions, with problem-first Endpoints presentation. Task 60 follows only after Task 59 merges.
+Status: 2026-10-08. Tasks 58 and 59 are merged. Task 60 — Call Outcome Analytics plus its database/history compatibility corrections are complete and operator-validated on the Development environment on `feature/call-outcome-analytics`; the branch now awaits merge. After that merge, Task 60A — Multi-database Data Source Scope and Task 60B — Queue Abandonment Analytics/KPI are the immediate priorities before Task 61 — Call Quality Source Discovery.
 
 ## Phase 0 — environment discovery
 
@@ -714,8 +714,18 @@ The product foundation is production-ready, but the monitoring product is not ye
   - Current state, last up/down timestamps, outage duration, bounded flap/reconnect counters, and recent transitions.
 - [x] **Task 59 — Endpoint Reliability**
   - Reachability transitions, offline duration, bounded flap count, and problematic-endpoint ranking.
-- [ ] **Task 60 — Call Outcome Analytics**
+- [x] **Task 60 — Call Outcome Analytics**
   - Source-owned total/answered/no-answer/busy/failed calls, answer ratio, average duration, and bounded time-range analysis.
+- [ ] **Task 60A — Multi-database Data Source Scope**
+  - Replace the single-database-name assumption with one verified read-only connection that can declare an allowlisted set of accessible databases/schemas under the same host/port/dialect/credential/TLS boundary.
+  - Preserve write-only credentials, verify-before-save, bounded connection backoff, SSRF/network policy, and source-owned/no-duplicate-data rules.
+  - Separate connection identity from database/schema scope in the UI and never imply access that the source account has not verified.
+  - Migrate existing single-database configurations compatibly without exposing or unnecessarily rewriting credentials.
+- [ ] **Task 60B — Queue Abandonment Analytics / KPI**
+  - Add bounded source-owned Queue analytics for a selected queue and time range using supported queue-event data, distinguishing caller `ABANDON` from system-driven timeout/exit outcomes.
+  - KPI set: queue entries, connected/answered calls, abandoned calls, abandonment rate, average wait before abandon, configurable long-wait-abandon threshold/count, and P50/P90 wait where supported by source data.
+  - Discover and validate queue identity/event semantics from the source schema; do not infer unsupported fields or collapse `ABANDON` and `EXITWITHTIMEOUT`.
+  - No local queue-history persistence, warehouse, arbitrary SQL, or PBX/database write is introduced.
 
 ### Phase 16 — Call quality
 
@@ -1180,3 +1190,79 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 - **Behavior unchanged:** cadence is still PBX-scoped presentation timing only and does not alter PBX polling or collector frequency.
 - **Validation:** lint PASS, format check PASS, typecheck PASS, backend 179/179 PASS, frontend 35/35 PASS, build PASS, foundation PASS, license PASS, diff check PASS.
 - **Exact next task:** merge/deploy this UX correction, then resume Task 60 — Call Outcome Analytics.
+
+
+## 2026-10-07 — Task 60: Call Outcome Analytics
+
+- **Source ownership preserved:** call outcome analytics are computed directly in the configured read-only CDR source. VoIP Monitor does not persist, cache, warehouse, or duplicate call-history telemetry.
+- **Bounded ranges:** the public API accepts only `1H`, `24H`, `7D`, or `30D`. Range boundaries are evaluated against the source database clock, avoiding invented timezone conversion for naive Asterisk CDR timestamps.
+- **Direct aggregation:** total, answered, no-answer, busy, failed, unknown, average duration, and answer ratio are derived by one aggregate source query rather than by downloading an arbitrary row sample into the application.
+- **Unknown visibility:** source dispositions outside the normalized adapter set remain counted as `unknownCalls`; they are never silently dropped, so category totals remain auditable against total calls.
+- **Read-only safety:** the query is generated from discovered/quoted schema identifiers and a fixed range allowlist. No arbitrary SQL or caller-supplied interval text crosses the adapter boundary.
+- **UI:** Call History now contains a bilingual Call Outcome Analytics surface with bounded range selection and explicit operator-triggered analysis. Results show Total, Answered, No answer, Busy, Failed, Unknown, Answer ratio, and Average duration.
+- **Regression coverage:** synthetic MySQL/MariaDB and PostgreSQL tests verify source-clock range SQL and aggregate normalization; API coverage verifies authentication and invalid-range rejection; frontend coverage verifies rendered analytics. No real PBX/database compatibility probe was performed as part of implementation.
+- **Exact next task after merge:** Task 60A — Multi-database Data Source Scope, followed by Task 60B — Queue Abandonment Analytics/KPI; Task 61 — Call Quality Source Discovery resumes after those two source/history corrections.
+
+
+## 2026-10-07 — Database source verify-before-save correction
+
+- **Problem:** database-source configuration previously persisted metadata and the write-only credential after syntax validation only. An incorrect password, database name, TLS policy, host, or port could therefore appear `CONFIGURED` and fail only when History was opened.
+- **Resolution:** database-source PUT now performs a bounded read-only connection verification with the submitted candidate before any metadata or credential is persisted. The verification uses the same network target policy and dialect adapters as historical reads, opens the submitted database, starts a read-only transaction, and executes only a fixed bounded `SELECT 1` query.
+- **Failure safety:** verification timeout/connection/permission/query failure returns a bounded error and leaves the previous database metadata and encrypted credential unchanged.
+- **UI:** the action is now `Verify & Save`; the old message stating that Save does not test connectivity was removed. Operator-facing messages distinguish timeout and permission failures from general verification failure.
+- **Security:** credentials remain write-only and are zeroed from the verifier buffer after use. No raw driver error is returned to the browser.
+- **Regression:** backend coverage verifies failed candidate verification cannot replace existing metadata or credential; verifier unit coverage confirms the submitted target and fixed bounded query; frontend coverage confirms the new verify-before-save copy.
+
+
+## 2026-10-07 — Database connection failure backoff
+
+- **Problem:** repeated History refreshes or repeated Verify & Save attempts could open new database connections after each connection/timeout failure. On MySQL/MariaDB this can contribute to host blocking when `max_connect_errors` is exceeded.
+- **Resolution:** History transport and verify-before-save now share one PBX-scoped in-memory connection backoff. Connection/timeout failures pause new attempts for 30s, then 60s, 120s, and finally a bounded 300s maximum. Attempts made during the pause fail locally with `database_backoff_active` and do not open a new socket.
+- **Recovery:** a successful database query or successful verification clears the accumulated failure state immediately.
+- **Scope:** only connection/timeout failures affect backoff; query/data/schema errors do not extend the connection-failure cooldown. No history or retry state is persisted.
+- **UI/API:** database verification and source-backed History return a distinct 429/backoff state with operator guidance instead of repeatedly contacting the database.
+- **Regression:** tests verify bounded escalation, no second driver execution during an active cooldown, and reset after success.
+
+
+## 2026-10-07 — MySQL 5.5 read-only transaction compatibility
+
+- **Observed compatibility fact:** the real PBX database endpoint reports MySQL `5.5.62-0+deb8u1` after the operator flushed the host block.
+- **Problem:** the MySQL adapter always started queries with `START TRANSACTION READ ONLY`, which is not accepted by this legacy server and could make valid credentials appear invalid during verification/history reads.
+- **Resolution:** the adapter still attempts `START TRANSACTION READ ONLY` first. Only when MySQL returns the specific parse/syntax error (`ER_PARSE_ERROR` / errno `1064`) does it fall back to plain `START TRANSACTION`. The prepared query path remains SELECT-only, multiple statements stay disabled, and the configured database account is read-only.
+- **Safety:** non-syntax transaction failures are not hidden by the compatibility fallback.
+- **Regression:** adapter tests cover both the MySQL 5.5 syntax fallback and fail-closed handling for non-syntax transaction failures.
+
+
+## 2026-10-07 — Safe database verification error classification
+
+- Database verification now maps common MySQL/MariaDB connection failures to bounded operator-safe codes: authentication failed, database not found, host blocked, TLS failed, or generic connection failure. Raw driver messages and credentials remain hidden.
+
+
+## 2026-10-07 — MySQL 5.5 recent-row query optimization
+
+- **Observed behavior:** Call Outcome Analytics succeeds, while `Load recent rows` can time out/abort against the legacy MySQL 5.5 CDR source and repeated aborted connections can contribute to MySQL host blocking.
+- **Root cause in query shape:** the read-only query wrapper previously enforced row bounds by wrapping every SELECT in a derived table and applying `LIMIT` outside it. For recent CDR reads this produced `SELECT * FROM (SELECT ... ORDER BY calldate DESC, uniqueid DESC) ... LIMIT N`, which can force legacy MySQL to materialize/sort substantially more history before applying the outer limit.
+- **Resolution:** bounded queries append the synthetic LIMIT directly to the validated SELECT so MySQL can optimize `ORDER BY ... LIMIT` directly and stop early. A later real-source correction (2026-10-08) tightened this from the provisional `maxRows+1` sentinel approach to exact `LIMIT maxRows`.
+- **Regression:** query-preparation tests for MySQL and PostgreSQL now assert direct bounded SELECTs; adapter and source-schema suites remain green.
+
+
+## 2026-10-07 — History database error classification
+
+- Source-backed History now preserves bounded database failure categories instead of collapsing every query failure into `source_unavailable`. Operator-safe codes distinguish timeout, query failure, row/output safety limits, unsupported values, authentication, database-not-found, host-blocked, and TLS failures without exposing raw SQL, driver messages, or credentials.
+
+
+## 2026-10-08 — Recent CDR load timeout root-cause fix
+
+- **Real read-only verification:** the configured `asteriskcdrdb.cdr` source exposes separate indexes on `calldate` and `uniqueid`, but no composite `(calldate, uniqueid)` index. The table is very large.
+- **Root cause 1:** `ORDER BY calldate DESC, uniqueid DESC` forced legacy MySQL 5.5 away from the efficient `calldate` index path and could time out. Calls history now orders by `calldate DESC` only, allowing indexed recent-row retrieval without changing the PBX schema.
+- **Root cause 2:** the query bound used `LIMIT maxRows+1`, then treated the extra sentinel row as `ROW_LIMIT`; on any source with more than the requested number of rows that made a successful bounded read fail. SQL now enforces exactly `LIMIT maxRows`; post-query row validation remains as a defense-in-depth check.
+- **Real result:** the exact `listRecentCalls(..., 100)` path completed against the real configured source in about 45 ms and returned 100 rows. No raw row data or credential was emitted during verification.
+
+
+## 2026-10-08 — Immediate post-Task-60 priority adjustment
+
+The operator requested two product changes before Call Quality work: a connection-level Data Source model that can safely scope more than one accessible database/schema, and Queue Abandonment analytics/KPIs. Real read-only discovery confirmed queue-related source data is available in the approved database environment, so Queue Abandonment is actionable now rather than speculative.
+
+Task 60A and Task 60B are inserted before Task 61 without renumbering the already-published Call Quality/Alerting roadmap. Task 60A comes first because Queue Abandonment and future cross-schema source features should not deepen the current single-database configuration assumption. Task 61 remains the next original roadmap item after these two corrections because Call Quality still requires source discovery before any product claim.
+
+Current merge gate: `feature/call-outcome-analytics` must merge first. Do not begin Task 60A on top of the unmerged Task 60 branch.

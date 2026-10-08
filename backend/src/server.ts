@@ -25,6 +25,7 @@ import {
   type AsteriskConventionalSqlHistoryAdapter,
 } from './database/source-schema.js';
 import { DatabaseQueryError } from './database/query.js';
+import type { DatabaseSourceVerifier } from './database/verification.js';
 import { ProviderRuntimeError, type ProviderRuntimeManager } from './providers/runtime/index.js';
 import type {
   SystemMetricsHealthListener,
@@ -345,6 +346,7 @@ export function createApp(
   databaseSourceConfiguration?: DatabaseSourceConfigurationService,
   historicalSource?: AsteriskConventionalSqlHistoryAdapter,
   sshVerifier?: SshConnectionVerifier,
+  databaseSourceVerifier?: DatabaseSourceVerifier,
 ): Server {
   const limiter = new AttemptLimiter();
   const metricsStreams = new Set<ServerResponse>();
@@ -860,16 +862,38 @@ export function createApp(
           }
           const input = await body(request);
           if (!input) return send(response, 400, { error: 'invalid_request' });
+          if (!databaseSourceVerifier)
+            return send(response, 503, { error: 'database_verifier_unavailable' });
+          await databaseSourceVerifier.verify(id, input);
           return send(response, 200, databaseSourceConfiguration.configure(id, input));
         } catch (error) {
-          if (!(error instanceof DatabaseSourceConfigurationError)) throw error;
-          if (error.code === 'PBX_NOT_FOUND') return send(response, 404, { error: 'not_found' });
-          return send(response, 400, { error: 'invalid_request' });
+          if (error instanceof DatabaseSourceConfigurationError) {
+            if (error.code === 'PBX_NOT_FOUND') return send(response, 404, { error: 'not_found' });
+            return send(response, 400, { error: 'invalid_request' });
+          }
+          if (error instanceof DatabaseQueryError) {
+            if (error.code === 'BACKOFF')
+              return send(response, 429, { error: 'database_backoff_active' });
+            if (error.code === 'TIMEOUT')
+              return send(response, 504, { error: 'database_verification_timeout' });
+            if (error.code === 'PERMISSION_DENIED')
+              return send(response, 502, { error: 'database_permission_denied' });
+            if (error.code === 'AUTHENTICATION_FAILED')
+              return send(response, 502, { error: 'database_authentication_failed' });
+            if (error.code === 'DATABASE_NOT_FOUND')
+              return send(response, 502, { error: 'database_not_found' });
+            if (error.code === 'HOST_BLOCKED')
+              return send(response, 502, { error: 'database_host_blocked' });
+            if (error.code === 'TLS_FAILED')
+              return send(response, 502, { error: 'database_tls_failed' });
+            return send(response, 502, { error: 'database_verification_failed' });
+          }
+          throw error;
         }
       }
 
       const historyAction = path.match(
-        /^\/api\/pbx-instances\/([^/]+)\/history(?:\/(calls|call-events|queue-events))?$/,
+        /^\/api\/pbx-instances\/([^/]+)\/history(?:\/(calls|call-events|queue-events|call-outcomes))?$/,
       );
       if (historyAction) {
         if (!auth || !historicalSource || !auth.principal(sessionToken(request)))
@@ -881,6 +905,12 @@ export function createApp(
         try {
           if (!dataset) return send(response, 200, await historicalSource.inspect(id));
           const url = new URL(request.url ?? '/', 'http://localhost');
+          if (dataset === 'call-outcomes') {
+            const range = url.searchParams.get('range') ?? '24H';
+            if (!/^(?:1H|24H|7D|30D)$/u.test(range))
+              return send(response, 400, { error: 'invalid_request' });
+            return send(response, 200, await historicalSource.callOutcomeAnalytics(id, range));
+          }
           const rawLimit = url.searchParams.get('limit') ?? '100';
           if (!/^(?:[1-9]|[1-9]\d|1\d\d|200)$/u.test(rawLimit))
             return send(response, 400, { error: 'invalid_request' });
@@ -894,7 +924,7 @@ export function createApp(
           return send(response, 200, { items });
         } catch (error) {
           if (error instanceof HistoricalSourceSchemaError) {
-            if (error.code === 'INVALID_LIMIT')
+            if (error.code === 'INVALID_LIMIT' || error.code === 'INVALID_RANGE')
               return send(response, 400, { error: 'invalid_request' });
             if (error.code === 'NOT_CONFIGURED')
               return send(response, 409, { error: 'source_not_configured' });
@@ -903,6 +933,26 @@ export function createApp(
             return send(response, 502, { error: 'source_data_invalid' });
           }
           if (error instanceof DatabaseQueryError) {
+            if (error.code === 'BACKOFF')
+              return send(response, 429, { error: 'database_backoff_active' });
+            if (error.code === 'TIMEOUT')
+              return send(response, 504, { error: 'history_database_timeout' });
+            if (error.code === 'ROW_LIMIT')
+              return send(response, 502, { error: 'history_row_limit' });
+            if (error.code === 'OUTPUT_LIMIT')
+              return send(response, 502, { error: 'history_output_limit' });
+            if (error.code === 'UNSUPPORTED_VALUE')
+              return send(response, 502, { error: 'history_unsupported_value' });
+            if (error.code === 'QUERY_FAILED')
+              return send(response, 502, { error: 'history_query_failed' });
+            if (error.code === 'AUTHENTICATION_FAILED')
+              return send(response, 502, { error: 'database_authentication_failed' });
+            if (error.code === 'DATABASE_NOT_FOUND')
+              return send(response, 502, { error: 'database_not_found' });
+            if (error.code === 'HOST_BLOCKED')
+              return send(response, 502, { error: 'database_host_blocked' });
+            if (error.code === 'TLS_FAILED')
+              return send(response, 502, { error: 'database_tls_failed' });
             if (error.code === 'NOT_CONFIGURED' || error.code === 'PERMISSION_DENIED')
               return send(response, 409, { error: 'source_unavailable' });
             return send(response, 502, { error: 'source_unavailable' });
