@@ -317,4 +317,18 @@ export const migrations = [
       ) STRICT;
     `,
   },
+  {
+    version: 19,
+    name: 'database_source_scopes',
+    sql: `
+      ALTER TABLE database_source_config
+        ADD COLUMN database_scopes_json TEXT NOT NULL DEFAULT '[]'
+        CHECK (json_valid(database_scopes_json));
+      UPDATE database_source_config
+      SET database_scopes_json = CASE
+        WHEN dialect = 'POSTGRESQL' THEN json_array('public')
+        ELSE json_array(database_name)
+      END;
+    `,
+  },
 ] as const;

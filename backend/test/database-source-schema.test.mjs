@@ -19,6 +19,7 @@ function configuration(overrides = {}) {
     host: 'db.example.test',
     port: 3306,
     databaseName: 'pbx_reporting',
+    databaseScopes: ['pbx_reporting'],
     username: 'readonly_monitor',
     accessMode: 'READ_ONLY',
     tlsMode: 'REQUIRED',
@@ -164,7 +165,10 @@ test('call outcome analytics aggregate directly in the source over bounded range
 test('PostgreSQL call outcome analytics use a bounded source-clock interval', async () => {
   const schemaRows = fixture.schemaRows.map((row) => ({ ...row, table_schema: 'public' }));
   const transport = fakeTransport({ schemaRows });
-  const adapter = adapterFor(configuration({ dialect: 'POSTGRESQL', port: 5432 }), transport);
+  const adapter = adapterFor(
+    configuration({ dialect: 'POSTGRESQL', port: 5432, databaseScopes: ['public'] }),
+    transport,
+  );
   await adapter.callOutcomeAnalytics(PBX_ID, '7D');
   const query = transport.calls.find((entry) =>
     entry.request.sql.includes('COUNT(*) AS total_calls'),
@@ -182,7 +186,10 @@ test('schema discovery distinguishes missing, mismatched and ambiguous datasets'
     .filter((row) => row.table_name === 'cel')
     .map((row) => ({ ...row, table_schema: 'tenant_two' }));
   const transport = fakeTransport({ schemaRows: [...base, ...secondCel] });
-  const adapter = adapterFor(configuration({ dialect: 'POSTGRESQL', port: 5432 }), transport);
+  const adapter = adapterFor(
+    configuration({ dialect: 'POSTGRESQL', port: 5432, databaseScopes: ['public'] }),
+    transport,
+  );
 
   const capabilities = await adapter.inspect(PBX_ID);
   assert.equal(capabilities.calls.availability, 'SCHEMA_MISMATCH');
@@ -193,11 +200,10 @@ test('schema discovery distinguishes missing, mismatched and ambiguous datasets'
   assert.match(inspection.request.sql, /table_catalog = \?/u);
   assert.deepEqual(inspection.request.parameters, [
     'pbx_reporting',
+    'public',
     'cdr',
     'cel',
     'queue_log',
-    'pg_catalog',
-    'information_schema',
   ]);
 
   await assert.rejects(
@@ -212,7 +218,10 @@ test('PostgreSQL source queries preserve the discovered schema and cast source v
     table_schema: 'public',
   }));
   const transport = fakeTransport({ schemaRows });
-  const adapter = adapterFor(configuration({ dialect: 'POSTGRESQL', port: 5432 }), transport);
+  const adapter = adapterFor(
+    configuration({ dialect: 'POSTGRESQL', port: 5432, databaseScopes: ['public'] }),
+    transport,
+  );
 
   await adapter.listRecentCalls(PBX_ID, 10);
   const dataQuery = transport.calls.find((entry) => entry.request.sql.includes(' AS record_id'));
@@ -262,4 +271,31 @@ test('missing database-source configuration fails before transport work', async 
     (error) => error instanceof HistoricalSourceSchemaError && error.code === 'NOT_CONFIGURED',
   );
   assert.equal(transport.calls.length, 0);
+});
+
+test('MySQL schema discovery is restricted to every configured database scope', async () => {
+  const schemaRows = fixture.schemaRows.map((row) => ({
+    ...row,
+    table_schema: row.table_name === 'cdr' ? 'pbx_reporting' : 'pbx_config',
+  }));
+  const transport = fakeTransport({ schemaRows });
+  const adapter = adapterFor(
+    configuration({ databaseScopes: ['pbx_reporting', 'pbx_config'] }),
+    transport,
+  );
+
+  const capabilities = await adapter.inspect(PBX_ID);
+  assert.equal(capabilities.calls.availability, 'SUPPORTED');
+  assert.equal(capabilities.callEvents.availability, 'SUPPORTED');
+  assert.equal(capabilities.queueEvents.availability, 'SUPPORTED');
+  const inspection = transport.calls[0];
+  assert.match(inspection.request.sql, /table_schema IN \(\?, \?\)/u);
+  assert.deepEqual(inspection.request.parameters, [
+    'pbx_reporting',
+    'pbx_config',
+    'cdr',
+    'cel',
+    'queue_log',
+  ]);
+  assert.equal(inspection.limits.maxRows, 500);
 });

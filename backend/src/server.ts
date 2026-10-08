@@ -882,6 +882,8 @@ export function createApp(
               return send(response, 502, { error: 'database_authentication_failed' });
             if (error.code === 'DATABASE_NOT_FOUND')
               return send(response, 502, { error: 'database_not_found' });
+            if (error.code === 'SCOPE_UNAVAILABLE')
+              return send(response, 502, { error: 'database_scope_unavailable' });
             if (error.code === 'HOST_BLOCKED')
               return send(response, 502, { error: 'database_host_blocked' });
             if (error.code === 'TLS_FAILED')
@@ -949,6 +951,8 @@ export function createApp(
               return send(response, 502, { error: 'database_authentication_failed' });
             if (error.code === 'DATABASE_NOT_FOUND')
               return send(response, 502, { error: 'database_not_found' });
+            if (error.code === 'SCOPE_UNAVAILABLE')
+              return send(response, 502, { error: 'database_scope_unavailable' });
             if (error.code === 'HOST_BLOCKED')
               return send(response, 502, { error: 'database_host_blocked' });
             if (error.code === 'TLS_FAILED')

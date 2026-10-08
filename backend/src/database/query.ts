@@ -34,6 +34,7 @@ export type DatabaseQueryErrorCode =
   | 'CONNECTION_FAILED'
   | 'AUTHENTICATION_FAILED'
   | 'DATABASE_NOT_FOUND'
+  | 'SCOPE_UNAVAILABLE'
   | 'HOST_BLOCKED'
   | 'TLS_FAILED'
   | 'TIMEOUT'

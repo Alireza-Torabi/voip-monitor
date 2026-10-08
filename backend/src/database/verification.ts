@@ -68,13 +68,21 @@ export class ReadOnlyDatabaseSourceVerifier implements DatabaseSourceVerifier {
       const address = approved[0];
       if (!address) throw new DatabaseQueryError('CONNECTION_FAILED');
 
+      const placeholders = candidate.databaseScopes.map(() => '?').join(', ');
       const prepared = prepareReadOnlyQuery(
         candidate.dialect,
-        { sql: 'SELECT 1 AS verification_value' },
-        { timeoutMs: VERIFICATION_TIMEOUT_MS, maxRows: 1, maxOutputBytes: 1024 },
+        {
+          sql: `SELECT schema_name FROM information_schema.schemata WHERE schema_name IN (${placeholders}) ORDER BY schema_name`,
+          parameters: candidate.databaseScopes,
+        },
+        {
+          timeoutMs: VERIFICATION_TIMEOUT_MS,
+          maxRows: candidate.databaseScopes.length,
+          maxOutputBytes: 16 * 1024,
+        },
       );
 
-      await Promise.race([
+      const rows = await Promise.race([
         this.adapters[candidate.dialect].execute(
           {
             host: candidate.host,
@@ -90,6 +98,14 @@ export class ReadOnlyDatabaseSourceVerifier implements DatabaseSourceVerifier {
         ),
         timeout,
       ]);
+      const visible = new Set(
+        rows
+          .map((row) => row.schema_name)
+          .filter((value): value is string => typeof value === 'string'),
+      );
+      if (candidate.databaseScopes.some((scope) => !visible.has(scope))) {
+        throw new DatabaseQueryError('SCOPE_UNAVAILABLE');
+      }
       this.backoff?.recordSuccess(pbxInstanceId);
     } catch (error) {
       if (error instanceof DatabaseQueryError) {

@@ -1309,3 +1309,20 @@ Task 60 — Call Outcome Analytics به‌همراه اصلاح‌های ساز�
 دلیل این اولویت این است که محدودیت Single-database یک بدهی معماری واقعی در Source Model است و Queue Abandonment همین الآن Source قابل بررسی دارد؛ در مقابل Call Quality هنوز در مرحله Source Discovery است و Support آن تضمین‌شده نیست.
 
 </div>
+
+
+<div dir="rtl" align="right">
+
+## 2026-10-08 — تکمیل Task 60A: Multi-database Data Source Scope
+
+- Data Source اکنون Connection Identity را از Database/Schema Scope جدا می‌کند: یک Dialect/Host/Port/Primary Database/Username/TLS/Credential و یک لیست محدود از Scopeهای Verify‌شده.
+- Migration 19 برای Configهای فعلی `database_scopes_json` اضافه می‌کند؛ MySQL/MariaDB از Primary Database فعلی و PostgreSQL به‌صورت محافظه‌کارانه از Schema متعارف `public` شروع می‌شود. Credential در Migration بازنویسی یا افشا نمی‌شود.
+- Verify & Save با یک Connection فقط‌خواندنی و محدود تمام Scopeهای درخواستی را از `information_schema.schemata` Verify می‌کند. اگر حتی یک Scope در دسترس Account نباشد، Config قبلی دست‌نخورده می‌ماند.
+- در MySQL/MariaDB، Scopeها Database Name هستند و Primary Database همیشه خودکار در Scope قرار می‌گیرد. در PostgreSQL، Scopeها Schemaهای داخل Primary Database هستند.
+- Source Schema Discovery اکنون فقط داخل Scopeهای Verify‌شده انجام می‌شود؛ اگر یک Dataset در چند Scope Match شود، Application آن را `AMBIGUOUS` اعلام می‌کند و حدس نمی‌زند.
+- UI، Primary / Connection Database را از Allowed Database / Schema Scopes جدا نمایش می‌دهد و برای هر Dialect توضیح مناسب دارد.
+- حداکثر 16 Scope مجاز است و هیچ Arbitrary SQL، Write Permission، Local History Warehouse یا Credential Disclosure اضافه نشده است.
+- تست‌های Targeted Backend/Frontend و Migration پاس شدند. Probe واقعی فقط‌خواندنی نیز تأیید کرد Account فعلی هر دو Scope موردنیاز Operator را می‌بیند؛ نام‌های واقعی فقط در Context خصوصی باقی می‌مانند.
+- Task بعدی بعد از Merge: **Task 60B — Queue Abandonment Analytics / KPI**.
+
+</div>

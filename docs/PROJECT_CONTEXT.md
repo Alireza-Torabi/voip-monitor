@@ -153,3 +153,12 @@ Queue Abandonment is a first-class operational KPI requirement. It must answer, 
 This feature remains source-owned and read-only: no local durable queue-history copy, no CDR/queue warehouse, no arbitrary SQL, and no PBX/database mutation. Queue-event schema/capability discovery must fail closed and unsupported dimensions must remain unavailable rather than becoming zero.
 
 Priority decision: finish and merge the already operator-validated Task 60 branch first; then implement the multi-database source scope (Task 60A), then Queue Abandonment analytics (Task 60B), and only then resume the existing Call Quality roadmap at Task 61.
+
+
+## 2026-10-08 — Task 60A implementation context
+
+Database-source configuration now models one connection identity plus a bounded verified scope list. `databaseName` remains the primary database used to establish the driver session for backward compatibility. `databaseScopes` contains the source namespaces the application is allowed to inspect: MySQL/MariaDB database names or PostgreSQL schemas inside the primary database. Scope verification is mandatory before persistence, and history schema discovery is constrained to the persisted verified scope list.
+
+Migration 19 preserves existing source metadata and credentials. Existing MySQL/MariaDB rows gain their primary database as the initial scope; PostgreSQL rows gain `public` as the conservative initial schema scope. New or edited MySQL configurations automatically include the primary database even if the operator lists only additional databases. A configuration may expose at most 16 scopes.
+
+Task 60A does not itself add Queue Abandonment analytics. It prepares the source boundary so Task 60B can use queue history/configuration datasets across approved scopes without introducing a second credential or duplicate history store.

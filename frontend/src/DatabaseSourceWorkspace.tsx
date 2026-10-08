@@ -37,6 +37,7 @@ function emptyForm() {
     host: '',
     port: '3306',
     databaseName: '',
+    databaseScopes: '',
     username: '',
     credential: '',
     tlsMode: 'REQUIRED' as DatabaseTlsMode,
@@ -82,6 +83,7 @@ export function DatabaseSourceWorkspace({
         host: value.host,
         port: String(value.port),
         databaseName: value.databaseName,
+        databaseScopes: value.databaseScopes.join(', '),
         username: value.username,
         credential: '',
         tlsMode: value.tlsMode,
@@ -113,6 +115,10 @@ export function DatabaseSourceWorkspace({
         host: form.host,
         port: Number(form.port),
         databaseName: form.databaseName,
+        databaseScopes: form.databaseScopes
+          .split(/[\n,]/u)
+          .map((value) => value.trim())
+          .filter(Boolean),
         username: form.username,
         credential: form.credential,
         accessMode: 'READ_ONLY',
@@ -133,6 +139,8 @@ export function DatabaseSourceWorkspace({
         setError(text.databaseSourceAuthenticationFailed);
       else if (failure instanceof ApiError && failure.code === 'database_not_found')
         setError(text.databaseSourceDatabaseNotFound);
+      else if (failure instanceof ApiError && failure.code === 'database_scope_unavailable')
+        setError(text.databaseSourceScopeUnavailable);
       else if (failure instanceof ApiError && failure.code === 'database_host_blocked')
         setError(text.databaseSourceHostBlocked);
       else if (failure instanceof ApiError && failure.code === 'database_tls_failed')
@@ -307,6 +315,27 @@ export function DatabaseSourceWorkspace({
                     required
                     dir="ltr"
                   />
+                </Box>
+                <Box>
+                  <Text fontSize="sm" fontWeight="semibold" mb="1.5">
+                    {text.databaseSourceScopes}
+                  </Text>
+                  <Input
+                    name="database-scopes"
+                    value={form.databaseScopes}
+                    onChange={(event) => setForm({ ...form, databaseScopes: event.target.value })}
+                    placeholder={
+                      form.dialect === 'POSTGRESQL'
+                        ? text.databaseSourceScopesPostgresPlaceholder
+                        : text.databaseSourceScopesMysqlPlaceholder
+                    }
+                    dir="ltr"
+                  />
+                  <Text fontSize="11px" color="noc.textMuted" mt="1">
+                    {form.dialect === 'POSTGRESQL'
+                      ? text.databaseSourceScopesPostgresHint
+                      : text.databaseSourceScopesMysqlHint}
+                  </Text>
                 </Box>
                 <Box>
                   <Text fontSize="sm" fontWeight="semibold" mb="1.5">

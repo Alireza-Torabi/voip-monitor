@@ -11,6 +11,7 @@ function candidate(overrides = {}) {
     host: 'db.example.test',
     port: 3306,
     databaseName: 'pbx_reporting',
+    databaseScopes: ['pbx_reporting', 'pbx_config'],
     username: 'readonly_monitor',
     credential: 'synthetic-value',
     accessMode: 'READ_ONLY',
@@ -29,7 +30,7 @@ test('database verifier uses submitted candidate and bounded read-only query', a
         statement: query.statement,
         limits: query.limits,
       });
-      return [{ verification_value: 1 }];
+      return [{ schema_name: 'pbx_config' }, { schema_name: 'pbx_reporting' }];
     },
   };
   const verifier = new ReadOnlyDatabaseSourceVerifier(
@@ -47,8 +48,8 @@ test('database verifier uses submitted candidate and bounded read-only query', a
   assert.equal(calls[0].target.username, 'readonly_monitor');
   assert.equal(calls[0].target.tlsMode, 'REQUIRED');
   assert.equal(calls[0].credential, 'synthetic-value');
-  assert.match(calls[0].statement, /^SELECT 1 AS verification_value LIMIT \?/u);
-  assert.deepEqual(calls[0].limits, { timeoutMs: 5000, maxRows: 1, maxOutputBytes: 1024 });
+  assert.match(calls[0].statement, /information_schema\.schemata/u);
+  assert.deepEqual(calls[0].limits, { timeoutMs: 5000, maxRows: 2, maxOutputBytes: 16384 });
 });
 
 test('database verifier rejects malformed candidate before resolver or driver work', async () => {
@@ -65,4 +66,23 @@ test('database verifier rejects malformed candidate before resolver or driver wo
     (error) => error instanceof DatabaseSourceConfigurationError && error.code === 'INVALID_INPUT',
   );
   assert.equal(resolved, false);
+});
+
+test('database verifier rejects a requested scope not visible to the read-only account', async () => {
+  const verifier = new ReadOnlyDatabaseSourceVerifier(
+    { resolve: async () => ['203.0.113.10'] },
+    undefined,
+    {
+      MYSQL_MARIADB: {
+        async execute() {
+          return [{ schema_name: 'pbx_reporting' }];
+        },
+      },
+    },
+  );
+
+  await assert.rejects(
+    verifier.verify(PBX_ID, candidate()),
+    (error) => error?.code === 'SCOPE_UNAVAILABLE',
+  );
 });

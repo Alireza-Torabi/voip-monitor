@@ -271,27 +271,28 @@ function optionalTextExpression(
 function schemaInspectionQuery(
   dialect: DatabaseDialect,
   databaseName: string,
+  databaseScopes: readonly string[],
 ): ReadOnlyDatabaseQuery {
   const tableNames = [DATASETS.calls.table, DATASETS.callEvents.table, DATASETS.queueEvents.table];
+  const scopePlaceholders = databaseScopes.map(() => '?').join(', ');
   if (dialect === 'MYSQL_MARIADB') {
     return {
       sql: `SELECT table_schema, table_name, column_name
             FROM information_schema.columns
-            WHERE table_schema = ?
+            WHERE table_schema IN (${scopePlaceholders})
               AND table_name IN (?, ?, ?)
-            ORDER BY table_name, ordinal_position`,
-      parameters: [databaseName, ...tableNames],
+            ORDER BY table_schema, table_name, ordinal_position`,
+      parameters: [...databaseScopes, ...tableNames],
     };
   }
   return {
     sql: `SELECT table_schema, table_name, column_name
           FROM information_schema.columns
           WHERE table_catalog = ?
+            AND table_schema IN (${scopePlaceholders})
             AND table_name IN (?, ?, ?)
-            AND table_schema <> ?
-            AND table_schema <> ?
           ORDER BY table_schema, table_name, ordinal_position`,
-    parameters: [databaseName, ...tableNames, 'pg_catalog', 'information_schema'],
+    parameters: [databaseName, ...databaseScopes, ...tableNames],
   };
 }
 
@@ -619,8 +620,8 @@ export class AsteriskConventionalSqlHistoryAdapter {
     if (!config) throw new HistoricalSourceSchemaError('NOT_CONFIGURED');
     const result = await this.options.transport.query(
       pbxInstanceId,
-      schemaInspectionQuery(config.dialect, config.databaseName),
-      historyLimits(200),
+      schemaInspectionQuery(config.dialect, config.databaseName, config.databaseScopes),
+      historyLimits(500),
     );
     const tables = tableGroups(result.rows);
     return {

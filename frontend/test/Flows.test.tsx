@@ -1183,17 +1183,20 @@ describe('read-only database source workspace', () => {
             accessMode?: string;
             dialect?: string;
             tlsMode?: string;
+            databaseScopes?: string[];
           };
           expect(body.credential).toBe('synthetic-database-password');
           expect(body.accessMode).toBe('READ_ONLY');
           expect(body.dialect).toBe('MYSQL_MARIADB');
           expect(body.tlsMode).toBe('REQUIRED');
+          expect(body.databaseScopes).toEqual(['pbx_reporting', 'pbx_config']);
           return response({
             pbxInstanceId: 'database-pbx',
             dialect: 'MYSQL_MARIADB',
             host: 'db.example.test',
             port: 3306,
             databaseName: 'pbx_reporting',
+            databaseScopes: ['pbx_reporting', 'pbx_config'],
             username: 'readonly_monitor',
             accessMode: 'READ_ONLY',
             tlsMode: 'REQUIRED',
@@ -1218,6 +1221,7 @@ describe('read-only database source workspace', () => {
 
     await enter('database-host', 'db.example.test');
     await enter('database-name', 'pbx_reporting');
+    await enter('database-scopes', 'pbx_reporting, pbx_config');
     await enter('database-username', 'readonly_monitor');
     await enter('database-credential', 'synthetic-database-password');
     await submit();
