@@ -1350,6 +1350,9 @@ describe('source-backed history workspace', () => {
     expect(container.textContent).toContain('20.0%');
     expect(container.textContent).toContain('37.5s');
     expect(container.textContent).toContain('P50 25.0s / P90 70.0s');
+    expect(container.textContent).toContain('Queue outcome distribution');
+    expect(container.textContent).toContain('Export PDF');
+    expect(container.textContent).toContain('Export Excel');
 
     await act(async () =>
       root.render(
@@ -1366,6 +1369,9 @@ describe('source-backed history workspace', () => {
     expect(container.textContent).toContain(
       'این آستانه فقط تعداد «ترک صف پس از انتظار طولانی» را تغییر می‌دهد',
     );
+    expect(container.textContent).toContain('توزیع نتیجه تماس‌های واردشده به صف');
+    expect(container.textContent).toContain('خروجی PDF');
+    expect(container.textContent).toContain('خروجی Excel');
 
     const loadButton = Array.from(container.querySelectorAll('button')).find((button) =>
       button.textContent?.includes('بارگذاری ردیف‌های اخیر'),

@@ -1317,3 +1317,13 @@ Current merge gate: `feature/call-outcome-analytics` must merge first. Do not be
 - The long-wait threshold control now explicitly states that it changes only the long-wait-abandon count; base queue KPIs (entries, connected, caller abandons, queue timeout, abandonment rate, average abandon wait) are independent of that threshold for the same queue/time window.
 - History capability badges are localized instead of rendering raw enum values such as `SUPPORTED`, `NOT_FOUND`, `SCHEMA_MISMATCH`, or `AMBIGUOUS` in Persian mode.
 - Frontend regression coverage renders the Reports workspace in Persian and asserts the localized queue labels/capability states.
+
+
+## 2026-10-08 — Task 60B report visualization and client-side export
+
+- **Queue outcome visualization:** the analyzed queue report now includes a responsive donut chart below the KPI summary. The chart uses connected, caller-abandoned, queue-timeout, and residual/other exits so the visible composition remains part-to-whole when known terminal outcomes do not fully reconcile to queue entries.
+- **PDF export:** operators can export the already-loaded queue report to a real `.pdf`. The browser renders the localized report card (filters, KPIs, and chart) to an image and places it on a landscape A4 PDF. Rendering the localized DOM preserves Persian shaping without bundling or exposing a separate font asset.
+- **Excel export:** operators can export a real `.xlsx` with filter/KPI values as spreadsheet cells plus the same rendered chart embedded as an image in the worksheet. Persian exports use right-to-left sheet direction.
+- **No source re-query:** export actions operate only on the analytics response already present in browser memory. Clicking PDF/Excel never opens another database connection and never increases PBX/database query load.
+- **Dependency posture:** `html2canvas` and `write-excel-file` are MIT-licensed; the report renderer and XLSX implementation are dynamically imported. PDF packaging uses the project's small internal image-only PDF writer, avoiding an additional PDF runtime dependency. A candidate Excel library with a moderate transitive vulnerability was rejected before commit. `npm audit --omit=dev` reports zero known vulnerabilities after the final dependency selection.
+- **Regression coverage:** the History flow test asserts the graphical queue report and PDF/Excel export controls in both English and Persian. Browser production build/typecheck validates the dynamically imported export modules.

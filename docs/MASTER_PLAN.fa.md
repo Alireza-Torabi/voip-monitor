@@ -1380,3 +1380,17 @@ Task 60 — Call Outcome Analytics به‌همراه اصلاح‌های ساز�
 - Regression Test حالت فارسی برای عنوان گزارش، وضعیت‌های پشتیبانی و KPIهای صف اضافه شد.
 
 </div>
+
+
+<div dir="rtl" align="right">
+
+## 2026-10-08 — نمودار و خروجی PDF/Excel برای گزارش Task 60B
+
+- بعد از KPIهای گزارش صف، یک نمودار Donut واکنش‌گرا نمایش داده می‌شود که تماس‌های وصل‌شده، ترک صف توسط تماس‌گیرنده، پایان مهلت انتظار صف و در صورت نیاز «سایر خروجی‌ها» را به‌صورت سهم از کل نمایش می‌دهد.
+- خروجی **PDF واقعی** از همان گزارش Load‌شده شامل مشخصات فیلتر، KPIها و نمودار ساخته می‌شود. Report Card محلی Browser Render می‌شود تا شکل‌دهی متن فارسی در PDF صحیح بماند و نیازی به قراردادن Font جداگانه در Repository نباشد.
+- خروجی **Excel واقعی (`.xlsx`)** فیلترها و KPIها را به‌صورت Cellهای قابل استفاده نگه می‌دارد و تصویر همان نمودار را نیز داخل Sheet قرار می‌دهد. Sheet در حالت فارسی RTL است.
+- Export هیچ Query جدیدی به PBX یا Database ارسال نمی‌کند و فقط از Analytics موجود در حافظه Browser استفاده می‌کند؛ بنابراین گرفتن PDF/Excel بار جدیدی روی سرور VoIP ایجاد نمی‌کند.
+- Dependencyهای نهایی Export یعنی `html2canvas` و `write-excel-file` مجوز MIT دارند و بسته‌بندی PDF با Writer داخلی کوچک پروژه انجام می‌شود تا Dependency اضافه‌ای برای PDF وارد نشود. Library اولیه Excel که Dependency آسیب‌پذیر داشت قبل از Commit حذف شد و `npm audit --omit=dev` برای ترکیب نهایی صفر Vulnerability گزارش می‌دهد.
+- Regression Test وجود نمودار و دکمه‌های PDF/Excel را در هر دو حالت انگلیسی و فارسی بررسی می‌کند و Production Browser Build نیز Dynamic Importها را Validate می‌کند.
+
+</div>

@@ -171,3 +171,8 @@ Queue Abandonment Analytics is implemented as a source-owned read-only History f
 Product semantics are explicit: `ABANDON` is caller abandonment; `EXITWITHTIMEOUT` is queue/system timeout and is shown separately. KPIs include entries, connected calls, caller abandons, queue timeouts, abandonment rate, average wait before caller abandon, and long-wait abandon count. Exact P50/P90 are returned only when the complete abandon wait sample is within the 1000-row transient read limit; otherwise percentile fields stay unavailable.
 
 Task 60B adds no local telephony-history persistence or database/PBX write path. After Task 60B is merged, the next roadmap item is Task 61 — Call Quality Source Discovery.
+
+
+## 2026-10-08 — Queue report presentation/export context
+
+Task 60B operator review now includes a graphical queue-outcome report and browser-side PDF/XLSX export. The displayed donut uses normalized aggregate counts only. Export buttons operate on the already-loaded report and never trigger a second historical query. PDF includes the localized report card and chart; XLSX contains structured filter/KPI cells and an embedded chart image, with RTL worksheet direction in Persian mode. No generated report is stored by the backend.

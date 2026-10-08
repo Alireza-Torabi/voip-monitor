@@ -818,3 +818,10 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 
 405. **Preserve queue-event index sargability on MySQL/MariaDB:** generated queue analytics compare canonical indexed event values directly instead of wrapping the indexed event column in normalization functions. PostgreSQL retains normalization where needed for semantic compatibility.
 406. **Do not prescribe source DB changes when query shape is sufficient:** real-source read-only diagnostics must precede index/global-setting recommendations. Existing source indexes are preferred when a generated-query correction can make them usable.
+
+
+407. **Report exports are client-side snapshots of loaded analytics:** PDF/XLSX generation must not re-query the PBX/database or create report persistence on the monitor backend.
+408. **Queue composition chart must reconcile the visible whole:** connected, caller-abandoned, queue-timeout, and nonnegative residual/other exits are used for the donut rather than treating the long-wait subset as an independent slice.
+409. **PDF uses rendered localized report content:** rasterizing the browser-rendered report preserves Persian shaping without adding repository font binaries; the exported PDF contains the same visible KPI/chart snapshot.
+410. **XLSX remains structured:** queue filters and KPIs are exported as spreadsheet cells and the chart is embedded as an image; Persian worksheets use RTL direction.
+411. **Reject vulnerable convenience dependencies:** export dependencies must pass the project license gate and runtime audit. The selected export stack is MIT-licensed and showed zero production audit findings at implementation time.

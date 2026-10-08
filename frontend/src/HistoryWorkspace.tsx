@@ -1,5 +1,5 @@
 import { Badge, Box, Button, HStack, Input, SimpleGrid, Stack, Text } from '@chakra-ui/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type {
   HistoricalCallOutcomeAnalytics,
   HistoricalQueueAbandonmentAnalytics,
@@ -15,6 +15,8 @@ import {
   type PbxProfile,
 } from './api.js';
 import type { messages } from './i18n.js';
+import { QueueOutcomeChart } from './QueueOutcomeChart.js';
+import { exportQueueReportExcel, exportQueueReportPdf } from './reportExport.js';
 import {
   DataSurface,
   WorkspaceField,
@@ -41,6 +43,15 @@ function initialReportWindow(): { from: string; to: string } {
 
 function validWindow(from: string, to: string): boolean {
   return Boolean(from && to && from < to);
+}
+
+function sourceDateTimeLabel(value: string): string {
+  return value.replace('T', ' ');
+}
+
+function reportFileBaseName(queueId: string, from: string, to: string): string {
+  const compact = (value: string) => value.replace(/[^0-9]/gu, '').slice(0, 12);
+  return `voip-monitor-queue-${queueId}-${compact(from)}-${compact(to)}`;
 }
 
 function availability(capabilities: HistoricalSourceCapabilities | null, dataset: Dataset) {
@@ -124,6 +135,9 @@ export function HistoryWorkspace({
     null,
   );
   const [queueAnalyticsLoading, setQueueAnalyticsLoading] = useState(false);
+  const [queueExporting, setQueueExporting] = useState<'pdf' | 'excel' | null>(null);
+  const queueReportRef = useRef<HTMLDivElement>(null);
+  const queueChartRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -241,6 +255,74 @@ export function HistoryWorkspace({
       await handleError(cause);
     } finally {
       setQueueAnalyticsLoading(false);
+    }
+  }
+
+  function queueReportPayload() {
+    if (!queueAnalytics || !selected || !queueReportRef.current || !queueChartRef.current)
+      return null;
+    const percentValue =
+      queueAnalytics.abandonmentRatePercent === undefined
+        ? '—'
+        : `${queueAnalytics.abandonmentRatePercent.toFixed(1)}%`;
+    const averageWait =
+      queueAnalytics.averageWaitBeforeAbandonSeconds === undefined
+        ? '—'
+        : `${queueAnalytics.averageWaitBeforeAbandonSeconds.toFixed(1)}s`;
+    const percentiles =
+      queueAnalytics.p50WaitBeforeAbandonSeconds === undefined ||
+      queueAnalytics.p90WaitBeforeAbandonSeconds === undefined
+        ? '—'
+        : `P50 ${queueAnalytics.p50WaitBeforeAbandonSeconds.toFixed(1)}s / P90 ${queueAnalytics.p90WaitBeforeAbandonSeconds.toFixed(1)}s`;
+    return {
+      reportElement: queueReportRef.current,
+      chartElement: queueChartRef.current,
+      fileBaseName: reportFileBaseName(
+        queueAnalytics.queueId,
+        queueAnalytics.from,
+        queueAnalytics.to,
+      ),
+      title: text.historyQueueReportTitle,
+      subtitle: selected.displayName,
+      rtl: /[؀-ۿ]/u.test(text.historyTitle),
+      filtersTitle: text.historyQueueReportFilters,
+      metricsTitle: text.historyQueueReportMetrics,
+      chartTitle: text.historyQueueChartTitle,
+      filters: [
+        { label: text.historyQueueReportPbx, value: selected.displayName },
+        { label: text.historyQueueAbandonmentQueue, value: queueAnalytics.queueId },
+        { label: text.historyReportFrom, value: sourceDateTimeLabel(queueAnalytics.from) },
+        { label: text.historyReportTo, value: sourceDateTimeLabel(queueAnalytics.to) },
+        {
+          label: text.historyQueueReportThresholdValue,
+          value: `${queueAnalytics.longWaitThresholdMinutes} ${text.historyQueueMinutesUnit}`,
+        },
+      ],
+      metrics: [
+        { label: text.historyQueueEntered, value: queueAnalytics.enteredCalls },
+        { label: text.historyQueueConnected, value: queueAnalytics.connectedCalls },
+        { label: text.historyQueueAbandoned, value: queueAnalytics.abandonedCalls },
+        { label: text.historyQueueTimedOut, value: queueAnalytics.timedOutCalls },
+        { label: text.historyQueueAbandonmentRate, value: percentValue },
+        { label: text.historyQueueAverageWait, value: averageWait },
+        { label: text.historyQueueLongWait, value: queueAnalytics.longWaitAbandonedCalls },
+        { label: text.historyQueuePercentiles, value: percentiles },
+      ],
+    };
+  }
+
+  async function exportQueueReport(format: 'pdf' | 'excel') {
+    const payload = queueReportPayload();
+    if (!payload) return;
+    setQueueExporting(format);
+    setError('');
+    try {
+      if (format === 'pdf') await exportQueueReportPdf(payload);
+      else await exportQueueReportExcel(payload);
+    } catch {
+      setError(text.historyQueueExportFailed);
+    } finally {
+      setQueueExporting(null);
     }
   }
 
@@ -563,61 +645,143 @@ export function HistoryWorkspace({
             {queueAnalyticsLoading ? (
               <WorkspaceState tone="info" title={text.loading} loading role="status" />
             ) : queueAnalytics ? (
-              <SimpleGrid columns={{ base: 2, md: 4, xl: 8 }} gap="3">
-                <HistoryDatum
-                  label={text.historyQueueEntered}
-                  value={queueAnalytics.enteredCalls}
-                  ltr
-                />
-                <HistoryDatum
-                  label={text.historyQueueConnected}
-                  value={queueAnalytics.connectedCalls}
-                  ltr
-                />
-                <HistoryDatum
-                  label={text.historyQueueAbandoned}
-                  value={queueAnalytics.abandonedCalls}
-                  ltr
-                />
-                <HistoryDatum
-                  label={text.historyQueueTimedOut}
-                  value={queueAnalytics.timedOutCalls}
-                  ltr
-                />
-                <HistoryDatum
-                  label={text.historyQueueAbandonmentRate}
-                  value={
-                    queueAnalytics.abandonmentRatePercent === undefined
-                      ? '—'
-                      : `${queueAnalytics.abandonmentRatePercent.toFixed(1)}%`
-                  }
-                  ltr
-                />
-                <HistoryDatum
-                  label={text.historyQueueAverageWait}
-                  value={
-                    queueAnalytics.averageWaitBeforeAbandonSeconds === undefined
-                      ? '—'
-                      : `${queueAnalytics.averageWaitBeforeAbandonSeconds.toFixed(1)}s`
-                  }
-                  ltr
-                />
-                <HistoryDatum
-                  label={text.historyQueueLongWait}
-                  value={queueAnalytics.longWaitAbandonedCalls}
-                  ltr
-                />
-                <HistoryDatum
-                  label={text.historyQueuePercentiles}
-                  value={
-                    queueAnalytics.p50WaitBeforeAbandonSeconds === undefined ||
-                    queueAnalytics.p90WaitBeforeAbandonSeconds === undefined
-                      ? '—'
-                      : `P50 ${queueAnalytics.p50WaitBeforeAbandonSeconds.toFixed(1)}s / P90 ${queueAnalytics.p90WaitBeforeAbandonSeconds.toFixed(1)}s`
-                  }
-                  ltr
-                />
-              </SimpleGrid>
+              <Stack gap="4">
+                <Box
+                  ref={queueReportRef}
+                  borderWidth="1px"
+                  borderColor="rgba(91, 130, 172, .24)"
+                  borderRadius="nocControl"
+                  bg="linear-gradient(145deg, rgba(15, 33, 54, .96), rgba(8, 22, 38, .96))"
+                  p={{ base: '4', md: '5' }}
+                >
+                  <Stack gap="5">
+                    <HStack justify="space-between" align="start" gap="4" flexWrap="wrap">
+                      <Box>
+                        <Text fontSize="16px" fontWeight="900" color="noc.text">
+                          {text.historyQueueReportTitle}
+                        </Text>
+                        <Text mt="1" fontSize="10px" color="noc.textSubtle">
+                          {selected.displayName}
+                        </Text>
+                      </Box>
+                      <Text
+                        fontSize="10px"
+                        color="noc.textMuted"
+                        borderWidth="1px"
+                        borderColor="noc.border"
+                        borderRadius="full"
+                        px="3"
+                        py="1.5"
+                        dir="ltr"
+                      >
+                        {queueAnalytics.queueId}
+                      </Text>
+                    </HStack>
+                    <SimpleGrid columns={{ base: 2, md: 4 }} gap="3">
+                      <HistoryDatum
+                        label={text.historyReportFrom}
+                        value={sourceDateTimeLabel(queueAnalytics.from)}
+                        ltr
+                      />
+                      <HistoryDatum
+                        label={text.historyReportTo}
+                        value={sourceDateTimeLabel(queueAnalytics.to)}
+                        ltr
+                      />
+                      <HistoryDatum
+                        label={text.historyQueueAbandonmentThreshold}
+                        value={`${queueAnalytics.longWaitThresholdMinutes} ${text.historyQueueMinutesUnit}`}
+                        ltr
+                      />
+                      <HistoryDatum
+                        label={text.historyQueueAbandonmentQueue}
+                        value={queueAnalytics.queueId}
+                        ltr
+                      />
+                    </SimpleGrid>
+                    <SimpleGrid columns={{ base: 2, md: 4, xl: 8 }} gap="3">
+                      <HistoryDatum
+                        label={text.historyQueueEntered}
+                        value={queueAnalytics.enteredCalls}
+                        ltr
+                      />
+                      <HistoryDatum
+                        label={text.historyQueueConnected}
+                        value={queueAnalytics.connectedCalls}
+                        ltr
+                      />
+                      <HistoryDatum
+                        label={text.historyQueueAbandoned}
+                        value={queueAnalytics.abandonedCalls}
+                        ltr
+                      />
+                      <HistoryDatum
+                        label={text.historyQueueTimedOut}
+                        value={queueAnalytics.timedOutCalls}
+                        ltr
+                      />
+                      <HistoryDatum
+                        label={text.historyQueueAbandonmentRate}
+                        value={
+                          queueAnalytics.abandonmentRatePercent === undefined
+                            ? '—'
+                            : `${queueAnalytics.abandonmentRatePercent.toFixed(1)}%`
+                        }
+                        ltr
+                      />
+                      <HistoryDatum
+                        label={text.historyQueueAverageWait}
+                        value={
+                          queueAnalytics.averageWaitBeforeAbandonSeconds === undefined
+                            ? '—'
+                            : `${queueAnalytics.averageWaitBeforeAbandonSeconds.toFixed(1)}s`
+                        }
+                        ltr
+                      />
+                      <HistoryDatum
+                        label={text.historyQueueLongWait}
+                        value={queueAnalytics.longWaitAbandonedCalls}
+                        ltr
+                      />
+                      <HistoryDatum
+                        label={text.historyQueuePercentiles}
+                        value={
+                          queueAnalytics.p50WaitBeforeAbandonSeconds === undefined ||
+                          queueAnalytics.p90WaitBeforeAbandonSeconds === undefined
+                            ? '—'
+                            : `P50 ${queueAnalytics.p50WaitBeforeAbandonSeconds.toFixed(1)}s / P90 ${queueAnalytics.p90WaitBeforeAbandonSeconds.toFixed(1)}s`
+                        }
+                        ltr
+                      />
+                    </SimpleGrid>
+                    <Box ref={queueChartRef}>
+                      <QueueOutcomeChart analytics={queueAnalytics} text={text} />
+                    </Box>
+                  </Stack>
+                </Box>
+                <HStack gap="2" flexWrap="wrap">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={queueExporting !== null}
+                    onClick={() => void exportQueueReport('pdf')}
+                  >
+                    {queueExporting === 'pdf'
+                      ? text.historyQueueExportingPdf
+                      : text.historyQueueExportPdf}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={queueExporting !== null}
+                    onClick={() => void exportQueueReport('excel')}
+                  >
+                    {queueExporting === 'excel'
+                      ? text.historyQueueExportingExcel
+                      : text.historyQueueExportExcel}
+                  </Button>
+                </HStack>
+              </Stack>
             ) : (
               <Text color="noc.textSubtle" fontSize="12px">
                 {text.historyQueueAbandonmentEmpty}

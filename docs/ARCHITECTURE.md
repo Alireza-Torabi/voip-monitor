@@ -208,3 +208,8 @@ Queue-history schema compatibility recognizes both conventional `queue_log` and 
 ## Queue-report index sargability
 
 MySQL/MariaDB queue analytics must keep indexed queue-event predicates sargable. Canonical Asterisk event values are compared directly on MySQL/MariaDB so the optimizer can use existing queue/event/time composite indexes. Function-wrapping an indexed event column in `UPPER`, `TRIM`, or `CAST` is avoided in the WHERE predicate. PostgreSQL may retain explicit normalization where required by its comparison semantics. This optimization changes only query shape; it does not require source-schema mutation.
+
+
+## Client-side report visualization and export boundary
+
+Queue report visualization is presentation-only and consumes the normalized analytics response already returned by the bounded read-only source adapter. The donut chart does not request raw history or create a new source query. PDF and XLSX exports are generated entirely in the browser from the loaded report state: PDF captures the localized report card including its chart, while XLSX stores filter/KPI values as cells and embeds a rendered chart image. Export code is dynamically loaded and does not persist generated reports on the VoIP Monitor backend. This preserves the monitor-only architecture and prevents report downloads from adding PBX/database load.
