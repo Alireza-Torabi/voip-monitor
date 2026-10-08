@@ -814,3 +814,7 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 402. **Queue report selection comes from current normalized queue state:** the browser uses the existing telephony-state API to populate the Queue dropdown; report navigation does not create a new AMI connection.
 403. **Long-wait input is operator-facing minutes:** UI/API accept whole minutes from 1 through 60 and convert to seconds only at the generated SQL comparison boundary.
 404. **Recognize FreePBX queue table alias:** schema discovery accepts `queue_log` or `queuelog`; multiple valid matches remain ambiguous rather than being guessed.
+
+
+405. **Preserve queue-event index sargability on MySQL/MariaDB:** generated queue analytics compare canonical indexed event values directly instead of wrapping the indexed event column in normalization functions. PostgreSQL retains normalization where needed for semantic compatibility.
+406. **Do not prescribe source DB changes when query shape is sufficient:** real-source read-only diagnostics must precede index/global-setting recommendations. Existing source indexes are preferred when a generated-query correction can make them usable.

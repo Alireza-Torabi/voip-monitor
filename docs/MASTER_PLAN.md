@@ -1301,3 +1301,11 @@ Current merge gate: `feature/call-outcome-analytics` must merge first. Do not be
 - **Queue selection:** Queue Abandonment uses a dropdown populated from the normalized current AMI Queue state for the selected PBX. The analytics form remains visible even if source capability is unavailable, so operators can see the required inputs and explicit capability reason.
 - **Threshold UX:** Long-wait threshold is entered as an integer number of minutes (`1..60`) with an explanatory example; conversion to seconds occurs only inside the fixed source query semantics.
 - **FreePBX compatibility:** conventional queue-history discovery accepts both `queue_log` and the common FreePBX `queuelog` table name. If more than one candidate matches, discovery remains `AMBIGUOUS` and fails closed.
+
+
+## 2026-10-08 — Queue-report timeout diagnosis and sargability fix
+
+- **Diagnosis:** a controlled read-only production-source diagnostic showed that the queue-history source already has an appropriate composite index beginning with queue, event, and time. No database setting or new index is required for the current timeout.
+- **Root cause:** the MySQL/MariaDB queue analytics predicate normalized `event` with `UPPER(TRIM(CAST(...)))`. Applying a function to the indexed event column prevented the optimizer from using the event/time portions of the composite index efficiently and could turn a bounded report into a large queue-level scan.
+- **Resolution:** MySQL/MariaDB queue analytics now compare the canonical queue event column directly. The deployed source uses a case-insensitive collation and canonical Asterisk event names, so direct equality/`IN` preserves semantics while restoring index sargability. PostgreSQL retains the normalization expression to preserve its case-sensitive semantics.
+- **Validation:** read-only `EXPLAIN` on the real source showed the optimized predicate selecting the composite queue/event/time index with a dramatically lower row estimate. A controlled read-only aggregate over a two-day real-source window completed in tens of milliseconds. No PBX/database mutation was performed.

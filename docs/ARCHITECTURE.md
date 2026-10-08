@@ -203,3 +203,8 @@ Exact nearest-rank P50/P90 wait values are computed transiently only when all ab
 
 
 Queue-history schema compatibility recognizes both conventional `queue_log` and FreePBX-style `queuelog` table names within verified source scopes. Alias support does not weaken ambiguity handling: multiple matching tables remain unavailable until the source shape is unambiguous. Report queue selection is presentation-side and comes from normalized current AMI queue state; it does not create a new database query or PBX connection.
+
+
+## Queue-report index sargability
+
+MySQL/MariaDB queue analytics must keep indexed queue-event predicates sargable. Canonical Asterisk event values are compared directly on MySQL/MariaDB so the optimizer can use existing queue/event/time composite indexes. Function-wrapping an indexed event column in `UPPER`, `TRIM`, or `CAST` is avoided in the WHERE predicate. PostgreSQL may retain explicit normalization where required by its comparison semantics. This optimization changes only query shape; it does not require source-schema mutation.

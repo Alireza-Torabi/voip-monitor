@@ -510,6 +510,12 @@ function parseCallOutcomeAnalytics(
   };
 }
 
+function queueEventFilterExpression(dialect: DatabaseDialect, eventColumn: string): string {
+  return dialect === 'MYSQL_MARIADB'
+    ? eventColumn
+    : `UPPER(TRIM(${castText(dialect, eventColumn)}))`;
+}
+
 function queueAbandonmentQuery(
   dialect: DatabaseDialect,
   table: SourceTable,
@@ -521,7 +527,7 @@ function queueAbandonmentQuery(
   const queuename = requiredColumn(dialect, table, 'queuename');
   const event = requiredColumn(dialect, table, 'event');
   const data3 = requiredColumn(dialect, table, 'data3');
-  const normalizedEvent = `UPPER(TRIM(${castText(dialect, event)}))`;
+  const normalizedEvent = queueEventFilterExpression(dialect, event);
   const waitSeconds = `CAST(NULLIF(TRIM(${castText(dialect, data3)}), '') AS DECIMAL(20,3))`;
   return {
     sql: `SELECT
@@ -549,7 +555,7 @@ function queueAbandonWaitsQuery(
   const queuename = requiredColumn(dialect, table, 'queuename');
   const event = requiredColumn(dialect, table, 'event');
   const data3 = requiredColumn(dialect, table, 'data3');
-  const normalizedEvent = `UPPER(TRIM(${castText(dialect, event)}))`;
+  const normalizedEvent = queueEventFilterExpression(dialect, event);
   const waitSeconds = `CAST(NULLIF(TRIM(${castText(dialect, data3)}), '') AS DECIMAL(20,3))`;
   return {
     sql: `SELECT ${castText(dialect, data3)} AS wait_seconds

@@ -1356,3 +1356,15 @@ Task 60 — Call Outcome Analytics به‌همراه اصلاح‌های ساز�
 - Schema Discovery اکنون علاوه بر `queue_log`، نام رایج FreePBX یعنی `queuelog` را هم پشتیبانی می‌کند؛ اگر بیش از یک Candidate معتبر وجود داشته باشد همچنان Fail-closed و `AMBIGUOUS` است.
 
 </div>
+
+
+<div dir="rtl" align="right">
+
+## 2026-10-08 — تشخیص Timeout گزارش Queue و اصلاح Sargability
+
+- Diagnostic فقط‌خواندنی روی Source واقعی نشان داد Index ترکیبی مناسب با ترتیب Queue، Event و Time از قبل وجود دارد؛ برای این Timeout فعلاً هیچ Database Setting یا Index جدید لازم نیست.
+- علت اصلی این بود که Query مربوط به MySQL/MariaDB روی ستون Indexed `event` عبارت `UPPER(TRIM(CAST(...)))` اعمال می‌کرد و در نتیجه Optimizer نمی‌توانست بخش Event/Time از Composite Index را به‌صورت مؤثر استفاده کند.
+- در MySQL/MariaDB مقایسه Event اکنون مستقیم انجام می‌شود. Source واقعی Collation غیرحساس به بزرگی/کوچکی حروف و Eventهای Canonical مربوط به Asterisk دارد، بنابراین Semantics حفظ و Sargability برگردانده می‌شود. PostgreSQL برای حفظ رفتار Case-sensitive مسیر Normalize قبلی را نگه می‌دارد.
+- `EXPLAIN` فقط‌خواندنی روی Source واقعی کاهش شدید Row Estimate و استفاده مؤثر از Composite Index را تأیید کرد و یک Aggregate واقعی محدود روی بازه دو روزه در چند ده میلی‌ثانیه اجرا شد. هیچ Write روی PBX/Database انجام نشد.
+
+</div>

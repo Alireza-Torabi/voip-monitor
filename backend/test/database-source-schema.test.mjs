@@ -236,6 +236,11 @@ test('queue abandonment analytics keep caller abandon separate from queue timeou
   assert.ok(aggregate);
   assert.match(aggregate.request.sql, /ABANDON/u);
   assert.match(aggregate.request.sql, /EXITWITHTIMEOUT/u);
+  assert.match(
+    aggregate.request.sql,
+    /`event` IN \('ENTERQUEUE', 'CONNECT', 'ABANDON', 'EXITWITHTIMEOUT'\)/u,
+  );
+  assert.doesNotMatch(aggregate.request.sql, /UPPER\(TRIM\(CAST\(`event` AS CHAR\)\)\)/u);
   assert.deepEqual(aggregate.request.parameters, [
     60,
     'support',
@@ -253,6 +258,21 @@ test('queue abandonment analytics keep caller abandon separate from queue timeou
     '2026-10-08 10:00:00',
   ]);
   assert.equal(waits.limits.maxRows, 4);
+});
+
+test('PostgreSQL queue analytics keep normalized event comparison semantics', async () => {
+  const schemaRows = fixture.schemaRows.map((row) => ({ ...row, table_schema: 'public' }));
+  const transport = fakeTransport({ schemaRows });
+  const adapter = adapterFor(
+    configuration({ dialect: 'POSTGRESQL', port: 5432, databaseScopes: ['public'] }),
+    transport,
+  );
+  await adapter.queueAbandonmentAnalytics(PBX_ID, 'support', FROM, TO, 1);
+  const aggregate = transport.calls.find((entry) =>
+    entry.request.sql.includes(' AS entered_calls'),
+  );
+  assert.ok(aggregate);
+  assert.match(aggregate.request.sql, /UPPER\(TRIM\(CAST\("event" AS TEXT\)\)\)/u);
 });
 
 test('queue abandonment percentiles are omitted rather than sampled when abandon volume exceeds the bound', async () => {
