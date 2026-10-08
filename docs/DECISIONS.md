@@ -781,3 +781,10 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 
 384. **Database connection failures are backoff-protected:** History reads and database verification share one per-PBX in-memory cooldown. Connection/timeout failures escalate through 30s, 60s, 120s, then 300s maximum; requests inside the window fail locally without opening a database socket.
 385. **Successful database access resets connection backoff:** a successful source query or verification clears the per-PBX failure state immediately. Query/schema/data errors are not treated as connection failures.
+
+
+## 2026-10-08 — Multi-database source scope and queue abandonment priority
+
+386. **Connection identity and database/schema scope are separate concepts:** one verified read-only source connection may expose an explicit allowlisted set of databases/schemas under the same host/port/dialect/credential/TLS boundary. The current single-database field is not a permanent product constraint.
+387. **Queue abandonment is a distinct operational KPI:** caller-driven `ABANDON` must remain distinct from system/queue timeout exits. Queue abandonment analytics stay bounded, source-owned, read-only, capability-aware, and non-persistent locally.
+388. **Immediate post-Task-60 order:** merge the operator-validated Task 60 branch, then Task 60A multi-database source scope, then Task 60B queue abandonment analytics, then resume Task 61 Call Quality Source Discovery.

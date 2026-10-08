@@ -1281,3 +1281,31 @@ Lint، Format، Typecheck، Backend Test برابر 179/179، Frontend Test بر
 - **نتیجه واقعی:** مسیر واقعی `listRecentCalls(..., 100)` روی Source پیکربندی‌شده در حدود 45ms اجرا شد و 100 Row برگرداند. هیچ Raw Row یا Credential در Probe نمایش داده نشد.
 
 </div>
+
+
+<div dir="rtl" align="right">
+
+## 2026-10-08 — تغییر اولویت بلافاصله بعد از Task 60
+
+Task 60 — Call Outcome Analytics به‌همراه اصلاح‌های سازگاری Database/History روی Branch `feature/call-outcome-analytics` کامل شده و در محیط Development توسط Operator تأیید شده است؛ این Branch اکنون باید قبل از شروع Feature بعدی Merge شود.
+
+پس از Merge، دو Task جدید قبل از Task 61 قرار می‌گیرند:
+
+- [ ] **Task 60A — Multi-database Data Source Scope**
+  - فرض فعلی «یک Database Name برای هر Data Source» به مدل «یک Connection فقط‌خواندنی Verify‌شده با چند Database/Schema مجاز» تغییر می‌کند.
+  - Host، Port، Dialect، Credential و TLS یک Connection واحد باقی می‌مانند و Database/Schema Scope به‌صورت Allowlist جدا تعریف می‌شود.
+  - Verify-before-save، Credentialهای Write-only، Backoff، Network Policy و Non-duplication Policy حفظ می‌شوند.
+  - UI باید Connection Identity را از Database/Schema Scope جدا نمایش دهد و فقط Scope واقعاً Verify‌شده را قابل استفاده بداند.
+  - Configurationهای تک‌Database فعلی باید بدون افشای Credential به شکل سازگار Migration شوند.
+
+- [ ] **Task 60B — Queue Abandonment Analytics / KPI**
+  - Analytics فقط‌خواندنی و Source-owned برای Queue انتخاب‌شده و بازه زمانی مشخص اضافه می‌شود.
+  - `ABANDON` Caller باید از Exit/Timeout سیستم مثل `EXITWITHTIMEOUT` جدا باقی بماند.
+  - KPIها: تعداد ورود به Queue، Connected/Answered، Abandoned، Abandonment Rate، Average Wait Before Abandon، Long-wait Abandon با Threshold قابل تنظیم، و در صورت کافی بودن Source Data، P50/P90 زمان انتظار.
+  - هیچ Queue History محلی، Warehouse، Arbitrary SQL یا Write روی PBX/Database اضافه نمی‌شود.
+
+**ترتیب جدید:** Merge Task 60 → Task 60A → Task 60B → Task 61 (Call Quality Source Discovery).
+
+دلیل این اولویت این است که محدودیت Single-database یک بدهی معماری واقعی در Source Model است و Queue Abandonment همین الآن Source قابل بررسی دارد؛ در مقابل Call Quality هنوز در مرحله Source Discovery است و Support آن تضمین‌شده نیست.
+
+</div>

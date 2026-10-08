@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-07. Tasks 58 and 59 are merged. Task 60 — Call Outcome Analytics is complete on feature/call-outcome-analytics and awaits operator review on the Development environment before merge. The next roadmap task after Task 60 merges is Task 61 — Call Quality Source Discovery.
+Status: 2026-10-08. Tasks 58 and 59 are merged. Task 60 — Call Outcome Analytics plus its database/history compatibility corrections are complete and operator-validated on the Development environment on `feature/call-outcome-analytics`; the branch now awaits merge. After that merge, Task 60A — Multi-database Data Source Scope and Task 60B — Queue Abandonment Analytics/KPI are the immediate priorities before Task 61 — Call Quality Source Discovery.
 
 ## Phase 0 — environment discovery
 
@@ -716,6 +716,16 @@ The product foundation is production-ready, but the monitoring product is not ye
   - Reachability transitions, offline duration, bounded flap count, and problematic-endpoint ranking.
 - [x] **Task 60 — Call Outcome Analytics**
   - Source-owned total/answered/no-answer/busy/failed calls, answer ratio, average duration, and bounded time-range analysis.
+- [ ] **Task 60A — Multi-database Data Source Scope**
+  - Replace the single-database-name assumption with one verified read-only connection that can declare an allowlisted set of accessible databases/schemas under the same host/port/dialect/credential/TLS boundary.
+  - Preserve write-only credentials, verify-before-save, bounded connection backoff, SSRF/network policy, and source-owned/no-duplicate-data rules.
+  - Separate connection identity from database/schema scope in the UI and never imply access that the source account has not verified.
+  - Migrate existing single-database configurations compatibly without exposing or unnecessarily rewriting credentials.
+- [ ] **Task 60B — Queue Abandonment Analytics / KPI**
+  - Add bounded source-owned Queue analytics for a selected queue and time range using supported queue-event data, distinguishing caller `ABANDON` from system-driven timeout/exit outcomes.
+  - KPI set: queue entries, connected/answered calls, abandoned calls, abandonment rate, average wait before abandon, configurable long-wait-abandon threshold/count, and P50/P90 wait where supported by source data.
+  - Discover and validate queue identity/event semantics from the source schema; do not infer unsupported fields or collapse `ABANDON` and `EXITWITHTIMEOUT`.
+  - No local queue-history persistence, warehouse, arbitrary SQL, or PBX/database write is introduced.
 
 ### Phase 16 — Call quality
 
@@ -1191,7 +1201,7 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 - **Read-only safety:** the query is generated from discovered/quoted schema identifiers and a fixed range allowlist. No arbitrary SQL or caller-supplied interval text crosses the adapter boundary.
 - **UI:** Call History now contains a bilingual Call Outcome Analytics surface with bounded range selection and explicit operator-triggered analysis. Results show Total, Answered, No answer, Busy, Failed, Unknown, Answer ratio, and Average duration.
 - **Regression coverage:** synthetic MySQL/MariaDB and PostgreSQL tests verify source-clock range SQL and aggregate normalization; API coverage verifies authentication and invalid-range rejection; frontend coverage verifies rendered analytics. No real PBX/database compatibility probe was performed as part of implementation.
-- **Exact next task:** Task 61 — Call Quality Source Discovery.
+- **Exact next task after merge:** Task 60A — Multi-database Data Source Scope, followed by Task 60B — Queue Abandonment Analytics/KPI; Task 61 — Call Quality Source Discovery resumes after those two source/history corrections.
 
 
 ## 2026-10-07 — Database source verify-before-save correction
@@ -1232,7 +1242,7 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 
 - **Observed behavior:** Call Outcome Analytics succeeds, while `Load recent rows` can time out/abort against the legacy MySQL 5.5 CDR source and repeated aborted connections can contribute to MySQL host blocking.
 - **Root cause in query shape:** the read-only query wrapper previously enforced row bounds by wrapping every SELECT in a derived table and applying `LIMIT` outside it. For recent CDR reads this produced `SELECT * FROM (SELECT ... ORDER BY calldate DESC, uniqueid DESC) ... LIMIT N`, which can force legacy MySQL to materialize/sort substantially more history before applying the outer limit.
-- **Resolution:** bounded queries now append the synthetic `LIMIT maxRows+1` directly to the validated SELECT. The same row-limit detection and SELECT-only safety remain intact, while MySQL can optimize `ORDER BY ... LIMIT` directly and stop early.
+- **Resolution:** bounded queries append the synthetic LIMIT directly to the validated SELECT so MySQL can optimize `ORDER BY ... LIMIT` directly and stop early. A later real-source correction (2026-10-08) tightened this from the provisional `maxRows+1` sentinel approach to exact `LIMIT maxRows`.
 - **Regression:** query-preparation tests for MySQL and PostgreSQL now assert direct bounded SELECTs; adapter and source-schema suites remain green.
 
 
@@ -1247,3 +1257,12 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 - **Root cause 1:** `ORDER BY calldate DESC, uniqueid DESC` forced legacy MySQL 5.5 away from the efficient `calldate` index path and could time out. Calls history now orders by `calldate DESC` only, allowing indexed recent-row retrieval without changing the PBX schema.
 - **Root cause 2:** the query bound used `LIMIT maxRows+1`, then treated the extra sentinel row as `ROW_LIMIT`; on any source with more than the requested number of rows that made a successful bounded read fail. SQL now enforces exactly `LIMIT maxRows`; post-query row validation remains as a defense-in-depth check.
 - **Real result:** the exact `listRecentCalls(..., 100)` path completed against the real configured source in about 45 ms and returned 100 rows. No raw row data or credential was emitted during verification.
+
+
+## 2026-10-08 — Immediate post-Task-60 priority adjustment
+
+The operator requested two product changes before Call Quality work: a connection-level Data Source model that can safely scope more than one accessible database/schema, and Queue Abandonment analytics/KPIs. Real read-only discovery confirmed queue-related source data is available in the approved database environment, so Queue Abandonment is actionable now rather than speculative.
+
+Task 60A and Task 60B are inserted before Task 61 without renumbering the already-published Call Quality/Alerting roadmap. Task 60A comes first because Queue Abandonment and future cross-schema source features should not deepen the current single-database configuration assumption. Task 61 remains the next original roadmap item after these two corrections because Call Quality still requires source discovery before any product claim.
+
+Current merge gate: `feature/call-outcome-analytics` must merge first. Do not begin Task 60A on top of the unmerged Task 60 branch.

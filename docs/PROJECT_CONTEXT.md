@@ -142,3 +142,14 @@ Overview has one special presentation mode: Fullscreen. It automatically applies
 
 
 Task 60 adds source-owned call outcome analytics over the configured read-only CDR dataset. Operators can request only 1-hour, 24-hour, 7-day, or 30-day aggregates. The backend returns total/answered/no-answer/busy/failed/unknown counts, answer ratio, and average duration without persisting historical call data locally. Task 61 is next.
+
+
+## 2026-10-08 — Data-source scope and queue-abandonment product context
+
+The product must treat a database **connection** separately from the set of databases/schemas that the verified read-only account is allowed to use. The current single `databaseName` configuration is an implementation limitation, not a product invariant. The next source-model correction after Task 60 merge is to keep one host/port/dialect/credential/TLS identity while allowing an explicit verified allowlist of database/schema scopes. Existing single-database configurations must remain compatible.
+
+Queue Abandonment is a first-class operational KPI requirement. It must answer, for a selected queue and bounded time range, how many callers entered the queue, how many connected to an agent, how many callers abandoned before connection, how long abandoning callers waited, and how many exceeded an operator-defined long-wait threshold. Caller-driven abandon must remain semantically distinct from queue/system timeout exits. Where supported by the source, percentile wait metrics may be exposed.
+
+This feature remains source-owned and read-only: no local durable queue-history copy, no CDR/queue warehouse, no arbitrary SQL, and no PBX/database mutation. Queue-event schema/capability discovery must fail closed and unsupported dimensions must remain unavailable rather than becoming zero.
+
+Priority decision: finish and merge the already operator-validated Task 60 branch first; then implement the multi-database source scope (Task 60A), then Queue Abandonment analytics (Task 60B), and only then resume the existing Call Quality roadmap at Task 61.
