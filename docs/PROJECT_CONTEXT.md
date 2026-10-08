@@ -166,7 +166,7 @@ Task 60A does not itself add Queue Abandonment analytics. It prepares the source
 
 ## 2026-10-08 — Task 60B implementation context
 
-Queue Abandonment Analytics is implemented as a source-owned read-only History feature. The conventional SQL adapter exposes a distinct `queueAbandonment` capability requiring queue-log wait-time data (`data3`) in addition to the generic queue-event columns. The feature accepts one bounded queue ID, one bounded range, and a 1–3600 second long-wait threshold.
+Queue Abandonment Analytics is implemented as a source-owned read-only History feature. The conventional SQL adapter exposes a distinct `queueAbandonment` capability requiring queue-log wait-time data (`data3`) in addition to the generic queue-event columns. The feature accepts one bounded current queue ID, an explicit validated source-local From/To date-time window, and a 1–60 minute integer long-wait threshold.
 
 Product semantics are explicit: `ABANDON` is caller abandonment; `EXITWITHTIMEOUT` is queue/system timeout and is shown separately. KPIs include entries, connected calls, caller abandons, queue timeouts, abandonment rate, average wait before caller abandon, and long-wait abandon count. Exact P50/P90 are returned only when the complete abandon wait sample is within the 1000-row transient read limit; otherwise percentile fields stay unavailable.
 

@@ -59,12 +59,16 @@ export const DEFAULT_DASHBOARD_REFRESH_RATES: DashboardRefreshRates = {
 };
 
 export type HistoricalCallDisposition = 'ANSWERED' | 'NO_ANSWER' | 'BUSY' | 'FAILED' | 'UNKNOWN';
-export type HistoricalCallOutcomeRange = '1H' | '24H' | '7D' | '30D';
+export interface HistoricalReportWindow {
+  from: string;
+  to: string;
+}
 
 export interface HistoricalCallOutcomeAnalytics {
   instanceId: PbxInstanceId;
   source: 'DATABASE';
-  range: HistoricalCallOutcomeRange;
+  from: string;
+  to: string;
   totalCalls: number;
   answeredCalls: number;
   noAnswerCalls: number;
@@ -78,9 +82,10 @@ export interface HistoricalCallOutcomeAnalytics {
 export interface HistoricalQueueAbandonmentAnalytics {
   instanceId: PbxInstanceId;
   source: 'DATABASE';
-  range: HistoricalCallOutcomeRange;
+  from: string;
+  to: string;
   queueId: string;
-  longWaitThresholdSeconds: number;
+  longWaitThresholdMinutes: number;
   enteredCalls: number;
   connectedCalls: number;
   abandonedCalls: number;

@@ -3,7 +3,7 @@ import type {
   EndpointReliabilityState,
   FleetOverviewSnapshot,
   HistoricalCallOutcomeAnalytics,
-  HistoricalCallOutcomeRange,
+  HistoricalReportWindow,
   HistoricalQueueAbandonmentAnalytics,
   OperationalHealthSnapshot,
   TrunkReliabilityState,
@@ -464,18 +464,18 @@ export const api = {
     request<{ items: HistoricalCallRecord[] }>(
       `/api/pbx-instances/${id}/history/calls?limit=${limit}`,
     ),
-  historyCallOutcomes: (id: string, range: HistoricalCallOutcomeRange = '24H') =>
+  historyCallOutcomes: (id: string, window: HistoricalReportWindow) =>
     request<HistoricalCallOutcomeAnalytics>(
-      `/api/pbx-instances/${id}/history/call-outcomes?range=${encodeURIComponent(range)}`,
+      `/api/pbx-instances/${id}/history/call-outcomes?from=${encodeURIComponent(window.from)}&to=${encodeURIComponent(window.to)}`,
     ),
   historyQueueAbandonment: (
     id: string,
     queueId: string,
-    range: HistoricalCallOutcomeRange = '24H',
-    longWaitThresholdSeconds = 60,
+    window: HistoricalReportWindow,
+    longWaitThresholdMinutes: number,
   ) =>
     request<HistoricalQueueAbandonmentAnalytics>(
-      `/api/pbx-instances/${id}/history/queue-abandonment?queue=${encodeURIComponent(queueId)}&range=${encodeURIComponent(range)}&longWaitSeconds=${longWaitThresholdSeconds}`,
+      `/api/pbx-instances/${id}/history/queue-abandonment?queue=${encodeURIComponent(queueId)}&from=${encodeURIComponent(window.from)}&to=${encodeURIComponent(window.to)}&longWaitMinutes=${longWaitThresholdMinutes}`,
     ),
   historyCallEvents: (id: string, limit = 100) =>
     request<{ items: HistoricalCallEventRecord[] }>(

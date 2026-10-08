@@ -908,15 +908,18 @@ export function createApp(
           if (!dataset) return send(response, 200, await historicalSource.inspect(id));
           const url = new URL(request.url ?? '/', 'http://localhost');
           if (dataset === 'call-outcomes') {
-            const range = url.searchParams.get('range') ?? '24H';
-            if (!/^(?:1H|24H|7D|30D)$/u.test(range))
+            const from = url.searchParams.get('from') ?? '';
+            const to = url.searchParams.get('to') ?? '';
+            const sourceDateTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/u;
+            if (!sourceDateTime.test(from) || !sourceDateTime.test(to))
               return send(response, 400, { error: 'invalid_request' });
-            return send(response, 200, await historicalSource.callOutcomeAnalytics(id, range));
+            return send(response, 200, await historicalSource.callOutcomeAnalytics(id, from, to));
           }
           if (dataset === 'queue-abandonment') {
             const queueId = url.searchParams.get('queue') ?? '';
-            const range = url.searchParams.get('range') ?? '24H';
-            const rawThreshold = url.searchParams.get('longWaitSeconds') ?? '60';
+            const from = url.searchParams.get('from') ?? '';
+            const to = url.searchParams.get('to') ?? '';
+            const rawThreshold = url.searchParams.get('longWaitMinutes') ?? '1';
             if (
               !queueId ||
               queueId.length > 128 ||
@@ -924,8 +927,9 @@ export function createApp(
                 const code = character.charCodeAt(0);
                 return code < 32 || code === 127;
               }) ||
-              !/^(?:1H|24H|7D|30D)$/u.test(range) ||
-              !/^(?:[1-9]|[1-9]\d{1,2}|[1-2]\d{3}|3[0-5]\d{2}|3600)$/u.test(rawThreshold)
+              !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/u.test(from) ||
+              !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/u.test(to) ||
+              !/^(?:[1-9]|[1-5]\d|60)$/u.test(rawThreshold)
             ) {
               return send(response, 400, { error: 'invalid_request' });
             }
@@ -935,7 +939,8 @@ export function createApp(
               await historicalSource.queueAbandonmentAnalytics(
                 id,
                 queueId,
-                range,
+                from,
+                to,
                 Number(rawThreshold),
               ),
             );

@@ -771,7 +771,7 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 ## 2026-10-07 — Task 60 call outcome analytics
 
 377. **Call analytics remain source-owned:** aggregate call outcomes are queried from the configured external CDR source and are never copied into application telemetry storage.
-378. **Time analysis is bounded by enum, not arbitrary timestamps:** Task 60 supports only `1H`, `24H`, `7D`, and `30D`; the source database clock evaluates the relative boundary so naive CDR timestamps do not receive an invented timezone.
+378. **Time analysis uses validated source-local windows:** report From/To values are strict local date-time strings with From < To and are passed as SQL parameters; naive CDR timestamps do not receive an invented timezone.
 379. **Aggregate at the source:** totals and average duration are computed in one read-only SQL aggregate query. The application must not derive product analytics from only the latest 200 history rows because that would silently skew totals.
 380. **Unknown disposition is a first-class accounting bucket:** normalized known outcomes are ANSWERED, NO_ANSWER, BUSY, and FAILED; all remaining rows contribute to UNKNOWN so known categories plus unknown always reconcile to total.
 381. **Answer ratio denominator is all calls in range:** `answered / total * 100`; an empty range returns zero instead of NaN.
@@ -805,6 +805,12 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 395. **Separate generic queue history from abandonment capability:** `queueEvents` can remain supported with the basic `queue_log` columns, while `queueAbandonment` additionally requires `data3` for standard wait-time semantics.
 396. **Do not collapse caller abandon and timeout:** `ABANDON` is caller-driven abandonment; `EXITWITHTIMEOUT` is reported as a separate queue/system timeout KPI and never contributes to the caller-abandon count.
 397. **Use queue entries as the abandonment-rate denominator:** rate is `ABANDON / ENTERQUEUE` within the selected source-clock range when entries are nonzero. A zero denominator yields an unavailable rate, not a fabricated zero percentage.
-398. **Bound operator inputs:** queue identifier is a printable string up to 128 characters; analytics range is one of `1H`, `24H`, `7D`, `30D`; long-wait threshold is an integer from 1 through 3600 seconds.
+398. **Bound operator inputs:** queue identifier is a printable string up to 128 characters; report From/To must form a valid source-local date-time window; long-wait threshold is an integer from 1 through 60 minutes.
 399. **Percentiles must be exact or absent:** P50/P90 use exact nearest-rank calculation only when the full abandon-wait sample fits the 1000-row read bound. Above that bound they are omitted rather than estimated from partial data.
 400. **No local queue warehouse:** Task 60B adds only transient bounded reads and product analytics over the authoritative source. It does not persist queue history or create a raw-SQL/public query surface.
+
+
+401. **Reports use explicit date/time pickers:** fixed `1H/24H/7D/30D` presets are replaced by validated From/To source-local date-time values so operators can select the exact reporting window.
+402. **Queue report selection comes from current normalized queue state:** the browser uses the existing telephony-state API to populate the Queue dropdown; report navigation does not create a new AMI connection.
+403. **Long-wait input is operator-facing minutes:** UI/API accept whole minutes from 1 through 60 and convert to seconds only at the generated SQL comparison boundary.
+404. **Recognize FreePBX queue table alias:** schema discovery accepts `queue_log` or `queuelog`; multiple valid matches remain ambiguous rather than being guessed.

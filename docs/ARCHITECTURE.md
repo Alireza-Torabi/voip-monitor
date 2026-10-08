@@ -183,7 +183,7 @@ Fullscreen is the sole alternate presentation state for OperatorOverview and pas
 
 ## Call outcome analytics
 
-Task 60 extends the source-owned history boundary with bounded CDR aggregation. The application sends one generated read-only aggregate query to the configured source database for a fixed allowlisted range (`1H`, `24H`, `7D`, or `30D`). The source database clock defines the relative range boundary. Only normalized aggregate counters and duration are returned; no raw SQL input, unbounded interval, local CDR copy, or analytics persistence is introduced. Unknown source dispositions remain explicit rather than being discarded.
+Task 60 extends the source-owned history boundary with bounded CDR aggregation. Reports use explicit validated source-local From/To date-time values and one generated parameterized read-only aggregate query against the configured source database. The application does not invent a timezone for naive source timestamps. Only normalized aggregate counters and duration are returned; no raw SQL input, unbounded interval, local CDR copy, or analytics persistence is introduced. Unknown source dispositions remain explicit rather than being discarded.
 
 
 ## Database connection and source-scope boundary
@@ -197,6 +197,9 @@ Verification uses one bounded read-only source query against `information_schema
 
 Task 60B extends the source-owned history adapter with a separate queue-abandonment capability over conventional Asterisk `queue_log`. Generic queue-event history still requires only the basic queue-log columns; abandonment analytics additionally requires `data3` because standard Asterisk `ABANDON` and `EXITWITHTIMEOUT` records carry wait time there. Capability discovery therefore fails closed without converting a missing wait-time dimension into zero.
 
-The analytics path accepts one bounded queue identifier, an allowlisted source-clock range, and a bounded long-wait threshold. It aggregates `ENTERQUEUE`, `CONNECT`, `ABANDON`, and `EXITWITHTIMEOUT` directly in the source. Caller abandonment and system/queue timeout are different product dimensions and are never collapsed. Abandonment rate uses queue entries as the denominator when nonzero. Average abandon wait and long-wait count use the `ABANDON` wait-time field.
+The analytics path accepts one bounded queue identifier, an explicit validated source-local From/To window, and a bounded integer long-wait threshold in minutes. It aggregates `ENTERQUEUE`, `CONNECT`, `ABANDON`, and `EXITWITHTIMEOUT` directly in the source. Caller abandonment and system/queue timeout are different product dimensions and are never collapsed. Abandonment rate uses queue entries as the denominator when nonzero. Average abandon wait and long-wait count use the `ABANDON` wait-time field.
 
 Exact nearest-rank P50/P90 wait values are computed transiently only when all abandon wait values for the selected queue/range fit the 1000-row safety bound. Above that bound the application omits percentiles instead of sampling or persisting history. No queue-history persistence, arbitrary SQL, background source polling, or write path is introduced.
+
+
+Queue-history schema compatibility recognizes both conventional `queue_log` and FreePBX-style `queuelog` table names within verified source scopes. Alias support does not weaken ambiguity handling: multiple matching tables remain unavailable until the source shape is unambiguous. Report queue selection is presentation-side and comes from normalized current AMI queue state; it does not create a new database query or PBX connection.

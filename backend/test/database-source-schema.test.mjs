@@ -8,6 +8,8 @@ import {
 } from '../dist/database/source-schema.js';
 
 const PBX_ID = '99999999-9999-4999-8999-999999999999';
+const FROM = '2026-10-07T10:00';
+const TO = '2026-10-08T10:00';
 const fixture = JSON.parse(
   await readFile(new URL('./fixtures/asterisk-history-source.json', import.meta.url), 'utf8'),
 );
@@ -146,19 +148,26 @@ test('Asterisk conventional schema inspection and row normalization are provider
 
   const inspection = transport.calls[0];
   assert.equal(inspection.pbxInstanceId, PBX_ID);
-  assert.deepEqual(inspection.request.parameters, ['pbx_reporting', 'cdr', 'cel', 'queue_log']);
+  assert.deepEqual(inspection.request.parameters, [
+    'pbx_reporting',
+    'cdr',
+    'cel',
+    'queue_log',
+    'queuelog',
+  ]);
   assert.equal(transport.calls.at(-1).limits.maxRows, 25);
 });
 
-test('call outcome analytics aggregate directly in the source over bounded ranges', async () => {
+test('call outcome analytics aggregate directly in the source over an explicit date/time window', async () => {
   const transport = fakeTransport();
   const adapter = adapterFor(configuration(), transport);
 
-  const analytics = await adapter.callOutcomeAnalytics(PBX_ID, '24H');
+  const analytics = await adapter.callOutcomeAnalytics(PBX_ID, FROM, TO);
   assert.deepEqual(analytics, {
     instanceId: PBX_ID,
     source: 'DATABASE',
-    range: '24H',
+    from: '2026-10-07T10:00:00',
+    to: '2026-10-08T10:00:00',
     totalCalls: 10,
     answeredCalls: 6,
     noAnswerCalls: 2,
@@ -172,41 +181,44 @@ test('call outcome analytics aggregate directly in the source over bounded range
     entry.request.sql.includes('COUNT(*) AS total_calls'),
   );
   assert.ok(query);
-  assert.match(query.request.sql, /CURRENT_TIMESTAMP - INTERVAL 24 HOUR/u);
+  assert.match(query.request.sql, /WHERE .* >= \? AND .* <= \?/u);
+  assert.deepEqual(query.request.parameters, ['2026-10-07 10:00:00', '2026-10-08 10:00:00']);
   assert.equal(query.limits.maxRows, 1);
 
   await assert.rejects(
-    adapter.callOutcomeAnalytics(PBX_ID, '365D'),
+    adapter.callOutcomeAnalytics(PBX_ID, 'not-a-date', TO),
     (error) => error instanceof HistoricalSourceSchemaError && error.code === 'INVALID_RANGE',
   );
 });
 
-test('PostgreSQL call outcome analytics use a bounded source-clock interval', async () => {
+test('PostgreSQL call outcome analytics use the explicit source-local date/time window', async () => {
   const schemaRows = fixture.schemaRows.map((row) => ({ ...row, table_schema: 'public' }));
   const transport = fakeTransport({ schemaRows });
   const adapter = adapterFor(
     configuration({ dialect: 'POSTGRESQL', port: 5432, databaseScopes: ['public'] }),
     transport,
   );
-  await adapter.callOutcomeAnalytics(PBX_ID, '7D');
+  await adapter.callOutcomeAnalytics(PBX_ID, FROM, TO);
   const query = transport.calls.find((entry) =>
     entry.request.sql.includes('COUNT(*) AS total_calls'),
   );
   assert.ok(query);
-  assert.match(query.request.sql, /CURRENT_TIMESTAMP - INTERVAL '7 days'/u);
+  assert.match(query.request.sql, /WHERE .* >= \? AND .* <= \?/u);
+  assert.deepEqual(query.request.parameters, ['2026-10-07 10:00:00', '2026-10-08 10:00:00']);
 });
 
 test('queue abandonment analytics keep caller abandon separate from queue timeout', async () => {
   const transport = fakeTransport();
   const adapter = adapterFor(configuration(), transport);
 
-  const analytics = await adapter.queueAbandonmentAnalytics(PBX_ID, 'support', '24H', 40);
+  const analytics = await adapter.queueAbandonmentAnalytics(PBX_ID, 'support', FROM, TO, 1);
   assert.deepEqual(analytics, {
     instanceId: PBX_ID,
     source: 'DATABASE',
-    range: '24H',
+    from: '2026-10-07T10:00:00',
+    to: '2026-10-08T10:00:00',
     queueId: 'support',
-    longWaitThresholdSeconds: 40,
+    longWaitThresholdMinutes: 1,
     enteredCalls: 20,
     connectedCalls: 14,
     abandonedCalls: 4,
@@ -224,13 +236,22 @@ test('queue abandonment analytics keep caller abandon separate from queue timeou
   assert.ok(aggregate);
   assert.match(aggregate.request.sql, /ABANDON/u);
   assert.match(aggregate.request.sql, /EXITWITHTIMEOUT/u);
-  assert.deepEqual(aggregate.request.parameters, [40, 'support']);
-  assert.match(aggregate.request.sql, /CURRENT_TIMESTAMP - INTERVAL 24 HOUR/u);
+  assert.deepEqual(aggregate.request.parameters, [
+    60,
+    'support',
+    '2026-10-07 10:00:00',
+    '2026-10-08 10:00:00',
+  ]);
+  assert.match(aggregate.request.sql, /AND .* >= \? AND .* <= \?/u);
   assert.equal(aggregate.limits.maxRows, 1);
 
   const waits = transport.calls.find((entry) => entry.request.sql.includes(' AS wait_seconds'));
   assert.ok(waits);
-  assert.deepEqual(waits.request.parameters, ['support']);
+  assert.deepEqual(waits.request.parameters, [
+    'support',
+    '2026-10-07 10:00:00',
+    '2026-10-08 10:00:00',
+  ]);
   assert.equal(waits.limits.maxRows, 4);
 });
 
@@ -248,7 +269,7 @@ test('queue abandonment percentiles are omitted rather than sampled when abandon
     ],
   });
   const adapter = adapterFor(configuration(), transport);
-  const analytics = await adapter.queueAbandonmentAnalytics(PBX_ID, 'support', '30D', 60);
+  const analytics = await adapter.queueAbandonmentAnalytics(PBX_ID, 'support', FROM, TO, 1);
   assert.equal(analytics.abandonedCalls, 1001);
   assert.equal(analytics.averageWaitBeforeAbandonSeconds, 52.5);
   assert.equal('p50WaitBeforeAbandonSeconds' in analytics, false);
@@ -268,19 +289,29 @@ test('queue abandonment analytics fail closed without wait-time schema and valid
   assert.equal(capabilities.queueEvents.availability, 'SUPPORTED');
   assert.equal(capabilities.queueAbandonment.availability, 'SCHEMA_MISMATCH');
   await assert.rejects(
-    adapter.queueAbandonmentAnalytics(PBX_ID, 'support', '24H', 60),
+    adapter.queueAbandonmentAnalytics(PBX_ID, 'support', FROM, TO, 1),
     (error) => error instanceof HistoricalSourceSchemaError && error.code === 'DATASET_UNAVAILABLE',
   );
 
   const valid = adapterFor(configuration(), fakeTransport());
   await assert.rejects(
-    valid.queueAbandonmentAnalytics(PBX_ID, '', '24H', 60),
+    valid.queueAbandonmentAnalytics(PBX_ID, '', FROM, TO, 1),
     (error) => error instanceof HistoricalSourceSchemaError && error.code === 'INVALID_QUEUE',
   );
   await assert.rejects(
-    valid.queueAbandonmentAnalytics(PBX_ID, 'support', '24H', 0),
+    valid.queueAbandonmentAnalytics(PBX_ID, 'support', FROM, TO, 0),
     (error) => error instanceof HistoricalSourceSchemaError && error.code === 'INVALID_THRESHOLD',
   );
+});
+
+test('FreePBX queuelog table alias is discovered for queue history and abandonment analytics', async () => {
+  const schemaRows = fixture.schemaRows.map((row) =>
+    row.table_name === 'queue_log' ? { ...row, table_name: 'queuelog' } : row,
+  );
+  const adapter = adapterFor(configuration(), fakeTransport({ schemaRows }));
+  const capabilities = await adapter.inspect(PBX_ID);
+  assert.equal(capabilities.queueEvents.availability, 'SUPPORTED');
+  assert.equal(capabilities.queueAbandonment.availability, 'SUPPORTED');
 });
 
 test('schema discovery distinguishes missing, mismatched and ambiguous datasets', async () => {
@@ -311,6 +342,7 @@ test('schema discovery distinguishes missing, mismatched and ambiguous datasets'
     'cdr',
     'cel',
     'queue_log',
+    'queuelog',
   ]);
 
   await assert.rejects(
@@ -403,6 +435,7 @@ test('MySQL schema discovery is restricted to every configured database scope', 
     'cdr',
     'cel',
     'queue_log',
+    'queuelog',
   ]);
   assert.equal(inspection.limits.maxRows, 500);
 });

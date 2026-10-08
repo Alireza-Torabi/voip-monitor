@@ -1195,7 +1195,7 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 ## 2026-10-07 — Task 60: Call Outcome Analytics
 
 - **Source ownership preserved:** call outcome analytics are computed directly in the configured read-only CDR source. VoIP Monitor does not persist, cache, warehouse, or duplicate call-history telemetry.
-- **Bounded ranges:** the public API accepts only `1H`, `24H`, `7D`, or `30D`. Range boundaries are evaluated against the source database clock, avoiding invented timezone conversion for naive Asterisk CDR timestamps.
+- **Explicit bounded window:** the report API accepts operator-selected `from` / `to` source-local date/time values after strict validation; no timezone is invented for naive Asterisk CDR timestamps, and the selected window is parameterized rather than interpolated into SQL.
 - **Direct aggregation:** total, answered, no-answer, busy, failed, unknown, average duration, and answer ratio are derived by one aggregate source query rather than by downloading an arbitrary row sample into the application.
 - **Unknown visibility:** source dispositions outside the normalized adapter set remain counted as `unknownCalls`; they are never silently dropped, so category totals remain auditable against total calls.
 - **Read-only safety:** the query is generated from discovered/quoted schema identifiers and a fixed range allowlist. No arbitrary SQL or caller-supplied interval text crosses the adapter boundary.
@@ -1284,11 +1284,20 @@ Current merge gate: `feature/call-outcome-analytics` must merge first. Do not be
 ## 2026-10-08 — Task 60B: Queue Abandonment Analytics / KPI
 
 - **Source semantics:** Queue analytics use the discovered conventional `queue_log` dataset. The analytics capability is separate from generic queue-event history and requires `time`, `callid`, `queuename`, `event`, and `data3`; generic Queue Events can remain supported even when wait-time analytics is unavailable.
-- **Bounded selection:** operators select one queue ID, one allowlisted range (`1H`, `24H`, `7D`, `30D`), and a long-wait threshold from 1 to 3600 seconds. Queue ID is bounded to 128 printable characters.
+- **Bounded selection:** operators select one current Queue ID, explicit From/To source-local date/time values, and an integer long-wait threshold from 1 to 60 minutes. Queue ID is bounded to 128 printable characters.
 - **KPI semantics:** `ENTERQUEUE` counts entries, `CONNECT` counts calls connected to an agent, `ABANDON` counts caller-driven abandonment, and `EXITWITHTIMEOUT` is reported independently as queue/system timeout. Abandonment rate is `ABANDON / ENTERQUEUE` for the same selected source range when the denominator is nonzero.
 - **Wait metrics:** average wait before abandon and long-wait-abandon count use the documented `ABANDON` wait-time parameter (`data3`). Missing denominator/average data is omitted rather than manufactured as zero.
 - **Percentiles:** exact nearest-rank P50/P90 are calculated only when the complete abandon wait sample is at most 1000 rows. Above that safety bound, percentiles are omitted rather than estimated from a partial sample; aggregate KPIs remain available.
 - **Read-only/source-owned:** aggregate and percentile reads are generated, parameterized and bounded through the existing read-only database transport. No local queue-history table, warehouse, arbitrary SQL surface, background polling, or PBX/database mutation is introduced.
-- **API/UI:** `GET /api/pbx-instances/:id/history/queue-abandonment` accepts only bounded queue/range/threshold inputs. History now exposes a bilingual Queue Abandonment Analytics surface with explicit Caller Abandon versus Queue Timeout KPIs.
+- **API/UI:** `GET /api/pbx-instances/:id/history/queue-abandonment` accepts only bounded queue/from/to/threshold inputs. The Reports workspace exposes native date-time pickers, a current-queue dropdown sourced from normalized AMI telephony state, a minute-based long-wait input, and explicit Caller Abandon versus Queue Timeout KPIs.
 - **Regression coverage:** synthetic adapter tests cover event separation, wait metrics, exact percentile calculation, percentile safety-bound omission, schema fail-closed behavior, and input validation. Authenticated API tests cover valid and invalid query parameters. Frontend flow coverage verifies rendering and operator-triggered analysis. No new real PBX/database probe was performed for Task 60B implementation.
 - **Exact next task after merge:** Task 61 — Call Quality Source Discovery.
+
+
+## 2026-10-08 — Task 60B operator-review UX correction
+
+- **Reports navigation:** the former Call History destination is presented under Operations as **Reports**; the workspace contains operational analytics plus the bounded raw source-history inspector.
+- **Date/time filters:** Call Outcome and Queue Abandonment reports now use native `datetime-local` From/To controls instead of fixed relative range presets. Backend validation requires a real source-local date/time and `From < To`; query values remain parameterized.
+- **Queue selection:** Queue Abandonment uses a dropdown populated from the normalized current AMI Queue state for the selected PBX. The analytics form remains visible even if source capability is unavailable, so operators can see the required inputs and explicit capability reason.
+- **Threshold UX:** Long-wait threshold is entered as an integer number of minutes (`1..60`) with an explanatory example; conversion to seconds occurs only inside the fixed source query semantics.
+- **FreePBX compatibility:** conventional queue-history discovery accepts both `queue_log` and the common FreePBX `queuelog` table name. If more than one candidate matches, discovery remains `AMBIGUOUS` and fails closed.

@@ -1196,7 +1196,7 @@ Lint، Format، Typecheck، Backend Test برابر 179/179، Frontend Test بر
 ## 2026-10-07 — Task 60: تحلیل نتیجه تماس‌ها
 
 - **مالکیت Source حفظ شد:** Analytics نتیجه تماس مستقیماً روی CDR فقط‌خواندنی پیکربندی‌شده محاسبه می‌شود. VoIP Monitor هیچ Call History جدیدی را Persist، Cache، Warehouse یا Duplicate نمی‌کند.
-- **Range محدود:** API فقط `1H`، `24H`، `7D` و `30D` را قبول می‌کند. مرز بازه با Clock خود Database Source محاسبه می‌شود تا برای Timestampهای Naive مربوط به Asterisk منطقه زمانی ساختگی اعمال نشود.
+- **بازه صریح و محدود:** API برای گزارش `From` و `To` تاریخ/ساعت Source-local را بعد از Validation سخت‌گیرانه می‌گیرد؛ برای Timestampهای Naive منطقه زمانی ساختگی ایجاد نمی‌شود و مقادیر به‌صورت Parameterized وارد Query می‌شوند.
 - **Aggregate مستقیم:** Total، Answered، No Answer، Busy، Failed، Unknown، Average Duration و Answer Ratio با یک Aggregate Query مستقیم روی Source محاسبه می‌شوند؛ App برای Analytics یک Sample دلخواه از Rowها دانلود و جمع نمی‌زند.
 - **Unknown پنهان نمی‌شود:** Dispositionهایی که Adapter نمی‌شناسد داخل `unknownCalls` باقی می‌مانند تا جمع Categoryها نسبت به Total قابل Audit باشد.
 - **ایمنی Read-only:** Query فقط از Identifierهای کشف‌شده/Quoteشده و Allowlist ثابت Range ساخته می‌شود. Arbitrary SQL یا Interval دلخواه کاربر وارد Adapter نمی‌شود.
@@ -1333,7 +1333,7 @@ Task 60 — Call Outcome Analytics به‌همراه اصلاح‌های ساز�
 ## 2026-10-08 — تکمیل Task 60B: Queue Abandonment Analytics / KPI
 
 - Queue Analytics از Dataset متعارف و Discover‌شده `queue_log` استفاده می‌کند. Capability مربوط به Analytics از Queue Event History جداست و برای Wait-time به ستون `data3` نیاز دارد؛ بنابراین ممکن است Queue Events پشتیبانی شود ولی Analytics به‌صورت صریح Unsupported باشد.
-- Operator یک Queue ID، یکی از Rangeهای محدود `1H`، `24H`، `7D` یا `30D` و Long-wait Threshold بین ۱ تا ۳۶۰۰ ثانیه انتخاب می‌کند.
+- Operator یک Queue ID از Dropdown صف‌های فعلی، `از تاریخ و ساعت`، `تا تاریخ و ساعت` و Long-wait Threshold عدد صحیح بین ۱ تا ۶۰ دقیقه انتخاب می‌کند.
 - `ENTERQUEUE` تعداد ورود، `CONNECT` تعداد اتصال به Agent، `ABANDON` فقط Caller-driven Abandon و `EXITWITHTIMEOUT` فقط Queue/System Timeout را می‌شمارد. این دو Outcome عمداً با هم ادغام نمی‌شوند.
 - Average Wait Before Abandon و Long-wait Abandon از Wait-time استاندارد رویداد `ABANDON` در `data3` محاسبه می‌شوند. اگر Denominator یا Average واقعاً وجود نداشته باشد، مقدار ساختگی صفر تولید نمی‌شود.
 - P50/P90 به روش Exact Nearest-rank فقط وقتی محاسبه می‌شود که کل Sample مربوط به Abandon حداکثر ۱۰۰۰ Row باشد. بالاتر از این Bound، Percentile حذف می‌شود و از Sample ناقص تخمین زده نمی‌شود؛ Aggregate KPIها همچنان قابل استفاده هستند.
@@ -1341,5 +1341,18 @@ Task 60 — Call Outcome Analytics به‌همراه اصلاح‌های ساز�
 - API جدید `history/queue-abandonment` و UI دو‌زبانه History اضافه شد و Caller Abandon را جدا از Queue Timeout نمایش می‌دهد.
 - تست‌های Synthetic Adapter/API/UI برای Event Separation، Wait Metrics، Percentile، Safety Bound، Schema Fail-closed و Input Validation پاس شده‌اند. در پیاده‌سازی Task 60B هیچ Probe جدیدی به PBX/Database واقعی انجام نشد.
 - Task بعدی بعد از Merge: **Task 61 — Call Quality Source Discovery**.
+
+</div>
+
+
+<div dir="rtl" align="right">
+
+## 2026-10-08 — اصلاح UX در Review مربوط به Task 60B
+
+- مقصد قبلی Call History در منوی Operations با عنوان **گزارشات** نمایش داده می‌شود و هم Analytics و هم Source History محدود را در خود دارد.
+- گزارش Call Outcome و Queue Abandonment به‌جای Rangeهای ثابت، دو ورودی Native از نوع Date-Time برای **از تاریخ و ساعت** و **تا تاریخ و ساعت** دارند. Backend فقط Window معتبر با `From < To` را قبول می‌کند و مقادیر همچنان Parameterized هستند.
+- Queue ID از Dropdown صف‌های فعلی Normalized AMI مربوط به PBX انتخاب می‌شود. حتی در حالت Source Capability غیرقابل‌استفاده، Form مخفی نمی‌شود و دلیل Availability جدا نمایش داده می‌شود.
+- Long-wait Threshold به‌صورت عدد صحیح برحسب **دقیقه** بین ۱ تا ۶۰ وارد می‌شود و Placeholder نمونه برای Operator دارد.
+- Schema Discovery اکنون علاوه بر `queue_log`، نام رایج FreePBX یعنی `queuelog` را هم پشتیبانی می‌کند؛ اگر بیش از یک Candidate معتبر وجود داشته باشد همچنان Fail-closed و `AMBIGUOUS` است.
 
 </div>

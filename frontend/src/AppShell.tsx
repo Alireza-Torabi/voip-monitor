@@ -256,7 +256,7 @@ export function AppShell({
         },
         {
           icon: 'history' as const,
-          label: fa ? 'تاریخچه تماس' : 'Call History',
+          label: fa ? 'گزارشات' : 'Reports',
           destination: { workspace: 'history' } as ShellDestination,
         },
       ],

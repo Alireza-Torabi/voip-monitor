@@ -1263,11 +1263,18 @@ describe('source-backed history workspace', () => {
             queueEvents: { availability: 'SCHEMA_MISMATCH' },
             queueAbandonment: { availability: 'SUPPORTED' },
           });
-        if (path === '/api/pbx-instances/history-pbx/history/call-outcomes?range=24H')
+        if (path === '/api/pbx-instances/history-pbx/telephony-state')
+          return response({
+            current: {
+              queues: [{ queueId: 'support', waitingCount: 0, updatedAt: '2026-10-08T00:00:00Z' }],
+            },
+          });
+        if (path.startsWith('/api/pbx-instances/history-pbx/history/call-outcomes?'))
           return response({
             instanceId: 'history-pbx',
             source: 'DATABASE',
-            range: '24H',
+            from: '2026-10-07T10:00:00',
+            to: '2026-10-08T10:00:00',
             totalCalls: 10,
             answeredCalls: 6,
             noAnswerCalls: 2,
@@ -1277,16 +1284,14 @@ describe('source-backed history workspace', () => {
             answerRatioPercent: 60,
             averageDurationSeconds: 31.5,
           });
-        if (
-          path ===
-          '/api/pbx-instances/history-pbx/history/queue-abandonment?queue=support&range=24H&longWaitSeconds=40'
-        )
+        if (path.startsWith('/api/pbx-instances/history-pbx/history/queue-abandonment?'))
           return response({
             instanceId: 'history-pbx',
             source: 'DATABASE',
-            range: '24H',
+            from: '2026-10-07T10:00:00',
+            to: '2026-10-08T10:00:00',
             queueId: 'support',
-            longWaitThresholdSeconds: 40,
+            longWaitThresholdMinutes: 2,
             enteredCalls: 20,
             connectedCalls: 14,
             abandonedCalls: 4,
@@ -1322,7 +1327,7 @@ describe('source-backed history workspace', () => {
         <HistoryWorkspace text={messages.en} profiles={[profile]} onUnauthorized={() => {}} />,
       ),
     );
-    expect(container.textContent).toContain('Source-backed history');
+    expect(container.textContent).toContain('Reports');
     expect(container.textContent).toContain('SUPPORTED');
     expect(container.textContent).toContain('NOT_FOUND');
     expect(container.textContent).toContain('Call outcome analytics');
@@ -1335,8 +1340,7 @@ describe('source-backed history workspace', () => {
     expect(container.textContent).toContain('31.5s');
     expect(container.textContent).toContain('Unknown');
 
-    await enter('history-queue-id', 'support');
-    await enter('history-long-wait-seconds', '40');
+    await enter('history-long-wait-minutes', '2');
     const queueAnalyzeButton = Array.from(container.querySelectorAll('button')).find((button) =>
       button.textContent?.includes('Analyze queue'),
     );

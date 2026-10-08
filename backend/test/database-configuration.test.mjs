@@ -314,12 +314,13 @@ test('source-backed history API is authenticated and bounded without raw SQL exp
         queueEvents: { availability: 'SCHEMA_MISMATCH' },
         queueAbandonment: { availability: 'SUPPORTED' },
       }),
-      callOutcomeAnalytics: async (id, range) => {
-        calls.push({ id, range });
+      callOutcomeAnalytics: async (id, from, to) => {
+        calls.push({ id, from, to });
         return {
           instanceId: id,
           source: 'DATABASE',
-          range,
+          from,
+          to,
           totalCalls: 10,
           answeredCalls: 6,
           noAnswerCalls: 2,
@@ -330,14 +331,15 @@ test('source-backed history API is authenticated and bounded without raw SQL exp
           averageDurationSeconds: 31.5,
         };
       },
-      queueAbandonmentAnalytics: async (id, queueId, range, longWaitThresholdSeconds) => {
-        calls.push({ id, queueId, range, longWaitThresholdSeconds });
+      queueAbandonmentAnalytics: async (id, queueId, from, to, longWaitThresholdMinutes) => {
+        calls.push({ id, queueId, from, to, longWaitThresholdMinutes });
         return {
           instanceId: id,
           source: 'DATABASE',
-          range,
+          from,
+          to,
           queueId,
-          longWaitThresholdSeconds,
+          longWaitThresholdMinutes,
           enteredCalls: 20,
           connectedCalls: 14,
           abandonedCalls: 4,
@@ -385,20 +387,32 @@ test('source-backed history API is authenticated and bounded without raw SQL exp
       assert.equal(body.items[0].recordId, 'synthetic-call-1');
       assert.deepEqual(calls, [{ id: PBX_ID, limit: 3 }]);
 
-      const outcomes = await fetch(app.base + basePath + '/call-outcomes?range=24H', {
-        headers: { cookie },
-      });
+      const outcomes = await fetch(
+        app.base + basePath + '/call-outcomes?from=2026-10-07T10%3A00&to=2026-10-08T10%3A00',
+        {
+          headers: { cookie },
+        },
+      );
       assert.equal(outcomes.status, 200);
       assert.equal((await outcomes.json()).answerRatioPercent, 60);
-      assert.deepEqual(calls.at(-1), { id: PBX_ID, range: '24H' });
+      assert.deepEqual(calls.at(-1), {
+        id: PBX_ID,
+        from: '2026-10-07T10:00',
+        to: '2026-10-08T10:00',
+      });
       assert.equal(
-        (await fetch(app.base + basePath + '/call-outcomes?range=365D', { headers: { cookie } }))
-          .status,
+        (
+          await fetch(app.base + basePath + '/call-outcomes?from=bad&to=2026-10-08T10%3A00', {
+            headers: { cookie },
+          })
+        ).status,
         400,
       );
 
       const queueAnalytics = await fetch(
-        app.base + basePath + '/queue-abandonment?queue=support&range=24H&longWaitSeconds=40',
+        app.base +
+          basePath +
+          '/queue-abandonment?queue=support&from=2026-10-07T10%3A00&to=2026-10-08T10%3A00&longWaitMinutes=2',
         { headers: { cookie } },
       );
       assert.equal(queueAnalytics.status, 200);
@@ -406,13 +420,16 @@ test('source-backed history API is authenticated and bounded without raw SQL exp
       assert.deepEqual(calls.at(-1), {
         id: PBX_ID,
         queueId: 'support',
-        range: '24H',
-        longWaitThresholdSeconds: 40,
+        from: '2026-10-07T10:00',
+        to: '2026-10-08T10:00',
+        longWaitThresholdMinutes: 2,
       });
       assert.equal(
         (
           await fetch(
-            app.base + basePath + '/queue-abandonment?queue=&range=24H&longWaitSeconds=40',
+            app.base +
+              basePath +
+              '/queue-abandonment?queue=&from=2026-10-07T10%3A00&to=2026-10-08T10%3A00&longWaitMinutes=2',
             { headers: { cookie } },
           )
         ).status,
@@ -421,7 +438,9 @@ test('source-backed history API is authenticated and bounded without raw SQL exp
       assert.equal(
         (
           await fetch(
-            app.base + basePath + '/queue-abandonment?queue=support&range=24H&longWaitSeconds=3601',
+            app.base +
+              basePath +
+              '/queue-abandonment?queue=support&from=2026-10-07T10%3A00&to=2026-10-08T10%3A00&longWaitMinutes=61',
             { headers: { cookie } },
           )
         ).status,
