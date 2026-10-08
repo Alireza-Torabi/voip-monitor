@@ -828,3 +828,10 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 
 412. **Do not use DOM screenshotting for report export:** queue PDF/XLSX graphics are generated directly from normalized analytics through Canvas so export completion does not depend on layout/screenshot engines.
 413. **Export operations must fail bounded:** asynchronous report image/workbook stages have a 15-second client-side timeout, and XLSX generation resolves to a Blob before the download is triggered.
+
+414. **Queue performance reports use aggregate-only source reads:** core counts and weighted averages are computed in SQL and never derived from the raw-history 1,000-row browsing sample.
+415. **Live-source queue reports use sequential daily chunks:** each database query covers at most one day, report windows are capped at 90 days, and queue selection is capped at 16. Multi-month/year reporting belongs on a read-only reporting replica.
+416. **Separate count aggregation from timing casts:** each chunk first groups queue/event counts; wait-time casts run only for wait-bearing events that were actually observed. This keeps high-volume unrelated events out of numeric-conversion work and preserves the queue/event/time index path.
+417. **RINGNOANSWER is an attempt metric, not a lost-call category:** repeated agent ring attempts can belong to one caller and can precede a successful answer. RINGCANCELED is likewise non-additive to call-level lost totals.
+418. **Expose event-window reconciliation instead of claiming cohort exactness:** unresolved unanswered and excess terminal outcomes remain visible so cross-window/custom-event variance is measurable without expensive call-id joins on the operational source.
+419. **Comprehensive report export stays client-side:** XLSX contains structured per-queue/total cells plus charts; PDF contains summary/charts plus detailed per-queue pages. Export does not trigger another history query or create report persistence.

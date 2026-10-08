@@ -313,6 +313,7 @@ test('source-backed history API is authenticated and bounded without raw SQL exp
         callEvents: { availability: 'NOT_FOUND' },
         queueEvents: { availability: 'SCHEMA_MISMATCH' },
         queueAbandonment: { availability: 'SUPPORTED' },
+        queuePerformance: { availability: 'SUPPORTED' },
       }),
       callOutcomeAnalytics: async (id, from, to) => {
         calls.push({ id, from, to });
@@ -349,6 +350,79 @@ test('source-backed history API is authenticated and bounded without raw SQL exp
           averageWaitBeforeAbandonSeconds: 37.5,
           p50WaitBeforeAbandonSeconds: 25,
           p90WaitBeforeAbandonSeconds: 70,
+        };
+      },
+      listQueueIds: async (id) => {
+        calls.push({ id, queueOptions: true });
+        return ['sales', 'support'];
+      },
+      queuePerformanceReport: async (id, queueIds, from, to) => {
+        calls.push({ id, queueIds, from, to });
+        return {
+          instanceId: id,
+          source: 'DATABASE',
+          from,
+          to,
+          queueIds: [...queueIds],
+          aggregationMode: 'SOURCE_AGGREGATE_CHUNKED',
+          chunkCount: 1,
+          queues: queueIds.map((queueId, index) => ({
+            queueId,
+            enteredCalls: index === 0 ? 20 : 10,
+            answeredCalls: index === 0 ? 14 : 8,
+            unansweredCalls: index === 0 ? 6 : 2,
+            confirmedLostCalls: index === 0 ? 6 : 2,
+            callerAbandonedCalls: index === 0 ? 4 : 1,
+            timedOutCalls: index === 0 ? 1 : 0,
+            exitWithKeyCalls: index === 0 ? 1 : 0,
+            forcedExitCalls: index === 0 ? 0 : 1,
+            systemFailureCalls: 0,
+            unresolvedUnansweredCalls: 0,
+            outcomeExcessCalls: 0,
+            ringNoAnswerAttempts: index === 0 ? 3 : 2,
+            ringCanceledAttempts: index === 0 ? 1 : 0,
+            incomingSharePercent: index === 0 ? 66.6666666667 : 33.3333333333,
+            answerRatePercent: index === 0 ? 70 : 80,
+            unansweredRatePercent: index === 0 ? 30 : 20,
+            confirmedLostRatePercent: index === 0 ? 30 : 20,
+            callerAbandonRatePercent: index === 0 ? 20 : 10,
+            timedOutRatePercent: index === 0 ? 5 : 0,
+            exitWithKeyRatePercent: index === 0 ? 5 : 0,
+            forcedExitRatePercent: index === 0 ? 0 : 10,
+            systemFailureRatePercent: 0,
+            unresolvedUnansweredRatePercent: 0,
+            ringNoAnswerAttemptsPer100Entered: index === 0 ? 15 : 20,
+            averageAnswerSeconds: 10,
+            averageWaitSeconds: index === 0 ? 30 : 20,
+          })),
+          total: {
+            enteredCalls: 30,
+            answeredCalls: 22,
+            unansweredCalls: 8,
+            confirmedLostCalls: 8,
+            callerAbandonedCalls: 5,
+            timedOutCalls: 1,
+            exitWithKeyCalls: 1,
+            forcedExitCalls: 1,
+            systemFailureCalls: 0,
+            unresolvedUnansweredCalls: 0,
+            outcomeExcessCalls: 0,
+            ringNoAnswerAttempts: 5,
+            ringCanceledAttempts: 1,
+            incomingSharePercent: 100,
+            answerRatePercent: 73.3333333333,
+            unansweredRatePercent: 26.6666666667,
+            confirmedLostRatePercent: 26.6666666667,
+            callerAbandonRatePercent: 16.6666666667,
+            timedOutRatePercent: 3.3333333333,
+            exitWithKeyRatePercent: 3.3333333333,
+            forcedExitRatePercent: 3.3333333333,
+            systemFailureRatePercent: 0,
+            unresolvedUnansweredRatePercent: 0,
+            ringNoAnswerAttemptsPer100Entered: 16.6666666667,
+            averageAnswerSeconds: 10,
+            averageWaitSeconds: 26.6666666667,
+          },
         };
       },
       listRecentCalls: async (id, limit) => {
@@ -405,6 +479,52 @@ test('source-backed history API is authenticated and bounded without raw SQL exp
           await fetch(app.base + basePath + '/call-outcomes?from=bad&to=2026-10-08T10%3A00', {
             headers: { cookie },
           })
+        ).status,
+        400,
+      );
+
+      const queueOptions = await fetch(app.base + basePath + '/queue-options', {
+        headers: { cookie },
+      });
+      assert.equal(queueOptions.status, 200);
+      assert.deepEqual((await queueOptions.json()).items, ['sales', 'support']);
+      assert.deepEqual(calls.at(-1), { id: PBX_ID, queueOptions: true });
+
+      const queuePerformance = await fetch(
+        app.base +
+          basePath +
+          '/queue-performance?queue=support&queue=sales&from=2026-10-07T10%3A00&to=2026-10-08T10%3A00',
+        { headers: { cookie } },
+      );
+      assert.equal(queuePerformance.status, 200);
+      const queuePerformanceBody = await queuePerformance.json();
+      assert.equal(queuePerformanceBody.total.enteredCalls, 30);
+      assert.equal(queuePerformanceBody.queues.length, 2);
+      assert.deepEqual(calls.at(-1), {
+        id: PBX_ID,
+        queueIds: ['support', 'sales'],
+        from: '2026-10-07T10:00',
+        to: '2026-10-08T10:00',
+      });
+      assert.equal(
+        (
+          await fetch(
+            app.base +
+              basePath +
+              '/queue-performance?from=2026-10-07T10%3A00&to=2026-10-08T10%3A00',
+            { headers: { cookie } },
+          )
+        ).status,
+        400,
+      );
+      assert.equal(
+        (
+          await fetch(
+            app.base +
+              basePath +
+              '/queue-performance?queue=support&queue=support&from=2026-10-07T10%3A00&to=2026-10-08T10%3A00',
+            { headers: { cookie } },
+          )
         ).status,
         400,
       );

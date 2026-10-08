@@ -96,6 +96,51 @@ export interface HistoricalQueueAbandonmentAnalytics {
   p50WaitBeforeAbandonSeconds?: number;
   p90WaitBeforeAbandonSeconds?: number;
 }
+
+export interface HistoricalQueuePerformanceMetrics {
+  enteredCalls: number;
+  answeredCalls: number;
+  unansweredCalls: number;
+  confirmedLostCalls: number;
+  callerAbandonedCalls: number;
+  timedOutCalls: number;
+  exitWithKeyCalls: number;
+  forcedExitCalls: number;
+  systemFailureCalls: number;
+  unresolvedUnansweredCalls: number;
+  outcomeExcessCalls: number;
+  ringNoAnswerAttempts: number;
+  ringCanceledAttempts: number;
+  incomingSharePercent: number;
+  answerRatePercent: number;
+  unansweredRatePercent: number;
+  confirmedLostRatePercent: number;
+  callerAbandonRatePercent: number;
+  timedOutRatePercent: number;
+  exitWithKeyRatePercent: number;
+  forcedExitRatePercent: number;
+  systemFailureRatePercent: number;
+  unresolvedUnansweredRatePercent: number;
+  ringNoAnswerAttemptsPer100Entered: number;
+  averageAnswerSeconds?: number;
+  averageWaitSeconds?: number;
+}
+
+export interface HistoricalQueuePerformanceRow extends HistoricalQueuePerformanceMetrics {
+  queueId: string;
+}
+
+export interface HistoricalQueuePerformanceReport {
+  instanceId: PbxInstanceId;
+  source: 'DATABASE';
+  from: string;
+  to: string;
+  queueIds: string[];
+  aggregationMode: 'SOURCE_AGGREGATE_CHUNKED';
+  chunkCount: number;
+  queues: HistoricalQueuePerformanceRow[];
+  total: HistoricalQueuePerformanceMetrics;
+}
 export type HistoricalCallEventType =
   | 'CHANNEL_STARTED'
   | 'CHANNEL_ENDED'
@@ -133,6 +178,7 @@ export interface HistoricalSourceCapabilities {
   callEvents: HistoricalDatasetCapability;
   queueEvents: HistoricalDatasetCapability;
   queueAbandonment: HistoricalDatasetCapability;
+  queuePerformance: HistoricalDatasetCapability;
 }
 
 /** Source timestamps are preserved without inventing a timezone for naive PBX database values. */

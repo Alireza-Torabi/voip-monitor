@@ -181,3 +181,9 @@ Task 60B operator review now includes a graphical queue-outcome report and brows
 ## 2026-10-08 — Export reliability follow-up
 
 The Task 60B Excel hang observed during operator review was isolated to the DOM-rendering stage that preceded workbook creation, not to the source query or XLSX writer. Report exports now draw graphics directly from the already-loaded analytics using Canvas, XLSX resolves to a Blob before download, and async export stages are bounded by a 15-second timeout. A remote headless Chrome validation completed the real Excel path successfully without any PBX/database query.
+
+## 2026-10-08 — Comprehensive queue report builder
+
+The Reports workspace now includes a multi-queue performance report builder in addition to the focused abandonment analytics. Operators choose a source-local date/time range and 1–16 queues, then receive per-queue and combined KPI totals, rates, timing comparisons, lost-reason breakdown, reconciliation notes, and charts. Queue choices come from a bounded source-backed queue catalog with current telephony state only as fallback.
+
+Core report metrics are exact source-side aggregates rather than sampled raw rows. To protect the operational PBX database, the backend executes one-day chunks sequentially, separates lightweight queue/event counting from event-specific timing aggregation, and caps live-source reports at 90 days. Longer reporting should target a read-only reporting replica. The report explicitly separates attempt-level RINGNOANSWER/RINGCANCELED from call-level lost outcomes and exposes cross-window reconciliation variance.

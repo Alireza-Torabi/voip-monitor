@@ -57,6 +57,34 @@ function fakeTransport({
     { wait_seconds: '45' },
     { wait_seconds: '70' },
   ],
+  queueCatalogRows = [{ queue_id: 'sales' }, { queue_id: 'support' }],
+  queuePerformanceCountRows = [
+    { queue_id: 'support', event_type: 'ENTERQUEUE', event_count: '20' },
+    { queue_id: 'support', event_type: 'CONNECT', event_count: '14' },
+    { queue_id: 'support', event_type: 'ABANDON', event_count: '4' },
+    { queue_id: 'support', event_type: 'EXITWITHTIMEOUT', event_count: '1' },
+    { queue_id: 'support', event_type: 'EXITWITHKEY', event_count: '1' },
+    { queue_id: 'support', event_type: 'RINGNOANSWER', event_count: '3' },
+    { queue_id: 'support', event_type: 'RINGCANCELED', event_count: '1' },
+    { queue_id: 'sales', event_type: 'ENTERQUEUE', event_count: '10' },
+    { queue_id: 'sales', event_type: 'CONNECT', event_count: '8' },
+    { queue_id: 'sales', event_type: 'ABANDON', event_count: '1' },
+    { queue_id: 'sales', event_type: 'EXITEMPTY', event_count: '1' },
+    { queue_id: 'sales', event_type: 'RINGNOANSWER', event_count: '2' },
+  ],
+  queuePerformanceTimingRows = {
+    CONNECT: [
+      { queue_id: 'support', wait_sum_seconds: '140', wait_samples: '14' },
+      { queue_id: 'sales', wait_sum_seconds: '80', wait_samples: '8' },
+    ],
+    ABANDON: [
+      { queue_id: 'support', wait_sum_seconds: '300', wait_samples: '4' },
+      { queue_id: 'sales', wait_sum_seconds: '50', wait_samples: '1' },
+    ],
+    EXITWITHTIMEOUT: [{ queue_id: 'support', wait_sum_seconds: '80', wait_samples: '1' }],
+    EXITWITHKEY: [{ queue_id: 'support', wait_sum_seconds: '80', wait_samples: '1' }],
+    EXITEMPTY: [{ queue_id: 'sales', wait_sum_seconds: '70', wait_samples: '1' }],
+  },
   outcomeRows = [
     {
       total_calls: '10',
@@ -75,6 +103,13 @@ function fakeTransport({
       calls.push({ pbxInstanceId, request, limits });
       if (request.sql.includes('information_schema.columns')) return result(schemaRows);
       if (request.sql.includes('COUNT(*) AS total_calls')) return result(outcomeRows);
+      if (request.sql.includes('SELECT DISTINCT') && request.sql.includes(' AS queue_id'))
+        return result(queueCatalogRows);
+      if (request.sql.includes(' AS event_count')) return result(queuePerformanceCountRows);
+      if (request.sql.includes(' AS wait_sum_seconds')) {
+        const eventName = request.parameters.at(-3);
+        return result(queuePerformanceTimingRows[eventName] ?? []);
+      }
       if (request.sql.includes(' AS entered_calls')) return result(queueAnalyticsRows);
       if (request.sql.includes(' AS wait_seconds')) return result(queueWaitRows);
       if (request.sql.includes(' AS record_id')) return result(callRows);
@@ -105,6 +140,7 @@ test('Asterisk conventional schema inspection and row normalization are provider
     callEvents: { availability: 'SUPPORTED' },
     queueEvents: { availability: 'SUPPORTED' },
     queueAbandonment: { availability: 'SUPPORTED' },
+    queuePerformance: { availability: 'SUPPORTED' },
   });
 
   const calls = await adapter.listRecentCalls(PBX_ID, 50);
@@ -260,6 +296,141 @@ test('queue abandonment analytics keep caller abandon separate from queue timeou
   assert.equal(waits.limits.maxRows, 4);
 });
 
+test('queue catalog is source-backed, distinct and bounded', async () => {
+  const transport = fakeTransport();
+  const adapter = adapterFor(configuration(), transport);
+  assert.deepEqual(await adapter.listQueueIds(PBX_ID), ['sales', 'support']);
+  const query = transport.calls.find(
+    (entry) =>
+      entry.request.sql.includes('SELECT DISTINCT') && entry.request.sql.includes(' AS queue_id'),
+  );
+  assert.ok(query);
+  assert.match(query.request.sql, /ORDER BY `queuename`/u);
+  assert.equal(query.limits.maxRows, 200);
+});
+
+test('queue performance report aggregates multiple queues with exact source-side totals', async () => {
+  const transport = fakeTransport();
+  const adapter = adapterFor(configuration(), transport);
+  const report = await adapter.queuePerformanceReport(PBX_ID, ['support', 'sales'], FROM, TO);
+
+  assert.equal(report.aggregationMode, 'SOURCE_AGGREGATE_CHUNKED');
+  assert.equal(report.chunkCount, 1);
+  assert.deepEqual(report.queueIds, ['support', 'sales']);
+  assert.equal(report.queues.length, 2);
+  assert.equal(report.queues[0].queueId, 'support');
+  assert.equal(report.queues[0].enteredCalls, 20);
+  assert.equal(report.queues[0].answeredCalls, 14);
+  assert.equal(report.queues[0].unansweredCalls, 6);
+  assert.equal(report.queues[0].confirmedLostCalls, 6);
+  assert.equal(report.queues[0].callerAbandonedCalls, 4);
+  assert.equal(report.queues[0].timedOutCalls, 1);
+  assert.equal(report.queues[0].exitWithKeyCalls, 1);
+  assert.equal(report.queues[0].ringNoAnswerAttempts, 3);
+  assert.equal(report.queues[0].averageAnswerSeconds, 10);
+  assert.equal(report.queues[0].averageWaitSeconds, 30);
+  assert.equal(report.queues[0].incomingSharePercent, (20 / 30) * 100);
+  assert.equal(report.queues[0].answerRatePercent, 70);
+  assert.equal(report.total.enteredCalls, 30);
+  assert.equal(report.total.answeredCalls, 22);
+  assert.equal(report.total.unansweredCalls, 8);
+  assert.equal(report.total.confirmedLostCalls, 8);
+  assert.equal(report.total.incomingSharePercent, 100);
+  assert.equal(report.total.averageAnswerSeconds, 10);
+  assert.equal(report.total.averageWaitSeconds, 800 / 30);
+
+  const countQuery = transport.calls.find((entry) => entry.request.sql.includes(' AS event_count'));
+  assert.ok(countQuery);
+  assert.match(countQuery.request.sql, /GROUP BY `queuename`, `event`/u);
+  assert.match(countQuery.request.sql, /`queuename` IN \(\?, \?\)/u);
+  assert.doesNotMatch(countQuery.request.sql, /UPPER\(TRIM\(CAST\(`event` AS CHAR\)\)\)/u);
+  assert.deepEqual(countQuery.request.parameters.slice(0, 4), [
+    'support',
+    'sales',
+    '2026-10-07 10:00:00',
+    '2026-10-08 10:00:00',
+  ]);
+  assert.equal(countQuery.limits.maxRows, 20);
+  const connectTiming = transport.calls.find(
+    (entry) =>
+      entry.request.sql.includes(' AS wait_sum_seconds') &&
+      entry.request.parameters.includes('CONNECT'),
+  );
+  assert.ok(connectTiming);
+  assert.match(connectTiming.request.sql, /`event` = \?/u);
+  assert.equal(connectTiming.limits.maxRows, 2);
+});
+
+test('queue performance report chunks long windows without a raw-row sampling limit', async () => {
+  const transport = fakeTransport({
+    queuePerformanceCountRows: [
+      { queue_id: 'support', event_type: 'ENTERQUEUE', event_count: '2' },
+      { queue_id: 'support', event_type: 'CONNECT', event_count: '1' },
+      { queue_id: 'support', event_type: 'ABANDON', event_count: '1' },
+      { queue_id: 'support', event_type: 'RINGNOANSWER', event_count: '1' },
+    ],
+    queuePerformanceTimingRows: {
+      CONNECT: [{ queue_id: 'support', wait_sum_seconds: '5', wait_samples: '1' }],
+      ABANDON: [{ queue_id: 'support', wait_sum_seconds: '10', wait_samples: '1' }],
+    },
+  });
+  const adapter = adapterFor(configuration(), transport);
+  const report = await adapter.queuePerformanceReport(
+    PBX_ID,
+    ['support'],
+    '2026-09-01T00:00',
+    '2026-09-16T00:00',
+  );
+  assert.equal(report.chunkCount, 15);
+  assert.equal(report.total.enteredCalls, 30);
+  assert.equal(report.total.answeredCalls, 15);
+  assert.equal(report.total.confirmedLostCalls, 15);
+  const queries = transport.calls.filter((entry) => entry.request.sql.includes(' AS event_count'));
+  assert.equal(queries.length, 15);
+  assert.match(queries[0].request.sql, /`time` < \?/u);
+  assert.match(queries[1].request.sql, /`time` < \?/u);
+  assert.match(queries[14].request.sql, /`time` <= \?/u);
+  assert.deepEqual(queries[0].request.parameters.slice(0, 3), [
+    'support',
+    '2026-09-01 00:00:00',
+    '2026-09-02 00:00:00',
+  ]);
+  assert.deepEqual(queries[14].request.parameters.slice(0, 3), [
+    'support',
+    '2026-09-15 00:00:00',
+    '2026-09-16 00:00:00',
+  ]);
+  const timingQueries = transport.calls.filter((entry) =>
+    entry.request.sql.includes(' AS wait_sum_seconds'),
+  );
+  assert.equal(timingQueries.length, 30);
+  await assert.rejects(
+    adapter.queuePerformanceReport(PBX_ID, ['support'], '2026-01-01T00:00', '2026-04-02T00:00'),
+    (error) => error instanceof HistoricalSourceSchemaError && error.code === 'INVALID_RANGE',
+  );
+});
+
+test('queue performance report validates bounded unique queue selection', async () => {
+  const adapter = adapterFor(configuration(), fakeTransport());
+  await assert.rejects(
+    adapter.queuePerformanceReport(PBX_ID, [], FROM, TO),
+    (error) => error instanceof HistoricalSourceSchemaError && error.code === 'INVALID_QUEUE',
+  );
+  await assert.rejects(
+    adapter.queuePerformanceReport(PBX_ID, ['support', 'support'], FROM, TO),
+    (error) => error instanceof HistoricalSourceSchemaError && error.code === 'INVALID_QUEUE',
+  );
+  await assert.rejects(
+    adapter.queuePerformanceReport(
+      PBX_ID,
+      Array.from({ length: 17 }, (_, index) => `queue-${index}`),
+      FROM,
+      TO,
+    ),
+    (error) => error instanceof HistoricalSourceSchemaError && error.code === 'INVALID_QUEUE',
+  );
+});
+
 test('PostgreSQL queue analytics keep normalized event comparison semantics', async () => {
   const schemaRows = fixture.schemaRows.map((row) => ({ ...row, table_schema: 'public' }));
   const transport = fakeTransport({ schemaRows });
@@ -332,6 +503,7 @@ test('FreePBX queuelog table alias is discovered for queue history and abandonme
   const capabilities = await adapter.inspect(PBX_ID);
   assert.equal(capabilities.queueEvents.availability, 'SUPPORTED');
   assert.equal(capabilities.queueAbandonment.availability, 'SUPPORTED');
+  assert.equal(capabilities.queuePerformance.availability, 'SUPPORTED');
 });
 
 test('schema discovery distinguishes missing, mismatched and ambiguous datasets', async () => {
@@ -353,6 +525,7 @@ test('schema discovery distinguishes missing, mismatched and ambiguous datasets'
   assert.equal(capabilities.callEvents.availability, 'AMBIGUOUS');
   assert.equal(capabilities.queueEvents.availability, 'NOT_FOUND');
   assert.equal(capabilities.queueAbandonment.availability, 'NOT_FOUND');
+  assert.equal(capabilities.queuePerformance.availability, 'NOT_FOUND');
 
   const inspection = transport.calls[0];
   assert.match(inspection.request.sql, /table_catalog = \?/u);
@@ -447,6 +620,7 @@ test('MySQL schema discovery is restricted to every configured database scope', 
   assert.equal(capabilities.calls.availability, 'SUPPORTED');
   assert.equal(capabilities.callEvents.availability, 'SUPPORTED');
   assert.equal(capabilities.queueEvents.availability, 'SUPPORTED');
+  assert.equal(capabilities.queuePerformance.availability, 'SUPPORTED');
   const inspection = transport.calls[0];
   assert.match(inspection.request.sql, /table_schema IN \(\?, \?\)/u);
   assert.deepEqual(inspection.request.parameters, [

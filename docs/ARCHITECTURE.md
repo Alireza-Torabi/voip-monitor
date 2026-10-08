@@ -213,3 +213,13 @@ MySQL/MariaDB queue analytics must keep indexed queue-event predicates sargable.
 ## Client-side report visualization and export boundary
 
 Queue report visualization is presentation-only and consumes the normalized analytics response already returned by the bounded read-only source adapter. The donut chart does not request raw history or create a new source query. PDF and XLSX exports are generated entirely in the browser from the loaded report state. Export graphics are drawn deterministically from normalized analytics with the Canvas API rather than by screenshotting the live DOM. PDF packages the generated report canvas, while XLSX stores filter/KPI values as cells and embeds a generated chart image. Export code does not persist generated reports on the VoIP Monitor backend. This preserves the monitor-only architecture and prevents report downloads from adding PBX/database load.
+
+## Multi-queue performance report execution boundary
+
+The queue performance report is source-owned, read-only, and aggregate-only. It never copies queue history into local monitoring storage and never relies on the raw-history 1,000-row browsing limit. Queue selection is bounded to 16 identifiers and the live-source report window is bounded to 90 days.
+
+Long windows are split into sequential one-day chunks. Each chunk first performs an index-friendly grouped count by queue and event. Timing queries are then issued only for wait-bearing events observed in that chunk, keeping numeric casts away from unrelated high-volume events. Chunk results are merged from sums and sample counts so averages remain weighted across queues and days. Individual database operations remain subject to the normal transport timeout, row bound, output bound, SSRF policy and connection-failure backoff.
+
+The report uses event-window semantics rather than an expensive cross-window call-cohort join. Known terminal outcomes are reported independently, while unresolved unanswered counts and excess terminal outcomes expose boundary/custom-event variance. This is deliberate: correctness uncertainty is visible rather than hidden, and the live PBX source is not subjected to unindexed historical call-correlation scans.
+
+`RINGNOANSWER` and `RINGCANCELED` are attempt-level observations and are never treated as additive lost-call outcomes. Confirmed lost categories are caller abandonment, queue timeout, menu-key exit, forced/empty-queue exit, and bounded agent/system terminal failure events. Export is a presentation boundary only: the loaded report is converted to multi-page PDF or structured XLSX entirely in the browser without another source query.

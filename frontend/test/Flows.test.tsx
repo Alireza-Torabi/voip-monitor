@@ -1262,7 +1262,111 @@ describe('source-backed history workspace', () => {
             callEvents: { availability: 'NOT_FOUND' },
             queueEvents: { availability: 'SCHEMA_MISMATCH' },
             queueAbandonment: { availability: 'SUPPORTED' },
+            queuePerformance: { availability: 'SUPPORTED' },
           });
+        if (path === '/api/pbx-instances/history-pbx/history/queue-options')
+          return response({ items: ['sales', 'support'] });
+        if (path.startsWith('/api/pbx-instances/history-pbx/history/queue-performance?')) {
+          const url = new URL(path, 'https://example.test');
+          expect(url.searchParams.getAll('queue')).toEqual(['sales', 'support']);
+          return response({
+            instanceId: 'history-pbx',
+            source: 'DATABASE',
+            from: '2026-10-01T10:00:00',
+            to: '2026-10-08T10:00:00',
+            queueIds: ['sales', 'support'],
+            aggregationMode: 'SOURCE_AGGREGATE_CHUNKED',
+            chunkCount: 1,
+            queues: [
+              {
+                queueId: 'sales',
+                enteredCalls: 10,
+                answeredCalls: 8,
+                unansweredCalls: 2,
+                confirmedLostCalls: 2,
+                callerAbandonedCalls: 1,
+                timedOutCalls: 0,
+                exitWithKeyCalls: 0,
+                forcedExitCalls: 1,
+                systemFailureCalls: 0,
+                unresolvedUnansweredCalls: 0,
+                outcomeExcessCalls: 0,
+                ringNoAnswerAttempts: 2,
+                ringCanceledAttempts: 0,
+                incomingSharePercent: 33.3333,
+                answerRatePercent: 80,
+                unansweredRatePercent: 20,
+                confirmedLostRatePercent: 20,
+                callerAbandonRatePercent: 10,
+                timedOutRatePercent: 0,
+                exitWithKeyRatePercent: 0,
+                forcedExitRatePercent: 10,
+                systemFailureRatePercent: 0,
+                unresolvedUnansweredRatePercent: 0,
+                ringNoAnswerAttemptsPer100Entered: 20,
+                averageAnswerSeconds: 10,
+                averageWaitSeconds: 20,
+              },
+              {
+                queueId: 'support',
+                enteredCalls: 20,
+                answeredCalls: 14,
+                unansweredCalls: 6,
+                confirmedLostCalls: 5,
+                callerAbandonedCalls: 4,
+                timedOutCalls: 1,
+                exitWithKeyCalls: 0,
+                forcedExitCalls: 0,
+                systemFailureCalls: 0,
+                unresolvedUnansweredCalls: 1,
+                outcomeExcessCalls: 0,
+                ringNoAnswerAttempts: 3,
+                ringCanceledAttempts: 1,
+                incomingSharePercent: 66.6667,
+                answerRatePercent: 70,
+                unansweredRatePercent: 30,
+                confirmedLostRatePercent: 25,
+                callerAbandonRatePercent: 20,
+                timedOutRatePercent: 5,
+                exitWithKeyRatePercent: 0,
+                forcedExitRatePercent: 0,
+                systemFailureRatePercent: 0,
+                unresolvedUnansweredRatePercent: 5,
+                ringNoAnswerAttemptsPer100Entered: 15,
+                averageAnswerSeconds: 10,
+                averageWaitSeconds: 30,
+              },
+            ],
+            total: {
+              enteredCalls: 30,
+              answeredCalls: 22,
+              unansweredCalls: 8,
+              confirmedLostCalls: 7,
+              callerAbandonedCalls: 5,
+              timedOutCalls: 1,
+              exitWithKeyCalls: 0,
+              forcedExitCalls: 1,
+              systemFailureCalls: 0,
+              unresolvedUnansweredCalls: 1,
+              outcomeExcessCalls: 0,
+              ringNoAnswerAttempts: 5,
+              ringCanceledAttempts: 1,
+              incomingSharePercent: 100,
+              answerRatePercent: 73.3333,
+              unansweredRatePercent: 26.6667,
+              confirmedLostRatePercent: 23.3333,
+              callerAbandonRatePercent: 16.6667,
+              timedOutRatePercent: 3.3333,
+              exitWithKeyRatePercent: 0,
+              forcedExitRatePercent: 3.3333,
+              systemFailureRatePercent: 0,
+              unresolvedUnansweredRatePercent: 3.3333,
+              ringNoAnswerAttemptsPer100Entered: 16.6667,
+              averageAnswerSeconds: 10,
+              averageWaitSeconds: 26.6667,
+            },
+          });
+        }
         if (path === '/api/pbx-instances/history-pbx/telephony-state')
           return response({
             current: {
@@ -1331,6 +1435,28 @@ describe('source-backed history workspace', () => {
     expect(container.textContent).toContain('Supported');
     expect(container.textContent).toContain('Not found');
     expect(container.textContent).toContain('Call outcome analytics');
+    expect(container.textContent).toContain('Queue performance report builder');
+    expect(container.textContent).toContain(
+      'Long ranges use sequential daily source-side aggregate chunks.',
+    );
+    const selectAllQueues = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Select all'),
+    );
+    await act(async () => selectAllQueues?.click());
+    const generateReport = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Generate report'),
+    );
+    await act(async () => generateReport?.click());
+    expect(container.textContent).toContain('Selected queues total');
+    expect(container.textContent).toContain('30');
+    expect(container.textContent).toContain('73.3%');
+    expect(container.textContent).toContain('Incoming, answered and confirmed-lost volume');
+    expect(container.textContent).toContain('Confirmed-lost reason breakdown');
+    expect(container.textContent).toContain('Average queue timing');
+    expect(container.textContent).toContain('Agent ring-no-answer attempts');
+    expect(container.textContent).toContain('Export report PDF');
+    expect(container.textContent).toContain('Export report Excel');
+    expect(container.textContent).toContain('Report reconciliation note');
 
     const analyzeButton = Array.from(container.querySelectorAll('button')).find((button) =>
       button.textContent?.includes('Analyze calls'),
@@ -1363,6 +1489,12 @@ describe('source-backed history workspace', () => {
     expect(container.textContent).toContain('پشتیبانی می‌شود');
     expect(container.textContent).toContain('پیدا نشد');
     expect(container.textContent).toContain('تحلیل ترک صف');
+    expect(container.textContent).toContain('گزارش‌ساز عملکرد صف‌ها');
+    expect(container.textContent).toContain(
+      'تجمیع دقیق و مستقیم از سوابق صف‌های انتخاب‌شده در منبع',
+    );
+    expect(container.textContent).toContain('خروجی PDF گزارش');
+    expect(container.textContent).toContain('خروجی Excel گزارش');
     expect(container.textContent).toContain('شناسه صف');
     expect(container.textContent).toContain('ترک صف توسط تماس‌گیرنده');
     expect(container.textContent).toContain('آستانه انتظار طولانی (دقیقه)');

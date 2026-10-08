@@ -16,6 +16,7 @@ import {
 } from './api.js';
 import type { messages } from './i18n.js';
 import { QueueOutcomeChart } from './QueueOutcomeChart.js';
+import { QueuePerformanceReportBuilder } from './QueuePerformanceReport.js';
 import { exportQueueReportExcel, exportQueueReportPdf } from './reportExport.js';
 import {
   DataSurface,
@@ -200,17 +201,26 @@ export function HistoryWorkspace({
   }
 
   async function loadQueueOptions(id: string) {
+    let queues: string[] = [];
     try {
-      const state = await api.telephonyState(id);
-      const queues = [
-        ...new Set((state.current?.queues ?? []).map((queue) => queue.queueId)),
-      ].sort();
-      setQueueOptions(queues);
-      setQueueId((current) => (current && queues.includes(current) ? current : (queues[0] ?? '')));
+      const source = await api.historyQueueOptions(id);
+      queues = [...new Set(source.items)].sort();
     } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 401) onUnauthorized();
-      else setQueueOptions([]);
+      if (cause instanceof ApiError && cause.status === 401) {
+        onUnauthorized();
+        return;
+      }
     }
+    if (queues.length === 0) {
+      try {
+        const state = await api.telephonyState(id);
+        queues = [...new Set((state.current?.queues ?? []).map((queue) => queue.queueId))].sort();
+      } catch (cause) {
+        if (cause instanceof ApiError && cause.status === 401) onUnauthorized();
+      }
+    }
+    setQueueOptions(queues);
+    setQueueId((current) => (current && queues.includes(current) ? current : (queues[0] ?? '')));
   }
 
   async function loadCallOutcomes(id: string) {
@@ -558,6 +568,19 @@ export function HistoryWorkspace({
             )}
           </Stack>
         </DataSurface>
+      ) : null}
+
+      {capabilities ? (
+        <QueuePerformanceReportBuilder
+          key={selected.id}
+          text={text}
+          pbxId={selected.id}
+          pbxName={selected.displayName}
+          queueOptions={queueOptions}
+          supported={capabilities.queuePerformance.availability === 'SUPPORTED'}
+          unavailableLabel={availabilityLabel(text, capabilities.queuePerformance.availability)}
+          onError={handleError}
+        />
       ) : null}
 
       {capabilities ? (

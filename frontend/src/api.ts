@@ -5,6 +5,7 @@ import type {
   HistoricalCallOutcomeAnalytics,
   HistoricalReportWindow,
   HistoricalQueueAbandonmentAnalytics,
+  HistoricalQueuePerformanceReport,
   OperationalHealthSnapshot,
   TrunkReliabilityState,
 } from '@voip-monitor/shared';
@@ -198,6 +199,7 @@ export interface HistoricalSourceCapabilities {
   callEvents: { availability: HistoricalDatasetAvailability };
   queueEvents: { availability: HistoricalDatasetAvailability };
   queueAbandonment: { availability: HistoricalDatasetAvailability };
+  queuePerformance: { availability: HistoricalDatasetAvailability };
 }
 
 export interface HistoricalCallRecord {
@@ -468,6 +470,19 @@ export const api = {
     request<HistoricalCallOutcomeAnalytics>(
       `/api/pbx-instances/${id}/history/call-outcomes?from=${encodeURIComponent(window.from)}&to=${encodeURIComponent(window.to)}`,
     ),
+  historyQueueOptions: (id: string) =>
+    request<{ items: string[] }>(`/api/pbx-instances/${id}/history/queue-options`),
+  historyQueuePerformance: (
+    id: string,
+    queueIds: readonly string[],
+    window: HistoricalReportWindow,
+  ) => {
+    const parameters = new URLSearchParams({ from: window.from, to: window.to });
+    for (const queueId of queueIds) parameters.append('queue', queueId);
+    return request<HistoricalQueuePerformanceReport>(
+      `/api/pbx-instances/${id}/history/queue-performance?${parameters.toString()}`,
+    );
+  },
   historyQueueAbandonment: (
     id: string,
     queueId: string,
