@@ -1328,8 +1328,8 @@ describe('source-backed history workspace', () => {
       ),
     );
     expect(container.textContent).toContain('Reports');
-    expect(container.textContent).toContain('SUPPORTED');
-    expect(container.textContent).toContain('NOT_FOUND');
+    expect(container.textContent).toContain('Supported');
+    expect(container.textContent).toContain('Not found');
     expect(container.textContent).toContain('Call outcome analytics');
 
     const analyzeButton = Array.from(container.querySelectorAll('button')).find((button) =>
@@ -1351,8 +1351,24 @@ describe('source-backed history workspace', () => {
     expect(container.textContent).toContain('37.5s');
     expect(container.textContent).toContain('P50 25.0s / P90 70.0s');
 
+    await act(async () =>
+      root.render(
+        <HistoryWorkspace text={messages.fa} profiles={[profile]} onUnauthorized={() => {}} />,
+      ),
+    );
+    expect(container.textContent).toContain('گزارشات');
+    expect(container.textContent).toContain('پشتیبانی می‌شود');
+    expect(container.textContent).toContain('پیدا نشد');
+    expect(container.textContent).toContain('تحلیل ترک صف');
+    expect(container.textContent).toContain('شناسه صف');
+    expect(container.textContent).toContain('ترک صف توسط تماس‌گیرنده');
+    expect(container.textContent).toContain('آستانه انتظار طولانی (دقیقه)');
+    expect(container.textContent).toContain(
+      'این آستانه فقط تعداد «ترک صف پس از انتظار طولانی» را تغییر می‌دهد',
+    );
+
     const loadButton = Array.from(container.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('Load recent rows'),
+      button.textContent?.includes('بارگذاری ردیف‌های اخیر'),
     );
     await act(async () => loadButton?.click());
 

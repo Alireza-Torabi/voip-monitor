@@ -1309,3 +1309,11 @@ Current merge gate: `feature/call-outcome-analytics` must merge first. Do not be
 - **Root cause:** the MySQL/MariaDB queue analytics predicate normalized `event` with `UPPER(TRIM(CAST(...)))`. Applying a function to the indexed event column prevented the optimizer from using the event/time portions of the composite index efficiently and could turn a bounded report into a large queue-level scan.
 - **Resolution:** MySQL/MariaDB queue analytics now compare the canonical queue event column directly. The deployed source uses a case-insensitive collation and canonical Asterisk event names, so direct equality/`IN` preserves semantics while restoring index sargability. PostgreSQL retains the normalization expression to preserve its case-sensitive semantics.
 - **Validation:** read-only `EXPLAIN` on the real source showed the optimized predicate selecting the composite queue/event/time index with a dramatically lower row estimate. A controlled read-only aggregate over a two-day real-source window completed in tens of milliseconds. No PBX/database mutation was performed.
+
+
+## 2026-10-08 — Task 60B Persian reporting UX clarification
+
+- The Persian Reports workspace now uses fully localized operator-facing labels, errors, capability states, queue-abandonment KPI names, and explanatory copy. Literal Asterisk source event codes such as `ABANDON` and `EXITWITHTIMEOUT` remain visible only where their exact source semantics matter.
+- The long-wait threshold control now explicitly states that it changes only the long-wait-abandon count; base queue KPIs (entries, connected, caller abandons, queue timeout, abandonment rate, average abandon wait) are independent of that threshold for the same queue/time window.
+- History capability badges are localized instead of rendering raw enum values such as `SUPPORTED`, `NOT_FOUND`, `SCHEMA_MISMATCH`, or `AMBIGUOUS` in Persian mode.
+- Frontend regression coverage renders the Reports workspace in Persian and asserts the localized queue labels/capability states.

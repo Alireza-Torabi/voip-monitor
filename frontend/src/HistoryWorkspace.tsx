@@ -54,6 +54,13 @@ function statusTone(value: HistoricalDatasetAvailability) {
   return value === 'SUPPORTED' ? 'green' : value === 'AMBIGUOUS' ? 'orange' : 'gray';
 }
 
+function availabilityLabel(text: TextMap, value: HistoricalDatasetAvailability): string {
+  if (value === 'SUPPORTED') return text.historyAvailabilitySupported;
+  if (value === 'NOT_FOUND') return text.historyAvailabilityNotFound;
+  if (value === 'SCHEMA_MISMATCH') return text.historyAvailabilitySchemaMismatch;
+  return text.historyAvailabilityAmbiguous;
+}
+
 function HistoryDatum({
   label,
   value,
@@ -321,7 +328,7 @@ export function HistoryWorkspace({
                 <HStack gap="2">
                   <Text fontSize="11px">{label}</Text>
                   <Badge variant="subtle" colorPalette={statusTone(state)} fontSize="9px">
-                    {state}
+                    {availabilityLabel(text, state)}
                   </Badge>
                 </HStack>
               </Button>
@@ -460,7 +467,7 @@ export function HistoryWorkspace({
             {capabilities.queueAbandonment.availability !== 'SUPPORTED' ? (
               <Text color="noc.textSubtle" fontSize="12px">
                 {text.historyQueueAbandonmentUnavailable}{' '}
-                {capabilities.queueAbandonment.availability}
+                {availabilityLabel(text, capabilities.queueAbandonment.availability)}
               </Text>
             ) : null}
             <SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} gap="3">
@@ -534,6 +541,9 @@ export function HistoryWorkspace({
                   placeholder={text.historyQueueAbandonmentThresholdPlaceholder}
                   dir="ltr"
                 />
+                <Text fontSize="10px" color="noc.textSubtle" mt="1.5">
+                  {text.historyQueueAbandonmentThresholdHint}
+                </Text>
               </Box>
             </SimpleGrid>
             <HStack gap="2">
