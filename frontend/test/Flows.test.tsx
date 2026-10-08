@@ -1304,6 +1304,13 @@ describe('source-backed history workspace', () => {
                 systemFailureRatePercent: 0,
                 unresolvedUnansweredRatePercent: 0,
                 ringNoAnswerAttemptsPer100Entered: 20,
+                uniqueCallers: 7,
+                repeatCallers: 2,
+                repeatCallerRatePercent: 28.5714,
+                averageCallsPerCaller: 1.4286,
+                callsFromRepeatCallers: 5,
+                repeatCallSharePercent: 50,
+                callerIdentificationRatePercent: 100,
                 averageAnswerSeconds: 10,
                 averageWaitSeconds: 20,
               },
@@ -1333,6 +1340,13 @@ describe('source-backed history workspace', () => {
                 systemFailureRatePercent: 0,
                 unresolvedUnansweredRatePercent: 5,
                 ringNoAnswerAttemptsPer100Entered: 15,
+                uniqueCallers: 12,
+                repeatCallers: 4,
+                repeatCallerRatePercent: 33.3333,
+                averageCallsPerCaller: 1.6667,
+                callsFromRepeatCallers: 10,
+                repeatCallSharePercent: 50,
+                callerIdentificationRatePercent: 100,
                 averageAnswerSeconds: 10,
                 averageWaitSeconds: 30,
               },
@@ -1362,9 +1376,42 @@ describe('source-backed history workspace', () => {
               systemFailureRatePercent: 0,
               unresolvedUnansweredRatePercent: 3.3333,
               ringNoAnswerAttemptsPer100Entered: 16.6667,
+              uniqueCallers: 17,
+              repeatCallers: 5,
+              repeatCallerRatePercent: 29.4118,
+              averageCallsPerCaller: 1.7647,
+              callsFromRepeatCallers: 15,
+              repeatCallSharePercent: 50,
+              callerIdentificationRatePercent: 100,
               averageAnswerSeconds: 10,
               averageWaitSeconds: 26.6667,
             },
+          });
+        }
+        if (path.startsWith('/api/pbx-instances/history-pbx/history/queue-performance-details?')) {
+          const url = new URL(path, 'https://example.test');
+          expect(url.searchParams.getAll('queue')).toEqual(['sales', 'support']);
+          expect(url.searchParams.get('reportTo')).toBe('2026-10-08T10:00:00');
+          return response({
+            instanceId: 'history-pbx',
+            source: 'DATABASE',
+            from: url.searchParams.get('from'),
+            to: url.searchParams.get('to'),
+            reportTo: url.searchParams.get('reportTo'),
+            queueIds: ['sales', 'support'],
+            items: [
+              {
+                queueId: 'support',
+                callId: 'detail-call-1',
+                callerNumber: '1001',
+                enteredAt: '2026-10-07 10:05:00',
+                initialPosition: 2,
+                outcome: 'ANSWERED',
+                agentId: 'Local/1001',
+                connectedAt: '2026-10-07 10:05:12',
+                waitSeconds: 12,
+              },
+            ],
           });
         }
         if (path === '/api/pbx-instances/history-pbx/telephony-state')
@@ -1450,12 +1497,18 @@ describe('source-backed history workspace', () => {
     expect(container.textContent).toContain('Selected queues total');
     expect(container.textContent).toContain('30');
     expect(container.textContent).toContain('73.3%');
+    expect(container.textContent).toContain('Unique callers');
+    expect(container.textContent).toContain('Repeat callers');
+    expect(container.textContent).toContain('Avg calls per caller');
+    expect(container.textContent).toContain('Unique and repeat callers');
     expect(container.textContent).toContain('Incoming, answered and confirmed-lost volume');
     expect(container.textContent).toContain('Confirmed-lost reason breakdown');
     expect(container.textContent).toContain('Average queue timing');
     expect(container.textContent).toContain('Agent ring-no-answer attempts');
     expect(container.textContent).toContain('Export report PDF');
     expect(container.textContent).toContain('Export report Excel');
+    expect(container.textContent).toContain('Export filtered call details Excel');
+    expect(container.textContent).toContain('sensitive operational data');
     expect(container.textContent).toContain('Report reconciliation note');
 
     const analyzeButton = Array.from(container.querySelectorAll('button')).find((button) =>
@@ -1495,6 +1548,9 @@ describe('source-backed history workspace', () => {
     );
     expect(container.textContent).toContain('خروجی PDF گزارش');
     expect(container.textContent).toContain('خروجی Excel گزارش');
+    expect(container.textContent).toContain('تماس‌گیرنده یکتا');
+    expect(container.textContent).toContain('تماس‌گیرنده تکراری');
+    expect(container.textContent).toContain('خروجی Excel ریز تماس‌های فیلترشده');
     expect(container.textContent).toContain('شناسه صف');
     expect(container.textContent).toContain('ترک صف توسط تماس‌گیرنده');
     expect(container.textContent).toContain('آستانه انتظار طولانی (دقیقه)');

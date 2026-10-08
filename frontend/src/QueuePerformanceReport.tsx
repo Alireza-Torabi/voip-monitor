@@ -12,6 +12,7 @@ import {
 } from '@chakra-ui/react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type {
+  HistoricalQueueCallDetail,
   HistoricalQueuePerformanceMetrics,
   HistoricalQueuePerformanceReport,
   HistoricalQueuePerformanceRow,
@@ -19,6 +20,7 @@ import type {
 import { api } from './api.js';
 import type { messages } from './i18n.js';
 import {
+  exportQueueCallDetailsExcel,
   exportQueuePerformanceExcel,
   exportQueuePerformancePdf,
 } from './queuePerformanceExport.js';
@@ -39,6 +41,8 @@ const COLORS = {
   answerTime: '#4DA3FF',
   waitTime: '#B77CFF',
   attempts: '#F6B94A',
+  uniqueCaller: '#4DA3FF',
+  repeatCaller: '#FF8E4D',
 } as const;
 
 function dateTimeLocalValue(date: Date): string {
@@ -253,9 +257,52 @@ function LostBreakdown(props: { rows: readonly HistoricalQueuePerformanceRow[]; 
   );
 }
 
+const MAX_DETAIL_EXPORT_ROWS = 75_000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function sourceLocalMillis(value: string): number {
+  return Date.parse(value.endsWith('Z') ? value : value + 'Z');
+}
+
+function sourceLocalFromMillis(value: number): string {
+  const date = new Date(value);
+  const pad = (part: number) => String(part).padStart(2, '0');
+  return (
+    date.getUTCFullYear() +
+    '-' +
+    pad(date.getUTCMonth() + 1) +
+    '-' +
+    pad(date.getUTCDate()) +
+    'T' +
+    pad(date.getUTCHours()) +
+    ':' +
+    pad(date.getUTCMinutes()) +
+    ':' +
+    pad(date.getUTCSeconds())
+  );
+}
+
+function detailExportWindows(from: string, to: string): { from: string; to: string }[] {
+  const fromMs = sourceLocalMillis(from);
+  const toMs = sourceLocalMillis(to);
+  if (!Number.isFinite(fromMs) || !Number.isFinite(toMs) || fromMs >= toMs) return [];
+  const windows: { from: string; to: string }[] = [];
+  let cursor = fromMs;
+  while (cursor < toMs) {
+    const end = Math.min(cursor + DAY_MS, toMs);
+    windows.push({ from: sourceLocalFromMillis(cursor), to: sourceLocalFromMillis(end) });
+    cursor = end;
+  }
+  return windows;
+}
+
 function metricCells(row: HistoricalQueuePerformanceMetrics, text: TextMap): string[] {
   return [
     row.enteredCalls.toLocaleString() + ' (' + percent(row.incomingSharePercent) + ')',
+    row.uniqueCallers.toLocaleString() + ' (' + percent(row.callerIdentificationRatePercent) + ')',
+    row.repeatCallers.toLocaleString() + ' (' + percent(row.repeatCallerRatePercent) + ')',
+    row.averageCallsPerCaller.toFixed(2),
+    row.callsFromRepeatCallers.toLocaleString() + ' (' + percent(row.repeatCallSharePercent) + ')',
     row.answeredCalls.toLocaleString() + ' (' + percent(row.answerRatePercent) + ')',
     row.unansweredCalls.toLocaleString() + ' (' + percent(row.unansweredRatePercent) + ')',
     row.confirmedLostCalls.toLocaleString() + ' (' + percent(row.confirmedLostRatePercent) + ')',
@@ -295,7 +342,10 @@ export function QueuePerformanceReportBuilder(props: {
   const [selectedQueues, setSelectedQueues] = useState<string[]>([]);
   const [report, setReport] = useState<HistoricalQueuePerformanceReport | null>(null);
   const [loading, setLoading] = useState(false);
-  const [exporting, setExporting] = useState<'pdf' | 'excel' | null>(null);
+  const [exporting, setExporting] = useState<'pdf' | 'excel' | 'details' | null>(null);
+  const [detailProgress, setDetailProgress] = useState<{ current: number; total: number } | null>(
+    null,
+  );
   const [localError, setLocalError] = useState('');
 
   useEffect(() => {
@@ -324,7 +374,7 @@ export function QueuePerformanceReportBuilder(props: {
       !to ||
       from >= to ||
       !Number.isFinite(rangeMs) ||
-      rangeMs > 90 * 24 * 60 * 60 * 1000 ||
+      rangeMs > 30 * 24 * 60 * 60 * 1000 ||
       selectedQueues.length === 0 ||
       selectedQueues.length > 16
     ) {
@@ -358,6 +408,50 @@ export function QueuePerformanceReportBuilder(props: {
     }
   }
 
+  async function exportDetails() {
+    if (!report) return;
+    if (report.total.enteredCalls > MAX_DETAIL_EXPORT_ROWS) {
+      setLocalError(props.text.historyQueuePerformanceDetailExportTooLarge);
+      return;
+    }
+    const windows = detailExportWindows(report.from, report.to);
+    if (windows.length === 0) {
+      setLocalError(props.text.historyQueuePerformanceExportFailed);
+      return;
+    }
+    setExporting('details');
+    setDetailProgress({ current: 0, total: windows.length });
+    setLocalError('');
+    const details: HistoricalQueueCallDetail[] = [];
+    try {
+      for (const [index, window] of windows.entries()) {
+        const chunk = await api.historyQueuePerformanceDetails(
+          props.pbxId,
+          report.queueIds,
+          window,
+          report.to,
+        );
+        details.push(...chunk.items);
+        if (details.length > MAX_DETAIL_EXPORT_ROWS) {
+          setLocalError(props.text.historyQueuePerformanceDetailExportTooLarge);
+          return;
+        }
+        setDetailProgress({ current: index + 1, total: windows.length });
+      }
+      await exportQueueCallDetailsExcel({
+        report,
+        pbxName: props.pbxName,
+        text: props.text,
+        details,
+      });
+    } catch {
+      setLocalError(props.text.historyQueuePerformanceExportFailed);
+    } finally {
+      setDetailProgress(null);
+      setExporting(null);
+    }
+  }
+
   const allSelectable = props.queueOptions.slice(0, 16);
   const qualityWarning =
     report !== null &&
@@ -365,6 +459,10 @@ export function QueuePerformanceReportBuilder(props: {
   const tableHeaders = [
     props.text.historyQueueAbandonmentQueue,
     props.text.historyQueuePerformanceIncoming,
+    props.text.historyQueuePerformanceUniqueCallers,
+    props.text.historyQueuePerformanceRepeatCallers,
+    props.text.historyQueuePerformanceAvgCallsPerCaller,
+    props.text.historyQueuePerformanceCallsFromRepeatCallers,
     props.text.historyQueuePerformanceAnswered,
     props.text.historyQueuePerformanceUnanswered,
     props.text.historyQueuePerformanceConfirmedLost,
@@ -530,11 +628,30 @@ export function QueuePerformanceReportBuilder(props: {
                   {report.chunkCount} {props.text.historyQueuePerformanceChunkUnit}
                 </Badge>
               </HStack>
-              <SimpleGrid columns={{ base: 2, md: 4, xl: 7 }} gap="3">
+              <SimpleGrid columns={{ base: 2, md: 4, xl: 6 }} gap="3">
                 <SummaryCard
                   label={props.text.historyQueuePerformanceIncoming}
                   value={report.total.enteredCalls.toLocaleString()}
                   detail="100%"
+                />
+                <SummaryCard
+                  label={props.text.historyQueuePerformanceUniqueCallers}
+                  value={report.total.uniqueCallers.toLocaleString()}
+                  detail={percent(report.total.callerIdentificationRatePercent)}
+                />
+                <SummaryCard
+                  label={props.text.historyQueuePerformanceRepeatCallers}
+                  value={report.total.repeatCallers.toLocaleString()}
+                  detail={percent(report.total.repeatCallerRatePercent)}
+                />
+                <SummaryCard
+                  label={props.text.historyQueuePerformanceAvgCallsPerCaller}
+                  value={report.total.averageCallsPerCaller.toFixed(2)}
+                />
+                <SummaryCard
+                  label={props.text.historyQueuePerformanceCallsFromRepeatCallers}
+                  value={report.total.callsFromRepeatCallers.toLocaleString()}
+                  detail={percent(report.total.repeatCallSharePercent)}
                 />
                 <SummaryCard
                   label={props.text.historyQueuePerformanceAnswered}
@@ -631,6 +748,23 @@ export function QueuePerformanceReportBuilder(props: {
               />
             </SimpleGrid>
             <GroupedBars
+              title={props.text.historyQueuePerformanceCallerChart}
+              rows={report.queues}
+              series={[
+                {
+                  label: props.text.historyQueuePerformanceUniqueCallers,
+                  key: 'uniqueCallers',
+                  color: COLORS.uniqueCaller,
+                },
+                {
+                  label: props.text.historyQueuePerformanceRepeatCallers,
+                  key: 'repeatCallers',
+                  color: COLORS.repeatCaller,
+                },
+              ]}
+            />
+
+            <GroupedBars
               title={props.text.historyQueuePerformanceAttemptsChart}
               rows={report.queues}
               series={[
@@ -644,7 +778,7 @@ export function QueuePerformanceReportBuilder(props: {
 
             <DataSurface title={props.text.historyQueuePerformanceTableTitle}>
               <Box overflowX="auto">
-                <Table.Root size="sm" interactive minW="1900px">
+                <Table.Root size="sm" interactive minW="2500px">
                   <Table.Header bg="noc.surface2">
                     <Table.Row>
                       {tableHeaders.map((header, index) => (
@@ -750,7 +884,21 @@ export function QueuePerformanceReportBuilder(props: {
                   ? props.text.historyQueuePerformanceExportingExcel
                   : props.text.historyQueuePerformanceExportExcel}
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={exporting !== null || report.total.enteredCalls === 0}
+                onClick={() => void exportDetails()}
+              >
+                {exporting === 'details'
+                  ? props.text.historyQueuePerformanceExportingDetailsExcel +
+                    (detailProgress ? ` ${detailProgress.current}/${detailProgress.total}` : '')
+                  : props.text.historyQueuePerformanceExportDetailsExcel}
+              </Button>
             </HStack>
+            <Text fontSize="9px" color="noc.textSubtle">
+              {props.text.historyQueuePerformanceDetailExportHint}
+            </Text>
           </Stack>
         ) : null}
       </Stack>

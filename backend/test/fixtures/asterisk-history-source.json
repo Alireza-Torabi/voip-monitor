@@ -109,6 +109,11 @@
       "table_schema": "pbx_reporting",
       "table_name": "queue_log",
       "column_name": "data4"
+    },
+    {
+      "table_schema": "pbx_reporting",
+      "table_name": "queue_log",
+      "column_name": "data2"
     }
   ],
   "callRows": [

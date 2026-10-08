@@ -1,3 +1,4 @@
+import { createHmac, randomBytes } from 'node:crypto';
 import type {
   HistoricalCallDisposition,
   HistoricalCallOutcomeAnalytics,
@@ -7,6 +8,9 @@ import type {
   HistoricalCallRecord,
   HistoricalDatasetAvailability,
   HistoricalQueueAbandonmentAnalytics,
+  HistoricalQueueCallDetail,
+  HistoricalQueueCallDetailChunk,
+  HistoricalQueueCallOutcome,
   HistoricalQueuePerformanceMetrics,
   HistoricalQueuePerformanceReport,
   HistoricalQueuePerformanceRow,
@@ -28,8 +32,12 @@ const MAX_QUEUE_PERCENTILE_ROWS = 1_000;
 const MAX_LONG_WAIT_THRESHOLD_MINUTES = 60;
 const MAX_QUEUE_REPORT_QUEUES = 16;
 const MAX_QUEUE_CATALOG_ROWS = 200;
-const MAX_QUEUE_REPORT_DAYS = 90;
+const MAX_QUEUE_REPORT_DAYS = 30;
 const QUEUE_REPORT_CHUNK_DAYS = 1;
+const MAX_ADAPTIVE_SOURCE_ROWS = 1_000;
+const MAX_QUEUE_DETAIL_ITEMS_PER_CHUNK = 20_000;
+const QUEUE_DETAIL_CHUNK_MAX_MS = 24 * 60 * 60 * 1000;
+const QUEUE_DETAIL_OUTCOME_LOOKAHEAD_MS = 24 * 60 * 60 * 1000;
 
 const DATASETS = {
   calls: {
@@ -54,8 +62,8 @@ const DATASETS = {
   },
   queuePerformance: {
     tables: ['queue_log', 'queuelog'],
-    required: ['time', 'callid', 'queuename', 'event', 'data1', 'data3'],
-    optional: ['data4'],
+    required: ['time', 'callid', 'queuename', 'event', 'data1', 'data2', 'data3'],
+    optional: ['agent', 'data4'],
   },
 } as const;
 
@@ -105,7 +113,8 @@ export type HistoricalSourceSchemaErrorCode =
   | 'INVALID_LIMIT'
   | 'INVALID_RANGE'
   | 'INVALID_QUEUE'
-  | 'INVALID_THRESHOLD';
+  | 'INVALID_THRESHOLD'
+  | 'EXPORT_TOO_LARGE';
 
 export class HistoricalSourceSchemaError extends Error {
   constructor(readonly code: HistoricalSourceSchemaErrorCode) {
@@ -231,6 +240,161 @@ function splitQueueReportWindow(window: ValidatedReportWindow): ValidatedReportW
     cursor = end;
   }
   return chunks;
+}
+
+function reportWindowFromMillis(fromMs: number, toMs: number): ValidatedReportWindow {
+  const from = sourceLocalFromMillis(fromMs);
+  const to = sourceLocalFromMillis(toMs);
+  return {
+    from,
+    to,
+    queryFrom: from.replace('T', ' '),
+    queryTo: to.replace('T', ' '),
+  };
+}
+
+function splitWindowHalf(
+  window: ValidatedReportWindow,
+): [ValidatedReportWindow, ValidatedReportWindow] {
+  const fromMs = sourceLocalMillis(window.from);
+  const toMs = sourceLocalMillis(window.to);
+  if (toMs - fromMs <= 1_000) throw new HistoricalSourceSchemaError('INVALID_SOURCE_ROW');
+  const midpoint = fromMs + Math.floor((toMs - fromMs) / 2);
+  return [reportWindowFromMillis(fromMs, midpoint), reportWindowFromMillis(midpoint, toMs)];
+}
+
+function adaptiveHistoryLimits(): DatabaseQueryLimits {
+  return {
+    timeoutMs: HISTORY_TIMEOUT_MS,
+    maxRows: MAX_ADAPTIVE_SOURCE_ROWS,
+    maxOutputBytes: 2 * 1024 * 1024,
+  };
+}
+
+async function boundedRowCount(
+  transport: HistoricalDatabaseQueryPort,
+  pbxInstanceId: PbxInstanceId,
+  request: ReadOnlyDatabaseQuery,
+): Promise<number> {
+  const result = await transport.query(pbxInstanceId, request, historyLimits(1));
+  if (result.rows.length !== 1) throw new HistoricalSourceSchemaError('INVALID_SOURCE_ROW');
+  return aggregateInteger(result.rows[0]?.bounded_row_count);
+}
+
+async function queryAdaptiveRows(
+  transport: HistoricalDatabaseQueryPort,
+  pbxInstanceId: PbxInstanceId,
+  window: ValidatedReportWindow,
+  inclusiveEnd: boolean,
+  buildCountQuery: (window: ValidatedReportWindow, inclusiveEnd: boolean) => ReadOnlyDatabaseQuery,
+  buildRowsQuery: (window: ValidatedReportWindow, inclusiveEnd: boolean) => ReadOnlyDatabaseQuery,
+): Promise<DatabaseResultRow[]> {
+  const count = await boundedRowCount(
+    transport,
+    pbxInstanceId,
+    buildCountQuery(window, inclusiveEnd),
+  );
+  if (count === 0) return [];
+  if (count > MAX_ADAPTIVE_SOURCE_ROWS) {
+    const [first, second] = splitWindowHalf(window);
+    return [
+      ...(await queryAdaptiveRows(
+        transport,
+        pbxInstanceId,
+        first,
+        false,
+        buildCountQuery,
+        buildRowsQuery,
+      )),
+      ...(await queryAdaptiveRows(
+        transport,
+        pbxInstanceId,
+        second,
+        inclusiveEnd,
+        buildCountQuery,
+        buildRowsQuery,
+      )),
+    ];
+  }
+  const result = await transport.query(
+    pbxInstanceId,
+    buildRowsQuery(window, inclusiveEnd),
+    adaptiveHistoryLimits(),
+  );
+  if (result.rows.length !== count) throw new HistoricalSourceSchemaError('INVALID_SOURCE_ROW');
+  return [...result.rows];
+}
+
+async function queryAdaptiveConsume(
+  transport: HistoricalDatabaseQueryPort,
+  pbxInstanceId: PbxInstanceId,
+  window: ValidatedReportWindow,
+  inclusiveEnd: boolean,
+  buildCountQuery: (window: ValidatedReportWindow, inclusiveEnd: boolean) => ReadOnlyDatabaseQuery,
+  buildRowsQuery: (window: ValidatedReportWindow, inclusiveEnd: boolean) => ReadOnlyDatabaseQuery,
+  consumeRows: (rows: readonly DatabaseResultRow[]) => void,
+): Promise<void> {
+  const rows = await queryAdaptiveRows(
+    transport,
+    pbxInstanceId,
+    window,
+    inclusiveEnd,
+    buildCountQuery,
+    buildRowsQuery,
+  );
+  consumeRows(rows);
+}
+
+async function queryAdaptiveGroupedConsume(
+  transport: HistoricalDatabaseQueryPort,
+  pbxInstanceId: PbxInstanceId,
+  window: ValidatedReportWindow,
+  inclusiveEnd: boolean,
+  buildSourceCountQuery: (
+    window: ValidatedReportWindow,
+    inclusiveEnd: boolean,
+  ) => ReadOnlyDatabaseQuery,
+  buildGroupedRowsQuery: (
+    window: ValidatedReportWindow,
+    inclusiveEnd: boolean,
+  ) => ReadOnlyDatabaseQuery,
+  consumeRows: (rows: readonly DatabaseResultRow[]) => void,
+): Promise<void> {
+  const sourceRows = await boundedRowCount(
+    transport,
+    pbxInstanceId,
+    buildSourceCountQuery(window, inclusiveEnd),
+  );
+  if (sourceRows === 0) return;
+  if (sourceRows > MAX_ADAPTIVE_SOURCE_ROWS) {
+    const [first, second] = splitWindowHalf(window);
+    await queryAdaptiveGroupedConsume(
+      transport,
+      pbxInstanceId,
+      first,
+      false,
+      buildSourceCountQuery,
+      buildGroupedRowsQuery,
+      consumeRows,
+    );
+    await queryAdaptiveGroupedConsume(
+      transport,
+      pbxInstanceId,
+      second,
+      inclusiveEnd,
+      buildSourceCountQuery,
+      buildGroupedRowsQuery,
+      consumeRows,
+    );
+    return;
+  }
+  const result = await transport.query(
+    pbxInstanceId,
+    buildGroupedRowsQuery(window, inclusiveEnd),
+    adaptiveHistoryLimits(),
+  );
+  if (result.rows.length > sourceRows) throw new HistoricalSourceSchemaError('INVALID_SOURCE_ROW');
+  consumeRows(result.rows);
 }
 
 function validateLongWaitThreshold(minutes: number): number {
@@ -615,6 +779,106 @@ function queueCatalogQuery(dialect: DatabaseDialect, table: SourceTable): ReadOn
   };
 }
 
+type CallerCountMap = Map<string, number>;
+
+interface QueueCallerMetrics {
+  uniqueCallers: number;
+  repeatCallers: number;
+  repeatCallerRatePercent: number;
+  averageCallsPerCaller: number;
+  callsFromRepeatCallers: number;
+  repeatCallSharePercent: number;
+  callerIdentificationRatePercent: number;
+}
+
+function queueCallerEntryCountQuery(
+  dialect: DatabaseDialect,
+  table: SourceTable,
+  window: ValidatedReportWindow,
+  queueIds: readonly string[],
+  inclusiveEnd: boolean,
+): ReadOnlyDatabaseQuery {
+  const time = requiredColumn(dialect, table, 'time');
+  const queuename = requiredColumn(dialect, table, 'queuename');
+  const event = requiredColumn(dialect, table, 'event');
+  const normalizedEvent = queueEventFilterExpression(dialect, event);
+  const queuePlaceholders = queueIds.map(() => '?').join(', ');
+  const endOperator = inclusiveEnd ? '<=' : '<';
+  return {
+    sql: `SELECT COUNT(*) AS bounded_row_count
+          FROM ${tableReference(dialect, table)}
+          WHERE ${queuename} IN (${queuePlaceholders})
+            AND ${normalizedEvent} = ?
+            AND ${time} >= ? AND ${time} ${endOperator} ?`,
+    parameters: [...queueIds, 'ENTERQUEUE', window.queryFrom, window.queryTo],
+  };
+}
+
+function queueCallerEntryRowsQuery(
+  dialect: DatabaseDialect,
+  table: SourceTable,
+  window: ValidatedReportWindow,
+  queueIds: readonly string[],
+  inclusiveEnd: boolean,
+): ReadOnlyDatabaseQuery {
+  const time = requiredColumn(dialect, table, 'time');
+  const queuename = requiredColumn(dialect, table, 'queuename');
+  const event = requiredColumn(dialect, table, 'event');
+  const caller = requiredColumn(dialect, table, 'data2');
+  const normalizedEvent = queueEventFilterExpression(dialect, event);
+  const callerText = castText(dialect, caller);
+  const queuePlaceholders = queueIds.map(() => '?').join(', ');
+  const endOperator = inclusiveEnd ? '<=' : '<';
+  return {
+    sql: `SELECT
+            ${castText(dialect, queuename)} AS queue_id,
+            ${callerText} AS caller_id,
+            COUNT(*) AS caller_calls
+          FROM ${tableReference(dialect, table)}
+          WHERE ${queuename} IN (${queuePlaceholders})
+            AND ${normalizedEvent} = ?
+            AND ${time} >= ? AND ${time} ${endOperator} ?
+            AND ${caller} IS NOT NULL
+            AND TRIM(${callerText}) <> ''
+          GROUP BY ${queuename}, ${caller}
+          ORDER BY ${queuename}, ${caller}`,
+    parameters: [...queueIds, 'ENTERQUEUE', window.queryFrom, window.queryTo],
+  };
+}
+
+function callerDigest(key: Uint8Array, callerId: string): string {
+  return createHmac('sha256', key).update(callerId, 'utf8').digest('hex');
+}
+
+function incrementCallerCount(counts: CallerCountMap, digest: string, increment = 1): void {
+  counts.set(digest, (counts.get(digest) ?? 0) + increment);
+}
+
+function callerMetrics(counts: CallerCountMap, enteredCalls: number): QueueCallerMetrics {
+  let identifiedCalls = 0;
+  let repeatCallers = 0;
+  let callsFromRepeatCallers = 0;
+  for (const count of counts.values()) {
+    identifiedCalls += count;
+    if (count > 1) {
+      repeatCallers += 1;
+      callsFromRepeatCallers += count;
+    }
+  }
+  const uniqueCallers = counts.size;
+  return {
+    uniqueCallers,
+    repeatCallers,
+    repeatCallerRatePercent: uniqueCallers === 0 ? 0 : (repeatCallers / uniqueCallers) * 100,
+    averageCallsPerCaller: uniqueCallers === 0 ? 0 : identifiedCalls / uniqueCallers,
+    callsFromRepeatCallers,
+    repeatCallSharePercent:
+      identifiedCalls === 0 ? 0 : (callsFromRepeatCallers / identifiedCalls) * 100,
+    callerIdentificationRatePercent:
+      enteredCalls === 0 ? 0 : (identifiedCalls / enteredCalls) * 100,
+  };
+}
+
 interface QueuePerformanceAccumulator {
   queueId: string;
   enteredCalls: number;
@@ -857,6 +1121,7 @@ function sumQueuePerformanceAccumulators(
 function queuePerformanceMetrics(
   value: QueuePerformanceAccumulator,
   selectedEnteredCalls: number,
+  callerCounts: CallerCountMap,
 ): HistoricalQueuePerformanceMetrics {
   const unansweredCalls = Math.max(0, value.enteredCalls - value.answeredCalls);
   const confirmedLostCalls =
@@ -895,6 +1160,7 @@ function queuePerformanceMetrics(
     systemFailureRatePercent: rate(value.systemFailureCalls),
     unresolvedUnansweredRatePercent: rate(unresolvedUnansweredCalls),
     ringNoAnswerAttemptsPer100Entered: rate(value.ringNoAnswerAttempts),
+    ...callerMetrics(callerCounts, value.enteredCalls),
     ...(value.answerWaitSamples > 0
       ? { averageAnswerSeconds: value.answerWaitSumSeconds / value.answerWaitSamples }
       : {}),
@@ -902,6 +1168,225 @@ function queuePerformanceMetrics(
       ? { averageWaitSeconds: value.waitSumSeconds / value.waitSamples }
       : {}),
   };
+}
+
+const QUEUE_DETAIL_OUTCOME_EVENTS = [
+  'CONNECT',
+  'ABANDON',
+  'EXITWITHTIMEOUT',
+  'EXITWITHKEY',
+  'EXITEMPTY',
+  'AGENTDUMP',
+  'SYSCOMPAT',
+  'COMPLETEAGENT',
+  'COMPLETECALLER',
+] as const;
+
+function queueDetailEntryCountQuery(
+  dialect: DatabaseDialect,
+  table: SourceTable,
+  window: ValidatedReportWindow,
+  queueIds: readonly string[],
+  inclusiveEnd: boolean,
+): ReadOnlyDatabaseQuery {
+  const time = requiredColumn(dialect, table, 'time');
+  const queuename = requiredColumn(dialect, table, 'queuename');
+  const event = requiredColumn(dialect, table, 'event');
+  const normalizedEvent = queueEventFilterExpression(dialect, event);
+  const queuePlaceholders = queueIds.map(() => '?').join(', ');
+  const endOperator = inclusiveEnd ? '<=' : '<';
+  return {
+    sql: `SELECT COUNT(*) AS bounded_row_count
+          FROM ${tableReference(dialect, table)}
+          WHERE ${queuename} IN (${queuePlaceholders})
+            AND ${normalizedEvent} = ?
+            AND ${time} >= ? AND ${time} ${endOperator} ?`,
+    parameters: [...queueIds, 'ENTERQUEUE', window.queryFrom, window.queryTo],
+  };
+}
+
+function queueDetailEntryQuery(
+  dialect: DatabaseDialect,
+  table: SourceTable,
+  window: ValidatedReportWindow,
+  queueIds: readonly string[],
+  inclusiveEnd: boolean,
+): ReadOnlyDatabaseQuery {
+  const time = requiredColumn(dialect, table, 'time');
+  const callid = requiredColumn(dialect, table, 'callid');
+  const queuename = requiredColumn(dialect, table, 'queuename');
+  const event = requiredColumn(dialect, table, 'event');
+  const caller = requiredColumn(dialect, table, 'data2');
+  const position = requiredColumn(dialect, table, 'data3');
+  const normalizedEvent = queueEventFilterExpression(dialect, event);
+  const queuePlaceholders = queueIds.map(() => '?').join(', ');
+  const endOperator = inclusiveEnd ? '<=' : '<';
+  return {
+    sql: `SELECT
+            ${castText(dialect, time)} AS entered_at,
+            ${castText(dialect, callid)} AS call_id,
+            ${castText(dialect, queuename)} AS queue_id,
+            ${castText(dialect, caller)} AS caller_number,
+            ${castText(dialect, position)} AS initial_position
+          FROM ${tableReference(dialect, table)}
+          WHERE ${queuename} IN (${queuePlaceholders})
+            AND ${normalizedEvent} = ?
+            AND ${time} >= ? AND ${time} ${endOperator} ?
+          ORDER BY ${queuename}, ${event}, ${time}`,
+    parameters: [...queueIds, 'ENTERQUEUE', window.queryFrom, window.queryTo],
+  };
+}
+
+function queueDetailOutcomeCountQuery(
+  dialect: DatabaseDialect,
+  table: SourceTable,
+  window: ValidatedReportWindow,
+  queueIds: readonly string[],
+  inclusiveEnd: boolean,
+): ReadOnlyDatabaseQuery {
+  const time = requiredColumn(dialect, table, 'time');
+  const queuename = requiredColumn(dialect, table, 'queuename');
+  const event = requiredColumn(dialect, table, 'event');
+  const normalizedEvent = queueEventFilterExpression(dialect, event);
+  const queuePlaceholders = queueIds.map(() => '?').join(', ');
+  const eventPlaceholders = QUEUE_DETAIL_OUTCOME_EVENTS.map(() => '?').join(', ');
+  const endOperator = inclusiveEnd ? '<=' : '<';
+  return {
+    sql: `SELECT COUNT(*) AS bounded_row_count
+          FROM ${tableReference(dialect, table)}
+          WHERE ${queuename} IN (${queuePlaceholders})
+            AND ${normalizedEvent} IN (${eventPlaceholders})
+            AND ${time} >= ? AND ${time} ${endOperator} ?`,
+    parameters: [...queueIds, ...QUEUE_DETAIL_OUTCOME_EVENTS, window.queryFrom, window.queryTo],
+  };
+}
+
+function queueDetailOutcomeQuery(
+  dialect: DatabaseDialect,
+  table: SourceTable,
+  window: ValidatedReportWindow,
+  queueIds: readonly string[],
+  inclusiveEnd: boolean,
+): ReadOnlyDatabaseQuery {
+  const time = requiredColumn(dialect, table, 'time');
+  const callid = requiredColumn(dialect, table, 'callid');
+  const queuename = requiredColumn(dialect, table, 'queuename');
+  const event = requiredColumn(dialect, table, 'event');
+  const data1 = requiredColumn(dialect, table, 'data1');
+  const data2 = requiredColumn(dialect, table, 'data2');
+  const data3 = requiredColumn(dialect, table, 'data3');
+  const normalizedEvent = queueEventFilterExpression(dialect, event);
+  const queuePlaceholders = queueIds.map(() => '?').join(', ');
+  const eventPlaceholders = QUEUE_DETAIL_OUTCOME_EVENTS.map(() => '?').join(', ');
+  const endOperator = inclusiveEnd ? '<=' : '<';
+  return {
+    sql: `SELECT
+            ${castText(dialect, time)} AS source_occurred_at,
+            ${castText(dialect, callid)} AS call_id,
+            ${castText(dialect, queuename)} AS queue_id,
+            ${castText(dialect, event)} AS event_type,
+            ${optionalTextExpression(dialect, table, 'agent', 'agent_id')},
+            ${castText(dialect, data1)} AS data1_value,
+            ${castText(dialect, data2)} AS data2_value,
+            ${castText(dialect, data3)} AS data3_value,
+            ${optionalTextExpression(dialect, table, 'data4', 'data4_value')}
+          FROM ${tableReference(dialect, table)}
+          WHERE ${queuename} IN (${queuePlaceholders})
+            AND ${normalizedEvent} IN (${eventPlaceholders})
+            AND ${time} >= ? AND ${time} ${endOperator} ?
+          ORDER BY ${queuename}, ${event}, ${time}`,
+    parameters: [...queueIds, ...QUEUE_DETAIL_OUTCOME_EVENTS, window.queryFrom, window.queryTo],
+  };
+}
+
+function optionalNonNegativeInteger(value: unknown): number | undefined {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === 'string' && !value.trim()) return undefined;
+  return nonNegativeInteger(value);
+}
+
+function optionalNonNegativeFinite(value: unknown): number | undefined {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === 'string' && !value.trim()) return undefined;
+  return nonNegativeFinite(value);
+}
+
+function queueDetailKey(queueId: string, callId: string): string {
+  return `${queueId}\u0000${callId}`;
+}
+
+function queueDetailOutcomeForEvent(eventName: string): HistoricalQueueCallOutcome | undefined {
+  switch (eventName) {
+    case 'CONNECT':
+      return 'ANSWERED';
+    case 'ABANDON':
+      return 'CALLER_ABANDONED';
+    case 'EXITWITHTIMEOUT':
+      return 'QUEUE_TIMEOUT';
+    case 'EXITWITHKEY':
+      return 'EXIT_WITH_KEY';
+    case 'EXITEMPTY':
+      return 'FORCED_EXIT';
+    case 'AGENTDUMP':
+    case 'SYSCOMPAT':
+      return 'SYSTEM_FAILURE';
+    default:
+      return undefined;
+  }
+}
+
+function outcomePriority(outcome: HistoricalQueueCallOutcome): number {
+  if (outcome === 'ANSWERED') return 100;
+  if (outcome === 'SYSTEM_FAILURE') return 50;
+  if (outcome === 'UNRESOLVED') return 0;
+  return 80;
+}
+
+function outcomeWaitSeconds(eventName: string, row: DatabaseResultRow): number | undefined {
+  if (eventName === 'CONNECT') return optionalNonNegativeFinite(row.data1_value);
+  if (eventName === 'EXITWITHKEY') return optionalNonNegativeFinite(row.data4_value);
+  if (eventName === 'ABANDON' || eventName === 'EXITWITHTIMEOUT' || eventName === 'EXITEMPTY') {
+    return optionalNonNegativeFinite(row.data3_value);
+  }
+  return undefined;
+}
+
+function applyDetailOutcome(detail: HistoricalQueueCallDetail, row: DatabaseResultRow): void {
+  const occurredAt = boundedText(row.source_occurred_at, 64)!;
+  if (occurredAt < detail.enteredAt) return;
+  const eventName = boundedText(row.event_type, 64)!.toUpperCase();
+  if (eventName === 'COMPLETEAGENT' || eventName === 'COMPLETECALLER') {
+    detail.completedAt = occurredAt;
+    const talkSeconds = optionalNonNegativeFinite(row.data2_value);
+    if (talkSeconds !== undefined) detail.talkSeconds = talkSeconds;
+    const completionAgent = boundedText(row.agent_id, 128, false);
+    if (completionAgent && completionAgent.toUpperCase() !== 'NONE' && !detail.agentId) {
+      detail.agentId = completionAgent;
+    }
+    return;
+  }
+  const nextOutcome = queueDetailOutcomeForEvent(eventName);
+  if (!nextOutcome) return;
+  const currentPriority = outcomePriority(detail.outcome);
+  const nextPriority = outcomePriority(nextOutcome);
+  if (
+    nextPriority < currentPriority ||
+    (nextPriority === currentPriority && detail.outcomeAt && occurredAt >= detail.outcomeAt)
+  ) {
+    return;
+  }
+  detail.outcome = nextOutcome;
+  const waitSeconds = outcomeWaitSeconds(eventName, row);
+  if (waitSeconds !== undefined) detail.waitSeconds = waitSeconds;
+  const agentId = boundedText(row.agent_id, 128, false);
+  if (nextOutcome === 'ANSWERED') {
+    detail.connectedAt = occurredAt;
+    if (agentId && agentId.toUpperCase() !== 'NONE') detail.agentId = agentId;
+    delete detail.outcomeAt;
+  } else {
+    detail.outcomeAt = occurredAt;
+    if (agentId && agentId.toUpperCase() !== 'NONE') detail.agentId = agentId;
+  }
 }
 
 function queueAbandonWaitsQuery(
@@ -1233,11 +1718,63 @@ export class AsteriskConventionalSqlHistoryAdapter {
       }
     }
 
+    const callerHashKey = randomBytes(32);
+    const callerCountsByQueue = new Map<string, CallerCountMap>(
+      validatedQueueIds.map((queueId) => [queueId, new Map<string, number>()]),
+    );
+    const totalCallerCounts: CallerCountMap = new Map();
+    try {
+      for (const [index, chunk] of chunks.entries()) {
+        await queryAdaptiveGroupedConsume(
+          this.options.transport,
+          pbxInstanceId,
+          chunk,
+          index === chunks.length - 1,
+          (callerWindow, inclusiveEnd) =>
+            queueCallerEntryCountQuery(
+              inspection.config.dialect,
+              table,
+              callerWindow,
+              validatedQueueIds,
+              inclusiveEnd,
+            ),
+          (callerWindow, inclusiveEnd) =>
+            queueCallerEntryRowsQuery(
+              inspection.config.dialect,
+              table,
+              callerWindow,
+              validatedQueueIds,
+              inclusiveEnd,
+            ),
+          (rows) => {
+            for (const row of rows) {
+              const queueId = boundedText(row.queue_id, 128)!;
+              if (!selected.has(queueId))
+                throw new HistoricalSourceSchemaError('INVALID_SOURCE_ROW');
+              const callerId = boundedText(row.caller_id, 128, false);
+              if (!callerId) continue;
+              const callerCalls = aggregateInteger(row.caller_calls);
+              if (callerCalls < 1) throw new HistoricalSourceSchemaError('INVALID_SOURCE_ROW');
+              const digest = callerDigest(callerHashKey, callerId);
+              incrementCallerCount(callerCountsByQueue.get(queueId)!, digest, callerCalls);
+              incrementCallerCount(totalCallerCounts, digest, callerCalls);
+            }
+          },
+        );
+      }
+    } finally {
+      callerHashKey.fill(0);
+    }
+
     const orderedAccumulators = validatedQueueIds.map((queueId) => accumulators.get(queueId)!);
     const totalAccumulator = sumQueuePerformanceAccumulators(orderedAccumulators);
     const queues: HistoricalQueuePerformanceRow[] = orderedAccumulators.map((value) => ({
       queueId: value.queueId,
-      ...queuePerformanceMetrics(value, totalAccumulator.enteredCalls),
+      ...queuePerformanceMetrics(
+        value,
+        totalAccumulator.enteredCalls,
+        callerCountsByQueue.get(value.queueId)!,
+      ),
     }));
     return {
       instanceId: pbxInstanceId,
@@ -1248,7 +1785,133 @@ export class AsteriskConventionalSqlHistoryAdapter {
       aggregationMode: 'SOURCE_AGGREGATE_CHUNKED',
       chunkCount: chunks.length,
       queues,
-      total: queuePerformanceMetrics(totalAccumulator, totalAccumulator.enteredCalls),
+      total: queuePerformanceMetrics(
+        totalAccumulator,
+        totalAccumulator.enteredCalls,
+        totalCallerCounts,
+      ),
+    };
+  }
+
+  async queuePerformanceDetailChunk(
+    pbxInstanceId: PbxInstanceId,
+    queueIds: readonly string[],
+    from: string,
+    to: string,
+    reportTo: string,
+  ): Promise<HistoricalQueueCallDetailChunk> {
+    const validatedQueueIds = validateQueueIds(queueIds);
+    const entryWindow = validateReportWindow(from, to);
+    const normalizedReportTo = normalizeSourceLocalDateTime(reportTo);
+    const entryFromMs = sourceLocalMillis(entryWindow.from);
+    const entryToMs = sourceLocalMillis(entryWindow.to);
+    const reportToMs = sourceLocalMillis(normalizedReportTo);
+    if (
+      entryToMs > reportToMs ||
+      entryToMs - entryFromMs > QUEUE_DETAIL_CHUNK_MAX_MS ||
+      reportToMs - entryFromMs > MAX_QUEUE_REPORT_DAYS * 24 * 60 * 60 * 1000
+    ) {
+      throw new HistoricalSourceSchemaError('INVALID_RANGE');
+    }
+    const inspection = await this.inspectInternal(pbxInstanceId);
+    const table = this.requireDataset(inspection.queuePerformance);
+    const selected = new Set(validatedQueueIds);
+    const inclusiveEntryEnd = entryWindow.to === normalizedReportTo;
+    const entryRows = await queryAdaptiveRows(
+      this.options.transport,
+      pbxInstanceId,
+      entryWindow,
+      inclusiveEntryEnd,
+      (queryWindow, inclusiveEnd) =>
+        queueDetailEntryCountQuery(
+          inspection.config.dialect,
+          table,
+          queryWindow,
+          validatedQueueIds,
+          inclusiveEnd,
+        ),
+      (queryWindow, inclusiveEnd) =>
+        queueDetailEntryQuery(
+          inspection.config.dialect,
+          table,
+          queryWindow,
+          validatedQueueIds,
+          inclusiveEnd,
+        ),
+    );
+    if (entryRows.length > MAX_QUEUE_DETAIL_ITEMS_PER_CHUNK) {
+      throw new HistoricalSourceSchemaError('EXPORT_TOO_LARGE');
+    }
+
+    const details = new Map<string, HistoricalQueueCallDetail>();
+    for (const row of entryRows) {
+      const queueId = boundedText(row.queue_id, 128)!;
+      if (!selected.has(queueId)) throw new HistoricalSourceSchemaError('INVALID_SOURCE_ROW');
+      const callId = boundedText(row.call_id, 128)!;
+      const key = queueDetailKey(queueId, callId);
+      if (details.has(key)) throw new HistoricalSourceSchemaError('INVALID_SOURCE_ROW');
+      const callerNumber = boundedText(row.caller_number, 128, false);
+      const initialPosition = optionalNonNegativeInteger(row.initial_position);
+      details.set(key, {
+        queueId,
+        callId,
+        ...(callerNumber ? { callerNumber } : {}),
+        enteredAt: boundedText(row.entered_at, 64)!,
+        ...(initialPosition === undefined ? {} : { initialPosition }),
+        outcome: 'UNRESOLVED',
+      });
+    }
+
+    if (details.size > 0) {
+      const outcomeToMs = Math.min(reportToMs, entryToMs + QUEUE_DETAIL_OUTCOME_LOOKAHEAD_MS);
+      const outcomeWindow = reportWindowFromMillis(entryFromMs, outcomeToMs);
+      await queryAdaptiveConsume(
+        this.options.transport,
+        pbxInstanceId,
+        outcomeWindow,
+        outcomeToMs === reportToMs,
+        (queryWindow, inclusiveEnd) =>
+          queueDetailOutcomeCountQuery(
+            inspection.config.dialect,
+            table,
+            queryWindow,
+            validatedQueueIds,
+            inclusiveEnd,
+          ),
+        (queryWindow, inclusiveEnd) =>
+          queueDetailOutcomeQuery(
+            inspection.config.dialect,
+            table,
+            queryWindow,
+            validatedQueueIds,
+            inclusiveEnd,
+          ),
+        (rows) => {
+          for (const row of rows) {
+            const queueId = boundedText(row.queue_id, 128)!;
+            if (!selected.has(queueId)) throw new HistoricalSourceSchemaError('INVALID_SOURCE_ROW');
+            const callId = boundedText(row.call_id, 128)!;
+            const detail = details.get(queueDetailKey(queueId, callId));
+            if (detail) applyDetailOutcome(detail, row);
+          }
+        },
+      );
+    }
+
+    const items = [...details.values()].sort(
+      (left, right) =>
+        left.enteredAt.localeCompare(right.enteredAt) ||
+        left.queueId.localeCompare(right.queueId) ||
+        left.callId.localeCompare(right.callId),
+    );
+    return {
+      instanceId: pbxInstanceId,
+      source: 'DATABASE',
+      from: entryWindow.from,
+      to: entryWindow.to,
+      reportTo: normalizedReportTo,
+      queueIds: validatedQueueIds,
+      items,
     };
   }
 

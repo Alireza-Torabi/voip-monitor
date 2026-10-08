@@ -1421,8 +1421,36 @@ Task 60 — Call Outcome Analytics به‌همراه اصلاح‌های ساز�
 - پنج نمودار اضافه شد: حجم ورودی/پاسخ/Lost، ترکیب علت Lost، نرخ پاسخ و Lost، میانگین زمان‌های صف و فعالیت Ring Attempt. جدول تفصیلی همه KPIها و ردیف Total را نگه می‌دارد.
 - PDF چندصفحه‌ای است: صفحه اول Summary و نمودارها و صفحات بعد KPIهای تفکیکی صف‌ها را نگه می‌دارند. Excel واقعی `.xlsx` شامل Cellهای ساختاریافته همه KPIها/Rateها و نمودارهای Embedded است. Export فقط در Browser انجام می‌شود و Query جدیدی به PBX/Database نمی‌زند.
 - KPIهای اصلی دیگر به Limit هزار Row مربوط به Raw History وابسته نیستند. Backend Aggregateهای دقیق Source را در Chunkهای روزانه و به‌صورت Sequential اجرا و فقط Sum/Countهای Aggregate را Merge می‌کند.
-- برای حفظ سلامت Source عملیاتی، Report بین ۱ تا ۱۶ صف و حداکثر ۹۰ روز محدود است. برای گزارش‌های چندماهه سنگین یا سالانه، معماری درست Read-only Reporting Replica است، نه Scan سنگین روی Database زنده PBX.
+- برای حفظ سلامت Source عملیاتی، Report بین ۱ تا ۱۶ صف و با فعال بودن KPIهای دقیق Caller حداکثر ۳۰ روز محدود است. برای گزارش‌های چندماهه سنگین یا سالانه، معماری درست Read-only Reporting Replica است، نه Scan سنگین روی Database زنده PBX.
 - اختلاف مرز بازه پنهان نمی‌شود: Unanswered بر اساس Entry/Answer داخل همان Window است و Terminal Outcomeها مستقل شمارش می‌شوند. فیلدهای `unresolvedUnansweredCalls` و `outcomeExcessCalls` اختلاف Cross-window یا Eventهای سفارشی را آشکار می‌کنند.
 - Query اولیه‌ی تک‌مرحله‌ای در Validation واقعی Timeout شد و کنار گذاشته شد. مسیر نهایی Count Aggregate سبک + Timing Aggregate جداگانه برای Eventهای واقعاً موجود است. Validation فقط‌خواندنی روی Source واقعی، هم بازه هفت‌روزه همه صف‌ها و هم بازه ۳۰روزه را بدون دریافت Raw Row با موفقیت تأیید کرد.
+
+</div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-08 — تکمیل Task 60C با KPI تماس‌گیرنده و Excel ریز تماس‌ها
+
+- KPIهای جدید به گزارش هر صف و مجموع صف‌های انتخابی اضافه شد: تماس‌گیرنده یکتا، تماس‌گیرنده تکراری، نرخ تماس‌گیرنده تکراری، میانگین تعداد تماس به‌ازای Caller شناسایی‌شده، تعداد تماس‌های ایجادشده توسط Callerهای تکراری، سهم تماس‌های تکراری و درصد پوشش شناسایی Caller ID. در Total، Caller مشترک بین چند صف فقط یک‌بار به‌عنوان Unique محاسبه می‌شود.
+- برای KPI مدیریتی، Caller ID فقط‌خواندنی از Event `ENTERQUEUE` خوانده می‌شود و Backend بلافاصله آن را با کلید تصادفی مخصوص همان Report به HMAC تبدیل می‌کند. شماره خام برای KPI ذخیره، Log یا به API گزارش مدیریتی برگردانده نمی‌شود.
+- سقف سخت ۱۰۰۰ Row در Query Layer حفظ شده است. هر Chunk روزانه ابتدا Count می‌شود؛ اگر بیشتر از سقف باشد، بازه زمانی قبل از خواندن Row خام نصف می‌شود. Queryهای داده به‌ترتیب Queue/Event/Time اجرا می‌شوند تا با Index منبع هم‌راستا باشند.
+- به دلیل اضافه‌شدن Dedup دقیق Caller، سقف گزارش جامع روی Database عملیاتی از ۹۰ روز به **۳۰ روز** کاهش یافت. برای گزارش فصلی/سالانه راه درست Reporting Replica فقط‌خواندنی است، نه Scan طولانی روی Source زنده PBX.
+- یک خروجی جداگانه و فقط **Excel** برای ریز تماس‌های همان فیلتر فعال اضافه شد. هر Row نماینده یک ورود به صف است و شامل صف، Call ID، شماره تماس‌گیرنده، زمان ورود، موقعیت اولیه، نتیجه Normalized تماس، Agent در صورت وجود، زمان اتصال/نتیجه و زمان انتظار است.
+- هیچ Join دیتابیسی بر اساس `callid` انجام نمی‌شود. Entry و Terminal Eventها با فیلتر Queue/Event/Time و Queryهای کوچک خوانده و داخل برنامه بر اساس Call ID به هم متصل می‌شوند.
+- برای جلوگیری از خطای مرز نیمه‌شب، Outcome هر Chunk حداکثر تا ۲۴ ساعت بعد از Window ورود و فقط تا زمان «تا»ی گزارش دنبال می‌شود.
+- Export ریز تماس‌ها در Browser حداکثر ۷۵هزار Row دارد. Queryهای Database همچنان زیر سقف ۱۰۰۰ Row باقی می‌مانند. چون فایل شامل Caller Number و Call ID است، در UI به‌عنوان داده عملیاتی حساس مشخص می‌شود.
+- Regression Testهای Backend/API محاسبه Unique بین چند صف، Repeat Caller، Count-first safety و Normalization ریز تماس را پوشش می‌دهند. ساخت فایل XLSX ریز تماس در Chrome واقعی نیز موفق Validate شد. Validation فقط‌خواندنی Source واقعی بدون چاپ Caller Number یا Call ID انجام شد.
+
+</div>
+
+<div dir="rtl" align="right">
+
+### تکمیل KPI تماس‌گیرنده و خروجی ریز تماس
+
+- KPIهای تماس‌گیرنده یکتا، تماس‌گیرنده تکراری، نرخ تماس‌گیرنده تکراری، میانگین تماس به‌ازای Caller، تعداد/سهم تماس‌های Callerهای تکراری و پوشش شناسایی Caller ID به گزارش صف اضافه شدند. برای Total چندصفی، Caller مشترک بین صف‌ها فقط یک Caller یکتا محسوب می‌شود.
+- برای کاهش Load، Backend بعد از Count سریع ENTERQUEUE، Windowهای بزرگ را تا سقف ۱۰۰۰ Source Row خرد می‌کند و سپس Source فقط Callerهای گروه‌بندی‌شده به‌همراه تعداد تماس هر Caller را برمی‌گرداند. Caller خام بلافاصله با HMAC و کلید تصادفی همان Report Pseudonymize می‌شود و نه ذخیره می‌شود و نه در API KPI برمی‌گردد.
+- خروجی Excel ریز تماس‌ها دقیقاً از همان بازه و صف‌های Report استفاده می‌کند و شامل Queue، Call ID، Caller Number، زمان ورود، Position اولیه، Outcome، Agent، زمان اتصال/نتیجه/پایان، زمان انتظار و مدت مکالمه است. این خروجی فقط با اقدام صریح کاربر ساخته می‌شود، روی Backend ذخیره نمی‌شود و به‌دلیل وجود Caller Number/Call ID داده عملیاتی حساس محسوب می‌شود.
+- Detail Export به‌صورت روزانه و Adaptive خوانده می‌شود؛ هر Query حداکثر ۱۰۰۰ Row دارد و Workbook مرورگر حداکثر ۷۵هزار تماس را می‌پذیرد.
+- Validation کنترل‌شده Source واقعی، تطبیق KPIهای Caller با Aggregate مستقل و صحت بازسازی Detail را بدون چاپ داده حساس تأیید کرد. Export مصنوعی ۱۰هزار ردیفی نیز در Chrome واقعی با موفقیت کامل شد.
 
 </div>

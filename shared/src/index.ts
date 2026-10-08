@@ -122,6 +122,13 @@ export interface HistoricalQueuePerformanceMetrics {
   systemFailureRatePercent: number;
   unresolvedUnansweredRatePercent: number;
   ringNoAnswerAttemptsPer100Entered: number;
+  uniqueCallers: number;
+  repeatCallers: number;
+  repeatCallerRatePercent: number;
+  averageCallsPerCaller: number;
+  callsFromRepeatCallers: number;
+  repeatCallSharePercent: number;
+  callerIdentificationRatePercent: number;
   averageAnswerSeconds?: number;
   averageWaitSeconds?: number;
 }
@@ -140,6 +147,40 @@ export interface HistoricalQueuePerformanceReport {
   chunkCount: number;
   queues: HistoricalQueuePerformanceRow[];
   total: HistoricalQueuePerformanceMetrics;
+}
+
+export type HistoricalQueueCallOutcome =
+  | 'ANSWERED'
+  | 'CALLER_ABANDONED'
+  | 'QUEUE_TIMEOUT'
+  | 'EXIT_WITH_KEY'
+  | 'FORCED_EXIT'
+  | 'SYSTEM_FAILURE'
+  | 'UNRESOLVED';
+
+export interface HistoricalQueueCallDetail {
+  queueId: string;
+  callId: string;
+  callerNumber?: string;
+  enteredAt: string;
+  initialPosition?: number;
+  outcome: HistoricalQueueCallOutcome;
+  agentId?: string;
+  connectedAt?: string;
+  outcomeAt?: string;
+  completedAt?: string;
+  waitSeconds?: number;
+  talkSeconds?: number;
+}
+
+export interface HistoricalQueueCallDetailChunk {
+  instanceId: PbxInstanceId;
+  source: 'DATABASE';
+  from: string;
+  to: string;
+  reportTo: string;
+  queueIds: string[];
+  items: HistoricalQueueCallDetail[];
 }
 export type HistoricalCallEventType =
   | 'CHANNEL_STARTED'

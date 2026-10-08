@@ -58,6 +58,64 @@ function fakeTransport({
     { wait_seconds: '70' },
   ],
   queueCatalogRows = [{ queue_id: 'sales' }, { queue_id: 'support' }],
+  queueCallerRows = [
+    { queue_id: 'support', caller_id: 'caller-a', caller_calls: '2' },
+    { queue_id: 'support', caller_id: 'caller-b', caller_calls: '1' },
+    { queue_id: 'support', caller_id: 'caller-c', caller_calls: '1' },
+    { queue_id: 'sales', caller_id: 'caller-a', caller_calls: '1' },
+    { queue_id: 'sales', caller_id: 'caller-d', caller_calls: '2' },
+  ],
+  queueDetailEntryRows = [
+    {
+      entered_at: '2026-10-07 10:05:00',
+      call_id: 'detail-call-1',
+      queue_id: 'support',
+      caller_number: '1001',
+      initial_position: '2',
+    },
+    {
+      entered_at: '2026-10-07 10:10:00',
+      call_id: 'detail-call-2',
+      queue_id: 'support',
+      caller_number: '1002',
+      initial_position: '3',
+    },
+  ],
+  queueDetailOutcomeRows = [
+    {
+      source_occurred_at: '2026-10-07 10:05:12',
+      call_id: 'detail-call-1',
+      queue_id: 'support',
+      event_type: 'CONNECT',
+      agent_id: 'Local/1001',
+      data1_value: '12',
+      data2_value: '',
+      data3_value: '',
+      data4_value: null,
+    },
+    {
+      source_occurred_at: '2026-10-07 10:07:12',
+      call_id: 'detail-call-1',
+      queue_id: 'support',
+      event_type: 'COMPLETEAGENT',
+      agent_id: 'Local/1001',
+      data1_value: '12',
+      data2_value: '120',
+      data3_value: '2',
+      data4_value: null,
+    },
+    {
+      source_occurred_at: '2026-10-07 10:10:45',
+      call_id: 'detail-call-2',
+      queue_id: 'support',
+      event_type: 'ABANDON',
+      agent_id: 'NONE',
+      data1_value: '',
+      data2_value: '',
+      data3_value: '45',
+      data4_value: null,
+    },
+  ],
   queuePerformanceCountRows = [
     { queue_id: 'support', event_type: 'ENTERQUEUE', event_count: '20' },
     { queue_id: 'support', event_type: 'CONNECT', event_count: '14' },
@@ -102,9 +160,28 @@ function fakeTransport({
     async query(pbxInstanceId, request, limits) {
       calls.push({ pbxInstanceId, request, limits });
       if (request.sql.includes('information_schema.columns')) return result(schemaRows);
+      if (request.sql.includes(' AS bounded_row_count')) {
+        const isEntry = request.parameters.includes('ENTERQUEUE');
+        if (!isEntry) return result([{ bounded_row_count: String(queueDetailOutcomeRows.length) }]);
+        const isDetailWindow = request.parameters.some(
+          (value) => typeof value === 'string' && value.includes('2026-10-07 11:00:00'),
+        );
+        return result([
+          {
+            bounded_row_count: String(
+              isDetailWindow
+                ? queueDetailEntryRows.length
+                : queueCallerRows.reduce((total, row) => total + Number(row.caller_calls ?? 1), 0),
+            ),
+          },
+        ]);
+      }
       if (request.sql.includes('COUNT(*) AS total_calls')) return result(outcomeRows);
       if (request.sql.includes('SELECT DISTINCT') && request.sql.includes(' AS queue_id'))
         return result(queueCatalogRows);
+      if (request.sql.includes(' AS entered_at')) return result(queueDetailEntryRows);
+      if (request.sql.includes(' AS data1_value')) return result(queueDetailOutcomeRows);
+      if (request.sql.includes(' AS caller_id')) return result(queueCallerRows);
       if (request.sql.includes(' AS event_count')) return result(queuePerformanceCountRows);
       if (request.sql.includes(' AS wait_sum_seconds')) {
         const eventName = request.parameters.at(-3);
@@ -331,6 +408,13 @@ test('queue performance report aggregates multiple queues with exact source-side
   assert.equal(report.queues[0].averageWaitSeconds, 30);
   assert.equal(report.queues[0].incomingSharePercent, (20 / 30) * 100);
   assert.equal(report.queues[0].answerRatePercent, 70);
+  assert.equal(report.queues[0].uniqueCallers, 3);
+  assert.equal(report.queues[0].repeatCallers, 1);
+  assert.ok(Math.abs(report.queues[0].repeatCallerRatePercent - 100 / 3) < 1e-9);
+  assert.equal(report.queues[0].averageCallsPerCaller, 4 / 3);
+  assert.equal(report.queues[0].callsFromRepeatCallers, 2);
+  assert.equal(report.queues[0].repeatCallSharePercent, 50);
+  assert.equal(report.queues[0].callerIdentificationRatePercent, 20);
   assert.equal(report.total.enteredCalls, 30);
   assert.equal(report.total.answeredCalls, 22);
   assert.equal(report.total.unansweredCalls, 8);
@@ -338,6 +422,31 @@ test('queue performance report aggregates multiple queues with exact source-side
   assert.equal(report.total.incomingSharePercent, 100);
   assert.equal(report.total.averageAnswerSeconds, 10);
   assert.equal(report.total.averageWaitSeconds, 800 / 30);
+  assert.equal(report.total.uniqueCallers, 4);
+  assert.equal(report.total.repeatCallers, 2);
+  assert.equal(report.total.repeatCallerRatePercent, 50);
+  const callerRowsQuery = transport.calls.find((entry) =>
+    entry.request.sql.includes(' AS caller_calls'),
+  );
+  assert.ok(callerRowsQuery);
+  assert.match(callerRowsQuery.request.sql, /GROUP BY `queuename`, `data2`/u);
+  assert.match(callerRowsQuery.request.sql, /COUNT\(\*\) AS caller_calls/u);
+  assert.doesNotMatch(callerRowsQuery.request.sql, /ORDER BY `queuename`, `event`, `time`/u);
+  assert.equal(report.total.averageCallsPerCaller, 7 / 4);
+  assert.equal(report.total.callsFromRepeatCallers, 5);
+  assert.equal(report.total.repeatCallSharePercent, (5 / 7) * 100);
+  assert.equal(report.total.callerIdentificationRatePercent, (7 / 30) * 100);
+  const callerQuery = transport.calls.find((entry) => entry.request.sql.includes(' AS caller_id'));
+  assert.ok(callerQuery);
+  assert.doesNotMatch(callerQuery.request.sql, /LIMIT/u);
+  assert.equal(callerQuery.limits.maxRows, 1000);
+  const callerCountQuery = transport.calls.find(
+    (entry) =>
+      entry.request.sql.includes(' AS bounded_row_count') &&
+      entry.request.parameters.includes('ENTERQUEUE'),
+  );
+  assert.ok(callerCountQuery);
+  assert.equal(callerCountQuery.limits.maxRows, 1);
 
   const countQuery = transport.calls.find((entry) => entry.request.sql.includes(' AS event_count'));
   assert.ok(countQuery);
@@ -363,6 +472,7 @@ test('queue performance report aggregates multiple queues with exact source-side
 
 test('queue performance report chunks long windows without a raw-row sampling limit', async () => {
   const transport = fakeTransport({
+    queueCallerRows: [{ queue_id: 'support', caller_id: 'caller-a', caller_calls: '2' }],
     queuePerformanceCountRows: [
       { queue_id: 'support', event_type: 'ENTERQUEUE', event_count: '2' },
       { queue_id: 'support', event_type: 'CONNECT', event_count: '1' },
@@ -408,6 +518,61 @@ test('queue performance report chunks long windows without a raw-row sampling li
     adapter.queuePerformanceReport(PBX_ID, ['support'], '2026-01-01T00:00', '2026-04-02T00:00'),
     (error) => error instanceof HistoricalSourceSchemaError && error.code === 'INVALID_RANGE',
   );
+});
+
+test('queue performance detail chunk returns one normalized row per queue entry', async () => {
+  const transport = fakeTransport();
+  const adapter = adapterFor(configuration(), transport);
+  const detail = await adapter.queuePerformanceDetailChunk(
+    PBX_ID,
+    ['support'],
+    '2026-10-07T10:00',
+    '2026-10-07T11:00',
+    '2026-10-08T10:00',
+  );
+  assert.equal(detail.items.length, 2);
+  assert.deepEqual(detail.items[0], {
+    queueId: 'support',
+    callId: 'detail-call-1',
+    callerNumber: '1001',
+    enteredAt: '2026-10-07 10:05:00',
+    initialPosition: 2,
+    outcome: 'ANSWERED',
+    agentId: 'Local/1001',
+    connectedAt: '2026-10-07 10:05:12',
+    completedAt: '2026-10-07 10:07:12',
+    waitSeconds: 12,
+    talkSeconds: 120,
+  });
+  assert.deepEqual(detail.items[1], {
+    queueId: 'support',
+    callId: 'detail-call-2',
+    callerNumber: '1002',
+    enteredAt: '2026-10-07 10:10:00',
+    initialPosition: 3,
+    outcome: 'CALLER_ABANDONED',
+    outcomeAt: '2026-10-07 10:10:45',
+    waitSeconds: 45,
+  });
+  const entryQuery = transport.calls.find((entry) => entry.request.sql.includes(' AS entered_at'));
+  const outcomeQuery = transport.calls.find((entry) =>
+    entry.request.sql.includes(' AS data1_value'),
+  );
+  assert.ok(entryQuery);
+  assert.ok(outcomeQuery);
+  assert.doesNotMatch(entryQuery.request.sql, /LIMIT/u);
+  assert.doesNotMatch(outcomeQuery.request.sql, /LIMIT/u);
+  assert.equal(entryQuery.limits.maxRows, 1000);
+  assert.equal(outcomeQuery.limits.maxRows, 1000);
+  const detailCountQueries = transport.calls.filter((entry) =>
+    entry.request.sql.includes(' AS bounded_row_count'),
+  );
+  assert.ok(detailCountQueries.length >= 2);
+  assert.ok(detailCountQueries.every((entry) => entry.limits.maxRows === 1));
+  assert.deepEqual(outcomeQuery.request.parameters.slice(-2), [
+    '2026-10-07 10:00:00',
+    '2026-10-08 10:00:00',
+  ]);
 });
 
 test('queue performance report validates bounded unique queue selection', async () => {

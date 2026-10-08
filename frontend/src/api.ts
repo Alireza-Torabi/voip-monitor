@@ -5,6 +5,7 @@ import type {
   HistoricalCallOutcomeAnalytics,
   HistoricalReportWindow,
   HistoricalQueueAbandonmentAnalytics,
+  HistoricalQueueCallDetailChunk,
   HistoricalQueuePerformanceReport,
   OperationalHealthSnapshot,
   TrunkReliabilityState,
@@ -472,6 +473,22 @@ export const api = {
     ),
   historyQueueOptions: (id: string) =>
     request<{ items: string[] }>(`/api/pbx-instances/${id}/history/queue-options`),
+  historyQueuePerformanceDetails: (
+    id: string,
+    queueIds: readonly string[],
+    window: HistoricalReportWindow,
+    reportTo: string,
+  ) => {
+    const parameters = new URLSearchParams({
+      from: window.from,
+      to: window.to,
+      reportTo,
+    });
+    for (const queueId of queueIds) parameters.append('queue', queueId);
+    return request<HistoricalQueueCallDetailChunk>(
+      `/api/pbx-instances/${id}/history/queue-performance-details?${parameters.toString()}`,
+    );
+  },
   historyQueuePerformance: (
     id: string,
     queueIds: readonly string[],

@@ -1,4 +1,6 @@
 import type {
+  HistoricalQueueCallDetail,
+  HistoricalQueueCallOutcome,
   HistoricalQueuePerformanceMetrics,
   HistoricalQueuePerformanceReport,
 } from '@voip-monitor/shared';
@@ -11,6 +13,10 @@ export interface QueuePerformanceExportPayload {
   report: HistoricalQueuePerformanceReport;
   pbxName: string;
   text: TextMap;
+}
+
+export interface QueueCallDetailsExportPayload extends QueuePerformanceExportPayload {
+  details: readonly HistoricalQueueCallDetail[];
 }
 
 const EXPORT_TIMEOUT_MS = 15_000;
@@ -322,10 +328,10 @@ function renderChartsCanvas(payload: QueuePerformanceExportPayload): HTMLCanvasE
 function renderPdfCanvas(payload: QueuePerformanceExportPayload): HTMLCanvasElement {
   const { report, pbxName, text } = payload;
   const rtl = isRtl(text);
-  const { canvas, context } = canvas2d(2200, 1900);
+  const { canvas, context } = canvas2d(2200, 2250);
   context.fillStyle = PALETTE.background;
   context.fillRect(0, 0, canvas.width, canvas.height);
-  roundedRect(context, 40, 40, 2120, 1820, 28, PALETTE.surface, PALETTE.border);
+  roundedRect(context, 40, 40, 2120, 2170, 28, PALETTE.surface, PALETTE.border);
   const titleX = rtl ? 2100 : 100;
   textSetup(context, rtl, PALETTE.text, '800 40px "Segoe UI", Tahoma, sans-serif');
   context.fillText(text.historyQueuePerformanceTitle, titleX, 105);
@@ -345,14 +351,34 @@ function renderPdfCanvas(payload: QueuePerformanceExportPayload): HTMLCanvasElem
       percentage(report.total.answerRatePercent),
     ],
     [
-      text.historyQueuePerformanceUnanswered,
-      report.total.unansweredCalls.toLocaleString(),
-      percentage(report.total.unansweredRatePercent),
-    ],
-    [
       text.historyQueuePerformanceConfirmedLost,
       report.total.confirmedLostCalls.toLocaleString(),
       percentage(report.total.confirmedLostRatePercent),
+    ],
+    [
+      text.historyQueuePerformanceUniqueCallers,
+      report.total.uniqueCallers.toLocaleString(),
+      percentage(report.total.callerIdentificationRatePercent),
+    ],
+    [
+      text.historyQueuePerformanceRepeatCallers,
+      report.total.repeatCallers.toLocaleString(),
+      percentage(report.total.repeatCallerRatePercent),
+    ],
+    [
+      text.historyQueuePerformanceAvgCallsPerCaller,
+      report.total.averageCallsPerCaller.toFixed(2),
+      '',
+    ],
+    [
+      text.historyQueuePerformanceCallsFromRepeatCallers,
+      report.total.callsFromRepeatCallers.toLocaleString(),
+      percentage(report.total.repeatCallSharePercent),
+    ],
+    [
+      text.historyQueuePerformanceUnanswered,
+      report.total.unansweredCalls.toLocaleString(),
+      percentage(report.total.unansweredRatePercent),
     ],
     [
       text.historyQueuePerformanceAvgAnswer,
@@ -366,13 +392,13 @@ function renderPdfCanvas(payload: QueuePerformanceExportPayload): HTMLCanvasElem
     ],
   ] as const;
   const cardGap = 18;
-  const cardWidth = (2000 - cardGap * 2) / 3;
+  const cardWidth = (2000 - cardGap * 3) / 4;
   cards.forEach(([label, value, detail], index) => {
     drawSummaryCard(
       context,
       rtl,
-      100 + (index % 3) * (cardWidth + cardGap),
-      220 + Math.floor(index / 3) * 118,
+      100 + (index % 4) * (cardWidth + cardGap),
+      220 + Math.floor(index / 4) * 118,
       cardWidth,
       label,
       value,
@@ -381,10 +407,10 @@ function renderPdfCanvas(payload: QueuePerformanceExportPayload): HTMLCanvasElem
   });
 
   const charts = renderChartsCanvas(payload);
-  context.drawImage(charts, 100, 480, 2000, 1334);
+  context.drawImage(charts, 100, 600, 2000, 1533);
 
   textSetup(context, rtl, PALETTE.muted, '600 13px "Segoe UI", Tahoma, sans-serif');
-  context.fillText(text.historyQueuePerformanceLongRangeHint, titleX, 1840, 1960);
+  context.fillText(text.historyQueuePerformanceLongRangeHint, titleX, 2180, 1960);
   return canvas;
 }
 
@@ -392,8 +418,8 @@ function renderDetailPages(payload: QueuePerformanceExportPayload): HTMLCanvasEl
   const { report, text } = payload;
   const rtl = isRtl(text);
   const groups: (typeof report.queues)[] = [];
-  for (let index = 0; index < report.queues.length; index += 4) {
-    groups.push(report.queues.slice(index, index + 4));
+  for (let index = 0; index < report.queues.length; index += 3) {
+    groups.push(report.queues.slice(index, index + 3));
   }
   return groups.map((rows, pageIndex) => {
     const { canvas, context } = canvas2d(2200, 1400);
@@ -411,6 +437,18 @@ function renderDetailPages(payload: QueuePerformanceExportPayload): HTMLCanvasEl
         [
           text.historyQueuePerformanceIncoming,
           row.enteredCalls.toLocaleString() + ' / ' + percentage(row.incomingSharePercent),
+        ],
+        [text.historyQueuePerformanceUniqueCallers, row.uniqueCallers.toLocaleString()],
+        [
+          text.historyQueuePerformanceRepeatCallers,
+          row.repeatCallers.toLocaleString() + ' / ' + percentage(row.repeatCallerRatePercent),
+        ],
+        [text.historyQueuePerformanceAvgCallsPerCaller, row.averageCallsPerCaller.toFixed(2)],
+        [
+          text.historyQueuePerformanceCallsFromRepeatCallers,
+          row.callsFromRepeatCallers.toLocaleString() +
+            ' / ' +
+            percentage(row.repeatCallSharePercent),
         ],
         [
           text.historyQueuePerformanceAnswered,
@@ -474,12 +512,12 @@ function renderDetailPages(payload: QueuePerformanceExportPayload): HTMLCanvasEl
       ] as const;
 
     rows.forEach((row, rowIndex) => {
-      const y = 170 + rowIndex * 292;
-      roundedRect(context, 100, y, 2000, 258, 18, '#0B1A2B', '#29415F');
+      const y = 170 + rowIndex * 390;
+      roundedRect(context, 100, y, 2000, 356, 18, '#0B1A2B', '#29415F');
       textSetup(context, false, PALETTE.text, '800 25px "Segoe UI", Tahoma, sans-serif', 'left');
       context.fillText(row.queueId, 128, y + 38);
       const cells = metrics(row);
-      const columns = 7;
+      const columns = 6;
       const gap = 10;
       const cellWidth = (1944 - gap * (columns - 1)) / columns;
       cells.forEach(([label, value], metricIndex) => {
@@ -645,6 +683,13 @@ function metricRow(label: string, metrics: HistoricalQueuePerformanceMetrics): (
     label,
     metrics.enteredCalls,
     metrics.incomingSharePercent,
+    metrics.uniqueCallers,
+    metrics.repeatCallers,
+    metrics.repeatCallerRatePercent,
+    metrics.averageCallsPerCaller,
+    metrics.callsFromRepeatCallers,
+    metrics.repeatCallSharePercent,
+    metrics.callerIdentificationRatePercent,
     metrics.answeredCalls,
     metrics.answerRatePercent,
     metrics.unansweredCalls,
@@ -708,6 +753,13 @@ export async function exportQueuePerformanceExcel(
     text.historyQueueAbandonmentQueue,
     text.historyQueuePerformanceIncoming,
     text.historyQueuePerformanceIncomingShare + ' %',
+    text.historyQueuePerformanceUniqueCallers,
+    text.historyQueuePerformanceRepeatCallers,
+    text.historyQueuePerformanceRepeatCallerRate + ' %',
+    text.historyQueuePerformanceAvgCallsPerCaller,
+    text.historyQueuePerformanceCallsFromRepeatCallers,
+    text.historyQueuePerformanceRepeatCallShare + ' %',
+    text.historyQueuePerformanceCallerIdentificationRate + ' %',
     text.historyQueuePerformanceAnswered,
     text.historyQueuePerformanceAnswerRate + ' %',
     text.historyQueuePerformanceUnanswered,
@@ -801,4 +853,140 @@ export async function exportQueuePerformanceExcel(
   const workbook = writeXlsxFile(rows, sheetOptions);
   const blob = await withTimeout(workbook.toBlob(), 'queue_report_excel_timeout');
   downloadBlob(blob, fileBaseName(report) + '.xlsx');
+}
+
+function queueDetailOutcomeLabel(text: TextMap, outcome: HistoricalQueueCallOutcome): string {
+  switch (outcome) {
+    case 'ANSWERED':
+      return text.historyQueueDetailOutcomeAnswered;
+    case 'CALLER_ABANDONED':
+      return text.historyQueueDetailOutcomeCallerAbandoned;
+    case 'QUEUE_TIMEOUT':
+      return text.historyQueueDetailOutcomeQueueTimeout;
+    case 'EXIT_WITH_KEY':
+      return text.historyQueueDetailOutcomeExitWithKey;
+    case 'FORCED_EXIT':
+      return text.historyQueueDetailOutcomeForcedExit;
+    case 'SYSTEM_FAILURE':
+      return text.historyQueueDetailOutcomeSystemFailure;
+    default:
+      return text.historyQueueDetailOutcomeUnresolved;
+  }
+}
+
+function detailExportTimeout<T>(promise: Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error('queue_detail_excel_timeout')), 60_000);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (cause) => {
+        window.clearTimeout(timer);
+        reject(cause);
+      },
+    );
+  });
+}
+
+export async function exportQueueCallDetailsExcel(
+  payload: QueueCallDetailsExportPayload,
+): Promise<void> {
+  const { report, text, details } = payload;
+  const rtl = isRtl(text);
+  const { default: writeXlsxFile } = await import('write-excel-file/browser');
+  const headers = [
+    text.historyQueueAbandonmentQueue,
+    text.historyQueueDetailCallId,
+    text.historyQueueDetailCallerNumber,
+    text.historyQueueDetailEnteredAt,
+    text.historyQueueDetailInitialPosition,
+    text.historyQueueDetailOutcome,
+    text.historyQueueDetailAgent,
+    text.historyQueueDetailConnectedAt,
+    text.historyQueueDetailOutcomeAt,
+    text.historyQueueDetailCompletedAt,
+    text.historyQueueDetailWaitSeconds,
+    text.historyQueueDetailWaitMinutes,
+    text.historyQueueDetailTalkSeconds,
+    text.historyQueueDetailTalkMinutes,
+  ];
+  const headerCells = headers.map((value) => ({
+    value,
+    fontWeight: 'bold' as const,
+    textColor: '#FFFFFF',
+    backgroundColor: '#1A3A5E',
+    align: rtl ? ('right' as const) : ('left' as const),
+    wrap: true,
+  }));
+  const rows: SheetData = [
+    [
+      {
+        value: text.historyQueuePerformanceExportDetailsExcel,
+        fontWeight: 'bold',
+        fontSize: 18,
+        textColor: '#FFFFFF',
+        backgroundColor: '#10243B',
+        columnSpan: headers.length,
+        align: rtl ? 'right' : 'left',
+      },
+    ],
+    [
+      {
+        value:
+          payload.pbxName +
+          ' | ' +
+          report.from.replace('T', ' ') +
+          ' -> ' +
+          report.to.replace('T', ' '),
+        columnSpan: headers.length,
+        textColor: '#58708D',
+        align: rtl ? 'right' : 'left',
+      },
+    ],
+    [],
+    headerCells,
+  ];
+  for (const detail of details) {
+    rows.push([
+      detail.queueId,
+      detail.callId,
+      detail.callerNumber ?? '',
+      detail.enteredAt,
+      detail.initialPosition ?? '',
+      queueDetailOutcomeLabel(text, detail.outcome),
+      detail.agentId ?? '',
+      detail.connectedAt ?? '',
+      detail.outcomeAt ?? '',
+      detail.completedAt ?? '',
+      detail.waitSeconds ?? '',
+      detail.waitSeconds === undefined ? '' : detail.waitSeconds / 60,
+      detail.talkSeconds ?? '',
+      detail.talkSeconds === undefined ? '' : detail.talkSeconds / 60,
+    ]);
+  }
+  const workbook = writeXlsxFile(rows, {
+    sheet: text.historyQueuePerformanceExportDetailsExcel.slice(0, 31),
+    rightToLeft: rtl,
+    showGridLines: false,
+    columns: [
+      { width: 16 },
+      { width: 24 },
+      { width: 20 },
+      { width: 23 },
+      { width: 18 },
+      { width: 28 },
+      { width: 24 },
+      { width: 23 },
+      { width: 23 },
+      { width: 23 },
+      { width: 16 },
+      { width: 16 },
+      { width: 16 },
+      { width: 16 },
+    ],
+  });
+  const blob = await detailExportTimeout(workbook.toBlob());
+  downloadBlob(blob, fileBaseName(report) + '-details.xlsx');
 }
