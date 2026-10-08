@@ -1,7 +1,6 @@
 import {
   Badge,
   Box,
-  Button,
   Card,
   Checkbox,
   Flex,
@@ -32,7 +31,7 @@ import { TelephonyWorkspace, type TelephonyPage } from './TelephonyWorkspace.js'
 import { AppShell, type ShellDestination } from './AppShell.js';
 import { NocPanel, StatusIndicator } from './NocPrimitives.js';
 import { WorkspaceHeader } from './WorkspacePrimitives.js';
-import { HelpHint, HelpProvider } from './ContextHelp.js';
+import { HelpButton as Button, HelpHint, HelpProvider } from './ContextHelp.js';
 
 type TextMap = (typeof messages)[Language];
 type Phase = 'loading' | 'setup' | 'login' | 'ready' | 'error';

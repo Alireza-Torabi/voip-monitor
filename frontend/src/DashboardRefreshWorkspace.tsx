@@ -1,4 +1,5 @@
-import { Button, Flex, SimpleGrid, Stack, Text } from '@chakra-ui/react';
+import { Flex, SimpleGrid, Stack, Text } from '@chakra-ui/react';
+import { HelpButton as Button } from './ContextHelp.js';
 import { useEffect, useState } from 'react';
 import {
   DASHBOARD_REFRESH_RATE_OPTIONS,

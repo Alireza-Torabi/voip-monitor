@@ -1469,3 +1469,6 @@ Task 60 — Call Outcome Analytics به‌همراه اصلاح‌های ساز�
 - Regression Test، فارسی/انگلیسی، متن فرمول، Hover، Click-to-Pin، Close و وجود گسترده Help Trigger در Flow گزارش را پوشش می‌دهد. یک Harness موقت Chrome واقعی نیز رفتار Popover را Validate کرد و قبل از Commit پاک شد.
 
 </div>
+<div dir="rtl" align="right">
+- **گسترش Help برای Actionها:** دکمه‌های عملیاتی مشترک برنامه مانند Save، Reset، Create، Delete، Refresh، Verify و Pagination از Wrapper مشترک HelpButton استفاده می‌کنند تا علامت `?` و رفتار Hover/Pin کنار Actionها هم یکسان باشد. کنترل‌های Layout-sensitive مثل Navigation/Fullscreen به‌صورت Sibling Help باقی می‌مانند تا هیچ Interactive Element داخل Button دیگری Nest نشود.
+</div>

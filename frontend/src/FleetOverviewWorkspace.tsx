@@ -3,7 +3,8 @@ import type {
   FleetOverviewSnapshot,
   OperationalHealthState,
 } from '@voip-monitor/shared';
-import { Box, Button, Flex, SimpleGrid, Stack, Table, Text } from '@chakra-ui/react';
+import { Box, Flex, SimpleGrid, Stack, Table, Text } from '@chakra-ui/react';
+import { HelpButton as Button } from './ContextHelp.js';
 import { useEffect, useMemo, useState } from 'react';
 import { api, ApiError } from './api.js';
 import type { messages } from './i18n.js';

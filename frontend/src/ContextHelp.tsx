@@ -1,4 +1,13 @@
-import { Box, Button, HStack, Popover, Portal, Stack, Text } from '@chakra-ui/react';
+import {
+  Box,
+  Button,
+  HStack,
+  Popover,
+  Portal,
+  Stack,
+  Text,
+  type ButtonProps,
+} from '@chakra-ui/react';
 import { createContext, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Language } from './i18n.js';
 
@@ -339,6 +348,45 @@ export function HelpHint({
         </Popover.Positioner>
       </Portal>
     </Popover.Root>
+  );
+}
+
+export function HelpButton({
+  help,
+  helpSubject,
+  helpKind = 'action',
+  children,
+  ...buttonProps
+}: ButtonProps & {
+  help?: HelpContent | undefined;
+  helpSubject?: string | undefined;
+  helpKind?: HelpKind | undefined;
+}) {
+  const ariaLabel =
+    typeof buttonProps['aria-label'] === 'string' ? buttonProps['aria-label'] : undefined;
+  const title = typeof buttonProps.title === 'string' ? buttonProps.title : undefined;
+  const subject =
+    helpSubject ?? (typeof children === 'string' ? children : undefined) ?? ariaLabel ?? title;
+  const fullWidth = buttonProps.w === 'full' || buttonProps.width === 'full';
+
+  return (
+    <HStack
+      as="span"
+      display="inline-flex"
+      align="center"
+      gap="1.5"
+      w={fullWidth ? 'full' : 'auto'}
+      maxW="full"
+      minW="0"
+    >
+      <Button
+        {...buttonProps}
+        {...(fullWidth && buttonProps.flex === undefined ? { flex: '1' } : {})}
+      >
+        {children}
+      </Button>
+      <HelpHint help={help} subject={subject} kind={helpKind} size="xs" />
+    </HStack>
   );
 }
 

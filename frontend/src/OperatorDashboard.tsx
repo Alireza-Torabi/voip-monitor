@@ -1,7 +1,6 @@
 import {
   Badge,
   Box,
-  Button,
   Card,
   Flex,
   Heading,
@@ -11,6 +10,7 @@ import {
   Stack,
   Text,
 } from '@chakra-ui/react';
+import { HelpButton as Button } from './ContextHelp.js';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   api,
