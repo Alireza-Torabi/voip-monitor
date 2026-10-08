@@ -1,6 +1,8 @@
 import { Box, HStack, SimpleGrid, Stack, Text } from '@chakra-ui/react';
 import type { HistoricalQueueAbandonmentAnalytics } from '@voip-monitor/shared';
 import type { messages } from './i18n.js';
+import { HelpHint, type HelpContent } from './ContextHelp.js';
+import { HELP } from './helpContent.js';
 
 type TextMap = (typeof messages)['en'] | (typeof messages)['fa'];
 
@@ -8,6 +10,7 @@ interface Slice {
   label: string;
   value: number;
   color: string;
+  help: HelpContent;
 }
 
 function percent(value: number, total: number): string {
@@ -26,10 +29,30 @@ export function QueueOutcomeChart({
     analytics.connectedCalls + analytics.abandonedCalls + analytics.timedOutCalls;
   const otherCalls = Math.max(0, analytics.enteredCalls - knownOutcomes);
   const slices: Slice[] = [
-    { label: text.historyQueueConnected, value: analytics.connectedCalls, color: '#38A0FF' },
-    { label: text.historyQueueAbandoned, value: analytics.abandonedCalls, color: '#FF5C8A' },
-    { label: text.historyQueueTimedOut, value: analytics.timedOutCalls, color: '#F6B94A' },
-    { label: text.historyQueueChartOther, value: otherCalls, color: '#72849D' },
+    {
+      label: text.historyQueueConnected,
+      value: analytics.connectedCalls,
+      color: '#38A0FF',
+      help: HELP.reports.answered,
+    },
+    {
+      label: text.historyQueueAbandoned,
+      value: analytics.abandonedCalls,
+      color: '#FF5C8A',
+      help: HELP.reports.callerAbandon,
+    },
+    {
+      label: text.historyQueueTimedOut,
+      value: analytics.timedOutCalls,
+      color: '#F6B94A',
+      help: HELP.reports.timeout,
+    },
+    {
+      label: text.historyQueueChartOther,
+      value: otherCalls,
+      color: '#72849D',
+      help: HELP.reports.otherQueueOutcome,
+    },
   ].filter((slice) => slice.value > 0);
   const chartTotal = slices.reduce((total, slice) => total + slice.value, 0);
   let offset = 0;
@@ -43,9 +66,12 @@ export function QueueOutcomeChart({
       p={{ base: '4', md: '5' }}
     >
       <Stack gap="1" mb="4">
-        <Text fontSize="13px" fontWeight="800" color="noc.text">
-          {text.historyQueueChartTitle}
-        </Text>
+        <HStack gap="1.5" align="center">
+          <Text fontSize="13px" fontWeight="800" color="noc.text">
+            {text.historyQueueChartTitle}
+          </Text>
+          <HelpHint help={HELP.reports.abandonmentChart} kind="chart" size="xs" />
+        </HStack>
         <Text fontSize="10px" color="noc.textSubtle">
           {text.historyQueueChartHint}
         </Text>
@@ -137,6 +163,7 @@ export function QueueOutcomeChart({
                 <Text fontSize="11px" color="noc.textMuted" fontWeight="700" truncate>
                   {slice.label}
                 </Text>
+                <HelpHint help={slice.help} kind="metric" size="xs" />
               </HStack>
               <HStack gap="3" flex="0 0 auto" dir="ltr">
                 <Text fontSize="12px" color="noc.text" fontWeight="800">

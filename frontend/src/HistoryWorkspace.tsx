@@ -18,6 +18,8 @@ import type { messages } from './i18n.js';
 import { QueueOutcomeChart } from './QueueOutcomeChart.js';
 import { QueuePerformanceReportBuilder } from './QueuePerformanceReport.js';
 import { exportQueueReportExcel, exportQueueReportPdf } from './reportExport.js';
+import { HelpHint, useHelpLanguage, localized, type HelpContent } from './ContextHelp.js';
+import { HELP } from './helpContent.js';
 import {
   DataSurface,
   WorkspaceField,
@@ -78,23 +80,28 @@ function HistoryDatum({
   value,
   ltr = false,
   mono = false,
+  help,
 }: {
   label: string;
   value: string | number;
   ltr?: boolean;
   mono?: boolean;
+  help?: HelpContent | undefined;
 }) {
   return (
     <Box minW="0">
-      <Text
-        fontSize="9px"
-        color="noc.textSubtle"
-        fontWeight="700"
-        letterSpacing=".04em"
-        textTransform="uppercase"
-      >
-        {label}
-      </Text>
+      <HStack gap="1.5" align="center">
+        <Text
+          fontSize="9px"
+          color="noc.textSubtle"
+          fontWeight="700"
+          letterSpacing=".04em"
+          textTransform="uppercase"
+        >
+          {label}
+        </Text>
+        <HelpHint help={help} subject={help ? undefined : label} kind="metric" size="xs" />
+      </HStack>
       <Text
         mt="1"
         fontSize="12px"
@@ -106,6 +113,67 @@ function HistoryDatum({
         {value}
       </Text>
     </Box>
+  );
+}
+
+function ReportGuide() {
+  const language = useHelpLanguage();
+  const help = HELP.reports.guide;
+  const fa = language === 'fa';
+  return (
+    <DataSurface
+      title={fa ? 'راهنمای گزارش‌ها' : 'Reports guide'}
+      help={help}
+      helpKind="section"
+      meta={
+        fa
+          ? 'Hover برای توضیح سریع؛ Click برای ثابت‌کردن راهنما'
+          : 'Hover for quick help; click to pin it'
+      }
+    >
+      <SimpleGrid columns={{ base: 1, lg: 2 }} gap="3" p="4">
+        <Box>
+          <Text fontSize="11px" color="noc.text" fontWeight="800">
+            {fa ? 'چطور KPIها را بخوانیم؟' : 'How to read KPIs'}
+          </Text>
+          <Text mt="1.5" fontSize="10px" color="noc.textMuted" lineHeight="1.75">
+            {localized(help.summary, language)}
+          </Text>
+          <Text mt="1.5" fontSize="10px" color="noc.textMuted" lineHeight="1.75">
+            {localized(help.why!, language)}
+          </Text>
+        </Box>
+        <Stack gap="1.5">
+          <Text fontSize="11px" color="noc.text" fontWeight="800">
+            {fa ? 'نکته‌های مهم' : 'Important notes'}
+          </Text>
+          <Text fontSize="10px" color="noc.textMuted" lineHeight="1.75">
+            •{' '}
+            {fa
+              ? 'Incoming Calls تعداد ورود به صف است؛ Unique Callers تعداد Caller ID متفاوت است و این دو عمداً یکی نیستند.'
+              : 'Incoming Calls counts queue entries; Unique Callers counts different caller IDs. They are intentionally different.'}
+          </Text>
+          <Text fontSize="10px" color="noc.textMuted" lineHeight="1.75">
+            •{' '}
+            {fa
+              ? 'RINGNOANSWER تعداد تلاش زنگ به Agent است و Lost Call محسوب نمی‌شود؛ یک تماس می‌تواند چند Attempt داشته باشد.'
+              : 'RINGNOANSWER counts agent ring attempts and is not a lost call; one call can create multiple attempts.'}
+          </Text>
+          <Text fontSize="10px" color="noc.textMuted" lineHeight="1.75">
+            •{' '}
+            {fa
+              ? 'Unresolved یعنی نتیجه نهایی تماس داخل همان Window قابل تطبیق نیست؛ این ابهام به‌جای تبدیل ساختگی به Lost جدا نمایش داده می‌شود.'
+              : 'Unresolved means the final outcome does not reconcile inside the selected window; uncertainty is shown instead of being forced into Lost.'}
+          </Text>
+          <Text fontSize="10px" color="noc.textMuted" lineHeight="1.75">
+            •{' '}
+            {fa
+              ? 'PDF و Excel مدیریتی از Report لودشده ساخته می‌شوند؛ Excel ریز تماس‌ها تنها Exportی است که با اقدام صریح کاربر Detail حساس را از Source می‌خواند.'
+              : 'Managerial PDF/XLSX use the loaded report; call-detail XLSX is the only export that explicitly fetches sensitive detail from the source.'}
+          </Text>
+        </Stack>
+      </SimpleGrid>
+    </DataSurface>
   );
 }
 
@@ -402,7 +470,13 @@ export function HistoryWorkspace({
 
   return (
     <Stack gap="4" data-workspace="history">
-      <WorkspaceHeader title={text.historyTitle} description={text.historyHint} />
+      <WorkspaceHeader
+        title={text.historyTitle}
+        description={text.historyHint}
+        help={HELP.navigation.reports}
+      />
+
+      <ReportGuide />
 
       <WorkspaceToolbar>
         <WorkspaceField label={text.historyPbx}>
@@ -415,16 +489,18 @@ export function HistoryWorkspace({
           </WorkspaceSelect>
         </WorkspaceField>
         <Box flex="2 1 420px" minW={{ base: '100%', md: '360px' }}>
-          <Text
-            fontSize="10px"
-            color="noc.textSubtle"
-            fontWeight="700"
-            letterSpacing=".06em"
-            textTransform="uppercase"
-            mb="1.5"
-          >
-            {text.historyDataset}
-          </Text>
+          <HStack gap="1.5" align="center" mb="1.5">
+            <Text
+              fontSize="10px"
+              color="noc.textSubtle"
+              fontWeight="700"
+              letterSpacing=".06em"
+              textTransform="uppercase"
+            >
+              {text.historyDataset}
+            </Text>
+            <HelpHint subject={text.historyDataset} kind="field" size="xs" />
+          </HStack>
           <HStack gap="1" flexWrap="wrap">
             {datasetItems.map(([value, label, state]) => (
               <Button
@@ -479,6 +555,7 @@ export function HistoryWorkspace({
         <DataSurface
           title={text.historyOutcomeTitle}
           meta={text.historyOutcomeSourceHint}
+          help={HELP.reports.callOutcomeReport}
           footer={
             <Text fontSize="10px" color="noc.textSubtle">
               {text.historyOutcomeUnknownHint}
@@ -488,9 +565,12 @@ export function HistoryWorkspace({
           <Stack gap="4" p="4">
             <SimpleGrid columns={{ base: 1, md: 3 }} gap="3" alignItems="end">
               <Box>
-                <Text fontSize="10px" color="noc.textSubtle" fontWeight="700" mb="1.5">
-                  {text.historyReportFrom}
-                </Text>
+                <HStack gap="1.5" align="center" mb="1.5">
+                  <Text fontSize="10px" color="noc.textSubtle" fontWeight="700">
+                    {text.historyReportFrom}
+                  </Text>
+                  <HelpHint help={HELP.reports.from} kind="field" size="xs" />
+                </HStack>
                 <Input
                   name="history-outcome-from"
                   type="datetime-local"
@@ -504,9 +584,12 @@ export function HistoryWorkspace({
                 />
               </Box>
               <Box>
-                <Text fontSize="10px" color="noc.textSubtle" fontWeight="700" mb="1.5">
-                  {text.historyReportTo}
-                </Text>
+                <HStack gap="1.5" align="center" mb="1.5">
+                  <Text fontSize="10px" color="noc.textSubtle" fontWeight="700">
+                    {text.historyReportTo}
+                  </Text>
+                  <HelpHint help={HELP.reports.to} kind="field" size="xs" />
+                </HStack>
                 <Input
                   name="history-outcome-to"
                   type="datetime-local"
@@ -527,38 +610,59 @@ export function HistoryWorkspace({
               >
                 {text.historyOutcomeLoad}
               </Button>
+              <HelpHint subject={text.historyOutcomeLoad} kind="action" size="xs" />
             </SimpleGrid>
             {outcomesLoading ? (
               <WorkspaceState tone="info" title={text.loading} loading role="status" />
             ) : outcomes ? (
               <SimpleGrid columns={{ base: 2, md: 4, xl: 8 }} gap="3">
-                <HistoryDatum label={text.historyOutcomeTotal} value={outcomes.totalCalls} ltr />
+                <HistoryDatum
+                  label={text.historyOutcomeTotal}
+                  value={outcomes.totalCalls}
+                  ltr
+                  help={HELP.reports.callOutcomeTotal}
+                />
                 <HistoryDatum
                   label={text.historyOutcomeAnswered}
                   value={outcomes.answeredCalls}
                   ltr
+                  help={HELP.reports.callOutcomeAnswered}
                 />
                 <HistoryDatum
                   label={text.historyOutcomeNoAnswer}
                   value={outcomes.noAnswerCalls}
                   ltr
+                  help={HELP.reports.callOutcomeNoAnswer}
                 />
-                <HistoryDatum label={text.historyOutcomeBusy} value={outcomes.busyCalls} ltr />
-                <HistoryDatum label={text.historyOutcomeFailed} value={outcomes.failedCalls} ltr />
+                <HistoryDatum
+                  label={text.historyOutcomeBusy}
+                  value={outcomes.busyCalls}
+                  ltr
+                  help={HELP.reports.callOutcomeBusy}
+                />
+                <HistoryDatum
+                  label={text.historyOutcomeFailed}
+                  value={outcomes.failedCalls}
+                  ltr
+                  help={HELP.reports.callOutcomeFailed}
+                />
                 <HistoryDatum
                   label={text.historyOutcomeUnknown}
                   value={outcomes.unknownCalls}
                   ltr
+                  help={HELP.reports.callOutcomeUnknown}
                 />
                 <HistoryDatum
                   label={text.historyOutcomeAnswerRatio}
                   value={`${outcomes.answerRatioPercent.toFixed(1)}%`}
                   ltr
+                  help={HELP.reports.callOutcomeAnswerRatio}
                 />
                 <HistoryDatum
                   label={text.historyOutcomeAverageDuration}
                   value={`${outcomes.averageDurationSeconds.toFixed(1)}s`}
                   ltr
+                  help={HELP.reports.callOutcomeAverageDuration}
                 />
               </SimpleGrid>
             ) : (
@@ -602,9 +706,12 @@ export function HistoryWorkspace({
             ) : null}
             <SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} gap="3">
               <Box>
-                <Text fontSize="10px" color="noc.textSubtle" fontWeight="700" mb="1.5">
-                  {text.historyQueueAbandonmentQueue}
-                </Text>
+                <HStack gap="1.5" align="center" mb="1.5">
+                  <Text fontSize="10px" color="noc.textSubtle" fontWeight="700">
+                    {text.historyQueueAbandonmentQueue}
+                  </Text>
+                  <HelpHint help={HELP.reports.queues} kind="field" size="xs" />
+                </HStack>
                 <WorkspaceSelect
                   value={queueId}
                   onChange={(value) => {
@@ -622,9 +729,12 @@ export function HistoryWorkspace({
                 </WorkspaceSelect>
               </Box>
               <Box>
-                <Text fontSize="10px" color="noc.textSubtle" fontWeight="700" mb="1.5">
-                  {text.historyReportFrom}
-                </Text>
+                <HStack gap="1.5" align="center" mb="1.5">
+                  <Text fontSize="10px" color="noc.textSubtle" fontWeight="700">
+                    {text.historyReportFrom}
+                  </Text>
+                  <HelpHint help={HELP.reports.from} kind="field" size="xs" />
+                </HStack>
                 <Input
                   name="history-queue-from"
                   type="datetime-local"
@@ -638,9 +748,12 @@ export function HistoryWorkspace({
                 />
               </Box>
               <Box>
-                <Text fontSize="10px" color="noc.textSubtle" fontWeight="700" mb="1.5">
-                  {text.historyReportTo}
-                </Text>
+                <HStack gap="1.5" align="center" mb="1.5">
+                  <Text fontSize="10px" color="noc.textSubtle" fontWeight="700">
+                    {text.historyReportTo}
+                  </Text>
+                  <HelpHint help={HELP.reports.to} kind="field" size="xs" />
+                </HStack>
                 <Input
                   name="history-queue-to"
                   type="datetime-local"
@@ -654,9 +767,12 @@ export function HistoryWorkspace({
                 />
               </Box>
               <Box>
-                <Text fontSize="10px" color="noc.textSubtle" fontWeight="700" mb="1.5">
-                  {text.historyQueueAbandonmentThreshold}
-                </Text>
+                <HStack gap="1.5" align="center" mb="1.5">
+                  <Text fontSize="10px" color="noc.textSubtle" fontWeight="700">
+                    {text.historyQueueAbandonmentThreshold}
+                  </Text>
+                  <HelpHint help={HELP.reports.abandonmentThreshold} kind="field" size="xs" />
+                </HStack>
                 <Input
                   name="history-long-wait-minutes"
                   type="number"
@@ -689,6 +805,7 @@ export function HistoryWorkspace({
               >
                 {text.historyQueueAbandonmentLoad}
               </Button>
+              <HelpHint subject={text.historyQueueAbandonmentLoad} kind="action" size="xs" />
             </HStack>
             {queueAnalyticsLoading ? (
               <WorkspaceState tone="info" title={text.loading} loading role="status" />
@@ -729,21 +846,25 @@ export function HistoryWorkspace({
                         label={text.historyReportFrom}
                         value={sourceDateTimeLabel(queueAnalytics.from)}
                         ltr
+                        help={HELP.reports.from}
                       />
                       <HistoryDatum
                         label={text.historyReportTo}
                         value={sourceDateTimeLabel(queueAnalytics.to)}
                         ltr
+                        help={HELP.reports.to}
                       />
                       <HistoryDatum
                         label={text.historyQueueAbandonmentThreshold}
                         value={`${queueAnalytics.longWaitThresholdMinutes} ${text.historyQueueMinutesUnit}`}
                         ltr
+                        help={HELP.reports.abandonmentThreshold}
                       />
                       <HistoryDatum
                         label={text.historyQueueAbandonmentQueue}
                         value={queueAnalytics.queueId}
                         ltr
+                        help={HELP.reports.queues}
                       />
                     </SimpleGrid>
                     <SimpleGrid columns={{ base: 2, md: 4, xl: 8 }} gap="3">
@@ -751,21 +872,25 @@ export function HistoryWorkspace({
                         label={text.historyQueueEntered}
                         value={queueAnalytics.enteredCalls}
                         ltr
+                        help={HELP.reports.incoming}
                       />
                       <HistoryDatum
                         label={text.historyQueueConnected}
                         value={queueAnalytics.connectedCalls}
                         ltr
+                        help={HELP.reports.answered}
                       />
                       <HistoryDatum
                         label={text.historyQueueAbandoned}
                         value={queueAnalytics.abandonedCalls}
                         ltr
+                        help={HELP.reports.callerAbandon}
                       />
                       <HistoryDatum
                         label={text.historyQueueTimedOut}
                         value={queueAnalytics.timedOutCalls}
                         ltr
+                        help={HELP.reports.timeout}
                       />
                       <HistoryDatum
                         label={text.historyQueueAbandonmentRate}
@@ -775,6 +900,7 @@ export function HistoryWorkspace({
                             : `${queueAnalytics.abandonmentRatePercent.toFixed(1)}%`
                         }
                         ltr
+                        help={HELP.reports.abandonmentRate}
                       />
                       <HistoryDatum
                         label={text.historyQueueAverageWait}
@@ -784,11 +910,13 @@ export function HistoryWorkspace({
                             : `${queueAnalytics.averageWaitBeforeAbandonSeconds.toFixed(1)}s`
                         }
                         ltr
+                        help={HELP.reports.abandonWait}
                       />
                       <HistoryDatum
                         label={text.historyQueueLongWait}
                         value={queueAnalytics.longWaitAbandonedCalls}
                         ltr
+                        help={HELP.reports.longWaitAbandon}
                       />
                       <HistoryDatum
                         label={text.historyQueuePercentiles}
@@ -799,6 +927,7 @@ export function HistoryWorkspace({
                             : `P50 ${queueAnalytics.p50WaitBeforeAbandonSeconds.toFixed(1)}s / P90 ${queueAnalytics.p90WaitBeforeAbandonSeconds.toFixed(1)}s`
                         }
                         ltr
+                        help={HELP.reports.percentiles}
                       />
                     </SimpleGrid>
                     <Box>
@@ -817,6 +946,7 @@ export function HistoryWorkspace({
                       ? text.historyQueueExportingPdf
                       : text.historyQueueExportPdf}
                   </Button>
+                  <HelpHint help={HELP.reports.exportPdf} kind="export" size="xs" />
                   <Button
                     size="sm"
                     variant="outline"
@@ -827,6 +957,7 @@ export function HistoryWorkspace({
                       ? text.historyQueueExportingExcel
                       : text.historyQueueExportExcel}
                   </Button>
+                  <HelpHint help={HELP.reports.exportExcel} kind="export" size="xs" />
                 </HStack>
               </Stack>
             ) : (

@@ -1,4 +1,4 @@
-import { Box, Button, Flex, SimpleGrid, Stack, Text } from '@chakra-ui/react';
+import { Box, Flex, HStack, SimpleGrid, Stack, Text } from '@chakra-ui/react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   DEFAULT_DASHBOARD_REFRESH_RATES,
@@ -22,6 +22,7 @@ import {
 } from './NocPrimitives.js';
 import { messages, type Language } from './i18n.js';
 import type { TelephonyPage } from './TelephonyWorkspace.js';
+import { HelpHint } from './ContextHelp.js';
 
 type TextMap = (typeof messages)[Language];
 type LiveState = 'connecting' | 'connected' | 'disconnected';
@@ -91,9 +92,12 @@ function KpiCell({
   const content = (
     <Box px="4" py="3.5" minW="0">
       <Flex align="center" justify="space-between" gap="2">
-        <Text fontSize="11px" color="noc.textMuted" fontWeight="600" letterSpacing=".02em">
-          {label}
-        </Text>
+        <HStack gap="1.5" align="center" minW="0">
+          <Text fontSize="11px" color="noc.textMuted" fontWeight="600" letterSpacing=".02em">
+            {label}
+          </Text>
+          <HelpHint subject={label} kind="metric" size="xs" />
+        </HStack>
         <Box
           w="7px"
           h="7px"
@@ -129,18 +133,26 @@ function KpiCell({
 
   if (!onClick) return content;
   return (
-    <Button
-      variant="plain"
+    <Box
+      role="button"
+      tabIndex={0}
       p="0"
-      h="auto"
       minW="0"
       textAlign="start"
       borderRadius="0"
+      cursor="pointer"
       _hover={{ bg: 'rgba(255,255,255,.025)' }}
+      _focusVisible={{ outline: '2px solid', outlineColor: 'noc.accent', outlineOffset: '-2px' }}
       onClick={onClick}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onClick();
+        }
+      }}
     >
       {content}
-    </Button>
+    </Box>
   );
 }
 
@@ -1038,16 +1050,36 @@ export function OperatorOverview({
             </NocInset>
           ) : (
             displayIssues.slice(0, wallboard ? 3 : 6).map((issue) => (
-              <Button
+              <Box
                 key={issue.id}
-                variant="plain"
-                h="auto"
-                p="0"
+                role={issue.destination ? 'button' : undefined}
+                tabIndex={issue.destination ? 0 : undefined}
+                minW="0"
                 textAlign="start"
-                disabled={!issue.destination}
+                cursor={issue.destination ? 'pointer' : 'default'}
+                aria-disabled={issue.destination ? undefined : true}
                 onClick={
                   issue.destination && onNavigate ? () => onNavigate(issue.destination!) : undefined
                 }
+                onKeyDown={
+                  issue.destination && onNavigate
+                    ? (event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          onNavigate(issue.destination!);
+                        }
+                      }
+                    : undefined
+                }
+                {...(issue.destination
+                  ? {
+                      _focusVisible: {
+                        outline: '2px solid',
+                        outlineColor: 'noc.accent',
+                        outlineOffset: '2px',
+                      },
+                    }
+                  : {})}
               >
                 <NocInset
                   w="full"
@@ -1062,7 +1094,7 @@ export function OperatorOverview({
                     </Text>
                   </Flex>
                 </NocInset>
-              </Button>
+              </Box>
             ))
           )}
         </SimpleGrid>

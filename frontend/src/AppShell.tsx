@@ -2,6 +2,8 @@ import { Box, Button, Flex, HStack, Input, Link, Stack, Text } from '@chakra-ui/
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { PbxProfile, Principal } from './api.js';
 import type { Language } from './i18n.js';
+import { HelpHint } from './ContextHelp.js';
+import { HELP } from './helpContent.js';
 
 export type ShellWorkspace = 'dashboard' | 'fleet' | 'telephony' | 'history' | 'settings';
 export type ShellTelephonyPage =
@@ -212,52 +214,62 @@ export function AppShell({
     icon: 'overview' as const,
     label: fa ? 'نمای کلی' : 'Overview',
     destination: { workspace: 'dashboard' } as ShellDestination,
+    help: HELP.navigation.overview,
   };
   const groups = [
     {
       id: 'operations' as const,
       icon: 'calls' as const,
       label: fa ? 'عملیات' : 'Operations',
+      help: HELP.navigation.operations,
       children: [
         {
           icon: 'pbx' as const,
           label: fa ? 'PBXها' : 'PBX Fleet',
           destination: { workspace: 'fleet' } as ShellDestination,
+          help: HELP.navigation.fleet,
         },
         {
           icon: 'calls' as const,
           label: fa ? 'تماس‌های زنده' : 'Live Calls',
           destination: { workspace: 'telephony', page: 'calls' } as ShellDestination,
+          help: HELP.navigation.liveCalls,
         },
         {
           icon: 'channels' as const,
           label: fa ? 'Channelها' : 'Channels',
           destination: { workspace: 'telephony', page: 'channels' } as ShellDestination,
+          help: HELP.navigation.channels,
         },
         {
           icon: 'trunks' as const,
           label: fa ? 'Trunkها' : 'Trunks',
           destination: { workspace: 'telephony', page: 'trunks' } as ShellDestination,
+          help: HELP.navigation.trunks,
         },
         {
           icon: 'endpoints' as const,
           label: fa ? 'Endpointها' : 'Endpoints',
           destination: { workspace: 'telephony', page: 'endpoints' } as ShellDestination,
+          help: HELP.navigation.endpoints,
         },
         {
           icon: 'queues' as const,
           label: fa ? 'صف‌ها' : 'Queues',
           destination: { workspace: 'telephony', page: 'queues' } as ShellDestination,
+          help: HELP.navigation.queues,
         },
         {
           icon: 'agents' as const,
           label: fa ? 'Agentها' : 'Agents',
           destination: { workspace: 'telephony', page: 'agents' } as ShellDestination,
+          help: HELP.navigation.agents,
         },
         {
           icon: 'history' as const,
           label: fa ? 'گزارشات' : 'Reports',
           destination: { workspace: 'history' } as ShellDestination,
+          help: HELP.navigation.reports,
         },
       ],
     },
@@ -265,46 +277,55 @@ export function AppShell({
       id: 'settings' as const,
       icon: 'settings' as const,
       label: fa ? 'تنظیمات' : 'Settings',
+      help: HELP.navigation.settings,
       children: [
         {
           icon: 'pbx' as const,
           label: fa ? 'تنظیمات PBX' : 'PBX Settings',
           destination: { workspace: 'settings', page: 'pbx' } as ShellDestination,
+          help: HELP.navigation.pbxSettings,
         },
         {
           icon: 'settings' as const,
           label: fa ? 'منبع داده' : 'Data Source',
           destination: { workspace: 'settings', page: 'database-source' } as ShellDestination,
+          help: HELP.navigation.dataSource,
         },
         {
           icon: 'infra' as const,
           label: fa ? 'زیرساخت' : 'Infrastructure',
           destination: { workspace: 'settings', page: 'ssh-metrics' } as ShellDestination,
+          help: HELP.navigation.infrastructure,
         },
         {
           icon: 'infra' as const,
           label: fa ? 'مانیتورینگ سرویس' : 'Service Monitoring',
           destination: { workspace: 'settings', page: 'service-monitoring' } as ShellDestination,
+          help: HELP.navigation.serviceMonitoring,
         },
         {
           icon: 'settings' as const,
           label: fa ? 'Storage / Filesystems' : 'Storage / Filesystems',
           destination: { workspace: 'settings', page: 'storage' } as ShellDestination,
+          help: HELP.navigation.storage,
         },
         {
           icon: 'settings' as const,
           label: fa ? 'تنظیمات داشبورد' : 'Dashboard Settings',
           destination: { workspace: 'settings', page: 'dashboard-refresh' } as ShellDestination,
+          help: HELP.navigation.dashboardSettings,
         },
         {
           icon: 'security' as const,
           label: fa ? 'امنیت' : 'Security',
           destination: { workspace: 'settings', page: 'security' } as ShellDestination,
+          help: HELP.navigation.security,
         },
         {
           icon: 'settings' as const,
           label: fa ? 'حساب‌های کاربری' : 'Accounts',
           destination: { workspace: 'settings', page: 'accounts' } as ShellDestination,
+          help: HELP.navigation.accounts,
         },
       ],
     },
@@ -406,40 +427,50 @@ export function AppShell({
           align={{ base: 'center', md: 'stretch' }}
           justify={{ base: 'space-around', md: 'flex-start' }}
         >
-          <Button
-            type="button"
-            variant="ghost"
-            h={{ base: '46px', md: '40px' }}
-            minW={{ base: '64px', md: 'auto' }}
-            px={{ base: '2', lg: '3' }}
-            justifyContent={{ base: 'center', lg: 'flex-start' }}
-            gap="3"
-            borderRadius="9px"
-            color={workspace === 'dashboard' ? 'white' : 'noc.textMuted'}
-            bg={workspace === 'dashboard' ? 'rgba(45,140,255,.18)' : 'transparent'}
-            borderWidth="1px"
-            borderColor={workspace === 'dashboard' ? 'rgba(45,140,255,.30)' : 'transparent'}
-            _hover={{ bg: 'rgba(255,255,255,.045)', color: 'white' }}
-            onClick={() => onNavigate(overview.destination)}
-            aria-current={workspace === 'dashboard' ? 'page' : undefined}
-            aria-label={overview.label}
-            title={overview.label}
-          >
-            <NavIcon name={overview.icon} />
-            <Text
-              fontSize="13px"
-              fontWeight={workspace === 'dashboard' ? '600' : '500'}
+          <Box position="relative" w={{ base: 'auto', md: 'full' }}>
+            <Button
+              type="button"
+              variant="ghost"
+              h={{ base: '46px', md: '40px' }}
+              minW={{ base: '64px', md: 'auto' }}
+              px={{ base: '2', lg: '3' }}
+              justifyContent={{ base: 'center', lg: 'flex-start' }}
+              gap="3"
+              borderRadius="9px"
+              color={workspace === 'dashboard' ? 'white' : 'noc.textMuted'}
+              bg={workspace === 'dashboard' ? 'rgba(45,140,255,.18)' : 'transparent'}
+              borderWidth="1px"
+              borderColor={workspace === 'dashboard' ? 'rgba(45,140,255,.30)' : 'transparent'}
+              _hover={{ bg: 'rgba(255,255,255,.045)', color: 'white' }}
+              onClick={() => onNavigate(overview.destination)}
+              aria-current={workspace === 'dashboard' ? 'page' : undefined}
+              aria-label={overview.label}
+              title={overview.label}
+            >
+              <NavIcon name={overview.icon} />
+              <Text
+                fontSize="13px"
+                fontWeight={workspace === 'dashboard' ? '600' : '500'}
+                display={{ base: 'none', lg: 'block' }}
+              >
+                {overview.label}
+              </Text>
+            </Button>
+            <Box
+              position="absolute"
+              top="11px"
+              insetInlineEnd="8px"
               display={{ base: 'none', lg: 'block' }}
             >
-              {overview.label}
-            </Text>
-          </Button>
+              <HelpHint help={overview.help} kind="navigation" size="xs" />
+            </Box>
+          </Box>
 
           {groups.map((group) => {
             const expanded = expandedGroup === group.id;
             const groupActive = activeGroup === group.id;
             return (
-              <Box key={group.id} minW={{ base: '64px', md: '0' }}>
+              <Box key={group.id} minW={{ base: '64px', md: '0' }} position="relative">
                 <Button
                   type="button"
                   variant="ghost"
@@ -478,6 +509,15 @@ export function AppShell({
                     {expanded ? '−' : '+'}
                   </Text>
                 </Button>
+                <Box
+                  position="absolute"
+                  top="12px"
+                  insetInlineEnd="30px"
+                  display={{ base: 'none', lg: 'block' }}
+                  zIndex="2"
+                >
+                  <HelpHint help={group.help} kind="navigation" size="xs" />
+                </Box>
 
                 {expanded ? (
                   <Stack
@@ -509,7 +549,7 @@ export function AppShell({
                         settingsPage,
                       );
                       return (
-                        <Box as="li" key={item.label}>
+                        <Box as="li" key={item.label} position="relative">
                           <Button
                             type="button"
                             variant="ghost"
@@ -538,6 +578,15 @@ export function AppShell({
                               {item.label}
                             </Text>
                           </Button>
+                          <Box
+                            position="absolute"
+                            top="10px"
+                            insetInlineEnd="8px"
+                            display={{ base: 'none', lg: 'block' }}
+                            zIndex="2"
+                          >
+                            <HelpHint help={item.help} kind="navigation" size="xs" />
+                          </Box>
                         </Box>
                       );
                     })}
@@ -665,6 +714,11 @@ export function AppShell({
             >
               {fa ? 'به‌زودی' : 'Coming soon'}
             </Text>
+            <HelpHint
+              subject={fa ? 'جست‌وجوی نمای فعلی' : 'Search current view'}
+              kind="field"
+              size="xs"
+            />
           </Flex>
 
           <HStack gap="2" flex="0 0 auto">
@@ -688,6 +742,11 @@ export function AppShell({
               <Text fontSize="11px" color={degradedCount > 0 ? 'noc.warning' : 'noc.healthy'}>
                 {degradedCount > 0 ? (fa ? 'نیازمند توجه' : 'Attention') : fa ? 'زنده' : 'Live'}
               </Text>
+              <HelpHint
+                subject={fa ? 'وضعیت لحظه‌ای برنامه' : 'Application live status'}
+                kind="status"
+                size="xs"
+              />
             </Flex>
             <Button
               size="sm"
@@ -703,6 +762,7 @@ export function AppShell({
             >
               {fa ? 'EN' : 'فا'}
             </Button>
+            <HelpHint subject={fa ? 'تغییر زبان' : 'Switch language'} kind="action" size="xs" />
             <Flex
               h="34px"
               align="center"
@@ -730,6 +790,11 @@ export function AppShell({
               <Text fontSize="11px" color="noc.textMuted" dir="ltr" maxW="100px" truncate>
                 {username}
               </Text>
+              <HelpHint
+                subject={fa ? 'حساب کاربری واردشده' : 'Signed-in account'}
+                kind="status"
+                size="xs"
+              />
             </Flex>
             <Button
               size="sm"
@@ -743,6 +808,7 @@ export function AppShell({
             >
               {fa ? 'خروج' : 'Log out'}
             </Button>
+            <HelpHint subject={fa ? 'خروج از حساب' : 'Log out'} kind="action" size="xs" />
           </HStack>
         </Flex>
 

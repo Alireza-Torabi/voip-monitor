@@ -32,6 +32,7 @@ import { TelephonyWorkspace, type TelephonyPage } from './TelephonyWorkspace.js'
 import { AppShell, type ShellDestination } from './AppShell.js';
 import { NocPanel, StatusIndicator } from './NocPrimitives.js';
 import { WorkspaceHeader } from './WorkspacePrimitives.js';
+import { HelpHint, HelpProvider } from './ContextHelp.js';
 
 type TextMap = (typeof messages)[Language];
 type Phase = 'loading' | 'setup' | 'login' | 'ready' | 'error';
@@ -57,9 +58,12 @@ function FormField({
 }) {
   return (
     <Stack gap="1.5">
-      <Text fontSize="sm" fontWeight="semibold" color="fg">
-        {label}
-      </Text>
+      <HStack gap="1.5" align="center">
+        <Text fontSize="sm" fontWeight="semibold" color="fg">
+          {label}
+        </Text>
+        <HelpHint subject={label} kind="field" />
+      </HStack>
       {children}
       {hint ? (
         <Text fontSize="xs" color="fg.muted">
@@ -963,67 +967,69 @@ export function App({
     ) : null;
 
   return (
-    <Box
-      minH="100vh"
-      bg={phase === 'ready' ? 'noc.canvas' : 'gray.50'}
-      dir={direction}
-      lang={language}
-    >
-      {readyContent}
+    <HelpProvider language={language}>
+      <Box
+        minH="100vh"
+        bg={phase === 'ready' ? 'noc.canvas' : 'gray.50'}
+        dir={direction}
+        lang={language}
+      >
+        {readyContent}
 
-      {authPhase ? (
-        <>
-          <Box as="header" bg="white" borderBottomWidth="1px">
-            <Flex
-              maxW="960px"
-              mx="auto"
-              px="5"
-              py="4"
-              align="center"
-              justify="space-between"
-              gap="4"
-            >
-              <Heading size="lg">{text.title}</Heading>
-              <Button
-                size="sm"
-                variant="outline"
-                type="button"
-                onClick={() => setLanguage(language === 'en' ? 'fa' : 'en')}
-                aria-label={text.switchLanguageLabel}
+        {authPhase ? (
+          <>
+            <Box as="header" bg="white" borderBottomWidth="1px">
+              <Flex
+                maxW="960px"
+                mx="auto"
+                px="5"
+                py="4"
+                align="center"
+                justify="space-between"
+                gap="4"
               >
-                {text.switchLanguage}
-              </Button>
+                <Heading size="lg">{text.title}</Heading>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  type="button"
+                  onClick={() => setLanguage(language === 'en' ? 'fa' : 'en')}
+                  aria-label={text.switchLanguageLabel}
+                >
+                  {text.switchLanguage}
+                </Button>
+              </Flex>
+            </Box>
+            <Flex minH="calc(100vh - 69px)" align="center" justify="center" px="5" py="8">
+              {phase === 'loading' ? (
+                <Stack align="center" gap="3">
+                  <Spinner size="lg" />
+                  <Text color="fg.muted">{text.loading}</Text>
+                </Stack>
+              ) : null}
+              {phase === 'error' ? (
+                <Card.Root variant="outline" maxW="md" w="full">
+                  <Card.Body gap="4">
+                    <InlineMessage>{text.unavailable}</InlineMessage>
+                    <Button
+                      colorPalette="blue"
+                      onClick={() => {
+                        void load();
+                      }}
+                    >
+                      {text.retry}
+                    </Button>
+                  </Card.Body>
+                </Card.Root>
+              ) : null}
+              {phase === 'setup' ? (
+                <FirstAdminForm text={text} onCreated={() => setPhase('login')} />
+              ) : null}
+              {phase === 'login' ? <LoginForm text={text} onLoggedIn={loggedIn} /> : null}
             </Flex>
-          </Box>
-          <Flex minH="calc(100vh - 69px)" align="center" justify="center" px="5" py="8">
-            {phase === 'loading' ? (
-              <Stack align="center" gap="3">
-                <Spinner size="lg" />
-                <Text color="fg.muted">{text.loading}</Text>
-              </Stack>
-            ) : null}
-            {phase === 'error' ? (
-              <Card.Root variant="outline" maxW="md" w="full">
-                <Card.Body gap="4">
-                  <InlineMessage>{text.unavailable}</InlineMessage>
-                  <Button
-                    colorPalette="blue"
-                    onClick={() => {
-                      void load();
-                    }}
-                  >
-                    {text.retry}
-                  </Button>
-                </Card.Body>
-              </Card.Root>
-            ) : null}
-            {phase === 'setup' ? (
-              <FirstAdminForm text={text} onCreated={() => setPhase('login')} />
-            ) : null}
-            {phase === 'login' ? <LoginForm text={text} onLoggedIn={loggedIn} /> : null}
-          </Flex>
-        </>
-      ) : null}
-    </Box>
+          </>
+        ) : null}
+      </Box>
+    </HelpProvider>
   );
 }

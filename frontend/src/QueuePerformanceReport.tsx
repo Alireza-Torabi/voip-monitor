@@ -25,6 +25,8 @@ import {
   exportQueuePerformancePdf,
 } from './queuePerformanceExport.js';
 import { DataSurface, WorkspaceState } from './WorkspacePrimitives.js';
+import { HelpHint, type HelpContent } from './ContextHelp.js';
+import { HELP } from './helpContent.js';
 
 type TextMap = (typeof messages)['en'] | (typeof messages)['fa'];
 
@@ -74,7 +76,12 @@ function seconds(value: number | undefined, text: TextMap): string {
   return value === undefined ? '—' : value.toFixed(1) + ' ' + text.historyQueuePerformanceSeconds;
 }
 
-function SummaryCard(props: { label: string; value: string | number; detail?: string }) {
+function SummaryCard(props: {
+  label: string;
+  value: string | number;
+  detail?: string;
+  help?: HelpContent | undefined;
+}) {
   return (
     <Box
       borderWidth="1px"
@@ -84,9 +91,17 @@ function SummaryCard(props: { label: string; value: string | number; detail?: st
       px="3.5"
       py="3"
     >
-      <Text fontSize="9px" color="noc.textSubtle" fontWeight="800">
-        {props.label}
-      </Text>
+      <HStack gap="1.5" align="center">
+        <Text fontSize="9px" color="noc.textSubtle" fontWeight="800">
+          {props.label}
+        </Text>
+        <HelpHint
+          help={props.help}
+          subject={props.help ? undefined : props.label}
+          kind="metric"
+          size="xs"
+        />
+      </HStack>
       <Text mt="1.5" fontSize="21px" lineHeight="1" color="noc.text" fontWeight="900" dir="ltr">
         {props.value}
       </Text>
@@ -110,7 +125,7 @@ function LegendDot(props: { color: string; label: string }) {
   );
 }
 
-function ChartShell(props: { title: string; children: ReactNode }) {
+function ChartShell(props: { title: string; children: ReactNode; help?: HelpContent | undefined }) {
   return (
     <Box
       borderWidth="1px"
@@ -119,9 +134,17 @@ function ChartShell(props: { title: string; children: ReactNode }) {
       bg="rgba(6,19,34,.46)"
       p="4"
     >
-      <Text fontSize="11px" color="noc.text" fontWeight="800" mb="4">
-        {props.title}
-      </Text>
+      <HStack gap="1.5" align="center" mb="4">
+        <Text fontSize="11px" color="noc.text" fontWeight="800">
+          {props.title}
+        </Text>
+        <HelpHint
+          help={props.help}
+          subject={props.help ? undefined : props.title}
+          kind="chart"
+          size="xs"
+        />
+      </HStack>
       {props.children}
     </Box>
   );
@@ -139,6 +162,7 @@ function GroupedBars(props: {
   rows: readonly HistoricalQueuePerformanceRow[];
   series: readonly BarSeries[];
   max?: number;
+  help?: HelpContent | undefined;
 }) {
   const maxValue =
     props.max ??
@@ -152,7 +176,7 @@ function GroupedBars(props: {
       ),
     );
   return (
-    <ChartShell title={props.title}>
+    <ChartShell title={props.title} help={props.help}>
       <HStack gap="3" flexWrap="wrap" mb="4">
         {props.series.map((series) => (
           <LegendDot key={series.label} color={series.color} label={series.label} />
@@ -214,7 +238,7 @@ function LostBreakdown(props: { rows: readonly HistoricalQueuePerformanceRow[]; 
     [props.text.historyQueuePerformanceUnresolved, 'unresolvedUnansweredCalls', COLORS.unresolved],
   ] as const;
   return (
-    <ChartShell title={props.text.historyQueuePerformanceLostChart}>
+    <ChartShell title={props.text.historyQueuePerformanceLostChart} help={HELP.reports.lostChart}>
       <HStack gap="3" flexWrap="wrap" mb="4">
         {segments.map(([label, , color]) => (
           <LegendDot key={label} color={color} label={label} />
@@ -477,11 +501,33 @@ export function QueuePerformanceReportBuilder(props: {
     props.text.historyQueuePerformanceAvgAnswer,
     props.text.historyQueuePerformanceAvgWait,
   ];
+  const tableHelp: Array<HelpContent | undefined> = [
+    HELP.reports.queues,
+    HELP.reports.incoming,
+    HELP.reports.uniqueCallers,
+    HELP.reports.repeatCallers,
+    HELP.reports.avgCallsPerCaller,
+    HELP.reports.callsFromRepeat,
+    HELP.reports.answered,
+    HELP.reports.unanswered,
+    HELP.reports.confirmedLost,
+    HELP.reports.callerAbandon,
+    HELP.reports.timeout,
+    HELP.reports.exitKey,
+    HELP.reports.forcedExit,
+    HELP.reports.systemFailure,
+    HELP.reports.unresolved,
+    HELP.reports.ringNoAnswer,
+    HELP.reports.ringCanceled,
+    HELP.reports.avgAnswer,
+    HELP.reports.avgWait,
+  ];
 
   return (
     <DataSurface
       title={props.text.historyQueuePerformanceTitle}
       meta={props.text.historyQueuePerformanceSourceHint}
+      help={HELP.reports.guide}
       footer={
         <Text fontSize="10px" color="noc.textSubtle">
           {props.text.historyQueuePerformanceLongRangeHint}
@@ -497,9 +543,12 @@ export function QueuePerformanceReportBuilder(props: {
 
         <SimpleGrid columns={{ base: 1, md: 2 }} gap="3">
           <Box>
-            <Text fontSize="10px" color="noc.textSubtle" fontWeight="700" mb="1.5">
-              {props.text.historyReportFrom}
-            </Text>
+            <HStack gap="1.5" align="center" mb="1.5">
+              <Text fontSize="10px" color="noc.textSubtle" fontWeight="700">
+                {props.text.historyReportFrom}
+              </Text>
+              <HelpHint help={HELP.reports.from} kind="field" size="xs" />
+            </HStack>
             <Input
               type="datetime-local"
               step={60}
@@ -512,9 +561,12 @@ export function QueuePerformanceReportBuilder(props: {
             />
           </Box>
           <Box>
-            <Text fontSize="10px" color="noc.textSubtle" fontWeight="700" mb="1.5">
-              {props.text.historyReportTo}
-            </Text>
+            <HStack gap="1.5" align="center" mb="1.5">
+              <Text fontSize="10px" color="noc.textSubtle" fontWeight="700">
+                {props.text.historyReportTo}
+              </Text>
+              <HelpHint help={HELP.reports.to} kind="field" size="xs" />
+            </HStack>
             <Input
               type="datetime-local"
               step={60}
@@ -531,9 +583,12 @@ export function QueuePerformanceReportBuilder(props: {
         <Box>
           <HStack justify="space-between" align="center" gap="3" flexWrap="wrap" mb="2">
             <Box>
-              <Text fontSize="11px" color="noc.text" fontWeight="800">
-                {props.text.historyQueuePerformanceQueues}
-              </Text>
+              <HStack gap="1.5" align="center">
+                <Text fontSize="11px" color="noc.text" fontWeight="800">
+                  {props.text.historyQueuePerformanceQueues}
+                </Text>
+                <HelpHint help={HELP.reports.queues} kind="field" size="xs" />
+              </HStack>
               <Text mt="1" fontSize="9px" color="noc.textSubtle">
                 {props.text.historyQueuePerformanceQueueHint}
               </Text>
@@ -602,6 +657,7 @@ export function QueuePerformanceReportBuilder(props: {
           >
             {props.text.historyQueuePerformanceGenerate}
           </Button>
+          <HelpHint help={HELP.reports.generate} kind="action" size="xs" />
           <Badge colorPalette="blue" variant="subtle">
             {selectedQueues.length} / 16
           </Badge>
@@ -633,48 +689,63 @@ export function QueuePerformanceReportBuilder(props: {
                   label={props.text.historyQueuePerformanceIncoming}
                   value={report.total.enteredCalls.toLocaleString()}
                   detail="100%"
+                  help={HELP.reports.incoming}
                 />
                 <SummaryCard
                   label={props.text.historyQueuePerformanceUniqueCallers}
                   value={report.total.uniqueCallers.toLocaleString()}
                   detail={percent(report.total.callerIdentificationRatePercent)}
+                  help={HELP.reports.uniqueCallers}
+                />
+                <SummaryCard
+                  label={props.text.historyQueuePerformanceCallerIdentificationRate}
+                  value={percent(report.total.callerIdentificationRatePercent)}
+                  help={HELP.reports.callerIdCoverage}
                 />
                 <SummaryCard
                   label={props.text.historyQueuePerformanceRepeatCallers}
                   value={report.total.repeatCallers.toLocaleString()}
                   detail={percent(report.total.repeatCallerRatePercent)}
+                  help={HELP.reports.repeatCallers}
                 />
                 <SummaryCard
                   label={props.text.historyQueuePerformanceAvgCallsPerCaller}
                   value={report.total.averageCallsPerCaller.toFixed(2)}
+                  help={HELP.reports.avgCallsPerCaller}
                 />
                 <SummaryCard
                   label={props.text.historyQueuePerformanceCallsFromRepeatCallers}
                   value={report.total.callsFromRepeatCallers.toLocaleString()}
                   detail={percent(report.total.repeatCallSharePercent)}
+                  help={HELP.reports.callsFromRepeat}
                 />
                 <SummaryCard
                   label={props.text.historyQueuePerformanceAnswered}
                   value={report.total.answeredCalls.toLocaleString()}
                   detail={percent(report.total.answerRatePercent)}
+                  help={HELP.reports.answered}
                 />
                 <SummaryCard
                   label={props.text.historyQueuePerformanceUnanswered}
                   value={report.total.unansweredCalls.toLocaleString()}
                   detail={percent(report.total.unansweredRatePercent)}
+                  help={HELP.reports.unanswered}
                 />
                 <SummaryCard
                   label={props.text.historyQueuePerformanceConfirmedLost}
                   value={report.total.confirmedLostCalls.toLocaleString()}
                   detail={percent(report.total.confirmedLostRatePercent)}
+                  help={HELP.reports.confirmedLost}
                 />
                 <SummaryCard
                   label={props.text.historyQueuePerformanceAvgAnswer}
                   value={seconds(report.total.averageAnswerSeconds, props.text)}
+                  help={HELP.reports.avgAnswer}
                 />
                 <SummaryCard
                   label={props.text.historyQueuePerformanceAvgWait}
                   value={seconds(report.total.averageWaitSeconds, props.text)}
+                  help={HELP.reports.avgWait}
                 />
                 <SummaryCard
                   label={props.text.historyQueuePerformanceRingNoAnswer}
@@ -684,6 +755,7 @@ export function QueuePerformanceReportBuilder(props: {
                     ' ' +
                     props.text.historyQueuePerformancePer100
                   }
+                  help={HELP.reports.ringNoAnswer}
                 />
               </SimpleGrid>
             </Box>
@@ -691,6 +763,7 @@ export function QueuePerformanceReportBuilder(props: {
             <SimpleGrid columns={{ base: 1, xl: 2 }} gap="4">
               <GroupedBars
                 title={props.text.historyQueuePerformanceVolumeChart}
+                help={HELP.reports.volumeChart}
                 rows={report.queues}
                 series={[
                   {
@@ -713,6 +786,7 @@ export function QueuePerformanceReportBuilder(props: {
               <LostBreakdown rows={report.queues} text={props.text} />
               <GroupedBars
                 title={props.text.historyQueuePerformanceRateChart}
+                help={HELP.reports.rateChart}
                 rows={report.queues}
                 max={100}
                 series={[
@@ -732,6 +806,7 @@ export function QueuePerformanceReportBuilder(props: {
               />
               <GroupedBars
                 title={props.text.historyQueuePerformanceTimeChart}
+                help={HELP.reports.timeChart}
                 rows={report.queues}
                 series={[
                   {
@@ -749,6 +824,7 @@ export function QueuePerformanceReportBuilder(props: {
             </SimpleGrid>
             <GroupedBars
               title={props.text.historyQueuePerformanceCallerChart}
+              help={HELP.reports.callerChart}
               rows={report.queues}
               series={[
                 {
@@ -766,6 +842,7 @@ export function QueuePerformanceReportBuilder(props: {
 
             <GroupedBars
               title={props.text.historyQueuePerformanceAttemptsChart}
+              help={HELP.reports.attemptChart}
               rows={report.queues}
               series={[
                 {
@@ -776,7 +853,10 @@ export function QueuePerformanceReportBuilder(props: {
               ]}
             />
 
-            <DataSurface title={props.text.historyQueuePerformanceTableTitle}>
+            <DataSurface
+              title={props.text.historyQueuePerformanceTableTitle}
+              help={HELP.reports.guide}
+            >
               <Box overflowX="auto">
                 <Table.Root size="sm" interactive minW="2500px">
                   <Table.Header bg="noc.surface2">
@@ -790,7 +870,17 @@ export function QueuePerformanceReportBuilder(props: {
                           whiteSpace="nowrap"
                           textAlign={index === 0 ? 'start' : 'end'}
                         >
-                          {header}
+                          <HStack gap="1.5" justify={index === 0 ? 'flex-start' : 'flex-end'}>
+                            <Text as="span" fontSize="9px">
+                              {header}
+                            </Text>
+                            <HelpHint
+                              help={tableHelp[index]}
+                              subject={tableHelp[index] ? undefined : header}
+                              kind="metric"
+                              size="xs"
+                            />
+                          </HStack>
                         </Table.ColumnHeader>
                       ))}
                     </Table.Row>
@@ -844,9 +934,12 @@ export function QueuePerformanceReportBuilder(props: {
                 bg="rgba(246,185,74,.06)"
                 p="3.5"
               >
-                <Text fontSize="11px" color="noc.text" fontWeight="800">
-                  {props.text.historyQueuePerformanceQualityTitle}
-                </Text>
+                <HStack gap="1.5" align="center">
+                  <Text fontSize="11px" color="noc.text" fontWeight="800">
+                    {props.text.historyQueuePerformanceQualityTitle}
+                  </Text>
+                  <HelpHint help={HELP.reports.unresolved} kind="metric" size="xs" />
+                </HStack>
                 <Text mt="1.5" fontSize="10px" color="noc.textMuted">
                   {props.text.historyQueuePerformanceQualityHint}
                 </Text>
@@ -874,6 +967,7 @@ export function QueuePerformanceReportBuilder(props: {
                   ? props.text.historyQueuePerformanceExportingPdf
                   : props.text.historyQueuePerformanceExportPdf}
               </Button>
+              <HelpHint help={HELP.reports.exportPdf} kind="export" size="xs" />
               <Button
                 size="sm"
                 variant="outline"
@@ -884,6 +978,7 @@ export function QueuePerformanceReportBuilder(props: {
                   ? props.text.historyQueuePerformanceExportingExcel
                   : props.text.historyQueuePerformanceExportExcel}
               </Button>
+              <HelpHint help={HELP.reports.exportExcel} kind="export" size="xs" />
               <Button
                 size="sm"
                 variant="outline"
@@ -895,10 +990,14 @@ export function QueuePerformanceReportBuilder(props: {
                     (detailProgress ? ` ${detailProgress.current}/${detailProgress.total}` : '')
                   : props.text.historyQueuePerformanceExportDetailsExcel}
               </Button>
+              <HelpHint help={HELP.reports.exportDetails} kind="export" size="xs" />
             </HStack>
-            <Text fontSize="9px" color="noc.textSubtle">
-              {props.text.historyQueuePerformanceDetailExportHint}
-            </Text>
+            <HStack gap="1.5" align="start">
+              <Text fontSize="9px" color="noc.textSubtle">
+                {props.text.historyQueuePerformanceDetailExportHint}
+              </Text>
+              <HelpHint help={HELP.reports.exportDetails} kind="export" size="xs" />
+            </HStack>
           </Stack>
         ) : null}
       </Stack>

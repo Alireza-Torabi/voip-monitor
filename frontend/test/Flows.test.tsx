@@ -18,6 +18,7 @@ import { TelephonyWorkspace } from '../src/TelephonyWorkspace.js';
 import { FleetOverviewWorkspace } from '../src/FleetOverviewWorkspace.js';
 import { messages } from '../src/i18n.js';
 import { nocSystem } from '../src/theme.js';
+import { HelpProvider } from '../src/ContextHelp.js';
 
 type TestResponse = { ok: boolean; status: number; json: () => Promise<object> };
 let container: HTMLDivElement;
@@ -1475,7 +1476,9 @@ describe('source-backed history workspace', () => {
 
     await act(async () =>
       root.render(
-        <HistoryWorkspace text={messages.en} profiles={[profile]} onUnauthorized={() => {}} />,
+        <HelpProvider language="en">
+          <HistoryWorkspace text={messages.en} profiles={[profile]} onUnauthorized={() => {}} />
+        </HelpProvider>,
       ),
     );
     expect(container.textContent).toContain('Reports');
@@ -1483,6 +1486,10 @@ describe('source-backed history workspace', () => {
     expect(container.textContent).toContain('Not found');
     expect(container.textContent).toContain('Call outcome analytics');
     expect(container.textContent).toContain('Queue performance report builder');
+    expect(container.textContent).toContain('Reports guide');
+    expect(container.textContent).toContain('How to read KPIs');
+    expect(container.textContent).toContain('Incoming Calls counts queue entries');
+    expect(container.querySelectorAll('[data-help-trigger]').length).toBeGreaterThan(10);
     expect(container.textContent).toContain(
       'Long ranges use sequential daily source-side aggregate chunks.',
     );
@@ -1535,7 +1542,9 @@ describe('source-backed history workspace', () => {
 
     await act(async () =>
       root.render(
-        <HistoryWorkspace text={messages.fa} profiles={[profile]} onUnauthorized={() => {}} />,
+        <HelpProvider language="fa">
+          <HistoryWorkspace text={messages.fa} profiles={[profile]} onUnauthorized={() => {}} />
+        </HelpProvider>,
       ),
     );
     expect(container.textContent).toContain('گزارشات');
@@ -1543,6 +1552,9 @@ describe('source-backed history workspace', () => {
     expect(container.textContent).toContain('پیدا نشد');
     expect(container.textContent).toContain('تحلیل ترک صف');
     expect(container.textContent).toContain('گزارش‌ساز عملکرد صف‌ها');
+    expect(container.textContent).toContain('راهنمای گزارش‌ها');
+    expect(container.textContent).toContain('چطور KPIها را بخوانیم؟');
+    expect(container.textContent).toContain('Incoming Calls تعداد ورود به صف است');
     expect(container.textContent).toContain(
       'تجمیع دقیق و مستقیم از سوابق صف‌های انتخاب‌شده در منبع',
     );

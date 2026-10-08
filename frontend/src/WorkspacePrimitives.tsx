@@ -10,17 +10,22 @@ import {
 } from '@chakra-ui/react';
 import type { ReactNode } from 'react';
 import { NocPanel, SectionHeader, StatusIndicator, type OperationalTone } from './NocPrimitives.js';
+import { HelpHint, type HelpContent, type HelpKind } from './ContextHelp.js';
 
 export function WorkspaceHeader({
   title,
   description,
   status,
   actions,
+  help,
+  helpSubject,
 }: {
   title: string | ReactNode;
   description?: string | undefined;
   status?: ReactNode;
   actions?: ReactNode;
+  help?: HelpContent | undefined;
+  helpSubject?: string | undefined;
 }) {
   return (
     <Flex
@@ -31,7 +36,12 @@ export function WorkspaceHeader({
       minW="0"
     >
       <Box minW="0">
-        <SectionHeader title={title} {...(description ? { description } : {})} />
+        <SectionHeader
+          title={title}
+          {...(description ? { description } : {})}
+          {...(help ? { help } : {})}
+          helpSubject={helpSubject ?? (typeof title === 'string' ? title : undefined)}
+        />
         {status ? <Box mt="2">{status}</Box> : null}
       </Box>
       {actions ? <Box flex="0 0 auto">{actions}</Box> : null}
@@ -53,23 +63,34 @@ export function WorkspaceField({
   label,
   children,
   grow = true,
+  help,
+  helpSubject,
 }: {
   label: ReactNode;
   children: ReactNode;
   grow?: boolean;
+  help?: HelpContent | undefined;
+  helpSubject?: string | undefined;
 }) {
   return (
     <Box minW={{ base: '100%', sm: '190px' }} flex={grow ? '1 1 220px' : '0 0 auto'}>
-      <Text
-        fontSize="10px"
-        color="noc.textSubtle"
-        fontWeight="700"
-        letterSpacing=".06em"
-        textTransform="uppercase"
-        mb="1.5"
-      >
-        {label}
-      </Text>
+      <HStack gap="1.5" align="center" mb="1.5">
+        <Text
+          fontSize="10px"
+          color="noc.textSubtle"
+          fontWeight="700"
+          letterSpacing=".06em"
+          textTransform="uppercase"
+        >
+          {label}
+        </Text>
+        <HelpHint
+          help={help}
+          subject={helpSubject ?? (typeof label === 'string' ? label : undefined)}
+          kind="field"
+          size="xs"
+        />
+      </HStack>
       {children}
     </Box>
   );
@@ -168,12 +189,18 @@ export function DataSurface({
   meta,
   children,
   footer,
+  help,
+  helpSubject,
+  helpKind = 'section',
   ...props
 }: BoxProps & {
   title?: ReactNode;
   meta?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
+  help?: HelpContent | undefined;
+  helpSubject?: string | undefined;
+  helpKind?: HelpKind | undefined;
 }) {
   return (
     <NocPanel overflow="hidden" {...props}>
@@ -187,9 +214,17 @@ export function DataSurface({
           borderBottomWidth="1px"
           borderColor="noc.border"
         >
-          <Text fontSize="12px" color="noc.text" fontWeight="600">
-            {title}
-          </Text>
+          <HStack gap="1.5" align="center" minW="0">
+            <Text fontSize="12px" color="noc.text" fontWeight="600">
+              {title}
+            </Text>
+            <HelpHint
+              help={help}
+              subject={helpSubject ?? (typeof title === 'string' ? title : undefined)}
+              kind={helpKind}
+              size="xs"
+            />
+          </HStack>
           {meta ? (
             <Text fontSize="11px" color="noc.textSubtle">
               {meta}
