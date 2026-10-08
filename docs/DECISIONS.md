@@ -788,3 +788,13 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 386. **Connection identity and database/schema scope are separate concepts:** one verified read-only source connection may expose an explicit allowlisted set of databases/schemas under the same host/port/dialect/credential/TLS boundary. The current single-database field is not a permanent product constraint.
 387. **Queue abandonment is a distinct operational KPI:** caller-driven `ABANDON` must remain distinct from system/queue timeout exits. Queue abandonment analytics stay bounded, source-owned, read-only, capability-aware, and non-persistent locally.
 388. **Immediate post-Task-60 order:** merge the operator-validated Task 60 branch, then Task 60A multi-database source scope, then Task 60B queue abandonment analytics, then resume Task 61 Call Quality Source Discovery.
+
+
+## 2026-10-08 — Task 60A implementation decisions
+
+389. **Keep a primary connection database:** `databaseName` remains the driver session database for backward compatibility; multi-source access is represented separately as `databaseScopes` rather than replacing the connection target.
+390. **Dialect-specific scope semantics:** MySQL/MariaDB scopes are databases; PostgreSQL scopes are schemas inside the primary database. Cross-database PostgreSQL access is not implied by this model.
+391. **Verify all scopes before persist:** one bounded read-only `information_schema.schemata` query must prove every requested scope is visible to the submitted credential before configuration is replaced.
+392. **Bound scope cardinality:** at most 16 scopes may be configured for one PBX database source. MySQL/MariaDB always includes the primary database automatically.
+393. **Discovery stays inside verified scope:** source-schema discovery may inspect only persisted verified scopes. Multiple matching candidate datasets across those scopes are ambiguous and must fail closed rather than choosing arbitrarily.
+394. **Backward migration does not touch secrets:** migration 19 seeds scope metadata only; encrypted credentials are not decrypted, rewritten, or re-encrypted as part of the schema migration.

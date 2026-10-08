@@ -375,14 +375,21 @@ export const messages = {
     databaseSourceTlsDisabled: 'Disabled (explicit trusted-network exception)',
     databaseSourceHost: 'Database host',
     databaseSourcePort: 'Database port',
-    databaseSourceDatabaseName: 'Database name',
+    databaseSourceDatabaseName: 'Primary / connection database',
+    databaseSourceScopes: 'Allowed database / schema scopes',
+    databaseSourceScopesMysqlPlaceholder: 'reporting, pbx_config',
+    databaseSourceScopesMysqlHint:
+      'MySQL/MariaDB: comma-separated database names. The primary database is always included automatically.',
+    databaseSourceScopesPostgresPlaceholder: 'public, reporting',
+    databaseSourceScopesPostgresHint:
+      'PostgreSQL: comma-separated schema names inside the primary connection database.',
     databaseSourceUsername: 'Database username',
     databaseSourcePassword: 'Database password',
     databaseSourceReadOnlyTitle: 'Read-only source',
     databaseSourceReadOnlyHint: 'The internal database transport remains bounded and read-only.',
     databaseSourceVerifyBeforeSaveTitle: 'Verify before save',
     databaseSourceVerifyBeforeSaveHint:
-      'Verify & Save opens a bounded read-only connection with the submitted host, database, username, password and TLS policy. Configuration is persisted only after verification succeeds.',
+      'Verify & Save opens one bounded read-only connection and verifies every requested database/schema scope before configuration is persisted.',
     databaseSourceVerifyAndSave: 'Verify & Save',
     databaseSourceVerificationFailed:
       'Database verification failed. Check host, port, database name, username, password and TLS policy. The previous configuration was not changed.',
@@ -395,7 +402,9 @@ export const messages = {
     databaseSourceAuthenticationFailed:
       'Database authentication failed. Check the username and password. The previous configuration was not changed.',
     databaseSourceDatabaseNotFound:
-      'The selected database was not found. Check the database name. The previous configuration was not changed.',
+      'The selected primary database was not found. Check the connection database name. The previous configuration was not changed.',
+    databaseSourceScopeUnavailable:
+      'One or more requested database/schema scopes are not visible to this read-only account. Check the scope list and grants; the previous configuration was not changed.',
     databaseSourceHostBlocked:
       'MySQL has blocked this client host after repeated connection errors. Flush the MySQL host cache before retrying.',
     databaseSourceTlsFailed:
@@ -853,14 +862,21 @@ export const messages = {
     databaseSourceTlsDisabled: 'Disabled — استثنای صریح برای Trusted Network',
     databaseSourceHost: 'Database Host',
     databaseSourcePort: 'Database Port',
-    databaseSourceDatabaseName: 'Database Name',
+    databaseSourceDatabaseName: 'Primary / Connection Database',
+    databaseSourceScopes: 'Database / Schema Scopeهای مجاز',
+    databaseSourceScopesMysqlPlaceholder: 'reporting, pbx_config',
+    databaseSourceScopesMysqlHint:
+      'برای MySQL/MariaDB نام Databaseهای مجاز را با کاما جدا کنید؛ Primary Database همیشه خودکار داخل Scope قرار می‌گیرد.',
+    databaseSourceScopesPostgresPlaceholder: 'public, reporting',
+    databaseSourceScopesPostgresHint:
+      'برای PostgreSQL نام Schemaهای مجاز داخل Primary Database را با کاما جدا کنید.',
     databaseSourceUsername: 'Database Username',
     databaseSourcePassword: 'Database Password',
     databaseSourceReadOnlyTitle: 'Source فقط‌خواندنی است',
     databaseSourceReadOnlyHint: 'Database Transport داخلی همچنان محدود و Read-only باقی می‌ماند.',
     databaseSourceVerifyBeforeSaveTitle: 'Verification قبل از Save',
     databaseSourceVerifyBeforeSaveHint:
-      'دکمه Verify & Save با Host، Database، Username، Password و TLS Policy واردشده یک اتصال محدود و فقط‌خواندنی برقرار می‌کند و فقط بعد از موفقیت Verification، Configuration ذخیره می‌شود.',
+      'دکمه Verify & Save یک Connection محدود و فقط‌خواندنی باز می‌کند و تمام Database/Schema Scopeهای درخواستی را قبل از ذخیره Configuration Verify می‌کند.',
     databaseSourceVerifyAndSave: 'Verify & Save',
     databaseSourceVerificationFailed:
       'Database Verification ناموفق بود. Host، Port، Database Name، Username، Password و TLS Policy را بررسی کنید. Configuration قبلی تغییر نکرد.',
@@ -873,7 +889,9 @@ export const messages = {
     databaseSourceAuthenticationFailed:
       'Authentication دیتابیس ناموفق بود. Username و Password را بررسی کنید. Configuration قبلی تغییر نکرد.',
     databaseSourceDatabaseNotFound:
-      'Database انتخاب‌شده پیدا نشد. Database Name را بررسی کنید. Configuration قبلی تغییر نکرد.',
+      'Primary Database انتخاب‌شده پیدا نشد. Connection Database Name را بررسی کنید. Configuration قبلی تغییر نکرد.',
+    databaseSourceScopeUnavailable:
+      'یک یا چند Database/Schema Scope در دسترس این Read-only Account نیست. Scopeها و Grantها را بررسی کنید؛ Configuration قبلی تغییر نکرد.',
     databaseSourceHostBlocked:
       'MySQL این Client Host را به‌خاطر Connection Errorهای متعدد Block کرده است. قبل از تلاش مجدد Host Cache را Flush کنید.',
     databaseSourceTlsFailed:

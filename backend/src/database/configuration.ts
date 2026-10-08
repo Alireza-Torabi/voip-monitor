@@ -32,6 +32,7 @@ export const configurationSchema = z.strictObject({
   host: z.string().refine(validHostSyntax),
   port: z.number().int().min(1).max(65535),
   databaseName: boundedText(128),
+  databaseScopes: z.array(boundedText(128)).max(16).optional(),
   username: boundedText(128),
   credential: z
     .string()
@@ -45,14 +46,32 @@ export type SafeDatabaseSourceConfiguration = DatabaseSourceConfigRecord & {
   hasCredential: boolean;
 };
 
-export type DatabaseSourceConfigurationInput = z.infer<typeof configurationSchema>;
+export type DatabaseSourceConfigurationInput = Omit<
+  z.infer<typeof configurationSchema>,
+  'databaseScopes'
+> & { databaseScopes: string[] };
 
 export function parseDatabaseSourceConfigurationInput(
   input: unknown,
 ): DatabaseSourceConfigurationInput {
   const parsed = configurationSchema.safeParse(input);
   if (!parsed.success) throw new DatabaseSourceConfigurationError('INVALID_INPUT');
-  return parsed.data;
+  const fallback = parsed.data.dialect === 'POSTGRESQL' ? ['public'] : [parsed.data.databaseName];
+  const supplied =
+    parsed.data.databaseScopes && parsed.data.databaseScopes.length > 0
+      ? parsed.data.databaseScopes
+      : fallback;
+  const databaseScopes = [...new Set(supplied.map((value) => value.trim()))];
+  if (
+    parsed.data.dialect === 'MYSQL_MARIADB' &&
+    !databaseScopes.includes(parsed.data.databaseName)
+  ) {
+    databaseScopes.unshift(parsed.data.databaseName);
+  }
+  if (databaseScopes.length < 1 || databaseScopes.length > 16) {
+    throw new DatabaseSourceConfigurationError('INVALID_INPUT');
+  }
+  return { ...parsed.data, databaseScopes };
 }
 
 export class DatabaseSourceConfigurationError extends Error {
@@ -92,6 +111,7 @@ export class DatabaseSourceConfigurationService {
       host: parsed.host,
       port: parsed.port,
       databaseName: parsed.databaseName,
+      databaseScopes: parsed.databaseScopes,
       username: parsed.username,
       accessMode: ACCESS_MODE,
       tlsMode: parsed.tlsMode,

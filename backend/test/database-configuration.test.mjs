@@ -55,6 +55,7 @@ function databaseConfiguration(overrides = {}) {
     host: 'db.example.test',
     port: 3306,
     databaseName: 'pbx_reporting',
+    databaseScopes: ['pbx_reporting', 'pbx_config'],
     username: 'readonly_monitor',
     credential: 'synthetic-database-password',
     accessMode: 'READ_ONLY',
@@ -73,6 +74,7 @@ test('database source stores metadata separately and encrypts the write-only cre
     assert.equal(safe.host, 'db.example.test');
     assert.equal(safe.port, 3306);
     assert.equal(safe.databaseName, 'pbx_reporting');
+    assert.deepEqual(safe.databaseScopes, ['pbx_reporting', 'pbx_config']);
     assert.equal(safe.username, 'readonly_monitor');
     assert.equal(safe.accessMode, 'READ_ONLY');
     assert.equal(safe.tlsMode, 'REQUIRED');
@@ -94,6 +96,7 @@ test('database source stores metadata separately and encrypts the write-only cre
       assert.ok(metadata);
       assert.equal(metadata.access_mode, 'READ_ONLY');
       assert.equal(metadata.tls_mode, 'REQUIRED');
+      assert.deepEqual(JSON.parse(metadata.database_scopes_json), ['pbx_reporting', 'pbx_config']);
       assert.ok(!JSON.stringify(metadata).includes('synthetic-database-password'));
       assert.ok(!JSON.stringify(encrypted).includes('synthetic-database-password'));
     } finally {
@@ -142,6 +145,7 @@ test('database source rejects invalid or non-read-only configuration', async () 
       { host: 'http://db.example.test' },
       { port: 0 },
       { databaseName: '' },
+      { databaseScopes: Array.from({ length: 17 }, (_, index) => `scope_${index}`) },
       { username: 'bad\u0000user' },
       { credential: '' },
       { accessMode: 'READ_WRITE' },
@@ -154,6 +158,23 @@ test('database source rejects invalid or non-read-only configuration', async () 
       );
     }
     assert.equal(storage.databaseSourceConfigs.get(PBX_ID), undefined);
+  }));
+
+test('database source normalizes empty scopes to a safe dialect-specific default', async () =>
+  fixture(async ({ storage, secrets }) => {
+    const service = new DatabaseSourceConfigurationService(storage, secrets);
+    const mysql = service.configure(PBX_ID, databaseConfiguration({ databaseScopes: [] }));
+    assert.deepEqual(mysql.databaseScopes, ['pbx_reporting']);
+    const postgres = service.configure(
+      PBX_ID,
+      databaseConfiguration({
+        dialect: 'POSTGRESQL',
+        port: 5432,
+        databaseName: 'reporting_db',
+        databaseScopes: [],
+      }),
+    );
+    assert.deepEqual(postgres.databaseScopes, ['public']);
   }));
 
 test('database source removal deletes only its credential and PBX deletion cascades metadata', async () =>
@@ -266,6 +287,7 @@ test('database source API is authenticated, same-origin protected and credential
       const readText = await (await fetch(app.base + path, { headers: { cookie } })).text();
       assert.ok(!readText.includes('synthetic-database-password'));
       assert.equal(JSON.parse(readText).databaseName, 'pbx_reporting');
+      assert.deepEqual(JSON.parse(readText).databaseScopes, ['pbx_reporting', 'pbx_config']);
 
       const deleted = await fetch(app.base + path, {
         method: 'DELETE',

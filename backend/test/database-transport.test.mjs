@@ -14,6 +14,7 @@ function safeConfig(overrides = {}) {
     host: 'db.example.test',
     port: 3306,
     databaseName: 'pbx_reporting',
+    databaseScopes: ['pbx_reporting'],
     username: 'readonly_monitor',
     accessMode: 'READ_ONLY',
     tlsMode: 'REQUIRED',

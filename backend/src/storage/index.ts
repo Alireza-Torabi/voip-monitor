@@ -114,6 +114,7 @@ export interface DatabaseSourceConfigRecord {
   host: string;
   port: number;
   databaseName: string;
+  databaseScopes: string[];
   username: string;
   accessMode: DatabaseAccessMode;
   tlsMode: DatabaseTlsMode;
@@ -714,8 +715,8 @@ export class SqliteStorage implements AppStorage {
           .prepare(
             `INSERT INTO database_source_config
              (pbx_instance_id, dialect, db_host, db_port, database_name, db_username,
-              access_mode, tls_mode, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              access_mode, tls_mode, database_scopes_json, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(pbx_instance_id) DO UPDATE SET
                dialect=excluded.dialect,
                db_host=excluded.db_host,
@@ -724,6 +725,7 @@ export class SqliteStorage implements AppStorage {
                db_username=excluded.db_username,
                access_mode=excluded.access_mode,
                tls_mode=excluded.tls_mode,
+               database_scopes_json=excluded.database_scopes_json,
                updated_at=excluded.updated_at`,
           )
           .run(
@@ -735,6 +737,7 @@ export class SqliteStorage implements AppStorage {
             config.username,
             config.accessMode,
             config.tlsMode,
+            JSON.stringify(config.databaseScopes),
             config.createdAt,
             config.updatedAt,
           );
@@ -1752,12 +1755,29 @@ function mapSshConfig(row: Record<string, unknown>): SshConfigRecord {
 }
 
 function mapDatabaseSourceConfig(row: Record<string, unknown>): DatabaseSourceConfigRecord {
+  let databaseScopes: string[];
+  try {
+    const parsed = JSON.parse(row.database_scopes_json as string) as unknown;
+    if (
+      !Array.isArray(parsed) ||
+      parsed.length < 1 ||
+      parsed.length > 16 ||
+      !parsed.every((value) => typeof value === 'string' && value.trim().length > 0)
+    ) {
+      throw new StorageError();
+    }
+    databaseScopes = parsed;
+  } catch (error) {
+    if (error instanceof StorageError) throw error;
+    throw new StorageError();
+  }
   return {
     pbxInstanceId: row.pbx_instance_id as string,
     dialect: row.dialect as DatabaseDialect,
     host: row.db_host as string,
     port: row.db_port as number,
     databaseName: row.database_name as string,
+    databaseScopes,
     username: row.db_username as string,
     accessMode: row.access_mode as DatabaseAccessMode,
     tlsMode: row.tls_mode as DatabaseTlsMode,

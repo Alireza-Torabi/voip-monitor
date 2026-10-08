@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-08. Tasks 58 and 59 are merged. Task 60 — Call Outcome Analytics plus its database/history compatibility corrections are complete and operator-validated on the Development environment on `feature/call-outcome-analytics`; the branch now awaits merge. After that merge, Task 60A — Multi-database Data Source Scope and Task 60B — Queue Abandonment Analytics/KPI are the immediate priorities before Task 61 — Call Quality Source Discovery.
+Status: 2026-10-08. Task 60 is merged. Task 60A — Multi-database Data Source Scope is complete on `feature/multi-database-source-scope` and awaits operator review on the Development environment before merge. The next task after Task 60A merges is Task 60B — Queue Abandonment Analytics/KPI, followed by Task 61 — Call Quality Source Discovery.
 
 ## Phase 0 — environment discovery
 
@@ -716,7 +716,7 @@ The product foundation is production-ready, but the monitoring product is not ye
   - Reachability transitions, offline duration, bounded flap count, and problematic-endpoint ranking.
 - [x] **Task 60 — Call Outcome Analytics**
   - Source-owned total/answered/no-answer/busy/failed calls, answer ratio, average duration, and bounded time-range analysis.
-- [ ] **Task 60A — Multi-database Data Source Scope**
+- [x] **Task 60A — Multi-database Data Source Scope**
   - Replace the single-database-name assumption with one verified read-only connection that can declare an allowlisted set of accessible databases/schemas under the same host/port/dialect/credential/TLS boundary.
   - Preserve write-only credentials, verify-before-save, bounded connection backoff, SSRF/network policy, and source-owned/no-duplicate-data rules.
   - Separate connection identity from database/schema scope in the UI and never imply access that the source account has not verified.
@@ -1266,3 +1266,16 @@ The operator requested two product changes before Call Quality work: a connectio
 Task 60A and Task 60B are inserted before Task 61 without renumbering the already-published Call Quality/Alerting roadmap. Task 60A comes first because Queue Abandonment and future cross-schema source features should not deepen the current single-database configuration assumption. Task 61 remains the next original roadmap item after these two corrections because Call Quality still requires source discovery before any product claim.
 
 Current merge gate: `feature/call-outcome-analytics` must merge first. Do not begin Task 60A on top of the unmerged Task 60 branch.
+
+
+## 2026-10-08 — Task 60A: Multi-database Data Source Scope
+
+- **Connection/scope separation:** the persisted source still has one dialect/host/port/primary connection database/username/TLS/credential identity, plus a bounded verified list of allowed database/schema scopes.
+- **Compatibility migration:** migration 19 adds `database_scopes_json`. Existing MySQL/MariaDB sources migrate to their existing primary database as the initial scope; existing PostgreSQL sources migrate conservatively to the conventional `public` schema. No credential is rewritten or exposed by the migration.
+- **Verification:** Verify & Save now performs one bounded read-only connection and verifies every requested scope through `information_schema.schemata`. If any requested scope is not visible to the account, persistence is rejected with a bounded `database_scope_unavailable` error and the previous configuration remains unchanged.
+- **Dialect semantics:** MySQL/MariaDB scope values are database names and the primary connection database is always included. PostgreSQL scope values are schemas inside the primary connection database.
+- **Source discovery:** conventional Asterisk history schema discovery is restricted to the verified scope list instead of only the primary database. Multiple matching datasets across allowed scopes remain explicitly `AMBIGUOUS` rather than being guessed.
+- **UI:** Settings now separates the primary/connection database from allowed database/schema scopes, with dialect-specific guidance. Scope input is optional for the single-source case; safe defaults are applied by the backend.
+- **Safety:** scope count is bounded to 16; no arbitrary SQL endpoint, no broader write permission, no local history warehouse, and no source credential disclosure were introduced.
+- **Validation:** targeted backend configuration/verification/migration/schema tests and frontend flow/type tests pass. A controlled read-only real-source check confirmed that the currently approved account can see both operator-requested source scopes; real names remain private and are not tracked in Git.
+- **Exact next task after merge:** Task 60B — Queue Abandonment Analytics / KPI.

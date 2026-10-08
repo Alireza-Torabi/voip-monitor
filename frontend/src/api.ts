@@ -177,6 +177,7 @@ export interface SafeDatabaseSourceConfiguration {
   host: string;
   port: number;
   databaseName: string;
+  databaseScopes: string[];
   username: string;
   accessMode: 'READ_ONLY';
   tlsMode: DatabaseTlsMode;
