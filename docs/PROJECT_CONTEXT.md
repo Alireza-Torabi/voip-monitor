@@ -219,3 +219,6 @@ The operator requires testing unmerged branches on Development 8443 before appro
 
 ## 2026-10-09 — Task 64 dashboard checkpoint
 Merged Task63 PR #85 main `9daadac` verified. `feature/call-quality-dashboard` adds bilingual operations-menu Live Call Quality workspace with 5s read-only authenticated polling and source-qualified RTCP samples. Quality-grade and poor/worst/distribution/trunk summaries are intentionally gated UNKNOWN pending validated source units and associations, not silently fabricated. No new server storage, PBX write or extra AMI socket. Deploy unmerged exact branch on Development 8443 for operator acceptance before merge.
+
+## 2026-10-09 — Task 64 pre-merge review state
+Merged Task63 PR #85 is base. Branch feature/call-quality-dashboard pushed at 72c76d0 and explicitly deployed unmerged on Development 8443; service active/ready 200, unauth call-quality 401, new frontend JS verified. Prior runtime build artifacts privately backed up. Operator must test before approving merge. Source-scaled poor/worst call KPIs deliberately remain unimplemented/unknown pending validation; avoid claiming full feature closure.
