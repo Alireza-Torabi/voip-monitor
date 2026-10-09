@@ -712,7 +712,7 @@ Foundation پروژه از نظر Production آماده است، اما محصو
 ### Phase 16 — Call Quality
 
 - [x] **Task 61 — Call Quality Source Discovery** (منبع واقعی رویدادهای RTCP از AMI نسخه 13.20.0 تأیید شد؛ تاریخچه دیتابیس کیفیت هنوز نامشخص است)
-- [ ] **Task 62 — Provider-neutral Call Quality Contract**
+- [x] **Task 62 — Provider-neutral Call Quality Contract** (قرارداد و نرمال‌سازی مستقل؛ اتصال زنده در Task 63)
 - [ ] **Task 63 — Live Call Quality**
 - [ ] **Task 64 — Call Quality Dashboard**
 
@@ -1487,3 +1487,6 @@ Task 60 — Call Outcome Analytics به‌همراه اصلاح‌های ساز�
 
 ### ۲۰۲۶-۱۰-۰۹ — رفع خطای CI در PR شماره 83
 علت بازتولیدشده خطای CI، ناموفق بودن `npm run format:check` به‌دلیل چینش Import در فایل `frontend/src/DashboardBuilder.tsx` بود که از main به ارث رسیده است. فقط قالب‌بندی با Prettier اصلاح شد و هیچ منطق اجرایی تغییر نکرد. بررسی Foundation، فرمت، Lint، Typecheck، تمامی تست‌های Backend/Frontend و Build به‌صورت محلی موفق بودند. پیش از Merge باید وضعیت نهایی Checkهای GitHub نیز سبز شود.
+
+### ۲۰۲۶-۱۰-۰۹ — Task 62: قرارداد مستقل کیفیت تماس
+این Task در شاخه `feature/call-quality-contract` از نسخه ادغام‌شده `main` با شناسه `e2edb0c` پیاده‌سازی شد. نوع داده مشترک `CallQualitySample` وضعیت‌های AVAILABLE و UNKNOWN/UNSUPPORTED را با واحد اندازه‌گیری صریح نگهداری می‌کند. نرمال‌ساز مستقل AMI RTCP جهت رویداد، Leg/Linkedid، SSRC و بلوک‌های محدود گزارش را استخراج می‌کند؛ Jitter خام فقط در RTP_TICKS و مقدار تجمعی Packet Loss فقط در COUNT نگهداری می‌شوند. درصد Packet Loss، مقیاس RTT، MOS و Codec تا زمان تأیید جداگانه UNKNOWN باقی می‌مانند. هیچ اتصال زنده، API عمومی، ذخیره‌سازی محلی، کوئری دیتابیس یا تغییری در PBX انجام نشده است. ۲۰۶ تست Backend و ۳۹ تست Frontend و بررسی‌های Lint، Typecheck و Format موفق‌اند. اتصال Runtime و ارتباط با تماس فعال وظیفه Task 63 است. این شاخه پیش از Merge نیازمند بررسی است.

@@ -650,3 +650,4 @@ export * from './fleet-overview.js';
 export * from './trunk-reliability.js';
 
 export * from './endpoint-reliability.js';
+export * from './call-quality.js';
