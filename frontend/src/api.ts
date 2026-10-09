@@ -530,6 +530,8 @@ export const api = {
   deleteSshConfiguration: (id: string) =>
     request<{ status: string }>(`/api/pbx-instances/${id}/ssh-configuration`, 'DELETE'),
   systemMetricsStreamUrl: (id: string) => `/api/pbx-instances/${id}/system-metrics/stream`,
+  callQuality: (id: string) =>
+    request<LiveQualityResponse>(`/api/pbx-instances/${id}/call-quality`),
   telephonyState: (id: string) =>
     request<TelephonyStateResponse>(`/api/pbx-instances/${id}/telephony-state`),
   telephonyStateStreamUrl: (id: string) => `/api/pbx-instances/${id}/telephony-state/stream`,
@@ -572,3 +574,31 @@ export const api = {
       };
     }>(`/api/pbx-instances/${id}/test-connection`, 'POST'),
 };
+
+export interface LiveQualityMetric {
+  availability: 'AVAILABLE' | 'UNKNOWN' | 'UNSUPPORTED';
+  value?: number;
+  unit?: string;
+  reason?: string;
+}
+export interface LiveQualitySample {
+  instanceId: string;
+  observedAt: string;
+  legId: string;
+  linkedId?: string;
+  direction: 'SENT' | 'RECEIVED';
+  ssrc?: string;
+  reportSourceSsrc?: string;
+  reportIndex: number;
+  jitter: LiveQualityMetric;
+  cumulativeLostPackets: LiveQualityMetric;
+  packetLossPercent: LiveQualityMetric;
+  rtt: LiveQualityMetric;
+  mos: LiveQualityMetric;
+  codec: { availability: string; name?: string; reason?: string };
+}
+export interface LiveQualityResponse {
+  instanceId: string;
+  capability: 'SUPPORTED' | 'UNKNOWN' | 'UNSUPPORTED';
+  samples: LiveQualitySample[];
+}

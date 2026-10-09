@@ -6,7 +6,8 @@ import { HelpHint } from './ContextHelp.js';
 import { HELP } from './helpContent.js';
 import { useThemeMode } from './ThemeMode.js';
 
-export type ShellWorkspace = 'dashboard' | 'fleet' | 'telephony' | 'history' | 'settings';
+export type ShellWorkspace =
+  'dashboard' | 'fleet' | 'telephony' | 'history' | 'quality' | 'settings';
 export type ShellTelephonyPage =
   'calls' | 'channels' | 'endpoints' | 'trunks' | 'queues' | 'agents';
 export type ShellSettingsPage =
@@ -23,6 +24,7 @@ type ShellDestination =
   | { workspace: 'dashboard' }
   | { workspace: 'fleet' }
   | { workspace: 'history' }
+  | { workspace: 'quality' }
   | { workspace: 'telephony'; page: ShellTelephonyPage }
   | { workspace: 'settings'; page: ShellSettingsPage };
 
@@ -236,6 +238,11 @@ export function AppShell({
           label: fa ? 'تماس‌های زنده' : 'Live Calls',
           destination: { workspace: 'telephony', page: 'calls' } as ShellDestination,
           help: HELP.navigation.liveCalls,
+        },
+        {
+          icon: 'calls' as const,
+          label: fa ? 'کیفیت تماس زنده' : 'Live Call Quality',
+          destination: { workspace: 'quality' } as ShellDestination,
         },
         {
           icon: 'channels' as const,

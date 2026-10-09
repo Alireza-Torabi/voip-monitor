@@ -860,3 +860,6 @@ DECIDED: Represent unverified quality measurements as UNKNOWN, not zero. Preserv
 
 ## Task 63 — Live quality retention and authorization
 DECIDED: Consume RTCP only from the existing provider subscription with no additional AMI socket. Keep at most 256 samples/PBX, expire after 120 seconds and clear on disconnection/reset. Require authenticated PBX-scoped GET access and match each sample to an active channel leg in CURRENT telephony state before returning it; never infer good quality from missing events. No duplicate persistence of source-owned history. Leave MOS/codec, percent loss and unverified RTT UNKNOWN until validated.
+
+## Task 64 — Fail-closed live quality presentation
+DECIDED: Display only verified RTCP source quantities (raw jitter ticks and cumulative loss packet counts) and coverage counts. Unknown loss percent/RTT/MOS/codec and derivative classifications remain explicitly unknown. Do not display a misleading poor-call count of zero or rank 'worst calls' on incomparable raw RTP ticks. Use authenticated per-PBX 5s polling with cleanup when unmounted. Retain source-owned/no-duplicate-storage architecture and require operator pre-merge acceptance.
