@@ -1380,3 +1380,6 @@ The feature/queue-abandonment-analytics branch includes source-backed queue repo
 
 ### 2026-10-09 — Task 61 discovery started (not done)
 Branch `feature/call-quality-source-discovery` created from merged main `c92c589`. Initial code and official Asterisk RTCP documentation review recorded in `docs/CALL_QUALITY_SOURCE_DISCOVERY.md`. AMI RTCPSent/RTCPReceived are candidate sources only; no application quality normalization or proven deployed source capability exists. Source verification and a scoped capability matrix remain prerequisites. No actual PBX/database probe or new UI/API was performed. Task 61 remains unchecked; Task 62 must not start.
+
+### 2026-10-09 — Task 61 read-only verification update
+Approved passive AMI verification on Asterisk 13.20.0 observed 15 `RTCPReceived` and 12 `RTCPSent` events in a 20-second window, with field-name evidence for RTT, jitter and loss reports (no values or identities retained). Actual RTCP event source is AVAILABLE, but metric semantics and correlation are not yet validated. Database quality-schema inspection did not execute due to restricted access, so its status stays UNKNOWN. Details: `docs/CALL_QUALITY_SOURCE_DISCOVERY.md`. Task 61 remains in progress; no Task 62 or UI claim.

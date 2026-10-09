@@ -18,11 +18,11 @@ https://www.asterisk.org/asterisk-media-experience-score/
 - AsteriskProvider subscribes to provider transport AMI events but normalizes telephony/security only.
 - No normalized RTCP event or jitter/loss/RTT/MOS contract exists in backend/src or shared/src.
 - Existing source-history discovery targets conventional CDR, CEL, queue_log and verified source scopes. It does not verify call-quality tables/columns.
-- Hence current capability must remain UNKNOWN, not SUPPORTED, and missing metrics are not zero.
+- The AMI source has now been observed emitting RTCP events on one deployed PBX, but the application's call-quality capability remains UNKNOWN until a validated normalization/association contract exists; missing measurements must never become zero.
 
-## Discovery matrix (not yet verified for a specific PBX)
+## Discovery matrix (verified AMI on one PBX; database remains unverified)
 | Source | Candidate | Availability | Needed proof |
-| AMI Reporting events | RTCPSent / RTCPReceived | VERSION_DOCUMENTED, DEPLOYMENT_UNKNOWN | Server version, allowed event class and masked field-presence samples from a consented test call |
+| AMI Reporting events | RTCPSent / RTCPReceived | OBSERVED_SUPPORTED for Asterisk 13.20.0 | 20-second read-only event observation confirmed both event types and selected field names; exact metric semantics and correlation remain unverified |
 | Read-only source DB | vendor-specific RTCP/RTP quality table | UNKNOWN | Approved-scope information_schema metadata only, not guessed schema or raw call data |
 | AMI CLI commands | RTP stats via arbitrary Command | NOT AUTHORIZED | Excluded from this task's read-only, bounded allowlist; do not send |
 | MOS | direct trusted source | UNKNOWN | Explicit vendor data/algorithm and source semantics; MES must not be rebranded |
@@ -36,4 +36,10 @@ https://www.asterisk.org/asterisk-media-experience-score/
 5. Publish a capability matrix: SUPPORTED / UNSUPPORTED / UNKNOWN with reason and per-metric unit/semantics.
 6. Only then proceed to Task 62's provider-neutral contracts.
 
-No production/PBX queries, network probes, credential reads, configuration changes, or call traffic captures were made as part of this document.
+## Observed deployment verification — 2026-10-09
+- Existing restricted AMI compatibility verification: PASS, Asterisk 13.20.0, login/discovery/snapshot/reconciliation all passed; five-second normalized-event sample was empty and cannot determine RTCP support.
+- Follow-up twenty-second read-only passive AMI event observation on the same approved endpoint: 49 raw events, of which 15 were `RTCPReceived` and 12 `RTCPSent`.
+- Only field *names* were collected. Present RTCP field names included `RTT`, `Report0FractionLost`, `Report0CumulativeLost`, `Report0IAJitter`, `ReportCount`, `SSRC`, `Uniqueid`, `Linkedid`; no corresponding field values, identifiers, caller data or media payload were printed or saved.
+- These observations establish real RTCP event availability for this deployment but do not validate jitter units, RTT semantics, loss percentage conversion, per-leg correlation or MOS.
+- Read-only database metadata verification was prepared but did not execute due to access restrictions; no source database query was issued. Database quality schema is UNKNOWN.
+- No PBX configuration changes, call origination, recordings, packet capture, or database writes occurred.
