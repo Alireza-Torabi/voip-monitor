@@ -866,3 +866,6 @@ DECIDED: Display only verified RTCP source quantities (raw jitter ticks and cumu
 
 ## Quality conversion evidence gate
 Numeric source fields must not automatically imply a known unit. Convert RFC3550 fraction to percent only with confirmed 8-bit unsigned fraction encoding; RTT seconds only with verified version semantics; RTP jitter ticks only with verified stream clock. Keep helpers separate from runtime until evidence is explicit. Codec and MOS must use independently verified sources, never heuristics or MES relabeling.
+
+### 2026-10-09 — Live source evidence does not authorize conversion
+The 20-second aggregate Asterisk13 probe proved field presence but gave no nonzero fraction-loss examples and no RTT unit proof. Keep both values UNKNOWN until validated independently. No per-call sample or caller data was persisted; observational aggregate bins only.
