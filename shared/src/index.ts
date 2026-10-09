@@ -59,12 +59,16 @@ export const DEFAULT_DASHBOARD_REFRESH_RATES: DashboardRefreshRates = {
 };
 
 export type HistoricalCallDisposition = 'ANSWERED' | 'NO_ANSWER' | 'BUSY' | 'FAILED' | 'UNKNOWN';
-export type HistoricalCallOutcomeRange = '1H' | '24H' | '7D' | '30D';
+export interface HistoricalReportWindow {
+  from: string;
+  to: string;
+}
 
 export interface HistoricalCallOutcomeAnalytics {
   instanceId: PbxInstanceId;
   source: 'DATABASE';
-  range: HistoricalCallOutcomeRange;
+  from: string;
+  to: string;
   totalCalls: number;
   answeredCalls: number;
   noAnswerCalls: number;
@@ -73,6 +77,110 @@ export interface HistoricalCallOutcomeAnalytics {
   unknownCalls: number;
   answerRatioPercent: number;
   averageDurationSeconds: number;
+}
+
+export interface HistoricalQueueAbandonmentAnalytics {
+  instanceId: PbxInstanceId;
+  source: 'DATABASE';
+  from: string;
+  to: string;
+  queueId: string;
+  longWaitThresholdMinutes: number;
+  enteredCalls: number;
+  connectedCalls: number;
+  abandonedCalls: number;
+  timedOutCalls: number;
+  longWaitAbandonedCalls: number;
+  abandonmentRatePercent?: number;
+  averageWaitBeforeAbandonSeconds?: number;
+  p50WaitBeforeAbandonSeconds?: number;
+  p90WaitBeforeAbandonSeconds?: number;
+}
+
+export interface HistoricalQueuePerformanceMetrics {
+  enteredCalls: number;
+  answeredCalls: number;
+  unansweredCalls: number;
+  confirmedLostCalls: number;
+  callerAbandonedCalls: number;
+  timedOutCalls: number;
+  exitWithKeyCalls: number;
+  forcedExitCalls: number;
+  systemFailureCalls: number;
+  unresolvedUnansweredCalls: number;
+  outcomeExcessCalls: number;
+  ringNoAnswerAttempts: number;
+  ringCanceledAttempts: number;
+  incomingSharePercent: number;
+  answerRatePercent: number;
+  unansweredRatePercent: number;
+  confirmedLostRatePercent: number;
+  callerAbandonRatePercent: number;
+  timedOutRatePercent: number;
+  exitWithKeyRatePercent: number;
+  forcedExitRatePercent: number;
+  systemFailureRatePercent: number;
+  unresolvedUnansweredRatePercent: number;
+  ringNoAnswerAttemptsPer100Entered: number;
+  uniqueCallers: number;
+  repeatCallers: number;
+  repeatCallerRatePercent: number;
+  averageCallsPerCaller: number;
+  callsFromRepeatCallers: number;
+  repeatCallSharePercent: number;
+  callerIdentificationRatePercent: number;
+  averageAnswerSeconds?: number;
+  averageWaitSeconds?: number;
+}
+
+export interface HistoricalQueuePerformanceRow extends HistoricalQueuePerformanceMetrics {
+  queueId: string;
+}
+
+export interface HistoricalQueuePerformanceReport {
+  instanceId: PbxInstanceId;
+  source: 'DATABASE';
+  from: string;
+  to: string;
+  queueIds: string[];
+  aggregationMode: 'SOURCE_AGGREGATE_CHUNKED';
+  chunkCount: number;
+  queues: HistoricalQueuePerformanceRow[];
+  total: HistoricalQueuePerformanceMetrics;
+}
+
+export type HistoricalQueueCallOutcome =
+  | 'ANSWERED'
+  | 'CALLER_ABANDONED'
+  | 'QUEUE_TIMEOUT'
+  | 'EXIT_WITH_KEY'
+  | 'FORCED_EXIT'
+  | 'SYSTEM_FAILURE'
+  | 'UNRESOLVED';
+
+export interface HistoricalQueueCallDetail {
+  queueId: string;
+  callId: string;
+  callerNumber?: string;
+  enteredAt: string;
+  initialPosition?: number;
+  outcome: HistoricalQueueCallOutcome;
+  agentId?: string;
+  connectedAt?: string;
+  outcomeAt?: string;
+  completedAt?: string;
+  waitSeconds?: number;
+  talkSeconds?: number;
+}
+
+export interface HistoricalQueueCallDetailChunk {
+  instanceId: PbxInstanceId;
+  source: 'DATABASE';
+  from: string;
+  to: string;
+  reportTo: string;
+  queueIds: string[];
+  items: HistoricalQueueCallDetail[];
 }
 export type HistoricalCallEventType =
   | 'CHANNEL_STARTED'
@@ -110,6 +218,8 @@ export interface HistoricalSourceCapabilities {
   calls: HistoricalDatasetCapability;
   callEvents: HistoricalDatasetCapability;
   queueEvents: HistoricalDatasetCapability;
+  queueAbandonment: HistoricalDatasetCapability;
+  queuePerformance: HistoricalDatasetCapability;
 }
 
 /** Source timestamps are preserved without inventing a timezone for naive PBX database values. */

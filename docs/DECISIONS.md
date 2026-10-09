@@ -771,7 +771,7 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 ## 2026-10-07 — Task 60 call outcome analytics
 
 377. **Call analytics remain source-owned:** aggregate call outcomes are queried from the configured external CDR source and are never copied into application telemetry storage.
-378. **Time analysis is bounded by enum, not arbitrary timestamps:** Task 60 supports only `1H`, `24H`, `7D`, and `30D`; the source database clock evaluates the relative boundary so naive CDR timestamps do not receive an invented timezone.
+378. **Time analysis uses validated source-local windows:** report From/To values are strict local date-time strings with From < To and are passed as SQL parameters; naive CDR timestamps do not receive an invented timezone.
 379. **Aggregate at the source:** totals and average duration are computed in one read-only SQL aggregate query. The application must not derive product analytics from only the latest 200 history rows because that would silently skew totals.
 380. **Unknown disposition is a first-class accounting bucket:** normalized known outcomes are ANSWERED, NO_ANSWER, BUSY, and FAILED; all remaining rows contribute to UNKNOWN so known categories plus unknown always reconcile to total.
 381. **Answer ratio denominator is all calls in range:** `answered / total * 100`; an empty range returns zero instead of NaN.
@@ -798,3 +798,56 @@ Earlier product architecture decisions remain proposals. The Phase 2 Task 1 choi
 392. **Bound scope cardinality:** at most 16 scopes may be configured for one PBX database source. MySQL/MariaDB always includes the primary database automatically.
 393. **Discovery stays inside verified scope:** source-schema discovery may inspect only persisted verified scopes. Multiple matching candidate datasets across those scopes are ambiguous and must fail closed rather than choosing arbitrarily.
 394. **Backward migration does not touch secrets:** migration 19 seeds scope metadata only; encrypted credentials are not decrypted, rewritten, or re-encrypted as part of the schema migration.
+
+
+## 2026-10-08 — Task 60B queue-abandonment analytics decisions
+
+395. **Separate generic queue history from abandonment capability:** `queueEvents` can remain supported with the basic `queue_log` columns, while `queueAbandonment` additionally requires `data3` for standard wait-time semantics.
+396. **Do not collapse caller abandon and timeout:** `ABANDON` is caller-driven abandonment; `EXITWITHTIMEOUT` is reported as a separate queue/system timeout KPI and never contributes to the caller-abandon count.
+397. **Use queue entries as the abandonment-rate denominator:** rate is `ABANDON / ENTERQUEUE` within the selected source-clock range when entries are nonzero. A zero denominator yields an unavailable rate, not a fabricated zero percentage.
+398. **Bound operator inputs:** queue identifier is a printable string up to 128 characters; report From/To must form a valid source-local date-time window; long-wait threshold is an integer from 1 through 60 minutes.
+399. **Percentiles must be exact or absent:** P50/P90 use exact nearest-rank calculation only when the full abandon-wait sample fits the 1000-row read bound. Above that bound they are omitted rather than estimated from partial data.
+400. **No local queue warehouse:** Task 60B adds only transient bounded reads and product analytics over the authoritative source. It does not persist queue history or create a raw-SQL/public query surface.
+
+
+401. **Reports use explicit date/time pickers:** fixed `1H/24H/7D/30D` presets are replaced by validated From/To source-local date-time values so operators can select the exact reporting window.
+402. **Queue report selection comes from current normalized queue state:** the browser uses the existing telephony-state API to populate the Queue dropdown; report navigation does not create a new AMI connection.
+403. **Long-wait input is operator-facing minutes:** UI/API accept whole minutes from 1 through 60 and convert to seconds only at the generated SQL comparison boundary.
+404. **Recognize FreePBX queue table alias:** schema discovery accepts `queue_log` or `queuelog`; multiple valid matches remain ambiguous rather than being guessed.
+
+
+405. **Preserve queue-event index sargability on MySQL/MariaDB:** generated queue analytics compare canonical indexed event values directly instead of wrapping the indexed event column in normalization functions. PostgreSQL retains normalization where needed for semantic compatibility.
+406. **Do not prescribe source DB changes when query shape is sufficient:** real-source read-only diagnostics must precede index/global-setting recommendations. Existing source indexes are preferred when a generated-query correction can make them usable.
+
+
+407. **Report exports are client-side snapshots of loaded analytics:** PDF/XLSX generation must not re-query the PBX/database or create report persistence on the monitor backend.
+408. **Queue composition chart must reconcile the visible whole:** connected, caller-abandoned, queue-timeout, and nonnegative residual/other exits are used for the donut rather than treating the long-wait subset as an independent slice.
+409. **PDF uses a deterministic localized report canvas:** the browser draws the loaded filters, KPIs, and chart data directly to Canvas, preserving Persian shaping without adding repository font binaries or depending on DOM screenshot behavior.
+410. **XLSX remains structured:** queue filters and KPIs are exported as spreadsheet cells and the chart is embedded as an image; Persian worksheets use RTL direction.
+411. **Reject vulnerable convenience dependencies:** export dependencies must pass the project license gate and runtime audit. The selected export stack is MIT-licensed and showed zero production audit findings at implementation time.
+
+412. **Do not use DOM screenshotting for report export:** queue PDF/XLSX graphics are generated directly from normalized analytics through Canvas so export completion does not depend on layout/screenshot engines.
+413. **Export operations must fail bounded:** asynchronous report image/workbook stages have a 15-second client-side timeout, and XLSX generation resolves to a Blob before the download is triggered.
+
+414. **Queue performance reports use aggregate-only source reads:** core counts and weighted averages are computed in SQL and never derived from the raw-history 1,000-row browsing sample.
+415. **Live-source queue reports use sequential daily chunks:** each database query covers at most one day, report windows are capped at 30 days once exact caller KPIs are included, and queue selection is capped at 16. Multi-month/year reporting belongs on a read-only reporting replica.
+416. **Separate count aggregation from timing casts:** each chunk first groups queue/event counts; wait-time casts run only for wait-bearing events that were actually observed. This keeps high-volume unrelated events out of numeric-conversion work and preserves the queue/event/time index path.
+417. **RINGNOANSWER is an attempt metric, not a lost-call category:** repeated agent ring attempts can belong to one caller and can precede a successful answer. RINGCANCELED is likewise non-additive to call-level lost totals.
+418. **Expose event-window reconciliation instead of claiming cohort exactness:** unresolved unanswered and excess terminal outcomes remain visible so cross-window/custom-event variance is measurable without expensive call-id joins on the operational source.
+419. **Comprehensive report export stays client-side:** XLSX contains structured per-queue/total cells plus charts; PDF contains summary/charts plus detailed per-queue pages. Export does not trigger another history query or create report persistence.
+
+420. **Caller KPIs are exact but identifier-free at the managerial contract:** conventional `ENTERQUEUE` caller identifiers are HMACed immediately with a random per-report key; only ephemeral digest counters feed unique/repeat KPIs, and raw identifiers are not persisted or returned by the managerial report API.
+421. **Cross-queue unique callers are deduplicated globally:** the combined report total must not sum per-queue unique counts when one caller appears in multiple selected queues.
+422. **Identity reads preserve the 1,000-row hard query bound:** daily windows are count-first and recursively time-split before the caller-grouping query; only grouped queue/caller call-counts are returned before immediate pseudonymization, and the central query-layer limit is never raised for reporting convenience.
+423. **No queue-history `callid` join for detail export:** call-detail rows are reconstructed from indexed queue/event/time slices and correlated in application memory, avoiding an unportable or unindexed call-ID join on the operational source.
+424. **Call-detail export is Excel-only and sensitive:** the browser receives filtered detail rows only for an explicit export action, caps the workbook at 75,000 queue calls, generates XLSX locally, and warns that caller numbers and call IDs are sensitive operational data.
+425. **Comprehensive live-source reporting is capped at 30 days once exact caller KPIs are enabled:** quarterly/yearly reporting should target a read-only reporting replica rather than increasing operational-source query duration or row bounds.
+
+426. **Caller KPI source reads are grouped before pseudonymization:** adaptive sub-windows first use a cheap ENTERQUEUE count. Once below the 1,000-row safety bound, the source groups by queue/caller and returns only caller call-counts. Caller values are immediately HMACed with a random per-report key and are never persisted or returned by the KPI API.
+427. **Detailed queue export is explicitly sensitive and bounded:** it is Excel-only, uses exactly the report's queue/time filters, reconstructs source-owned detail in sequential daily chunks with at most 1,000 rows per database query, caps the browser workbook at 75,000 calls, and stores no generated file or call detail on the monitor backend.
+
+428. **Context help is a shared bilingual frontend primitive:** meaningful application concepts use one `?`/popover interaction model rather than workspace-specific tooltip implementations. Language follows the application language context and Persian help is RTL/right-aligned.
+429. **Help preview and pin are separate interaction states:** hover/focus previews the explanation; click pins it until explicit/outside dismissal. Help triggers remain independent accessible buttons and must not be nested inside other interactive buttons/cards.
+430. **Report help is calculation-aware:** specialized report KPI help states meaning, operational rationale, and the actual backend/source calculation semantics, including denominators, event categories, caller deduplication and safety-bound behavior. Generic non-report help may use label-based fallback copy.
+431. **Help is presentation-only:** contextual help does not add backend endpoints, query PBX/database sources, persist help state, or change collection/refresh behavior.
+432. **Common action buttons use sibling help, never nested help:** shared workspace buttons may use `HelpButton`, which keeps the original action button and `?` as sibling interactive elements. Layout-sensitive controls use explicit sibling help to preserve positioning.

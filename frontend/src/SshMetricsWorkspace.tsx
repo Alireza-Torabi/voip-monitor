@@ -1,7 +1,6 @@
 import {
   Badge,
   Box,
-  Button,
   Flex,
   HStack,
   Input,
@@ -11,6 +10,7 @@ import {
   Text,
   Textarea,
 } from '@chakra-ui/react';
+import { HelpButton as Button } from './ContextHelp.js';
 import { useEffect, useState, type FormEvent } from 'react';
 import {
   api,

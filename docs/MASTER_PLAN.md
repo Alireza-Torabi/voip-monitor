@@ -1,6 +1,6 @@
 # Master plan
 
-Status: 2026-10-08. Task 60 is merged. Task 60A — Multi-database Data Source Scope is complete on `feature/multi-database-source-scope` and awaits operator review on the Development environment before merge. The next task after Task 60A merges is Task 60B — Queue Abandonment Analytics/KPI, followed by Task 61 — Call Quality Source Discovery.
+Status: 2026-10-08. Tasks 60 and 60A are merged. Task 60B — Queue Abandonment Analytics/KPI is complete on `feature/queue-abandonment-analytics` and awaits operator review on the Development environment before merge. The next task after Task 60B merges is Task 61 — Call Quality Source Discovery.
 
 ## Phase 0 — environment discovery
 
@@ -721,7 +721,7 @@ The product foundation is production-ready, but the monitoring product is not ye
   - Preserve write-only credentials, verify-before-save, bounded connection backoff, SSRF/network policy, and source-owned/no-duplicate-data rules.
   - Separate connection identity from database/schema scope in the UI and never imply access that the source account has not verified.
   - Migrate existing single-database configurations compatibly without exposing or unnecessarily rewriting credentials.
-- [ ] **Task 60B — Queue Abandonment Analytics / KPI**
+- [x] **Task 60B — Queue Abandonment Analytics / KPI**
   - Add bounded source-owned Queue analytics for a selected queue and time range using supported queue-event data, distinguishing caller `ABANDON` from system-driven timeout/exit outcomes.
   - KPI set: queue entries, connected/answered calls, abandoned calls, abandonment rate, average wait before abandon, configurable long-wait-abandon threshold/count, and P50/P90 wait where supported by source data.
   - Discover and validate queue identity/event semantics from the source schema; do not infer unsupported fields or collapse `ABANDON` and `EXITWITHTIMEOUT`.
@@ -1195,7 +1195,7 @@ V1 is not product-complete until PBX health, trunk health, endpoint health, queu
 ## 2026-10-07 — Task 60: Call Outcome Analytics
 
 - **Source ownership preserved:** call outcome analytics are computed directly in the configured read-only CDR source. VoIP Monitor does not persist, cache, warehouse, or duplicate call-history telemetry.
-- **Bounded ranges:** the public API accepts only `1H`, `24H`, `7D`, or `30D`. Range boundaries are evaluated against the source database clock, avoiding invented timezone conversion for naive Asterisk CDR timestamps.
+- **Explicit bounded window:** the report API accepts operator-selected `from` / `to` source-local date/time values after strict validation; no timezone is invented for naive Asterisk CDR timestamps, and the selected window is parameterized rather than interpolated into SQL.
 - **Direct aggregation:** total, answered, no-answer, busy, failed, unknown, average duration, and answer ratio are derived by one aggregate source query rather than by downloading an arbitrary row sample into the application.
 - **Unknown visibility:** source dispositions outside the normalized adapter set remain counted as `unknownCalls`; they are never silently dropped, so category totals remain auditable against total calls.
 - **Read-only safety:** the query is generated from discovered/quoted schema identifiers and a fixed range allowlist. No arbitrary SQL or caller-supplied interval text crosses the adapter boundary.
@@ -1279,3 +1279,101 @@ Current merge gate: `feature/call-outcome-analytics` must merge first. Do not be
 - **Safety:** scope count is bounded to 16; no arbitrary SQL endpoint, no broader write permission, no local history warehouse, and no source credential disclosure were introduced.
 - **Validation:** targeted backend configuration/verification/migration/schema tests and frontend flow/type tests pass. A controlled read-only real-source check confirmed that the currently approved account can see both operator-requested source scopes; real names remain private and are not tracked in Git.
 - **Exact next task after merge:** Task 60B — Queue Abandonment Analytics / KPI.
+
+
+## 2026-10-08 — Task 60B: Queue Abandonment Analytics / KPI
+
+- **Source semantics:** Queue analytics use the discovered conventional `queue_log` dataset. The analytics capability is separate from generic queue-event history and requires `time`, `callid`, `queuename`, `event`, and `data3`; generic Queue Events can remain supported even when wait-time analytics is unavailable.
+- **Bounded selection:** operators select one current Queue ID, explicit From/To source-local date/time values, and an integer long-wait threshold from 1 to 60 minutes. Queue ID is bounded to 128 printable characters.
+- **KPI semantics:** `ENTERQUEUE` counts entries, `CONNECT` counts calls connected to an agent, `ABANDON` counts caller-driven abandonment, and `EXITWITHTIMEOUT` is reported independently as queue/system timeout. Abandonment rate is `ABANDON / ENTERQUEUE` for the same selected source range when the denominator is nonzero.
+- **Wait metrics:** average wait before abandon and long-wait-abandon count use the documented `ABANDON` wait-time parameter (`data3`). Missing denominator/average data is omitted rather than manufactured as zero.
+- **Percentiles:** exact nearest-rank P50/P90 are calculated only when the complete abandon wait sample is at most 1000 rows. Above that safety bound, percentiles are omitted rather than estimated from a partial sample; aggregate KPIs remain available.
+- **Read-only/source-owned:** aggregate and percentile reads are generated, parameterized and bounded through the existing read-only database transport. No local queue-history table, warehouse, arbitrary SQL surface, background polling, or PBX/database mutation is introduced.
+- **API/UI:** `GET /api/pbx-instances/:id/history/queue-abandonment` accepts only bounded queue/from/to/threshold inputs. The Reports workspace exposes native date-time pickers, a current-queue dropdown sourced from normalized AMI telephony state, a minute-based long-wait input, and explicit Caller Abandon versus Queue Timeout KPIs.
+- **Regression coverage:** synthetic adapter tests cover event separation, wait metrics, exact percentile calculation, percentile safety-bound omission, schema fail-closed behavior, and input validation. Authenticated API tests cover valid and invalid query parameters. Frontend flow coverage verifies rendering and operator-triggered analysis. No new real PBX/database probe was performed for Task 60B implementation.
+- **Exact next task after merge:** Task 61 — Call Quality Source Discovery.
+
+
+## 2026-10-08 — Task 60B operator-review UX correction
+
+- **Reports navigation:** the former Call History destination is presented under Operations as **Reports**; the workspace contains operational analytics plus the bounded raw source-history inspector.
+- **Date/time filters:** Call Outcome and Queue Abandonment reports now use native `datetime-local` From/To controls instead of fixed relative range presets. Backend validation requires a real source-local date/time and `From < To`; query values remain parameterized.
+- **Queue selection:** Queue Abandonment uses a dropdown populated from the normalized current AMI Queue state for the selected PBX. The analytics form remains visible even if source capability is unavailable, so operators can see the required inputs and explicit capability reason.
+- **Threshold UX:** Long-wait threshold is entered as an integer number of minutes (`1..60`) with an explanatory example; conversion to seconds occurs only inside the fixed source query semantics.
+- **FreePBX compatibility:** conventional queue-history discovery accepts both `queue_log` and the common FreePBX `queuelog` table name. If more than one candidate matches, discovery remains `AMBIGUOUS` and fails closed.
+
+
+## 2026-10-08 — Queue-report timeout diagnosis and sargability fix
+
+- **Diagnosis:** a controlled read-only production-source diagnostic showed that the queue-history source already has an appropriate composite index beginning with queue, event, and time. No database setting or new index is required for the current timeout.
+- **Root cause:** the MySQL/MariaDB queue analytics predicate normalized `event` with `UPPER(TRIM(CAST(...)))`. Applying a function to the indexed event column prevented the optimizer from using the event/time portions of the composite index efficiently and could turn a bounded report into a large queue-level scan.
+- **Resolution:** MySQL/MariaDB queue analytics now compare the canonical queue event column directly. The deployed source uses a case-insensitive collation and canonical Asterisk event names, so direct equality/`IN` preserves semantics while restoring index sargability. PostgreSQL retains the normalization expression to preserve its case-sensitive semantics.
+- **Validation:** read-only `EXPLAIN` on the real source showed the optimized predicate selecting the composite queue/event/time index with a dramatically lower row estimate. A controlled read-only aggregate over a two-day real-source window completed in tens of milliseconds. No PBX/database mutation was performed.
+
+
+## 2026-10-08 — Task 60B Persian reporting UX clarification
+
+- The Persian Reports workspace now uses fully localized operator-facing labels, errors, capability states, queue-abandonment KPI names, and explanatory copy. Literal Asterisk source event codes such as `ABANDON` and `EXITWITHTIMEOUT` remain visible only where their exact source semantics matter.
+- The long-wait threshold control now explicitly states that it changes only the long-wait-abandon count; base queue KPIs (entries, connected, caller abandons, queue timeout, abandonment rate, average abandon wait) are independent of that threshold for the same queue/time window.
+- History capability badges are localized instead of rendering raw enum values such as `SUPPORTED`, `NOT_FOUND`, `SCHEMA_MISMATCH`, or `AMBIGUOUS` in Persian mode.
+- Frontend regression coverage renders the Reports workspace in Persian and asserts the localized queue labels/capability states.
+
+
+## 2026-10-08 — Task 60B report visualization and client-side export
+
+- **Queue outcome visualization:** the analyzed queue report now includes a responsive donut chart below the KPI summary. The chart uses connected, caller-abandoned, queue-timeout, and residual/other exits so the visible composition remains part-to-whole when known terminal outcomes do not fully reconcile to queue entries.
+- **PDF export:** operators can export the already-loaded queue report to a real `.pdf`. The browser renders a deterministic report canvas from the already-loaded filters, KPIs, and chart data and packages it as a landscape A4 PDF. Canvas text rendering preserves Persian shaping without bundling or exposing a separate font asset.
+- **Excel export:** operators can export a real `.xlsx` with filter/KPI values as spreadsheet cells plus the same rendered chart embedded as an image in the worksheet. Persian exports use right-to-left sheet direction.
+- **No source re-query:** export actions operate only on the analytics response already present in browser memory. Clicking PDF/Excel never opens another database connection and never increases PBX/database query load.
+- **Dependency posture:** `write-excel-file` is MIT-licensed and dynamically imported only for XLSX generation. PDF packaging uses the project's small internal image-only PDF writer, while both PDF and XLSX chart images are drawn directly from report data using the browser Canvas API; no DOM screenshot dependency is required. A candidate Excel library with a moderate transitive vulnerability was rejected before commit. `npm audit --omit=dev` reports zero known vulnerabilities after the final dependency selection.
+- **Regression coverage:** the History flow test asserts the graphical queue report and PDF/Excel export controls in both English and Persian. Browser production build/typecheck validates the dynamically imported export modules.
+
+
+## 2026-10-08 — Task 60B export hang fix
+
+- **Observed defect:** after a successful queue analysis, Excel export could remain indefinitely in the “Creating Excel…” state.
+- **Root cause boundary:** the spreadsheet writer itself was validated independently and completed with an embedded image in milliseconds; the unreliable stage was DOM-to-canvas rendering before workbook generation.
+- **Resolution:** PDF/Excel export no longer depends on DOM screenshot rendering. Export graphics are drawn deterministically from the loaded analytics payload with the browser Canvas API. XLSX generation uses `toBlob()` plus the project-owned download helper so completion is explicit and testable.
+- **Hang protection:** every asynchronous image/workbook stage is guarded by a 15-second client-side timeout so the UI always leaves the exporting state on failure.
+- **Browser validation:** a temporary Vite harness executed the real Excel export path in remote headless Chrome and completed successfully in about 148 ms. The temporary harness was removed and was never committed.
+- **Source safety:** the fix remains entirely client-side and issues no new PBX/database query.
+
+## 2026-10-08 — Task 60C multi-queue performance report builder (operator review pending)
+
+- Added a real queue performance report builder under Reports with an explicit source-local From/To window and multi-select queue catalog. Operators can select 1–16 queues; the catalog is read directly from the configured queue-history source and falls back to current telephony state only when the source catalog is unavailable.
+- The report returns both per-queue rows and a combined selected-queue total for incoming entries, answered calls, unanswered-in-window calls, confirmed lost calls, caller abandons, queue timeouts, menu-key exits, forced/empty-queue exits, bounded agent/system failure outcomes, unresolved window outcomes, agent ring-no-answer attempts, canceled ring attempts, average time to answer, and average caller wait.
+- `RINGNOANSWER` is explicitly an agent-attempt metric, not a call-level lost outcome. It can occur many times for one caller and therefore is never added to lost-call totals. `RINGCANCELED` is also shown separately. Known terminal queue outcomes stay separated so operators can distinguish caller behavior from queue/system behavior.
+- Percentages use explicit denominators: queue volume share uses total selected entries; answer/unanswered/lost and lost-reason rates use the queue's own entered-call count. Duration metrics remain durations rather than misleading percentages. Ring-no-answer is additionally normalized as attempts per 100 incoming calls.
+- Added five report visualizations: volume comparison, lost-reason composition, answer/lost rates, average queue timing, and agent ring-attempt activity. The detailed table preserves every KPI plus a combined total row.
+- PDF export is multi-page: the first page carries summary and charts, subsequent pages retain detailed per-queue KPI cards. XLSX keeps structured cells for every KPI/rate and embeds the report charts. Export remains browser-only and never re-queries the PBX/database.
+- Core report KPIs no longer depend on the 1,000-row raw-history safety limit. The backend performs exact source-side aggregates in sequential one-day chunks and merges only aggregate sums/counts. Each source query remains independently bounded by the existing database timeout and output/row limits.
+- Live-source safety bounds are 1–16 queues and, with exact caller KPIs enabled, a maximum 30-day report window. Longer operational reporting should use a read-only reporting replica rather than pushing multi-month/year scans onto the live PBX database.
+- Window reconciliation stays explicit: unanswered-in-window is entry minus answer within the selected window; known terminal lost outcomes are counted independently. `unresolvedUnansweredCalls` and `outcomeExcessCalls` expose cross-window/custom-event variance instead of silently pretending event-window aggregation is a call-cohort join.
+- The initial all-in-one aggregate query was rejected after real-source validation timed out. The final query plan uses an index-friendly event-count aggregate plus event-specific timing aggregates only for events actually present in each daily chunk. Controlled read-only validation confirmed the final path on the real source for both all-queue weekly and 30-day windows without raw-row retrieval.
+
+## 2026-10-08 — Task 60C caller KPIs and filtered call-detail XLSX follow-up
+
+- **Caller-level KPIs:** queue performance rows and the combined selected-queue total now include unique callers, repeat callers, repeat-caller rate, average calls per identified caller, calls generated by repeat callers, repeat-call share, and Caller-ID identification coverage. Per-queue values deduplicate within each queue; the combined total deduplicates the same caller across all selected queues rather than summing per-queue uniques.
+- **Privacy boundary:** caller identity is read only from the conventional queue `ENTERQUEUE` caller field. The backend immediately HMACs caller identifiers with a random per-report key and retains only ephemeral digest counters for the managerial KPI calculation. Raw caller identifiers are not persisted, logged, or returned by the managerial report API.
+- **Bounded caller reads:** exact caller KPIs preserve the database query layer's 1,000-row hard limit. Each daily report chunk first counts matching queue entries; windows above the bound are recursively split before the caller-grouping query. The source then returns grouped queue/caller call-counts, which are immediately pseudonymized in application memory. Reads remain sequential and index-aligned by queue/event/time.
+- **Live-source safety envelope:** because exact caller KPIs must deduplicate caller identity across the selected window, the comprehensive live-source report window is capped at 30 days. Source reads are reduced by grouping each bounded sub-window by queue/caller and returning caller call-counts rather than one row per queue entry. Quarterly/annual analytics should use a read-only reporting replica rather than expanding operational-source scans.
+- **Filtered call-detail export:** a separate Excel-only export now follows the exact active report filters (From/To and selected queues) and produces one row per queue entry with queue, call ID, caller number, entry time, initial position, normalized queue outcome, agent where available, connect/outcome/completion timestamps, wait time, and talk time. This is intentionally separate from the managerial Excel/PDF exports.
+- **No `callid` database join:** the source queue table has no portable assumption of a `callid` index, so detail reconstruction never performs a self-join by call ID. Entry and terminal-event slices are read by indexed queue/event/time windows and correlated in application memory.
+- **Boundary-safe outcomes:** each detail chunk may inspect terminal events for up to 24 hours after its entry window, capped by the report's selected To time, so calls entering shortly before midnight are not falsely marked unresolved solely because of the chunk boundary.
+- **Export safety:** browser detail export is capped at 75,000 queue-call rows. Database reads remain count-first/adaptively time-sliced under the 1,000-row per-query hard limit. Files contain caller numbers and call IDs and are labeled as sensitive operational data.
+- **Verification:** synthetic backend/API regressions cover cross-queue caller deduplication, repeat-caller math, count-first row bounds, and detail outcome normalization. Remote Chrome successfully generated the dedicated detail XLSX. Controlled read-only source validation reproduced the independently verified caller totals and validated a real bounded detail slice without printing caller numbers or call IDs.
+
+## 2026-10-09 — Task 60C bilingual contextual-help layer (operator review pending)
+
+- Added a shared contextual-help system across the application. Meaningful navigation destinations, workspace/section headers, form and workspace fields, status indicators, dashboard KPIs, report filters, report KPIs, charts, tables, and report export actions can render a consistent `?` help control rather than embedding one-off tooltip behavior in each workspace.
+- Help is language-aware through the application language context. English UI renders English explanations; Persian UI renders Persian explanations with RTL/right-aligned help content.
+- Interaction is dual-mode: pointer hover or keyboard focus opens a transient preview, while clicking the `?` pins the same explanation until the operator closes it or dismisses the popover. The help trigger is a separate accessible button and is not nested inside other buttons.
+- Reports receive richer domain help than the generic application fallback. Each report KPI can explain **what the value means**, **why it matters operationally**, and **how it is calculated**, including the exact denominator or source-event semantics where applicable.
+- The Reports workspace also contains an always-visible bilingual guide that calls out important interpretation rules: incoming queue calls are not unique callers, repeat callers explain why volume can exceed people, `RINGNOANSWER` is an agent-attempt metric rather than a lost call, unresolved outcomes preserve window-boundary uncertainty, and call-detail XLSX is sensitive and source-reading while managerial PDF/XLSX exports use the already-loaded report.
+- Dedicated report help covers caller KPIs, call-outcome analytics, queue-abandonment analytics, lost-call categories, timing metrics, percentile safety, charts and all report export paths. Calculation copy matches the backend contracts rather than inventing UI-only formulas.
+- Context help is presentation-only. It does not query the PBX/database, persist operator interactions, change monitoring cadence, or add a new backend endpoint.
+- Regression coverage verifies English/Persian help content, formula text, hover preview, click-to-pin, explicit close, and broad help-trigger presence in the Reports flow. A temporary remote-Chrome harness also validated the interactive popover behavior and was removed before commit.
+- **Action coverage extension:** common application action buttons (save, reset, create, delete, refresh, verify, pagination and similar workspace actions) now use the shared HelpButton wrapper so the same bilingual hover/pin help is available beside actions, not only beside fields/metrics. Layout-sensitive navigation/fullscreen controls keep explicit sibling help so interactive elements are never nested.
+
+### 2026-10-09 — Queue analytics integration handoff
+The feature/queue-abandonment-analytics branch includes source-backed queue reports, caller KPIs and filtered XLSX detail export. Following user review, experimental page-help UI was withdrawn: inline help icons are hidden and explanatory prose on the overview and reports was reduced while functional status/error messages remain. The UI exposes an icon button to switch Light/Dark themes. The complete frontend and backend tests, lint and typecheck passed prior to integration. Feature branch is prepared for user-controlled merge; this entry does not authorize the next roadmap task or production deployment.

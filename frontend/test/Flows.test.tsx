@@ -18,6 +18,7 @@ import { TelephonyWorkspace } from '../src/TelephonyWorkspace.js';
 import { FleetOverviewWorkspace } from '../src/FleetOverviewWorkspace.js';
 import { messages } from '../src/i18n.js';
 import { nocSystem } from '../src/theme.js';
+import { HelpProvider } from '../src/ContextHelp.js';
 
 type TestResponse = { ok: boolean; status: number; json: () => Promise<object> };
 let container: HTMLDivElement;
@@ -1261,12 +1262,171 @@ describe('source-backed history workspace', () => {
             calls: { availability: 'SUPPORTED' },
             callEvents: { availability: 'NOT_FOUND' },
             queueEvents: { availability: 'SCHEMA_MISMATCH' },
+            queueAbandonment: { availability: 'SUPPORTED' },
+            queuePerformance: { availability: 'SUPPORTED' },
           });
-        if (path === '/api/pbx-instances/history-pbx/history/call-outcomes?range=24H')
+        if (path === '/api/pbx-instances/history-pbx/history/queue-options')
+          return response({ items: ['sales', 'support'] });
+        if (path.startsWith('/api/pbx-instances/history-pbx/history/queue-performance?')) {
+          const url = new URL(path, 'https://example.test');
+          expect(url.searchParams.getAll('queue')).toEqual(['sales', 'support']);
           return response({
             instanceId: 'history-pbx',
             source: 'DATABASE',
-            range: '24H',
+            from: '2026-10-01T10:00:00',
+            to: '2026-10-08T10:00:00',
+            queueIds: ['sales', 'support'],
+            aggregationMode: 'SOURCE_AGGREGATE_CHUNKED',
+            chunkCount: 1,
+            queues: [
+              {
+                queueId: 'sales',
+                enteredCalls: 10,
+                answeredCalls: 8,
+                unansweredCalls: 2,
+                confirmedLostCalls: 2,
+                callerAbandonedCalls: 1,
+                timedOutCalls: 0,
+                exitWithKeyCalls: 0,
+                forcedExitCalls: 1,
+                systemFailureCalls: 0,
+                unresolvedUnansweredCalls: 0,
+                outcomeExcessCalls: 0,
+                ringNoAnswerAttempts: 2,
+                ringCanceledAttempts: 0,
+                incomingSharePercent: 33.3333,
+                answerRatePercent: 80,
+                unansweredRatePercent: 20,
+                confirmedLostRatePercent: 20,
+                callerAbandonRatePercent: 10,
+                timedOutRatePercent: 0,
+                exitWithKeyRatePercent: 0,
+                forcedExitRatePercent: 10,
+                systemFailureRatePercent: 0,
+                unresolvedUnansweredRatePercent: 0,
+                ringNoAnswerAttemptsPer100Entered: 20,
+                uniqueCallers: 7,
+                repeatCallers: 2,
+                repeatCallerRatePercent: 28.5714,
+                averageCallsPerCaller: 1.4286,
+                callsFromRepeatCallers: 5,
+                repeatCallSharePercent: 50,
+                callerIdentificationRatePercent: 100,
+                averageAnswerSeconds: 10,
+                averageWaitSeconds: 20,
+              },
+              {
+                queueId: 'support',
+                enteredCalls: 20,
+                answeredCalls: 14,
+                unansweredCalls: 6,
+                confirmedLostCalls: 5,
+                callerAbandonedCalls: 4,
+                timedOutCalls: 1,
+                exitWithKeyCalls: 0,
+                forcedExitCalls: 0,
+                systemFailureCalls: 0,
+                unresolvedUnansweredCalls: 1,
+                outcomeExcessCalls: 0,
+                ringNoAnswerAttempts: 3,
+                ringCanceledAttempts: 1,
+                incomingSharePercent: 66.6667,
+                answerRatePercent: 70,
+                unansweredRatePercent: 30,
+                confirmedLostRatePercent: 25,
+                callerAbandonRatePercent: 20,
+                timedOutRatePercent: 5,
+                exitWithKeyRatePercent: 0,
+                forcedExitRatePercent: 0,
+                systemFailureRatePercent: 0,
+                unresolvedUnansweredRatePercent: 5,
+                ringNoAnswerAttemptsPer100Entered: 15,
+                uniqueCallers: 12,
+                repeatCallers: 4,
+                repeatCallerRatePercent: 33.3333,
+                averageCallsPerCaller: 1.6667,
+                callsFromRepeatCallers: 10,
+                repeatCallSharePercent: 50,
+                callerIdentificationRatePercent: 100,
+                averageAnswerSeconds: 10,
+                averageWaitSeconds: 30,
+              },
+            ],
+            total: {
+              enteredCalls: 30,
+              answeredCalls: 22,
+              unansweredCalls: 8,
+              confirmedLostCalls: 7,
+              callerAbandonedCalls: 5,
+              timedOutCalls: 1,
+              exitWithKeyCalls: 0,
+              forcedExitCalls: 1,
+              systemFailureCalls: 0,
+              unresolvedUnansweredCalls: 1,
+              outcomeExcessCalls: 0,
+              ringNoAnswerAttempts: 5,
+              ringCanceledAttempts: 1,
+              incomingSharePercent: 100,
+              answerRatePercent: 73.3333,
+              unansweredRatePercent: 26.6667,
+              confirmedLostRatePercent: 23.3333,
+              callerAbandonRatePercent: 16.6667,
+              timedOutRatePercent: 3.3333,
+              exitWithKeyRatePercent: 0,
+              forcedExitRatePercent: 3.3333,
+              systemFailureRatePercent: 0,
+              unresolvedUnansweredRatePercent: 3.3333,
+              ringNoAnswerAttemptsPer100Entered: 16.6667,
+              uniqueCallers: 17,
+              repeatCallers: 5,
+              repeatCallerRatePercent: 29.4118,
+              averageCallsPerCaller: 1.7647,
+              callsFromRepeatCallers: 15,
+              repeatCallSharePercent: 50,
+              callerIdentificationRatePercent: 100,
+              averageAnswerSeconds: 10,
+              averageWaitSeconds: 26.6667,
+            },
+          });
+        }
+        if (path.startsWith('/api/pbx-instances/history-pbx/history/queue-performance-details?')) {
+          const url = new URL(path, 'https://example.test');
+          expect(url.searchParams.getAll('queue')).toEqual(['sales', 'support']);
+          expect(url.searchParams.get('reportTo')).toBe('2026-10-08T10:00:00');
+          return response({
+            instanceId: 'history-pbx',
+            source: 'DATABASE',
+            from: url.searchParams.get('from'),
+            to: url.searchParams.get('to'),
+            reportTo: url.searchParams.get('reportTo'),
+            queueIds: ['sales', 'support'],
+            items: [
+              {
+                queueId: 'support',
+                callId: 'detail-call-1',
+                callerNumber: '1001',
+                enteredAt: '2026-10-07 10:05:00',
+                initialPosition: 2,
+                outcome: 'ANSWERED',
+                agentId: 'Local/1001',
+                connectedAt: '2026-10-07 10:05:12',
+                waitSeconds: 12,
+              },
+            ],
+          });
+        }
+        if (path === '/api/pbx-instances/history-pbx/telephony-state')
+          return response({
+            current: {
+              queues: [{ queueId: 'support', waitingCount: 0, updatedAt: '2026-10-08T00:00:00Z' }],
+            },
+          });
+        if (path.startsWith('/api/pbx-instances/history-pbx/history/call-outcomes?'))
+          return response({
+            instanceId: 'history-pbx',
+            source: 'DATABASE',
+            from: '2026-10-07T10:00:00',
+            to: '2026-10-08T10:00:00',
             totalCalls: 10,
             answeredCalls: 6,
             noAnswerCalls: 2,
@@ -1275,6 +1435,24 @@ describe('source-backed history workspace', () => {
             unknownCalls: 1,
             answerRatioPercent: 60,
             averageDurationSeconds: 31.5,
+          });
+        if (path.startsWith('/api/pbx-instances/history-pbx/history/queue-abandonment?'))
+          return response({
+            instanceId: 'history-pbx',
+            source: 'DATABASE',
+            from: '2026-10-07T10:00:00',
+            to: '2026-10-08T10:00:00',
+            queueId: 'support',
+            longWaitThresholdMinutes: 2,
+            enteredCalls: 20,
+            connectedCalls: 14,
+            abandonedCalls: 4,
+            timedOutCalls: 2,
+            longWaitAbandonedCalls: 2,
+            abandonmentRatePercent: 20,
+            averageWaitBeforeAbandonSeconds: 37.5,
+            p50WaitBeforeAbandonSeconds: 25,
+            p90WaitBeforeAbandonSeconds: 70,
           });
         if (path === '/api/pbx-instances/history-pbx/history/calls?limit=100')
           return response({
@@ -1298,13 +1476,41 @@ describe('source-backed history workspace', () => {
 
     await act(async () =>
       root.render(
-        <HistoryWorkspace text={messages.en} profiles={[profile]} onUnauthorized={() => {}} />,
+        <HelpProvider language="en">
+          <HistoryWorkspace text={messages.en} profiles={[profile]} onUnauthorized={() => {}} />
+        </HelpProvider>,
       ),
     );
-    expect(container.textContent).toContain('Source-backed history');
-    expect(container.textContent).toContain('SUPPORTED');
-    expect(container.textContent).toContain('NOT_FOUND');
+    expect(container.textContent).toContain('Reports');
+    expect(container.textContent).toContain('Supported');
+    expect(container.textContent).toContain('Not found');
     expect(container.textContent).toContain('Call outcome analytics');
+    expect(container.textContent).toContain('Queue performance report builder');
+    expect(container.querySelectorAll('[data-help-trigger]').length).toBeGreaterThan(10);
+    const selectAllQueues = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Select all'),
+    );
+    await act(async () => selectAllQueues?.click());
+    const generateReport = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Generate report'),
+    );
+    await act(async () => generateReport?.click());
+    expect(container.textContent).toContain('Selected queues total');
+    expect(container.textContent).toContain('30');
+    expect(container.textContent).toContain('73.3%');
+    expect(container.textContent).toContain('Unique callers');
+    expect(container.textContent).toContain('Repeat callers');
+    expect(container.textContent).toContain('Avg calls per caller');
+    expect(container.textContent).toContain('Unique and repeat callers');
+    expect(container.textContent).toContain('Incoming, answered and confirmed-lost volume');
+    expect(container.textContent).toContain('Confirmed-lost reason breakdown');
+    expect(container.textContent).toContain('Average queue timing');
+    expect(container.textContent).toContain('Agent ring-no-answer attempts');
+    expect(container.textContent).toContain('Export report PDF');
+    expect(container.textContent).toContain('Export report Excel');
+    expect(container.textContent).toContain('Export filtered call details Excel');
+    expect(container.textContent).toContain('sensitive operational data');
+    expect(container.textContent).toContain('Report reconciliation note');
 
     const analyzeButton = Array.from(container.querySelectorAll('button')).find((button) =>
       button.textContent?.includes('Analyze calls'),
@@ -1314,8 +1520,46 @@ describe('source-backed history workspace', () => {
     expect(container.textContent).toContain('31.5s');
     expect(container.textContent).toContain('Unknown');
 
+    await enter('history-long-wait-minutes', '2');
+    const queueAnalyzeButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Analyze queue'),
+    );
+    await act(async () => queueAnalyzeButton?.click());
+    expect(container.textContent).toContain('Caller abandoned');
+    expect(container.textContent).toContain('Queue timeout');
+    expect(container.textContent).toContain('20.0%');
+    expect(container.textContent).toContain('37.5s');
+    expect(container.textContent).toContain('P50 25.0s / P90 70.0s');
+    expect(container.textContent).toContain('Queue outcome distribution');
+    expect(container.textContent).toContain('Export PDF');
+    expect(container.textContent).toContain('Export Excel');
+
+    await act(async () =>
+      root.render(
+        <HelpProvider language="fa">
+          <HistoryWorkspace text={messages.fa} profiles={[profile]} onUnauthorized={() => {}} />
+        </HelpProvider>,
+      ),
+    );
+    expect(container.textContent).toContain('گزارشات');
+    expect(container.textContent).toContain('پشتیبانی می‌شود');
+    expect(container.textContent).toContain('پیدا نشد');
+    expect(container.textContent).toContain('تحلیل ترک صف');
+    expect(container.textContent).toContain('گزارش‌ساز عملکرد صف‌ها');
+    expect(container.textContent).toContain('خروجی PDF گزارش');
+    expect(container.textContent).toContain('خروجی Excel گزارش');
+    expect(container.textContent).toContain('تماس‌گیرنده یکتا');
+    expect(container.textContent).toContain('تماس‌گیرنده تکراری');
+    expect(container.textContent).toContain('خروجی Excel ریز تماس‌های فیلترشده');
+    expect(container.textContent).toContain('شناسه صف');
+    expect(container.textContent).toContain('ترک صف توسط تماس‌گیرنده');
+    expect(container.textContent).toContain('آستانه انتظار طولانی (دقیقه)');
+    expect(container.textContent).toContain('توزیع نتیجه تماس‌های واردشده به صف');
+    expect(container.textContent).toContain('خروجی PDF');
+    expect(container.textContent).toContain('خروجی Excel');
+
     const loadButton = Array.from(container.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('Load recent rows'),
+      button.textContent?.includes('بارگذاری ردیف‌های اخیر'),
     );
     await act(async () => loadButton?.click());
 

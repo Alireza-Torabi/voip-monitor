@@ -1196,7 +1196,7 @@ Lint، Format، Typecheck، Backend Test برابر 179/179، Frontend Test بر
 ## 2026-10-07 — Task 60: تحلیل نتیجه تماس‌ها
 
 - **مالکیت Source حفظ شد:** Analytics نتیجه تماس مستقیماً روی CDR فقط‌خواندنی پیکربندی‌شده محاسبه می‌شود. VoIP Monitor هیچ Call History جدیدی را Persist، Cache، Warehouse یا Duplicate نمی‌کند.
-- **Range محدود:** API فقط `1H`، `24H`، `7D` و `30D` را قبول می‌کند. مرز بازه با Clock خود Database Source محاسبه می‌شود تا برای Timestampهای Naive مربوط به Asterisk منطقه زمانی ساختگی اعمال نشود.
+- **بازه صریح و محدود:** API برای گزارش `From` و `To` تاریخ/ساعت Source-local را بعد از Validation سخت‌گیرانه می‌گیرد؛ برای Timestampهای Naive منطقه زمانی ساختگی ایجاد نمی‌شود و مقادیر به‌صورت Parameterized وارد Query می‌شوند.
 - **Aggregate مستقیم:** Total، Answered، No Answer، Busy، Failed، Unknown، Average Duration و Answer Ratio با یک Aggregate Query مستقیم روی Source محاسبه می‌شوند؛ App برای Analytics یک Sample دلخواه از Rowها دانلود و جمع نمی‌زند.
 - **Unknown پنهان نمی‌شود:** Dispositionهایی که Adapter نمی‌شناسد داخل `unknownCalls` باقی می‌مانند تا جمع Categoryها نسبت به Total قابل Audit باشد.
 - **ایمنی Read-only:** Query فقط از Identifierهای کشف‌شده/Quoteشده و Allowlist ثابت Range ساخته می‌شود. Arbitrary SQL یا Interval دلخواه کاربر وارد Adapter نمی‌شود.
@@ -1298,7 +1298,7 @@ Task 60 — Call Outcome Analytics به‌همراه اصلاح‌های ساز�
   - UI باید Connection Identity را از Database/Schema Scope جدا نمایش دهد و فقط Scope واقعاً Verify‌شده را قابل استفاده بداند.
   - Configurationهای تک‌Database فعلی باید بدون افشای Credential به شکل سازگار Migration شوند.
 
-- [ ] **Task 60B — Queue Abandonment Analytics / KPI**
+- [x] **Task 60B — Queue Abandonment Analytics / KPI**
   - Analytics فقط‌خواندنی و Source-owned برای Queue انتخاب‌شده و بازه زمانی مشخص اضافه می‌شود.
   - `ABANDON` Caller باید از Exit/Timeout سیستم مثل `EXITWITHTIMEOUT` جدا باقی بماند.
   - KPIها: تعداد ورود به Queue، Connected/Answered، Abandoned، Abandonment Rate، Average Wait Before Abandon، Long-wait Abandon با Threshold قابل تنظیم، و در صورت کافی بودن Source Data، P50/P90 زمان انتظار.
@@ -1326,3 +1326,152 @@ Task 60 — Call Outcome Analytics به‌همراه اصلاح‌های ساز�
 - Task بعدی بعد از Merge: **Task 60B — Queue Abandonment Analytics / KPI**.
 
 </div>
+
+
+<div dir="rtl" align="right">
+
+## 2026-10-08 — تکمیل Task 60B: Queue Abandonment Analytics / KPI
+
+- Queue Analytics از Dataset متعارف و Discover‌شده `queue_log` استفاده می‌کند. Capability مربوط به Analytics از Queue Event History جداست و برای Wait-time به ستون `data3` نیاز دارد؛ بنابراین ممکن است Queue Events پشتیبانی شود ولی Analytics به‌صورت صریح Unsupported باشد.
+- Operator یک Queue ID از Dropdown صف‌های فعلی، `از تاریخ و ساعت`، `تا تاریخ و ساعت` و Long-wait Threshold عدد صحیح بین ۱ تا ۶۰ دقیقه انتخاب می‌کند.
+- `ENTERQUEUE` تعداد ورود، `CONNECT` تعداد اتصال به Agent، `ABANDON` فقط Caller-driven Abandon و `EXITWITHTIMEOUT` فقط Queue/System Timeout را می‌شمارد. این دو Outcome عمداً با هم ادغام نمی‌شوند.
+- Average Wait Before Abandon و Long-wait Abandon از Wait-time استاندارد رویداد `ABANDON` در `data3` محاسبه می‌شوند. اگر Denominator یا Average واقعاً وجود نداشته باشد، مقدار ساختگی صفر تولید نمی‌شود.
+- P50/P90 به روش Exact Nearest-rank فقط وقتی محاسبه می‌شود که کل Sample مربوط به Abandon حداکثر ۱۰۰۰ Row باشد. بالاتر از این Bound، Percentile حذف می‌شود و از Sample ناقص تخمین زده نمی‌شود؛ Aggregate KPIها همچنان قابل استفاده هستند.
+- تمام Queryها Source-owned، Parameterized، محدود و Read-only هستند. هیچ Queue History محلی، Warehouse، Arbitrary SQL، Background Polling یا Write روی PBX/Database اضافه نشده است.
+- API جدید `history/queue-abandonment` و UI دو‌زبانه History اضافه شد و Caller Abandon را جدا از Queue Timeout نمایش می‌دهد.
+- تست‌های Synthetic Adapter/API/UI برای Event Separation، Wait Metrics، Percentile، Safety Bound، Schema Fail-closed و Input Validation پاس شده‌اند. در پیاده‌سازی Task 60B هیچ Probe جدیدی به PBX/Database واقعی انجام نشد.
+- Task بعدی بعد از Merge: **Task 61 — Call Quality Source Discovery**.
+
+</div>
+
+
+<div dir="rtl" align="right">
+
+## 2026-10-08 — اصلاح UX در Review مربوط به Task 60B
+
+- مقصد قبلی Call History در منوی Operations با عنوان **گزارشات** نمایش داده می‌شود و هم Analytics و هم Source History محدود را در خود دارد.
+- گزارش Call Outcome و Queue Abandonment به‌جای Rangeهای ثابت، دو ورودی Native از نوع Date-Time برای **از تاریخ و ساعت** و **تا تاریخ و ساعت** دارند. Backend فقط Window معتبر با `From < To` را قبول می‌کند و مقادیر همچنان Parameterized هستند.
+- Queue ID از Dropdown صف‌های فعلی Normalized AMI مربوط به PBX انتخاب می‌شود. حتی در حالت Source Capability غیرقابل‌استفاده، Form مخفی نمی‌شود و دلیل Availability جدا نمایش داده می‌شود.
+- Long-wait Threshold به‌صورت عدد صحیح برحسب **دقیقه** بین ۱ تا ۶۰ وارد می‌شود و Placeholder نمونه برای Operator دارد.
+- Schema Discovery اکنون علاوه بر `queue_log`، نام رایج FreePBX یعنی `queuelog` را هم پشتیبانی می‌کند؛ اگر بیش از یک Candidate معتبر وجود داشته باشد همچنان Fail-closed و `AMBIGUOUS` است.
+
+</div>
+
+
+<div dir="rtl" align="right">
+
+## 2026-10-08 — تشخیص Timeout گزارش Queue و اصلاح Sargability
+
+- Diagnostic فقط‌خواندنی روی Source واقعی نشان داد Index ترکیبی مناسب با ترتیب Queue، Event و Time از قبل وجود دارد؛ برای این Timeout فعلاً هیچ Database Setting یا Index جدید لازم نیست.
+- علت اصلی این بود که Query مربوط به MySQL/MariaDB روی ستون Indexed `event` عبارت `UPPER(TRIM(CAST(...)))` اعمال می‌کرد و در نتیجه Optimizer نمی‌توانست بخش Event/Time از Composite Index را به‌صورت مؤثر استفاده کند.
+- در MySQL/MariaDB مقایسه Event اکنون مستقیم انجام می‌شود. Source واقعی Collation غیرحساس به بزرگی/کوچکی حروف و Eventهای Canonical مربوط به Asterisk دارد، بنابراین Semantics حفظ و Sargability برگردانده می‌شود. PostgreSQL برای حفظ رفتار Case-sensitive مسیر Normalize قبلی را نگه می‌دارد.
+- `EXPLAIN` فقط‌خواندنی روی Source واقعی کاهش شدید Row Estimate و استفاده مؤثر از Composite Index را تأیید کرد و یک Aggregate واقعی محدود روی بازه دو روزه در چند ده میلی‌ثانیه اجرا شد. هیچ Write روی PBX/Database انجام نشد.
+
+</div>
+
+
+<div dir="rtl" align="right">
+
+## 2026-10-08 — تکمیل ترجمه فارسی و شفاف‌سازی UX گزارش صف
+
+- تمام متن‌های کاربرمحور بخش گزارشات در حالت فارسی، شامل عنوان‌ها، خطاها، وضعیت پشتیبانی داده، KPIهای ترک صف و متن‌های راهنما، یکدست فارسی شدند. فقط کدهای واقعی رویداد Asterisk مثل `ABANDON` و `EXITWITHTIMEOUT` در جایی که معنای دقیق Source لازم است حفظ شده‌اند.
+- زیر آستانه انتظار طولانی توضیح داده می‌شود که این مقدار فقط شاخص «ترک صف پس از انتظار طولانی» را تغییر می‌دهد؛ شاخص‌های پایه صف در همان صف و بازه زمانی مستقل از این آستانه هستند.
+- Badgeهای وضعیت داده در حالت فارسی دیگر Enum خام انگلیسی مثل `SUPPORTED` و `NOT_FOUND` را نمایش نمی‌دهند.
+- Regression Test حالت فارسی برای عنوان گزارش، وضعیت‌های پشتیبانی و KPIهای صف اضافه شد.
+
+</div>
+
+
+<div dir="rtl" align="right">
+
+## 2026-10-08 — نمودار و خروجی PDF/Excel برای گزارش Task 60B
+
+- بعد از KPIهای گزارش صف، یک نمودار Donut واکنش‌گرا نمایش داده می‌شود که تماس‌های وصل‌شده، ترک صف توسط تماس‌گیرنده، پایان مهلت انتظار صف و در صورت نیاز «سایر خروجی‌ها» را به‌صورت سهم از کل نمایش می‌دهد.
+- خروجی **PDF واقعی** از همان گزارش Load‌شده شامل مشخصات فیلتر، KPIها و نمودار ساخته می‌شود. Report Canvas به‌صورت مستقیم از فیلترها، KPIها و داده نمودار موجود در Browser ساخته می‌شود تا شکل‌دهی متن فارسی در PDF صحیح بماند و نیازی به قراردادن Font جداگانه در Repository نباشد.
+- خروجی **Excel واقعی (`.xlsx`)** فیلترها و KPIها را به‌صورت Cellهای قابل استفاده نگه می‌دارد و تصویر همان نمودار را نیز داخل Sheet قرار می‌دهد. Sheet در حالت فارسی RTL است.
+- Export هیچ Query جدیدی به PBX یا Database ارسال نمی‌کند و فقط از Analytics موجود در حافظه Browser استفاده می‌کند؛ بنابراین گرفتن PDF/Excel بار جدیدی روی سرور VoIP ایجاد نمی‌کند.
+- Dependency نهایی XLSX یعنی `write-excel-file` مجوز MIT دارد و فقط هنگام ساخت Excel به‌صورت Dynamic Import لود می‌شود. نمودار و Report Canvas برای PDF/Excel مستقیماً با Canvas API مرورگر ساخته می‌شوند و بسته‌بندی PDF با Writer داخلی کوچک پروژه انجام می‌شود؛ بنابراین هیچ Dependency برای Screenshot گرفتن از DOM لازم نیست. Library اولیه Excel که Dependency آسیب‌پذیر داشت قبل از Commit حذف شد و `npm audit --omit=dev` برای ترکیب نهایی صفر Vulnerability گزارش می‌دهد.
+- Regression Test وجود نمودار و دکمه‌های PDF/Excel را در هر دو حالت انگلیسی و فارسی بررسی می‌کند و Production Browser Build نیز Dynamic Importها را Validate می‌کند.
+
+</div>
+
+
+<div dir="rtl" align="right">
+
+## 2026-10-08 — رفع Hang خروجی Excel در Task 60B
+
+- پس از تحلیل موفق صف، خروجی Excel ممکن بود برای همیشه روی وضعیت «در حال ساخت Excel…» باقی بماند.
+- Writer خود فایل XLSX به‌صورت مستقل با تصویر Embedded آزمایش شد و در چند میلی‌ثانیه پاسخ داد؛ مرحله ناپایدار، تبدیل DOM به Canvas قبل از ساخت Workbook بود.
+- مسیر Export بازطراحی شد: نمودار و Report Canvas مستقیماً از داده Analytics موجود در Browser رسم می‌شوند و دیگر هیچ Screenshot از DOM گرفته نمی‌شود.
+- ساخت Excel اکنون ابتدا `Blob` واقعی Workbook را می‌گیرد و سپس با Download Helper داخلی برنامه فایل را دانلود می‌کند؛ بنابراین پایان عملیات صریح و قابل‌کنترل است.
+- برای تمام مرحله‌های Async مربوط به تصویر و Workbook یک Timeout پانزده‌ثانیه‌ای اضافه شد تا UI در صورت خطا هیچ‌وقت در وضعیت Export قفل نماند.
+- مسیر واقعی Excel با یک Harness موقت Vite در Chrome Headless ریموت تست شد و حدود ۱۴۸ میلی‌ثانیه‌ای با موفقیت پایان یافت. Harness موقت پاک شد و وارد Git نشد.
+- این Fix کاملاً Client-side است و هیچ Query جدیدی به PBX یا Database ارسال نمی‌کند.
+
+</div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-08 — Task 60C گزارش‌ساز جامع عملکرد چند صف — در انتظار تأیید کاربر
+
+- یک گزارش‌ساز واقعی صف در بخش گزارشات اضافه شد. کاربر بازه دقیق «از/تا» را تعیین می‌کند و می‌تواند بین ۱ تا ۱۶ صف را هم‌زمان انتخاب کند. Catalog صف‌ها مستقیماً و فقط‌خواندنی از تاریخچه Queue در Source خوانده می‌شود و فقط در صورت عدم دسترسی، وضعیت لحظه‌ای Telephony نقش Fallback دارد.
+- گزارش برای هر صف و همچنین مجموع صف‌های انتخابی این شاخص‌ها را ارائه می‌کند: ورودی صف، پاسخ‌داده‌شده، پاسخ‌داده‌نشده در Window، از دست‌رفته قطعی، ترک توسط تماس‌گیرنده، پایان مهلت صف، خروج با کلید منو، خروج اجباری/صف خالی، خطاهای محدود Agent/System، موارد بدون نتیجه نهایی در Window، تلاش‌های RINGNOANSWER، تلاش‌های RINGCANCELED، میانگین زمان تا پاسخ و میانگین انتظار تماس‌گیرنده.
+- `RINGNOANSWER` عمداً Lost Call محسوب نمی‌شود؛ چون یک تماس می‌تواند چند بار برای Agentهای مختلف زنگ بخورد و در نهایت پاسخ داده شود. این Event به‌صورت شاخص Attempt جدا نمایش داده می‌شود. `RINGCANCELED` نیز مستقل باقی می‌ماند.
+- درصدها مخرج مشخص دارند: سهم ورودی هر صف از مجموع ورودی صف‌های انتخابی، و نرخ‌های پاسخ/عدم پاسخ/Lost و علت‌های Lost نسبت به ورودی همان صف. برای زمان‌ها درصد ساختگی ساخته نمی‌شود و مقدار واقعی زمان نمایش داده می‌شود. RINGNOANSWER علاوه بر Count به‌صورت Attempt به‌ازای هر ۱۰۰ تماس ورودی Normalize می‌شود.
+- پنج نمودار اضافه شد: حجم ورودی/پاسخ/Lost، ترکیب علت Lost، نرخ پاسخ و Lost، میانگین زمان‌های صف و فعالیت Ring Attempt. جدول تفصیلی همه KPIها و ردیف Total را نگه می‌دارد.
+- PDF چندصفحه‌ای است: صفحه اول Summary و نمودارها و صفحات بعد KPIهای تفکیکی صف‌ها را نگه می‌دارند. Excel واقعی `.xlsx` شامل Cellهای ساختاریافته همه KPIها/Rateها و نمودارهای Embedded است. Export فقط در Browser انجام می‌شود و Query جدیدی به PBX/Database نمی‌زند.
+- KPIهای اصلی دیگر به Limit هزار Row مربوط به Raw History وابسته نیستند. Backend Aggregateهای دقیق Source را در Chunkهای روزانه و به‌صورت Sequential اجرا و فقط Sum/Countهای Aggregate را Merge می‌کند.
+- برای حفظ سلامت Source عملیاتی، Report بین ۱ تا ۱۶ صف و با فعال بودن KPIهای دقیق Caller حداکثر ۳۰ روز محدود است. برای گزارش‌های چندماهه سنگین یا سالانه، معماری درست Read-only Reporting Replica است، نه Scan سنگین روی Database زنده PBX.
+- اختلاف مرز بازه پنهان نمی‌شود: Unanswered بر اساس Entry/Answer داخل همان Window است و Terminal Outcomeها مستقل شمارش می‌شوند. فیلدهای `unresolvedUnansweredCalls` و `outcomeExcessCalls` اختلاف Cross-window یا Eventهای سفارشی را آشکار می‌کنند.
+- Query اولیه‌ی تک‌مرحله‌ای در Validation واقعی Timeout شد و کنار گذاشته شد. مسیر نهایی Count Aggregate سبک + Timing Aggregate جداگانه برای Eventهای واقعاً موجود است. Validation فقط‌خواندنی روی Source واقعی، هم بازه هفت‌روزه همه صف‌ها و هم بازه ۳۰روزه را بدون دریافت Raw Row با موفقیت تأیید کرد.
+
+</div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-08 — تکمیل Task 60C با KPI تماس‌گیرنده و Excel ریز تماس‌ها
+
+- KPIهای جدید به گزارش هر صف و مجموع صف‌های انتخابی اضافه شد: تماس‌گیرنده یکتا، تماس‌گیرنده تکراری، نرخ تماس‌گیرنده تکراری، میانگین تعداد تماس به‌ازای Caller شناسایی‌شده، تعداد تماس‌های ایجادشده توسط Callerهای تکراری، سهم تماس‌های تکراری و درصد پوشش شناسایی Caller ID. در Total، Caller مشترک بین چند صف فقط یک‌بار به‌عنوان Unique محاسبه می‌شود.
+- برای KPI مدیریتی، Caller ID فقط‌خواندنی از Event `ENTERQUEUE` خوانده می‌شود و Backend بلافاصله آن را با کلید تصادفی مخصوص همان Report به HMAC تبدیل می‌کند. شماره خام برای KPI ذخیره، Log یا به API گزارش مدیریتی برگردانده نمی‌شود.
+- سقف سخت ۱۰۰۰ Row در Query Layer حفظ شده است. هر Chunk روزانه ابتدا Count می‌شود؛ اگر بیشتر از سقف باشد، بازه زمانی قبل از Query گروه‌بندی Caller نصف می‌شود. Source سپس فقط Queue/Callerهای گروه‌بندی‌شده و تعداد تماس هر Caller را برمی‌گرداند و Caller خام بلافاصله در حافظه Pseudonymize می‌شود.
+- به دلیل اضافه‌شدن Dedup دقیق Caller، سقف گزارش جامع روی Database عملیاتی از ۹۰ روز به **۳۰ روز** کاهش یافت. برای گزارش فصلی/سالانه راه درست Reporting Replica فقط‌خواندنی است، نه Scan طولانی روی Source زنده PBX.
+- یک خروجی جداگانه و فقط **Excel** برای ریز تماس‌های همان فیلتر فعال اضافه شد. هر Row نماینده یک ورود به صف است و شامل صف، Call ID، شماره تماس‌گیرنده، زمان ورود، موقعیت اولیه، نتیجه Normalized تماس، Agent در صورت وجود، زمان اتصال/نتیجه و زمان انتظار است.
+- هیچ Join دیتابیسی بر اساس `callid` انجام نمی‌شود. Entry و Terminal Eventها با فیلتر Queue/Event/Time و Queryهای کوچک خوانده و داخل برنامه بر اساس Call ID به هم متصل می‌شوند.
+- برای جلوگیری از خطای مرز نیمه‌شب، Outcome هر Chunk حداکثر تا ۲۴ ساعت بعد از Window ورود و فقط تا زمان «تا»ی گزارش دنبال می‌شود.
+- Export ریز تماس‌ها در Browser حداکثر ۷۵هزار Row دارد. Queryهای Database همچنان زیر سقف ۱۰۰۰ Row باقی می‌مانند. چون فایل شامل Caller Number و Call ID است، در UI به‌عنوان داده عملیاتی حساس مشخص می‌شود.
+- Regression Testهای Backend/API محاسبه Unique بین چند صف، Repeat Caller، Count-first safety و Normalization ریز تماس را پوشش می‌دهند. ساخت فایل XLSX ریز تماس در Chrome واقعی نیز موفق Validate شد. Validation فقط‌خواندنی Source واقعی بدون چاپ Caller Number یا Call ID انجام شد.
+
+</div>
+
+<div dir="rtl" align="right">
+
+### تکمیل KPI تماس‌گیرنده و خروجی ریز تماس
+
+- KPIهای تماس‌گیرنده یکتا، تماس‌گیرنده تکراری، نرخ تماس‌گیرنده تکراری، میانگین تماس به‌ازای Caller، تعداد/سهم تماس‌های Callerهای تکراری و پوشش شناسایی Caller ID به گزارش صف اضافه شدند. برای Total چندصفی، Caller مشترک بین صف‌ها فقط یک Caller یکتا محسوب می‌شود.
+- برای کاهش Load، Backend بعد از Count سریع ENTERQUEUE، Windowهای بزرگ را تا سقف ۱۰۰۰ Source Row خرد می‌کند و سپس Source فقط Callerهای گروه‌بندی‌شده به‌همراه تعداد تماس هر Caller را برمی‌گرداند. Caller خام بلافاصله با HMAC و کلید تصادفی همان Report Pseudonymize می‌شود و نه ذخیره می‌شود و نه در API KPI برمی‌گردد.
+- خروجی Excel ریز تماس‌ها دقیقاً از همان بازه و صف‌های Report استفاده می‌کند و شامل Queue، Call ID، Caller Number، زمان ورود، Position اولیه، Outcome، Agent، زمان اتصال/نتیجه/پایان، زمان انتظار و مدت مکالمه است. این خروجی فقط با اقدام صریح کاربر ساخته می‌شود، روی Backend ذخیره نمی‌شود و به‌دلیل وجود Caller Number/Call ID داده عملیاتی حساس محسوب می‌شود.
+- Detail Export به‌صورت روزانه و Adaptive خوانده می‌شود؛ هر Query حداکثر ۱۰۰۰ Row دارد و Workbook مرورگر حداکثر ۷۵هزار تماس را می‌پذیرد.
+- Validation کنترل‌شده Source واقعی، تطبیق KPIهای Caller با Aggregate مستقل و صحت بازسازی Detail را بدون چاپ داده حساس تأیید کرد. Export مصنوعی ۱۰هزار ردیفی نیز در Chrome واقعی با موفقیت کامل شد.
+
+</div>
+
+<div dir="rtl" align="right">
+
+## 2026-10-09 — لایه راهنمای دو‌زبانه Contextual Help برای Task 60C — در انتظار تأیید کاربر
+
+- یک سیستم Help مشترک در UI اضافه شد تا Navigation، عنوان Workspace/Section، فیلدها، Statusها، KPIهای داشبورد، Filterهای گزارش، KPIها، نمودارها، ستون‌های جدول و Actionهای Export بتوانند به‌صورت یکدست علامت `?` داشته باشند و هر صفحه Tooltip اختصاصی و ناسازگار نسازد.
+- زبان Help از زبان خود برنامه پیروی می‌کند: در UI فارسی توضیح فارسی و RTL/راست‌چین است و در UI انگلیسی توضیح انگلیسی نمایش داده می‌شود.
+- رفتار دوحالته است: Hover یا Focus توضیح موقت را باز می‌کند؛ Click روی `?` همان توضیح را Pin می‌کند تا با Close یا کلیک بیرون بسته شود. Help Trigger یک Button مستقل و Accessible است و داخل Button دیگری Nest نمی‌شود.
+- در Reports توضیح‌ها تخصصی‌تر از Fallback عمومی برنامه هستند و برای KPIها سه سؤال را پاسخ می‌دهند: «این چیست؟»، «چرا مهم است؟» و «چطور محاسبه می‌شود؟». مخرج درصدها و Event/Source Semantics نیز هرجا لازم باشد صریح نوشته می‌شود.
+- یک راهنمای دائمی دو‌زبانه کنار Reports اضافه شد که نکته‌های تفسیر اصلی را توضیح می‌دهد: تعداد تماس ورودی با Caller یکتا یکی نیست؛ Repeat Caller علت اختلاف حجم تماس و تعداد افراد را روشن می‌کند؛ `RINGNOANSWER` Attempt است نه Lost Call؛ Unresolved ابهام مرز Window را پنهان نمی‌کند؛ و Excel ریز تماس‌ها برخلاف PDF/XLSX مدیریتی، فقط با اقدام صریح کاربر Detail حساس را از Source می‌خواند.
+- Help اختصاصی برای KPIهای Caller، Call Outcome، Queue Abandonment، دسته‌های Lost، زمان‌ها، Percentileها، نمودارها و تمام Exportهای گزارش نوشته شد و فرمول‌ها با Contract واقعی Backend هماهنگ هستند.
+- Context Help فقط Presentation است؛ Query جدید به PBX/Database نمی‌زند، تعامل Help را Persist نمی‌کند، Refresh/Collector را تغییر نمی‌دهد و Endpoint جدید Backend ایجاد نمی‌کند.
+- Regression Test، فارسی/انگلیسی، متن فرمول، Hover، Click-to-Pin، Close و وجود گسترده Help Trigger در Flow گزارش را پوشش می‌دهد. یک Harness موقت Chrome واقعی نیز رفتار Popover را Validate کرد و قبل از Commit پاک شد.
+
+</div>
+<div dir="rtl" align="right">
+- **گسترش Help برای Actionها:** دکمه‌های عملیاتی مشترک برنامه مانند Save، Reset، Create، Delete، Refresh، Verify و Pagination از Wrapper مشترک HelpButton استفاده می‌کنند تا علامت `?` و رفتار Hover/Pin کنار Actionها هم یکسان باشد. کنترل‌های Layout-sensitive مثل Navigation/Fullscreen به‌صورت Sibling Help باقی می‌مانند تا هیچ Interactive Element داخل Button دیگری Nest نشود.
+</div>
+
+### ۲۰۲۶-۱۰-۰۹ — تحویل یکپارچه‌سازی تحلیل صف
+شاخه feature/queue-abandonment-analytics شامل گزارش‌های مبتنی بر داده منبع، شاخص‌های تماس‌گیرنده و خروجی اکسل جزئیات با فیلتر است. پس از بازبینی کاربر، رابط آزمایشی راهنمای صفحه کنار گذاشته شد؛ علامت‌های راهنمای داخل صفحه مخفی شدند و متن‌های توضیحی اضافی داشبورد و گزارش‌ها کاهش یافتند، اما پیام‌های عملیاتی و خطا باقی ماندند. انتخاب حالت روشن و تاریک با یک دکمه آیکونی انجام می‌شود. تست‌های کامل فرانت‌اند و بک‌اند، بررسی Lint و Typecheck قبل از یکپارچه‌سازی موفق بودند. شاخه برای ادغام با کنترل کاربر آماده می‌شود؛ این ثبت به معنی اجازه شروع تسک بعدی یا انتشار Production نیست.

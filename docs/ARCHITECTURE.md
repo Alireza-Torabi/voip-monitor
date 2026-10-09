@@ -183,7 +183,7 @@ Fullscreen is the sole alternate presentation state for OperatorOverview and pas
 
 ## Call outcome analytics
 
-Task 60 extends the source-owned history boundary with bounded CDR aggregation. The application sends one generated read-only aggregate query to the configured source database for a fixed allowlisted range (`1H`, `24H`, `7D`, or `30D`). The source database clock defines the relative range boundary. Only normalized aggregate counters and duration are returned; no raw SQL input, unbounded interval, local CDR copy, or analytics persistence is introduced. Unknown source dispositions remain explicit rather than being discarded.
+Task 60 extends the source-owned history boundary with bounded CDR aggregation. Reports use explicit validated source-local From/To date-time values and one generated parameterized read-only aggregate query against the configured source database. The application does not invent a timezone for naive source timestamps. Only normalized aggregate counters and duration are returned; no raw SQL input, unbounded interval, local CDR copy, or analytics persistence is introduced. Unknown source dispositions remain explicit rather than being discarded.
 
 
 ## Database connection and source-scope boundary
@@ -191,3 +191,53 @@ Task 60 extends the source-owned history boundary with bounded CDR aggregation. 
 A PBX database source has one verified connection identity: dialect, host, port, primary connection database, username, TLS policy, and encrypted write-only credential. Separately, it owns a bounded allowlist of verified database/schema scopes. MySQL/MariaDB scopes are database names reachable through that connection; PostgreSQL scopes are schemas inside the primary connection database.
 
 Verification uses one bounded read-only source query against `information_schema.schemata` and persists configuration only if every requested scope is visible. Generated source-schema discovery is constrained to those persisted scopes. This is an application allowlist, not a substitute for source-side least-privilege grants. No arbitrary SQL interface is exposed and source data remains authoritative/non-persisted locally.
+
+
+## Queue abandonment analytics boundary
+
+Task 60B extends the source-owned history adapter with a separate queue-abandonment capability over conventional Asterisk `queue_log`. Generic queue-event history still requires only the basic queue-log columns; abandonment analytics additionally requires `data3` because standard Asterisk `ABANDON` and `EXITWITHTIMEOUT` records carry wait time there. Capability discovery therefore fails closed without converting a missing wait-time dimension into zero.
+
+The analytics path accepts one bounded queue identifier, an explicit validated source-local From/To window, and a bounded integer long-wait threshold in minutes. It aggregates `ENTERQUEUE`, `CONNECT`, `ABANDON`, and `EXITWITHTIMEOUT` directly in the source. Caller abandonment and system/queue timeout are different product dimensions and are never collapsed. Abandonment rate uses queue entries as the denominator when nonzero. Average abandon wait and long-wait count use the `ABANDON` wait-time field.
+
+Exact nearest-rank P50/P90 wait values are computed transiently only when all abandon wait values for the selected queue/range fit the 1000-row safety bound. Above that bound the application omits percentiles instead of sampling or persisting history. No queue-history persistence, arbitrary SQL, background source polling, or write path is introduced.
+
+
+Queue-history schema compatibility recognizes both conventional `queue_log` and FreePBX-style `queuelog` table names within verified source scopes. Alias support does not weaken ambiguity handling: multiple matching tables remain unavailable until the source shape is unambiguous. Report queue selection is presentation-side and comes from normalized current AMI queue state; it does not create a new database query or PBX connection.
+
+
+## Queue-report index sargability
+
+MySQL/MariaDB queue analytics must keep indexed queue-event predicates sargable. Canonical Asterisk event values are compared directly on MySQL/MariaDB so the optimizer can use existing queue/event/time composite indexes. Function-wrapping an indexed event column in `UPPER`, `TRIM`, or `CAST` is avoided in the WHERE predicate. PostgreSQL may retain explicit normalization where required by its comparison semantics. This optimization changes only query shape; it does not require source-schema mutation.
+
+
+## Client-side report visualization and export boundary
+
+Queue report visualization is presentation-only and consumes the normalized analytics response already returned by the bounded read-only source adapter. The donut chart does not request raw history or create a new source query. PDF and XLSX exports are generated entirely in the browser from the loaded report state. Export graphics are drawn deterministically from normalized analytics with the Canvas API rather than by screenshotting the live DOM. PDF packages the generated report canvas, while XLSX stores filter/KPI values as cells and embeds a generated chart image. Export code does not persist generated reports on the VoIP Monitor backend. This preserves the monitor-only architecture and prevents report downloads from adding PBX/database load.
+
+## Multi-queue performance report execution boundary
+
+The queue performance report is source-owned, read-only, and aggregate-only. It never copies queue history into local monitoring storage and never relies on the raw-history 1,000-row browsing limit. Queue selection is bounded to 16 identifiers and, with exact caller KPIs enabled, the live-source report window is bounded to 30 days.
+
+Long windows are split into sequential one-day chunks. Each chunk first performs an index-friendly grouped count by queue and event. Timing queries are then issued only for wait-bearing events observed in that chunk, keeping numeric casts away from unrelated high-volume events. Chunk results are merged from sums and sample counts so averages remain weighted across queues and days. Individual database operations remain subject to the normal transport timeout, row bound, output bound, SSRF policy and connection-failure backoff.
+
+The report uses event-window semantics rather than an expensive cross-window call-cohort join. Known terminal outcomes are reported independently, while unresolved unanswered counts and excess terminal outcomes expose boundary/custom-event variance. This is deliberate: correctness uncertainty is visible rather than hidden, and the live PBX source is not subjected to unindexed historical call-correlation scans.
+
+`RINGNOANSWER` and `RINGCANCELED` are attempt-level observations and are never treated as additive lost-call outcomes. Confirmed lost categories are caller abandonment, queue timeout, menu-key exit, forced/empty-queue exit, and bounded agent/system terminal failure events. Export is a presentation boundary only: the loaded report is converted to multi-page PDF or structured XLSX entirely in the browser without another source query.
+
+## Caller identity analytics and call-detail export boundary
+
+Caller-level queue analytics use the conventional `ENTERQUEUE` caller field only when the queue-performance dataset exposes the required source column. The managerial report never persists or returns caller identifiers. Each report creates an in-memory random HMAC key; caller identifiers are converted immediately to ephemeral digests, which allow exact per-queue and cross-queue deduplication while keeping the report contract identifier-free. The key and digest maps are discarded when the report request completes.
+
+Exact caller analytics preserve the global database row bound rather than requesting a larger query limit. Each daily source interval is count-first. If a window contains more than 1,000 matching queue entries, it is recursively split before caller aggregation. The resulting query groups by queue and caller and returns only caller call-counts; raw caller values are HMACed immediately with a per-report random key and are never persisted. Because this work is identity-sensitive, the operational-source report window is bounded to 30 days; longer retention analytics belong on a read-only reporting replica.
+
+Filtered call-detail export is a separate authenticated API path used only by the browser XLSX workflow. It reads queue entries and a bounded set of terminal queue events through queue/event/time windows, never through a database join on `callid`. Correlation by queue ID + call ID happens in application memory. Terminal lookup can extend up to 24 hours beyond an entry slice but never beyond the operator-selected report end. The browser requests entry slices sequentially, caps the complete export at 75,000 queue calls, and generates XLSX locally. No detail file or caller identifier is persisted by the backend.
+
+## Contextual help architecture
+
+Context help is a frontend-only presentation layer. `ContextHelp.tsx` owns the language context, accessible `?` trigger and controlled popover behavior. A hover/focus state provides transient preview and a separate pinned state keeps the same content open after click; dismissal clears the pinned state. The trigger remains an independent interactive element, so clickable cards/navigation controls must not contain it as a nested button.
+
+Shared presentation primitives (`WorkspaceHeader`, `WorkspaceField`, `DataSurface`, `SectionHeader`, `StatusIndicator`, dashboard KPI cells) provide generic help coverage from their existing labels. Navigation destinations and report concepts provide explicit bilingual domain content through the central `helpContent.ts` catalog. This keeps broad application coverage without coupling help copy to backend APIs or duplicating tooltip state machines across workspaces.
+
+Report help is contract-aware. Each specialized metric may provide a title, concise meaning, operational rationale, and calculation/source semantics. Examples include the `ENTERQUEUE` denominator for queue rates, cross-queue deduplication for unique callers, attempt-level semantics for `RINGNOANSWER`, the exact/absent percentile rule above the 1,000-row safety bound, and the difference between browser-only managerial exports and explicit sensitive detail export. Help content consumes no source data beyond values already visible in the UI and performs no network request.
+
+Common workspace actions use a `HelpButton` presentation wrapper: the original Chakra button remains the action target and a sibling `HelpHint` renders beside it. This allows broad action-level coverage without nesting interactive controls. Layout-sensitive controls may keep an explicit sibling `HelpHint` instead of the wrapper.

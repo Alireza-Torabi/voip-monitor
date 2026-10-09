@@ -1,4 +1,5 @@
-import { Box, Button, Checkbox, Flex, SimpleGrid, Stack, Text } from '@chakra-ui/react';
+import { Box, Checkbox, Flex, SimpleGrid, Stack, Text } from '@chakra-ui/react';
+import { HelpButton as Button } from './ContextHelp.js';
 import { useEffect, useMemo, useState } from 'react';
 import { api, ApiError, type PbxProfile, type SystemMetricsSample } from './api.js';
 import { messages, type Language } from './i18n.js';

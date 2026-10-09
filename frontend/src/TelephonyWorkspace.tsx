@@ -1,4 +1,5 @@
-import { Box, Button, Stack, Table, Text } from '@chakra-ui/react';
+import { Box, Stack, Table, Text } from '@chakra-ui/react';
+import { HelpButton as Button } from './ContextHelp.js';
 import { useEffect, useMemo, useState } from 'react';
 import {
   api,

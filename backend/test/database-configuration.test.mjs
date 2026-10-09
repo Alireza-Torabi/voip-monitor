@@ -312,13 +312,16 @@ test('source-backed history API is authenticated and bounded without raw SQL exp
         calls: { availability: 'SUPPORTED' },
         callEvents: { availability: 'NOT_FOUND' },
         queueEvents: { availability: 'SCHEMA_MISMATCH' },
+        queueAbandonment: { availability: 'SUPPORTED' },
+        queuePerformance: { availability: 'SUPPORTED' },
       }),
-      callOutcomeAnalytics: async (id, range) => {
-        calls.push({ id, range });
+      callOutcomeAnalytics: async (id, from, to) => {
+        calls.push({ id, from, to });
         return {
           instanceId: id,
           source: 'DATABASE',
-          range,
+          from,
+          to,
           totalCalls: 10,
           answeredCalls: 6,
           noAnswerCalls: 2,
@@ -327,6 +330,137 @@ test('source-backed history API is authenticated and bounded without raw SQL exp
           unknownCalls: 1,
           answerRatioPercent: 60,
           averageDurationSeconds: 31.5,
+        };
+      },
+      queueAbandonmentAnalytics: async (id, queueId, from, to, longWaitThresholdMinutes) => {
+        calls.push({ id, queueId, from, to, longWaitThresholdMinutes });
+        return {
+          instanceId: id,
+          source: 'DATABASE',
+          from,
+          to,
+          queueId,
+          longWaitThresholdMinutes,
+          enteredCalls: 20,
+          connectedCalls: 14,
+          abandonedCalls: 4,
+          timedOutCalls: 2,
+          longWaitAbandonedCalls: 2,
+          abandonmentRatePercent: 20,
+          averageWaitBeforeAbandonSeconds: 37.5,
+          p50WaitBeforeAbandonSeconds: 25,
+          p90WaitBeforeAbandonSeconds: 70,
+        };
+      },
+      listQueueIds: async (id) => {
+        calls.push({ id, queueOptions: true });
+        return ['sales', 'support'];
+      },
+      queuePerformanceReport: async (id, queueIds, from, to) => {
+        calls.push({ id, queueIds, from, to });
+        return {
+          instanceId: id,
+          source: 'DATABASE',
+          from,
+          to,
+          queueIds: [...queueIds],
+          aggregationMode: 'SOURCE_AGGREGATE_CHUNKED',
+          chunkCount: 1,
+          queues: queueIds.map((queueId, index) => ({
+            queueId,
+            enteredCalls: index === 0 ? 20 : 10,
+            answeredCalls: index === 0 ? 14 : 8,
+            unansweredCalls: index === 0 ? 6 : 2,
+            confirmedLostCalls: index === 0 ? 6 : 2,
+            callerAbandonedCalls: index === 0 ? 4 : 1,
+            timedOutCalls: index === 0 ? 1 : 0,
+            exitWithKeyCalls: index === 0 ? 1 : 0,
+            forcedExitCalls: index === 0 ? 0 : 1,
+            systemFailureCalls: 0,
+            unresolvedUnansweredCalls: 0,
+            outcomeExcessCalls: 0,
+            ringNoAnswerAttempts: index === 0 ? 3 : 2,
+            ringCanceledAttempts: index === 0 ? 1 : 0,
+            incomingSharePercent: index === 0 ? 66.6666666667 : 33.3333333333,
+            answerRatePercent: index === 0 ? 70 : 80,
+            unansweredRatePercent: index === 0 ? 30 : 20,
+            confirmedLostRatePercent: index === 0 ? 30 : 20,
+            callerAbandonRatePercent: index === 0 ? 20 : 10,
+            timedOutRatePercent: index === 0 ? 5 : 0,
+            exitWithKeyRatePercent: index === 0 ? 5 : 0,
+            forcedExitRatePercent: index === 0 ? 0 : 10,
+            systemFailureRatePercent: 0,
+            unresolvedUnansweredRatePercent: 0,
+            ringNoAnswerAttemptsPer100Entered: index === 0 ? 15 : 20,
+            uniqueCallers: index === 0 ? 12 : 7,
+            repeatCallers: index === 0 ? 4 : 2,
+            repeatCallerRatePercent: index === 0 ? 33.3333333333 : 28.5714285714,
+            averageCallsPerCaller: index === 0 ? 1.6666666667 : 1.4285714286,
+            callsFromRepeatCallers: index === 0 ? 10 : 5,
+            repeatCallSharePercent: index === 0 ? 50 : 50,
+            callerIdentificationRatePercent: 100,
+            averageAnswerSeconds: 10,
+            averageWaitSeconds: index === 0 ? 30 : 20,
+          })),
+          total: {
+            enteredCalls: 30,
+            answeredCalls: 22,
+            unansweredCalls: 8,
+            confirmedLostCalls: 8,
+            callerAbandonedCalls: 5,
+            timedOutCalls: 1,
+            exitWithKeyCalls: 1,
+            forcedExitCalls: 1,
+            systemFailureCalls: 0,
+            unresolvedUnansweredCalls: 0,
+            outcomeExcessCalls: 0,
+            ringNoAnswerAttempts: 5,
+            ringCanceledAttempts: 1,
+            incomingSharePercent: 100,
+            answerRatePercent: 73.3333333333,
+            unansweredRatePercent: 26.6666666667,
+            confirmedLostRatePercent: 26.6666666667,
+            callerAbandonRatePercent: 16.6666666667,
+            timedOutRatePercent: 3.3333333333,
+            exitWithKeyRatePercent: 3.3333333333,
+            forcedExitRatePercent: 3.3333333333,
+            systemFailureRatePercent: 0,
+            unresolvedUnansweredRatePercent: 0,
+            ringNoAnswerAttemptsPer100Entered: 16.6666666667,
+            uniqueCallers: 17,
+            repeatCallers: 5,
+            repeatCallerRatePercent: 29.4117647059,
+            averageCallsPerCaller: 1.7647058824,
+            callsFromRepeatCallers: 15,
+            repeatCallSharePercent: 50,
+            callerIdentificationRatePercent: 100,
+            averageAnswerSeconds: 10,
+            averageWaitSeconds: 26.6666666667,
+          },
+        };
+      },
+      queuePerformanceDetailChunk: async (id, queueIds, from, to, reportTo) => {
+        calls.push({ id, queueIds, from, to, reportTo, detail: true });
+        return {
+          instanceId: id,
+          source: 'DATABASE',
+          from,
+          to,
+          reportTo,
+          queueIds: [...queueIds],
+          items: [
+            {
+              queueId: queueIds[0],
+              callId: 'detail-call-1',
+              callerNumber: '1001',
+              enteredAt: '2026-10-07 10:05:00',
+              initialPosition: 2,
+              outcome: 'ANSWERED',
+              agentId: 'Local/1001',
+              connectedAt: '2026-10-07 10:05:12',
+              waitSeconds: 12,
+            },
+          ],
         };
       },
       listRecentCalls: async (id, limit) => {
@@ -365,15 +499,139 @@ test('source-backed history API is authenticated and bounded without raw SQL exp
       assert.equal(body.items[0].recordId, 'synthetic-call-1');
       assert.deepEqual(calls, [{ id: PBX_ID, limit: 3 }]);
 
-      const outcomes = await fetch(app.base + basePath + '/call-outcomes?range=24H', {
-        headers: { cookie },
-      });
+      const outcomes = await fetch(
+        app.base + basePath + '/call-outcomes?from=2026-10-07T10%3A00&to=2026-10-08T10%3A00',
+        {
+          headers: { cookie },
+        },
+      );
       assert.equal(outcomes.status, 200);
       assert.equal((await outcomes.json()).answerRatioPercent, 60);
-      assert.deepEqual(calls.at(-1), { id: PBX_ID, range: '24H' });
+      assert.deepEqual(calls.at(-1), {
+        id: PBX_ID,
+        from: '2026-10-07T10:00',
+        to: '2026-10-08T10:00',
+      });
       assert.equal(
-        (await fetch(app.base + basePath + '/call-outcomes?range=365D', { headers: { cookie } }))
-          .status,
+        (
+          await fetch(app.base + basePath + '/call-outcomes?from=bad&to=2026-10-08T10%3A00', {
+            headers: { cookie },
+          })
+        ).status,
+        400,
+      );
+
+      const queueOptions = await fetch(app.base + basePath + '/queue-options', {
+        headers: { cookie },
+      });
+      assert.equal(queueOptions.status, 200);
+      assert.deepEqual((await queueOptions.json()).items, ['sales', 'support']);
+      assert.deepEqual(calls.at(-1), { id: PBX_ID, queueOptions: true });
+
+      const queuePerformance = await fetch(
+        app.base +
+          basePath +
+          '/queue-performance?queue=support&queue=sales&from=2026-10-07T10%3A00&to=2026-10-08T10%3A00',
+        { headers: { cookie } },
+      );
+      assert.equal(queuePerformance.status, 200);
+      const queuePerformanceBody = await queuePerformance.json();
+      assert.equal(queuePerformanceBody.total.enteredCalls, 30);
+      assert.equal(queuePerformanceBody.queues.length, 2);
+      assert.deepEqual(calls.at(-1), {
+        id: PBX_ID,
+        queueIds: ['support', 'sales'],
+        from: '2026-10-07T10:00',
+        to: '2026-10-08T10:00',
+      });
+      assert.equal(
+        (
+          await fetch(
+            app.base +
+              basePath +
+              '/queue-performance?from=2026-10-07T10%3A00&to=2026-10-08T10%3A00',
+            { headers: { cookie } },
+          )
+        ).status,
+        400,
+      );
+      assert.equal(
+        (
+          await fetch(
+            app.base +
+              basePath +
+              '/queue-performance?queue=support&queue=support&from=2026-10-07T10%3A00&to=2026-10-08T10%3A00',
+            { headers: { cookie } },
+          )
+        ).status,
+        400,
+      );
+
+      const queueDetails = await fetch(
+        app.base +
+          basePath +
+          '/queue-performance-details?queue=support&queue=sales&from=2026-10-07T10%3A00&to=2026-10-07T11%3A00&reportTo=2026-10-08T10%3A00',
+        { headers: { cookie } },
+      );
+      assert.equal(queueDetails.status, 200);
+      const queueDetailsBody = await queueDetails.json();
+      assert.equal(queueDetailsBody.items.length, 1);
+      assert.equal(queueDetailsBody.items[0].outcome, 'ANSWERED');
+      assert.deepEqual(calls.at(-1), {
+        id: PBX_ID,
+        queueIds: ['support', 'sales'],
+        from: '2026-10-07T10:00',
+        to: '2026-10-07T11:00',
+        reportTo: '2026-10-08T10:00',
+        detail: true,
+      });
+      assert.equal(
+        (
+          await fetch(
+            app.base +
+              basePath +
+              '/queue-performance-details?queue=support&from=bad&to=2026-10-07T11%3A00&reportTo=2026-10-08T10%3A00',
+            { headers: { cookie } },
+          )
+        ).status,
+        400,
+      );
+
+      const queueAnalytics = await fetch(
+        app.base +
+          basePath +
+          '/queue-abandonment?queue=support&from=2026-10-07T10%3A00&to=2026-10-08T10%3A00&longWaitMinutes=2',
+        { headers: { cookie } },
+      );
+      assert.equal(queueAnalytics.status, 200);
+      assert.equal((await queueAnalytics.json()).abandonedCalls, 4);
+      assert.deepEqual(calls.at(-1), {
+        id: PBX_ID,
+        queueId: 'support',
+        from: '2026-10-07T10:00',
+        to: '2026-10-08T10:00',
+        longWaitThresholdMinutes: 2,
+      });
+      assert.equal(
+        (
+          await fetch(
+            app.base +
+              basePath +
+              '/queue-abandonment?queue=&from=2026-10-07T10%3A00&to=2026-10-08T10%3A00&longWaitMinutes=2',
+            { headers: { cookie } },
+          )
+        ).status,
+        400,
+      );
+      assert.equal(
+        (
+          await fetch(
+            app.base +
+              basePath +
+              '/queue-abandonment?queue=support&from=2026-10-07T10%3A00&to=2026-10-08T10%3A00&longWaitMinutes=61',
+            { headers: { cookie } },
+          )
+        ).status,
         400,
       );
 

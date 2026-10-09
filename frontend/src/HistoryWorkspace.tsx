@@ -1,8 +1,8 @@
-import { Badge, Box, Button, HStack, SimpleGrid, Stack, Text } from '@chakra-ui/react';
+import { Badge, Box, Button, HStack, Input, SimpleGrid, Stack, Text } from '@chakra-ui/react';
 import { useEffect, useMemo, useState } from 'react';
 import type {
   HistoricalCallOutcomeAnalytics,
-  HistoricalCallOutcomeRange,
+  HistoricalQueueAbandonmentAnalytics,
 } from '@voip-monitor/shared';
 import {
   api,
@@ -15,6 +15,11 @@ import {
   type PbxProfile,
 } from './api.js';
 import type { messages } from './i18n.js';
+import { QueueOutcomeChart } from './QueueOutcomeChart.js';
+import { QueuePerformanceReportBuilder } from './QueuePerformanceReport.js';
+import { exportQueueReportExcel, exportQueueReportPdf } from './reportExport.js';
+import { HelpHint, type HelpContent } from './ContextHelp.js';
+import { HELP } from './helpContent.js';
 import {
   DataSurface,
   WorkspaceField,
@@ -28,6 +33,30 @@ type TextMap = (typeof messages)['en'] | (typeof messages)['fa'];
 type Dataset = 'calls' | 'call-events' | 'queue-events';
 type Row = HistoricalCallRecord | HistoricalCallEventRecord | HistoricalQueueEventRecord;
 
+function dateTimeLocalValue(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function initialReportWindow(): { from: string; to: string } {
+  const to = new Date();
+  const from = new Date(to.getTime() - 24 * 60 * 60 * 1000);
+  return { from: dateTimeLocalValue(from), to: dateTimeLocalValue(to) };
+}
+
+function validWindow(from: string, to: string): boolean {
+  return Boolean(from && to && from < to);
+}
+
+function sourceDateTimeLabel(value: string): string {
+  return value.replace('T', ' ');
+}
+
+function reportFileBaseName(queueId: string, from: string, to: string): string {
+  const compact = (value: string) => value.replace(/[^0-9]/gu, '').slice(0, 12);
+  return `voip-monitor-queue-${queueId}-${compact(from)}-${compact(to)}`;
+}
+
 function availability(capabilities: HistoricalSourceCapabilities | null, dataset: Dataset) {
   if (!capabilities) return undefined;
   if (dataset === 'calls') return capabilities.calls.availability;
@@ -39,28 +68,40 @@ function statusTone(value: HistoricalDatasetAvailability) {
   return value === 'SUPPORTED' ? 'green' : value === 'AMBIGUOUS' ? 'orange' : 'gray';
 }
 
+function availabilityLabel(text: TextMap, value: HistoricalDatasetAvailability): string {
+  if (value === 'SUPPORTED') return text.historyAvailabilitySupported;
+  if (value === 'NOT_FOUND') return text.historyAvailabilityNotFound;
+  if (value === 'SCHEMA_MISMATCH') return text.historyAvailabilitySchemaMismatch;
+  return text.historyAvailabilityAmbiguous;
+}
+
 function HistoryDatum({
   label,
   value,
   ltr = false,
   mono = false,
+  help,
 }: {
   label: string;
   value: string | number;
   ltr?: boolean;
   mono?: boolean;
+  help?: HelpContent | undefined;
 }) {
   return (
     <Box minW="0">
-      <Text
-        fontSize="9px"
-        color="noc.textSubtle"
-        fontWeight="700"
-        letterSpacing=".04em"
-        textTransform="uppercase"
-      >
-        {label}
-      </Text>
+      <HStack gap="1.5" align="center">
+        <Text
+          fontSize="9px"
+          color="noc.textSubtle"
+          fontWeight="700"
+          letterSpacing=".04em"
+          textTransform="uppercase"
+        >
+          {label}
+        </Text>
+        <HelpHint help={help} subject={help ? undefined : label} kind="metric" size="xs" />
+      </HStack>
       <Text
         mt="1"
         fontSize="12px"
@@ -88,9 +129,21 @@ export function HistoryWorkspace({
   const [dataset, setDataset] = useState<Dataset>('calls');
   const [capabilities, setCapabilities] = useState<HistoricalSourceCapabilities | null>(null);
   const [rows, setRows] = useState<readonly Row[]>([]);
-  const [outcomeRange, setOutcomeRange] = useState<HistoricalCallOutcomeRange>('24H');
+  const initialWindow = useMemo(() => initialReportWindow(), []);
+  const [outcomeFrom, setOutcomeFrom] = useState(initialWindow.from);
+  const [outcomeTo, setOutcomeTo] = useState(initialWindow.to);
   const [outcomes, setOutcomes] = useState<HistoricalCallOutcomeAnalytics | null>(null);
   const [outcomesLoading, setOutcomesLoading] = useState(false);
+  const [queueFrom, setQueueFrom] = useState(initialWindow.from);
+  const [queueTo, setQueueTo] = useState(initialWindow.to);
+  const [queueOptions, setQueueOptions] = useState<string[]>([]);
+  const [queueId, setQueueId] = useState('');
+  const [longWaitMinutes, setLongWaitMinutes] = useState('');
+  const [queueAnalytics, setQueueAnalytics] = useState<HistoricalQueueAbandonmentAnalytics | null>(
+    null,
+  );
+  const [queueAnalyticsLoading, setQueueAnalyticsLoading] = useState(false);
+  const [queueExporting, setQueueExporting] = useState<'pdf' | 'excel' | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -133,6 +186,7 @@ export function HistoryWorkspace({
     setError('');
     setRows([]);
     setOutcomes(null);
+    setQueueAnalytics(null);
     try {
       const next = await api.historyCapabilities(id);
       setCapabilities(next);
@@ -153,16 +207,164 @@ export function HistoryWorkspace({
     }
   }
 
+  async function loadQueueOptions(id: string) {
+    let queues: string[] = [];
+    try {
+      const source = await api.historyQueueOptions(id);
+      queues = [...new Set(source.items)].sort();
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 401) {
+        onUnauthorized();
+        return;
+      }
+    }
+    if (queues.length === 0) {
+      try {
+        const state = await api.telephonyState(id);
+        queues = [...new Set((state.current?.queues ?? []).map((queue) => queue.queueId))].sort();
+      } catch (cause) {
+        if (cause instanceof ApiError && cause.status === 401) onUnauthorized();
+      }
+    }
+    setQueueOptions(queues);
+    setQueueId((current) => (current && queues.includes(current) ? current : (queues[0] ?? '')));
+  }
+
   async function loadCallOutcomes(id: string) {
+    if (!validWindow(outcomeFrom, outcomeTo)) {
+      setError(text.historyReportWindowInvalid);
+      return;
+    }
     setOutcomesLoading(true);
     setError('');
     try {
-      setOutcomes(await api.historyCallOutcomes(id, outcomeRange));
+      setOutcomes(await api.historyCallOutcomes(id, { from: outcomeFrom, to: outcomeTo }));
     } catch (cause) {
       setOutcomes(null);
       await handleError(cause);
     } finally {
       setOutcomesLoading(false);
+    }
+  }
+
+  async function loadQueueAbandonment(id: string) {
+    const threshold = Number(longWaitMinutes);
+    if (
+      !queueId ||
+      !validWindow(queueFrom, queueTo) ||
+      !Number.isSafeInteger(threshold) ||
+      threshold < 1 ||
+      threshold > 60
+    ) {
+      setError(text.historyQueueAbandonmentInvalidInput);
+      return;
+    }
+    setQueueAnalyticsLoading(true);
+    setError('');
+    try {
+      setQueueAnalytics(
+        await api.historyQueueAbandonment(id, queueId, { from: queueFrom, to: queueTo }, threshold),
+      );
+    } catch (cause) {
+      setQueueAnalytics(null);
+      await handleError(cause);
+    } finally {
+      setQueueAnalyticsLoading(false);
+    }
+  }
+
+  function queueReportPayload() {
+    if (!queueAnalytics || !selected) return null;
+    const percentValue =
+      queueAnalytics.abandonmentRatePercent === undefined
+        ? '—'
+        : `${queueAnalytics.abandonmentRatePercent.toFixed(1)}%`;
+    const averageWait =
+      queueAnalytics.averageWaitBeforeAbandonSeconds === undefined
+        ? '—'
+        : `${queueAnalytics.averageWaitBeforeAbandonSeconds.toFixed(1)}s`;
+    const percentiles =
+      queueAnalytics.p50WaitBeforeAbandonSeconds === undefined ||
+      queueAnalytics.p90WaitBeforeAbandonSeconds === undefined
+        ? '—'
+        : `P50 ${queueAnalytics.p50WaitBeforeAbandonSeconds.toFixed(1)}s / P90 ${queueAnalytics.p90WaitBeforeAbandonSeconds.toFixed(1)}s`;
+    return {
+      fileBaseName: reportFileBaseName(
+        queueAnalytics.queueId,
+        queueAnalytics.from,
+        queueAnalytics.to,
+      ),
+      title: text.historyQueueReportTitle,
+      subtitle: selected.displayName,
+      rtl: /[؀-ۿ]/u.test(text.historyTitle),
+      filtersTitle: text.historyQueueReportFilters,
+      metricsTitle: text.historyQueueReportMetrics,
+      chartTitle: text.historyQueueChartTitle,
+      filters: [
+        { label: text.historyQueueReportPbx, value: selected.displayName },
+        { label: text.historyQueueAbandonmentQueue, value: queueAnalytics.queueId },
+        { label: text.historyReportFrom, value: sourceDateTimeLabel(queueAnalytics.from) },
+        { label: text.historyReportTo, value: sourceDateTimeLabel(queueAnalytics.to) },
+        {
+          label: text.historyQueueReportThresholdValue,
+          value: `${queueAnalytics.longWaitThresholdMinutes} ${text.historyQueueMinutesUnit}`,
+        },
+      ],
+      metrics: [
+        { label: text.historyQueueEntered, value: queueAnalytics.enteredCalls },
+        { label: text.historyQueueConnected, value: queueAnalytics.connectedCalls },
+        { label: text.historyQueueAbandoned, value: queueAnalytics.abandonedCalls },
+        { label: text.historyQueueTimedOut, value: queueAnalytics.timedOutCalls },
+        { label: text.historyQueueAbandonmentRate, value: percentValue },
+        { label: text.historyQueueAverageWait, value: averageWait },
+        { label: text.historyQueueLongWait, value: queueAnalytics.longWaitAbandonedCalls },
+        { label: text.historyQueuePercentiles, value: percentiles },
+      ],
+      chartTotal: queueAnalytics.enteredCalls,
+      chartTotalLabel: text.historyQueueChartTotal,
+      chartSegments: [
+        {
+          label: text.historyQueueConnected,
+          value: queueAnalytics.connectedCalls,
+          color: '#38A0FF',
+        },
+        {
+          label: text.historyQueueAbandoned,
+          value: queueAnalytics.abandonedCalls,
+          color: '#FF5C8A',
+        },
+        {
+          label: text.historyQueueTimedOut,
+          value: queueAnalytics.timedOutCalls,
+          color: '#F6B94A',
+        },
+        {
+          label: text.historyQueueChartOther,
+          value: Math.max(
+            0,
+            queueAnalytics.enteredCalls -
+              queueAnalytics.connectedCalls -
+              queueAnalytics.abandonedCalls -
+              queueAnalytics.timedOutCalls,
+          ),
+          color: '#72849D',
+        },
+      ],
+    };
+  }
+
+  async function exportQueueReport(format: 'pdf' | 'excel') {
+    const payload = queueReportPayload();
+    if (!payload) return;
+    setQueueExporting(format);
+    setError('');
+    try {
+      if (format === 'pdf') await exportQueueReportPdf(payload);
+      else await exportQueueReportExcel(payload);
+    } catch {
+      setError(text.historyQueueExportFailed);
+    } finally {
+      setQueueExporting(null);
     }
   }
 
@@ -186,7 +388,10 @@ export function HistoryWorkspace({
   }
 
   useEffect(() => {
-    if (selectedId) void loadCapabilities(selectedId);
+    if (selectedId) {
+      void loadCapabilities(selectedId);
+      void loadQueueOptions(selectedId);
+    }
   }, [selectedId]);
 
   if (!selected) {
@@ -204,7 +409,7 @@ export function HistoryWorkspace({
 
   return (
     <Stack gap="4" data-workspace="history">
-      <WorkspaceHeader title={text.historyTitle} description={text.historyHint} />
+      <WorkspaceHeader title={text.historyTitle} help={HELP.navigation.reports} />
 
       <WorkspaceToolbar>
         <WorkspaceField label={text.historyPbx}>
@@ -217,16 +422,18 @@ export function HistoryWorkspace({
           </WorkspaceSelect>
         </WorkspaceField>
         <Box flex="2 1 420px" minW={{ base: '100%', md: '360px' }}>
-          <Text
-            fontSize="10px"
-            color="noc.textSubtle"
-            fontWeight="700"
-            letterSpacing=".06em"
-            textTransform="uppercase"
-            mb="1.5"
-          >
-            {text.historyDataset}
-          </Text>
+          <HStack gap="1.5" align="center" mb="1.5">
+            <Text
+              fontSize="10px"
+              color="noc.textSubtle"
+              fontWeight="700"
+              letterSpacing=".06em"
+              textTransform="uppercase"
+            >
+              {text.historyDataset}
+            </Text>
+            <HelpHint subject={text.historyDataset} kind="field" size="xs" />
+          </HStack>
           <HStack gap="1" flexWrap="wrap">
             {datasetItems.map(([value, label, state]) => (
               <Button
@@ -247,7 +454,7 @@ export function HistoryWorkspace({
                 <HStack gap="2">
                   <Text fontSize="11px">{label}</Text>
                   <Badge variant="subtle" colorPalette={statusTone(state)} fontSize="9px">
-                    {state}
+                    {availabilityLabel(text, state)}
                   </Badge>
                 </HStack>
               </Button>
@@ -280,7 +487,8 @@ export function HistoryWorkspace({
       {capabilities?.calls.availability === 'SUPPORTED' ? (
         <DataSurface
           title={text.historyOutcomeTitle}
-          meta={text.historyOutcomeSourceHint}
+
+          help={HELP.reports.callOutcomeReport}
           footer={
             <Text fontSize="10px" color="noc.textSubtle">
               {text.historyOutcomeUnknownHint}
@@ -288,31 +496,44 @@ export function HistoryWorkspace({
           }
         >
           <Stack gap="4" p="4">
-            <HStack gap="2" align="end" flexWrap="wrap">
-              <Box minW="180px">
-                <Text
-                  fontSize="10px"
-                  color="noc.textSubtle"
-                  fontWeight="700"
-                  letterSpacing=".06em"
-                  textTransform="uppercase"
-                  mb="1.5"
-                >
-                  {text.historyOutcomeRange}
-                </Text>
-                <WorkspaceSelect
-                  value={outcomeRange}
-                  onChange={(value) => {
-                    setOutcomeRange(value as HistoricalCallOutcomeRange);
+            <SimpleGrid columns={{ base: 1, md: 3 }} gap="3" alignItems="end">
+              <Box>
+                <HStack gap="1.5" align="center" mb="1.5">
+                  <Text fontSize="10px" color="noc.textSubtle" fontWeight="700">
+                    {text.historyReportFrom}
+                  </Text>
+                  <HelpHint help={HELP.reports.from} kind="field" size="xs" />
+                </HStack>
+                <Input
+                  name="history-outcome-from"
+                  type="datetime-local"
+                  step={60}
+                  value={outcomeFrom}
+                  onChange={(event) => {
+                    setOutcomeFrom(event.target.value);
                     setOutcomes(null);
                   }}
-                  ariaLabel={text.historyOutcomeRange}
-                >
-                  <option value="1H">{text.historyOutcomeRange1h}</option>
-                  <option value="24H">{text.historyOutcomeRange24h}</option>
-                  <option value="7D">{text.historyOutcomeRange7d}</option>
-                  <option value="30D">{text.historyOutcomeRange30d}</option>
-                </WorkspaceSelect>
+                  dir="ltr"
+                />
+              </Box>
+              <Box>
+                <HStack gap="1.5" align="center" mb="1.5">
+                  <Text fontSize="10px" color="noc.textSubtle" fontWeight="700">
+                    {text.historyReportTo}
+                  </Text>
+                  <HelpHint help={HELP.reports.to} kind="field" size="xs" />
+                </HStack>
+                <Input
+                  name="history-outcome-to"
+                  type="datetime-local"
+                  step={60}
+                  value={outcomeTo}
+                  onChange={(event) => {
+                    setOutcomeTo(event.target.value);
+                    setOutcomes(null);
+                  }}
+                  dir="ltr"
+                />
               </Box>
               <Button
                 size="sm"
@@ -322,43 +543,348 @@ export function HistoryWorkspace({
               >
                 {text.historyOutcomeLoad}
               </Button>
-            </HStack>
+              <HelpHint subject={text.historyOutcomeLoad} kind="action" size="xs" />
+            </SimpleGrid>
             {outcomesLoading ? (
               <WorkspaceState tone="info" title={text.loading} loading role="status" />
             ) : outcomes ? (
               <SimpleGrid columns={{ base: 2, md: 4, xl: 8 }} gap="3">
-                <HistoryDatum label={text.historyOutcomeTotal} value={outcomes.totalCalls} ltr />
+                <HistoryDatum
+                  label={text.historyOutcomeTotal}
+                  value={outcomes.totalCalls}
+                  ltr
+                  help={HELP.reports.callOutcomeTotal}
+                />
                 <HistoryDatum
                   label={text.historyOutcomeAnswered}
                   value={outcomes.answeredCalls}
                   ltr
+                  help={HELP.reports.callOutcomeAnswered}
                 />
                 <HistoryDatum
                   label={text.historyOutcomeNoAnswer}
                   value={outcomes.noAnswerCalls}
                   ltr
+                  help={HELP.reports.callOutcomeNoAnswer}
                 />
-                <HistoryDatum label={text.historyOutcomeBusy} value={outcomes.busyCalls} ltr />
-                <HistoryDatum label={text.historyOutcomeFailed} value={outcomes.failedCalls} ltr />
+                <HistoryDatum
+                  label={text.historyOutcomeBusy}
+                  value={outcomes.busyCalls}
+                  ltr
+                  help={HELP.reports.callOutcomeBusy}
+                />
+                <HistoryDatum
+                  label={text.historyOutcomeFailed}
+                  value={outcomes.failedCalls}
+                  ltr
+                  help={HELP.reports.callOutcomeFailed}
+                />
                 <HistoryDatum
                   label={text.historyOutcomeUnknown}
                   value={outcomes.unknownCalls}
                   ltr
+                  help={HELP.reports.callOutcomeUnknown}
                 />
                 <HistoryDatum
                   label={text.historyOutcomeAnswerRatio}
                   value={`${outcomes.answerRatioPercent.toFixed(1)}%`}
                   ltr
+                  help={HELP.reports.callOutcomeAnswerRatio}
                 />
                 <HistoryDatum
                   label={text.historyOutcomeAverageDuration}
                   value={`${outcomes.averageDurationSeconds.toFixed(1)}s`}
                   ltr
+                  help={HELP.reports.callOutcomeAverageDuration}
                 />
               </SimpleGrid>
             ) : (
               <Text color="noc.textSubtle" fontSize="12px">
                 {text.historyOutcomeEmpty}
+              </Text>
+            )}
+          </Stack>
+        </DataSurface>
+      ) : null}
+
+      {capabilities ? (
+        <QueuePerformanceReportBuilder
+          key={selected.id}
+          text={text}
+          pbxId={selected.id}
+          pbxName={selected.displayName}
+          queueOptions={queueOptions}
+          supported={capabilities.queuePerformance.availability === 'SUPPORTED'}
+          unavailableLabel={availabilityLabel(text, capabilities.queuePerformance.availability)}
+          onError={handleError}
+        />
+      ) : null}
+
+      {capabilities ? (
+        <DataSurface title={text.historyQueueAbandonmentTitle}>
+          <Stack gap="4" p="4">
+            {capabilities.queueAbandonment.availability !== 'SUPPORTED' ? (
+              <Text color="noc.textSubtle" fontSize="12px">
+                {text.historyQueueAbandonmentUnavailable}{' '}
+                {availabilityLabel(text, capabilities.queueAbandonment.availability)}
+              </Text>
+            ) : null}
+            <SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} gap="3">
+              <Box>
+                <HStack gap="1.5" align="center" mb="1.5">
+                  <Text fontSize="10px" color="noc.textSubtle" fontWeight="700">
+                    {text.historyQueueAbandonmentQueue}
+                  </Text>
+                  <HelpHint help={HELP.reports.queues} kind="field" size="xs" />
+                </HStack>
+                <WorkspaceSelect
+                  value={queueId}
+                  onChange={(value) => {
+                    setQueueId(value);
+                    setQueueAnalytics(null);
+                  }}
+                  ariaLabel={text.historyQueueAbandonmentQueue}
+                >
+                  <option value="">{text.historyQueueAbandonmentQueuePlaceholder}</option>
+                  {queueOptions.map((queue) => (
+                    <option key={queue} value={queue}>
+                      {queue}
+                    </option>
+                  ))}
+                </WorkspaceSelect>
+              </Box>
+              <Box>
+                <HStack gap="1.5" align="center" mb="1.5">
+                  <Text fontSize="10px" color="noc.textSubtle" fontWeight="700">
+                    {text.historyReportFrom}
+                  </Text>
+                  <HelpHint help={HELP.reports.from} kind="field" size="xs" />
+                </HStack>
+                <Input
+                  name="history-queue-from"
+                  type="datetime-local"
+                  step={60}
+                  value={queueFrom}
+                  onChange={(event) => {
+                    setQueueFrom(event.target.value);
+                    setQueueAnalytics(null);
+                  }}
+                  dir="ltr"
+                />
+              </Box>
+              <Box>
+                <HStack gap="1.5" align="center" mb="1.5">
+                  <Text fontSize="10px" color="noc.textSubtle" fontWeight="700">
+                    {text.historyReportTo}
+                  </Text>
+                  <HelpHint help={HELP.reports.to} kind="field" size="xs" />
+                </HStack>
+                <Input
+                  name="history-queue-to"
+                  type="datetime-local"
+                  step={60}
+                  value={queueTo}
+                  onChange={(event) => {
+                    setQueueTo(event.target.value);
+                    setQueueAnalytics(null);
+                  }}
+                  dir="ltr"
+                />
+              </Box>
+              <Box>
+                <HStack gap="1.5" align="center" mb="1.5">
+                  <Text fontSize="10px" color="noc.textSubtle" fontWeight="700">
+                    {text.historyQueueAbandonmentThreshold}
+                  </Text>
+                  <HelpHint help={HELP.reports.abandonmentThreshold} kind="field" size="xs" />
+                </HStack>
+                <Input
+                  name="history-long-wait-minutes"
+                  type="number"
+                  min={1}
+                  max={60}
+                  step={1}
+                  value={longWaitMinutes}
+                  onChange={(event) => {
+                    setLongWaitMinutes(event.target.value);
+                    setQueueAnalytics(null);
+                  }}
+                  placeholder={text.historyQueueAbandonmentThresholdPlaceholder}
+                  dir="ltr"
+                />
+              </Box>
+            </SimpleGrid>
+            <HStack gap="2">
+              <Button
+                size="sm"
+                colorPalette="blue"
+                disabled={
+                  queueAnalyticsLoading ||
+                  capabilities.queueAbandonment.availability !== 'SUPPORTED' ||
+                  queueOptions.length === 0
+                }
+                onClick={() => void loadQueueAbandonment(selected.id)}
+              >
+                {text.historyQueueAbandonmentLoad}
+              </Button>
+              <HelpHint subject={text.historyQueueAbandonmentLoad} kind="action" size="xs" />
+            </HStack>
+            {queueAnalyticsLoading ? (
+              <WorkspaceState tone="info" title={text.loading} loading role="status" />
+            ) : queueAnalytics ? (
+              <Stack gap="4">
+                <Box
+                  borderWidth="1px"
+                  borderColor="rgba(91, 130, 172, .24)"
+                  borderRadius="nocControl"
+                  bg="linear-gradient(145deg, rgba(15, 33, 54, .96), rgba(8, 22, 38, .96))"
+                  p={{ base: '4', md: '5' }}
+                >
+                  <Stack gap="5">
+                    <HStack justify="space-between" align="start" gap="4" flexWrap="wrap">
+                      <Box>
+                        <Text fontSize="16px" fontWeight="900" color="noc.text">
+                          {text.historyQueueReportTitle}
+                        </Text>
+                        <Text mt="1" fontSize="10px" color="noc.textSubtle">
+                          {selected.displayName}
+                        </Text>
+                      </Box>
+                      <Text
+                        fontSize="10px"
+                        color="noc.textMuted"
+                        borderWidth="1px"
+                        borderColor="noc.border"
+                        borderRadius="full"
+                        px="3"
+                        py="1.5"
+                        dir="ltr"
+                      >
+                        {queueAnalytics.queueId}
+                      </Text>
+                    </HStack>
+                    <SimpleGrid columns={{ base: 2, md: 4 }} gap="3">
+                      <HistoryDatum
+                        label={text.historyReportFrom}
+                        value={sourceDateTimeLabel(queueAnalytics.from)}
+                        ltr
+                        help={HELP.reports.from}
+                      />
+                      <HistoryDatum
+                        label={text.historyReportTo}
+                        value={sourceDateTimeLabel(queueAnalytics.to)}
+                        ltr
+                        help={HELP.reports.to}
+                      />
+                      <HistoryDatum
+                        label={text.historyQueueAbandonmentThreshold}
+                        value={`${queueAnalytics.longWaitThresholdMinutes} ${text.historyQueueMinutesUnit}`}
+                        ltr
+                        help={HELP.reports.abandonmentThreshold}
+                      />
+                      <HistoryDatum
+                        label={text.historyQueueAbandonmentQueue}
+                        value={queueAnalytics.queueId}
+                        ltr
+                        help={HELP.reports.queues}
+                      />
+                    </SimpleGrid>
+                    <SimpleGrid columns={{ base: 2, md: 4, xl: 8 }} gap="3">
+                      <HistoryDatum
+                        label={text.historyQueueEntered}
+                        value={queueAnalytics.enteredCalls}
+                        ltr
+                        help={HELP.reports.incoming}
+                      />
+                      <HistoryDatum
+                        label={text.historyQueueConnected}
+                        value={queueAnalytics.connectedCalls}
+                        ltr
+                        help={HELP.reports.answered}
+                      />
+                      <HistoryDatum
+                        label={text.historyQueueAbandoned}
+                        value={queueAnalytics.abandonedCalls}
+                        ltr
+                        help={HELP.reports.callerAbandon}
+                      />
+                      <HistoryDatum
+                        label={text.historyQueueTimedOut}
+                        value={queueAnalytics.timedOutCalls}
+                        ltr
+                        help={HELP.reports.timeout}
+                      />
+                      <HistoryDatum
+                        label={text.historyQueueAbandonmentRate}
+                        value={
+                          queueAnalytics.abandonmentRatePercent === undefined
+                            ? '—'
+                            : `${queueAnalytics.abandonmentRatePercent.toFixed(1)}%`
+                        }
+                        ltr
+                        help={HELP.reports.abandonmentRate}
+                      />
+                      <HistoryDatum
+                        label={text.historyQueueAverageWait}
+                        value={
+                          queueAnalytics.averageWaitBeforeAbandonSeconds === undefined
+                            ? '—'
+                            : `${queueAnalytics.averageWaitBeforeAbandonSeconds.toFixed(1)}s`
+                        }
+                        ltr
+                        help={HELP.reports.abandonWait}
+                      />
+                      <HistoryDatum
+                        label={text.historyQueueLongWait}
+                        value={queueAnalytics.longWaitAbandonedCalls}
+                        ltr
+                        help={HELP.reports.longWaitAbandon}
+                      />
+                      <HistoryDatum
+                        label={text.historyQueuePercentiles}
+                        value={
+                          queueAnalytics.p50WaitBeforeAbandonSeconds === undefined ||
+                          queueAnalytics.p90WaitBeforeAbandonSeconds === undefined
+                            ? '—'
+                            : `P50 ${queueAnalytics.p50WaitBeforeAbandonSeconds.toFixed(1)}s / P90 ${queueAnalytics.p90WaitBeforeAbandonSeconds.toFixed(1)}s`
+                        }
+                        ltr
+                        help={HELP.reports.percentiles}
+                      />
+                    </SimpleGrid>
+                    <Box>
+                      <QueueOutcomeChart analytics={queueAnalytics} text={text} />
+                    </Box>
+                  </Stack>
+                </Box>
+                <HStack gap="2" flexWrap="wrap">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={queueExporting !== null}
+                    onClick={() => void exportQueueReport('pdf')}
+                  >
+                    {queueExporting === 'pdf'
+                      ? text.historyQueueExportingPdf
+                      : text.historyQueueExportPdf}
+                  </Button>
+                  <HelpHint help={HELP.reports.exportPdf} kind="export" size="xs" />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={queueExporting !== null}
+                    onClick={() => void exportQueueReport('excel')}
+                  >
+                    {queueExporting === 'excel'
+                      ? text.historyQueueExportingExcel
+                      : text.historyQueueExportExcel}
+                  </Button>
+                  <HelpHint help={HELP.reports.exportExcel} kind="export" size="xs" />
+                </HStack>
+              </Stack>
+            ) : (
+              <Text color="noc.textSubtle" fontSize="12px">
+                {text.historyQueueAbandonmentEmpty}
               </Text>
             )}
           </Stack>

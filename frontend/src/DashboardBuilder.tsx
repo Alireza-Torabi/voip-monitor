@@ -7,8 +7,8 @@ import {
   HStack,
   NativeSelect,
   Stack,
-  Text,
 } from '@chakra-ui/react';
+import { HelpHint } from './ContextHelp.js';
 import { useEffect, useRef, useState } from 'react';
 import { DEFAULT_DASHBOARD_REFRESH_RATES, type DashboardRefreshRates } from '@voip-monitor/shared';
 import {
@@ -317,38 +317,45 @@ export function DashboardBuilder({
               <Heading size="xl" color="noc.text" letterSpacing="-0.02em">
                 {text.dashboardTitle}
               </Heading>
-              <Text color="noc.textMuted" mt="1" fontSize="12px">
-                {text.dashboardHint}
-              </Text>
             </Box>
             <HStack gap="2" flexWrap="wrap" justify={{ base: 'flex-start', xl: 'flex-end' }}>
-              <Box minW={{ base: '180px', md: '220px' }}>
-                <NativeSelect.Root>
-                  <NativeSelect.Field
-                    aria-label={text.dashboardPbx}
-                    value={selected?.id ?? ''}
-                    onChange={(event) => chooseInstance(event.target.value)}
-                  >
-                    {profiles.map((profile) => (
-                      <option key={profile.id} value={profile.id}>
-                        {profile.displayName}
-                      </option>
-                    ))}
-                  </NativeSelect.Field>
-                  <NativeSelect.Indicator />
-                </NativeSelect.Root>
-              </Box>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  if (document.fullscreenElement) void document.exitFullscreen();
-                  else if (rootRef.current?.requestFullscreen)
-                    void rootRef.current.requestFullscreen();
-                }}
-              >
-                {fullscreen ? text.exitFullscreen : text.fullscreen}
-              </Button>
+              <HStack gap="1.5" align="center">
+                <Box minW={{ base: '180px', md: '220px' }}>
+                  <NativeSelect.Root>
+                    <NativeSelect.Field
+                      aria-label={text.dashboardPbx}
+                      value={selected?.id ?? ''}
+                      onChange={(event) => chooseInstance(event.target.value)}
+                    >
+                      {profiles.map((profile) => (
+                        <option key={profile.id} value={profile.id}>
+                          {profile.displayName}
+                        </option>
+                      ))}
+                    </NativeSelect.Field>
+                    <NativeSelect.Indicator />
+                  </NativeSelect.Root>
+                </Box>
+                <HelpHint subject={text.dashboardPbx} kind="field" size="xs" />
+              </HStack>
+              <HStack gap="1.5" align="center">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    if (document.fullscreenElement) void document.exitFullscreen();
+                    else if (rootRef.current?.requestFullscreen)
+                      void rootRef.current.requestFullscreen();
+                  }}
+                >
+                  {fullscreen ? text.exitFullscreen : text.fullscreen}
+                </Button>
+                <HelpHint
+                  subject={fullscreen ? text.exitFullscreen : text.fullscreen}
+                  kind="action"
+                  size="xs"
+                />
+              </HStack>
             </HStack>
           </Flex>
         ) : null}

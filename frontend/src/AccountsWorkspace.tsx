@@ -1,14 +1,5 @@
-import {
-  Badge,
-  Box,
-  Button,
-  Checkbox,
-  Flex,
-  Input,
-  SimpleGrid,
-  Stack,
-  Text,
-} from '@chakra-ui/react';
+import { Badge, Box, Checkbox, Flex, Input, SimpleGrid, Stack, Text } from '@chakra-ui/react';
+import { HelpButton as Button } from './ContextHelp.js';
 import { useEffect, useState, type ReactNode } from 'react';
 import { api, ApiError, type AdministratorAccount, type Principal } from './api.js';
 import { messages, type Language } from './i18n.js';

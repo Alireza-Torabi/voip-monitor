@@ -895,7 +895,7 @@ export function createApp(
       }
 
       const historyAction = path.match(
-        /^\/api\/pbx-instances\/([^/]+)\/history(?:\/(calls|call-events|queue-events|call-outcomes))?$/,
+        /^\/api\/pbx-instances\/([^/]+)\/history(?:\/(calls|call-events|queue-events|call-outcomes|queue-abandonment|queue-performance|queue-performance-details|queue-options))?$/,
       );
       if (historyAction) {
         if (!auth || !historicalSource || !auth.principal(sessionToken(request)))
@@ -908,10 +908,103 @@ export function createApp(
           if (!dataset) return send(response, 200, await historicalSource.inspect(id));
           const url = new URL(request.url ?? '/', 'http://localhost');
           if (dataset === 'call-outcomes') {
-            const range = url.searchParams.get('range') ?? '24H';
-            if (!/^(?:1H|24H|7D|30D)$/u.test(range))
+            const from = url.searchParams.get('from') ?? '';
+            const to = url.searchParams.get('to') ?? '';
+            const sourceDateTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/u;
+            if (!sourceDateTime.test(from) || !sourceDateTime.test(to))
               return send(response, 400, { error: 'invalid_request' });
-            return send(response, 200, await historicalSource.callOutcomeAnalytics(id, range));
+            return send(response, 200, await historicalSource.callOutcomeAnalytics(id, from, to));
+          }
+          if (dataset === 'queue-options') {
+            return send(response, 200, { items: await historicalSource.listQueueIds(id) });
+          }
+          if (dataset === 'queue-performance-details') {
+            const queueIds = url.searchParams.getAll('queue');
+            const from = url.searchParams.get('from') ?? '';
+            const to = url.searchParams.get('to') ?? '';
+            const reportTo = url.searchParams.get('reportTo') ?? '';
+            const sourceDateTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/u;
+            const invalidQueue = (queueId: string) =>
+              !queueId ||
+              queueId.length > 128 ||
+              [...queueId].some((character) => {
+                const code = character.charCodeAt(0);
+                return code < 32 || code === 127;
+              });
+            if (
+              queueIds.length === 0 ||
+              queueIds.length > 16 ||
+              new Set(queueIds).size !== queueIds.length ||
+              queueIds.some(invalidQueue) ||
+              !sourceDateTime.test(from) ||
+              !sourceDateTime.test(to) ||
+              !sourceDateTime.test(reportTo)
+            ) {
+              return send(response, 400, { error: 'invalid_request' });
+            }
+            return send(
+              response,
+              200,
+              await historicalSource.queuePerformanceDetailChunk(id, queueIds, from, to, reportTo),
+            );
+          }
+          if (dataset === 'queue-performance') {
+            const queueIds = url.searchParams.getAll('queue');
+            const from = url.searchParams.get('from') ?? '';
+            const to = url.searchParams.get('to') ?? '';
+            const sourceDateTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/u;
+            const invalidQueue = (queueId: string) =>
+              !queueId ||
+              queueId.length > 128 ||
+              [...queueId].some((character) => {
+                const code = character.charCodeAt(0);
+                return code < 32 || code === 127;
+              });
+            if (
+              queueIds.length === 0 ||
+              queueIds.length > 16 ||
+              new Set(queueIds).size !== queueIds.length ||
+              queueIds.some(invalidQueue) ||
+              !sourceDateTime.test(from) ||
+              !sourceDateTime.test(to)
+            ) {
+              return send(response, 400, { error: 'invalid_request' });
+            }
+            return send(
+              response,
+              200,
+              await historicalSource.queuePerformanceReport(id, queueIds, from, to),
+            );
+          }
+          if (dataset === 'queue-abandonment') {
+            const queueId = url.searchParams.get('queue') ?? '';
+            const from = url.searchParams.get('from') ?? '';
+            const to = url.searchParams.get('to') ?? '';
+            const rawThreshold = url.searchParams.get('longWaitMinutes') ?? '1';
+            if (
+              !queueId ||
+              queueId.length > 128 ||
+              [...queueId].some((character) => {
+                const code = character.charCodeAt(0);
+                return code < 32 || code === 127;
+              }) ||
+              !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/u.test(from) ||
+              !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/u.test(to) ||
+              !/^(?:[1-9]|[1-5]\d|60)$/u.test(rawThreshold)
+            ) {
+              return send(response, 400, { error: 'invalid_request' });
+            }
+            return send(
+              response,
+              200,
+              await historicalSource.queueAbandonmentAnalytics(
+                id,
+                queueId,
+                from,
+                to,
+                Number(rawThreshold),
+              ),
+            );
           }
           const rawLimit = url.searchParams.get('limit') ?? '100';
           if (!/^(?:[1-9]|[1-9]\d|1\d\d|200)$/u.test(rawLimit))
@@ -926,12 +1019,19 @@ export function createApp(
           return send(response, 200, { items });
         } catch (error) {
           if (error instanceof HistoricalSourceSchemaError) {
-            if (error.code === 'INVALID_LIMIT' || error.code === 'INVALID_RANGE')
+            if (
+              error.code === 'INVALID_LIMIT' ||
+              error.code === 'INVALID_RANGE' ||
+              error.code === 'INVALID_QUEUE' ||
+              error.code === 'INVALID_THRESHOLD'
+            )
               return send(response, 400, { error: 'invalid_request' });
             if (error.code === 'NOT_CONFIGURED')
               return send(response, 409, { error: 'source_not_configured' });
             if (error.code === 'DATASET_UNAVAILABLE')
               return send(response, 409, { error: 'dataset_unavailable' });
+            if (error.code === 'EXPORT_TOO_LARGE')
+              return send(response, 413, { error: 'history_export_too_large' });
             return send(response, 502, { error: 'source_data_invalid' });
           }
           if (error instanceof DatabaseQueryError) {

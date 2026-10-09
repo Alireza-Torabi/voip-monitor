@@ -3,7 +3,10 @@ import type {
   EndpointReliabilityState,
   FleetOverviewSnapshot,
   HistoricalCallOutcomeAnalytics,
-  HistoricalCallOutcomeRange,
+  HistoricalReportWindow,
+  HistoricalQueueAbandonmentAnalytics,
+  HistoricalQueueCallDetailChunk,
+  HistoricalQueuePerformanceReport,
   OperationalHealthSnapshot,
   TrunkReliabilityState,
 } from '@voip-monitor/shared';
@@ -196,6 +199,8 @@ export interface HistoricalSourceCapabilities {
   calls: { availability: HistoricalDatasetAvailability };
   callEvents: { availability: HistoricalDatasetAvailability };
   queueEvents: { availability: HistoricalDatasetAvailability };
+  queueAbandonment: { availability: HistoricalDatasetAvailability };
+  queuePerformance: { availability: HistoricalDatasetAvailability };
 }
 
 export interface HistoricalCallRecord {
@@ -462,9 +467,47 @@ export const api = {
     request<{ items: HistoricalCallRecord[] }>(
       `/api/pbx-instances/${id}/history/calls?limit=${limit}`,
     ),
-  historyCallOutcomes: (id: string, range: HistoricalCallOutcomeRange = '24H') =>
+  historyCallOutcomes: (id: string, window: HistoricalReportWindow) =>
     request<HistoricalCallOutcomeAnalytics>(
-      `/api/pbx-instances/${id}/history/call-outcomes?range=${encodeURIComponent(range)}`,
+      `/api/pbx-instances/${id}/history/call-outcomes?from=${encodeURIComponent(window.from)}&to=${encodeURIComponent(window.to)}`,
+    ),
+  historyQueueOptions: (id: string) =>
+    request<{ items: string[] }>(`/api/pbx-instances/${id}/history/queue-options`),
+  historyQueuePerformanceDetails: (
+    id: string,
+    queueIds: readonly string[],
+    window: HistoricalReportWindow,
+    reportTo: string,
+  ) => {
+    const parameters = new URLSearchParams({
+      from: window.from,
+      to: window.to,
+      reportTo,
+    });
+    for (const queueId of queueIds) parameters.append('queue', queueId);
+    return request<HistoricalQueueCallDetailChunk>(
+      `/api/pbx-instances/${id}/history/queue-performance-details?${parameters.toString()}`,
+    );
+  },
+  historyQueuePerformance: (
+    id: string,
+    queueIds: readonly string[],
+    window: HistoricalReportWindow,
+  ) => {
+    const parameters = new URLSearchParams({ from: window.from, to: window.to });
+    for (const queueId of queueIds) parameters.append('queue', queueId);
+    return request<HistoricalQueuePerformanceReport>(
+      `/api/pbx-instances/${id}/history/queue-performance?${parameters.toString()}`,
+    );
+  },
+  historyQueueAbandonment: (
+    id: string,
+    queueId: string,
+    window: HistoricalReportWindow,
+    longWaitThresholdMinutes: number,
+  ) =>
+    request<HistoricalQueueAbandonmentAnalytics>(
+      `/api/pbx-instances/${id}/history/queue-abandonment?queue=${encodeURIComponent(queueId)}&from=${encodeURIComponent(window.from)}&to=${encodeURIComponent(window.to)}&longWaitMinutes=${longWaitThresholdMinutes}`,
     ),
   historyCallEvents: (id: string, limit = 100) =>
     request<{ items: HistoricalCallEventRecord[] }>(

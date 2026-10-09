@@ -162,3 +162,42 @@ Database-source configuration now models one connection identity plus a bounded 
 Migration 19 preserves existing source metadata and credentials. Existing MySQL/MariaDB rows gain their primary database as the initial scope; PostgreSQL rows gain `public` as the conservative initial schema scope. New or edited MySQL configurations automatically include the primary database even if the operator lists only additional databases. A configuration may expose at most 16 scopes.
 
 Task 60A does not itself add Queue Abandonment analytics. It prepares the source boundary so Task 60B can use queue history/configuration datasets across approved scopes without introducing a second credential or duplicate history store.
+
+
+## 2026-10-08 — Task 60B implementation context
+
+Queue Abandonment Analytics is implemented as a source-owned read-only History feature. The conventional SQL adapter exposes a distinct `queueAbandonment` capability requiring queue-log wait-time data (`data3`) in addition to the generic queue-event columns. The feature accepts one bounded current queue ID, an explicit validated source-local From/To date-time window, and a 1–60 minute integer long-wait threshold.
+
+Product semantics are explicit: `ABANDON` is caller abandonment; `EXITWITHTIMEOUT` is queue/system timeout and is shown separately. KPIs include entries, connected calls, caller abandons, queue timeouts, abandonment rate, average wait before caller abandon, and long-wait abandon count. Exact P50/P90 are returned only when the complete abandon wait sample is within the 1000-row transient read limit; otherwise percentile fields stay unavailable.
+
+Task 60B adds no local telephony-history persistence or database/PBX write path. After Task 60B is merged, the next roadmap item is Task 61 — Call Quality Source Discovery.
+
+
+## 2026-10-08 — Queue report presentation/export context
+
+Task 60B operator review now includes a graphical queue-outcome report and browser-side PDF/XLSX export. The displayed donut uses normalized aggregate counts only. Export buttons operate on the already-loaded report and never trigger a second historical query. PDF includes the localized report card and chart; XLSX contains structured filter/KPI cells and an embedded chart image, with RTL worksheet direction in Persian mode. No generated report is stored by the backend.
+
+
+## 2026-10-08 — Export reliability follow-up
+
+The Task 60B Excel hang observed during operator review was isolated to the DOM-rendering stage that preceded workbook creation, not to the source query or XLSX writer. Report exports now draw graphics directly from the already-loaded analytics using Canvas, XLSX resolves to a Blob before download, and async export stages are bounded by a 15-second timeout. A remote headless Chrome validation completed the real Excel path successfully without any PBX/database query.
+
+## 2026-10-08 — Comprehensive queue report builder
+
+The Reports workspace now includes a multi-queue performance report builder in addition to the focused abandonment analytics. Operators choose a source-local date/time range and 1–16 queues, then receive per-queue and combined KPI totals, rates, timing comparisons, lost-reason breakdown, reconciliation notes, and charts. Queue choices come from a bounded source-backed queue catalog with current telephony state only as fallback.
+
+Core report metrics are exact source-side aggregates rather than sampled raw rows. To protect the operational PBX database, the backend executes one-day chunks sequentially, separates lightweight queue/event counting from event-specific timing aggregation, and caps live-source reports at 30 days once exact caller KPIs are included. Longer reporting should target a read-only reporting replica. The report explicitly separates attempt-level RINGNOANSWER/RINGCANCELED from call-level lost outcomes and exposes cross-window reconciliation variance.
+
+## 2026-10-08 — Caller KPIs and filtered detail export
+
+The comprehensive queue report now distinguishes queue calls from people: unique callers, repeat callers, repeat rate, average calls per caller, repeat-generated calls/share, and Caller-ID coverage are part of every queue row and the combined selected-queue total. Combined uniques deduplicate callers across selected queues. Managerial caller analytics use ephemeral HMAC digests only and do not persist or expose caller identifiers.
+
+The same report filters can drive a separate Excel-only call-detail export. Detail reconstruction is source-owned/read-only, count-first, limited to 1,000 rows per database query, time-sliced when necessary, and correlated in application memory without a `callid` database join. The browser workbook is capped at 75,000 calls and is explicitly sensitive because it contains caller numbers and call IDs. Caller KPI reads are lighter: bounded sub-windows are grouped by queue/caller and only call-counts are returned before immediate per-report HMAC pseudonymization. Live-source comprehensive reports remain bounded to 30 days; longer reporting should use a read-only reporting replica.
+
+## 2026-10-09 — Bilingual contextual help
+
+The frontend now has a shared contextual-help layer. Operators see small `?` controls beside shared navigation/section/field/status/KPI surfaces and explicit report concepts. Hover/focus previews help; click pins the same popover; close/outside dismissal releases it. Help language follows the application language, including RTL Persian content.
+
+Reports have richer explicit explanations than the generic application fallback. Queue/caller/call-outcome KPI help explains what each value means, why it exists and how it is calculated, including important distinctions such as call volume versus unique callers and RINGNOANSWER attempts versus lost calls. A visible Reports guide summarizes these interpretation rules. The help layer is browser-only and does not change source-query, persistence or monitoring architecture.
+
+Common workspace actions now participate in the same contextual-help layer through a shared `HelpButton` wrapper; layout-sensitive actions retain explicit sibling help. This extends practical help coverage to save/reset/create/delete/refresh/verify/pagination-style controls without introducing nested buttons.
