@@ -1,3 +1,5 @@
+import { LiveQualityStore } from './live-quality.js';
+import type { AmiEvent } from '../asterisk/transport.js';
 import type {
   PbxConnectionState,
   PbxHealth,
@@ -81,6 +83,7 @@ class ProviderEntry {
   private snapshot: EntrySnapshot = { state: 'DISCONNECTED' };
   private readonly unsubscribeProviderEvents: () => void;
   private readonly unsubscribeSecurityEvents: () => void;
+  private readonly unsubscribeQualityEvents: () => void;
 
   constructor(
     readonly instanceId: string,
@@ -89,10 +92,17 @@ class ProviderEntry {
     onEvent: ProviderEventListener,
     onSecurityEvent: SecurityEventListener,
     private readonly onSnapshot: ProviderStateSnapshotListener,
+    onQualityEvent: (instanceId: string, event: AmiEvent) => void,
     private readonly onConnectionState: ProviderRuntimeConnectionListener,
   ) {
     this.unsubscribeProviderEvents = provider.subscribeEvents(onEvent);
     this.unsubscribeSecurityEvents = provider.subscribeSecurityEvents(onSecurityEvent);
+    this.unsubscribeQualityEvents =
+      'subscribeQualityEvents' in provider && typeof provider.subscribeQualityEvents === 'function'
+        ? provider.subscribeQualityEvents((event: AmiEvent) =>
+            onQualityEvent(this.instanceId, event),
+          )
+        : () => {};
   }
 
   start(): void {
@@ -149,6 +159,7 @@ class ProviderEntry {
       }
       this.unsubscribeProviderEvents();
       this.unsubscribeSecurityEvents();
+      this.unsubscribeQualityEvents();
     });
   }
 
@@ -275,6 +286,7 @@ export class ProviderRuntimeManager {
   private readonly connectionListeners = new Set<ProviderRuntimeConnectionListener>();
   private readonly securityEventListeners = new Set<ProviderRuntimeSecurityEventListener>();
   private readonly resetListeners = new Set<ProviderRuntimeResetListener>();
+  private readonly quality = new LiveQualityStore();
   private started = false;
   private readonly options: Required<ProviderRuntimeOptions>;
 
@@ -361,6 +373,10 @@ export class ProviderRuntimeManager {
     };
   }
 
+  currentQuality(id: string, activeLegs: ReadonlySet<string>) {
+    return this.quality.current(id, activeLegs);
+  }
+
   currentState(id: string): ProviderStateSnapshot | undefined {
     return this.entries.get(id)?.currentState();
   }
@@ -428,6 +444,7 @@ export class ProviderRuntimeManager {
       (event) => this.emitEvent(event),
       (event) => this.emitSecurityEvent(event),
       (snapshot) => this.emitSnapshot(snapshot),
+      (instanceId, event) => this.quality.observe(instanceId, event),
       (instanceId, state) => this.emitConnectionState(instanceId, state),
     );
     this.entries.set(profile.id, entry);
@@ -465,6 +482,7 @@ export class ProviderRuntimeManager {
   }
 
   private emitConnectionState(instanceId: string, state: PbxConnectionState): void {
+    if (state !== 'CONNECTED' && state !== 'DEGRADED') this.quality.clear(instanceId);
     for (const listener of this.connectionListeners) {
       try {
         listener(instanceId, state);
@@ -475,6 +493,7 @@ export class ProviderRuntimeManager {
   }
 
   private emitReset(instanceId: string): void {
+    this.quality.clear(instanceId);
     for (const listener of this.resetListeners) {
       try {
         listener(instanceId);

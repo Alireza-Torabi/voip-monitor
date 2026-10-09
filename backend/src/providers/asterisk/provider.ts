@@ -23,7 +23,13 @@ import {
   normalizeTrunkRegistrationState,
 } from './events.js';
 import { NetworkBoundaryError } from './network-policy.js';
-import { AmiTransportError, amiField, type AmiResponse, type AmiTransport } from './transport.js';
+import {
+  AmiTransportError,
+  amiField,
+  type AmiResponse,
+  type AmiTransport,
+  type AmiEvent,
+} from './transport.js';
 
 const UNKNOWN: CapabilityState = 'UNKNOWN';
 const MAX_TRUNK_SOURCE_ITEMS = 4096;
@@ -147,6 +153,7 @@ export class AsteriskProvider implements PbxProvider {
   private connectionState: PbxConnectionState = 'DISCONNECTED';
   private lastChangedAt: string;
   private readonly eventListeners = new Set<ProviderEventListener>();
+  private readonly qualityListeners = new Set<(event: AmiEvent) => void>();
   private readonly securityEventListeners = new Set<SecurityEventListener>();
   private amiHealth: DataSourceHealth = {
     source: 'AMI',
@@ -167,6 +174,18 @@ export class AsteriskProvider implements PbxProvider {
             listener(structuredClone(security));
           } catch {
             // Security consumers are isolated from provider connection processing.
+          }
+        }
+      }
+      if (
+        event.event.toLowerCase() === 'rtcpreceived' ||
+        event.event.toLowerCase() === 'rtcpsent'
+      ) {
+        for (const listener of this.qualityListeners) {
+          try {
+            listener(event);
+          } catch {
+            /* Quality consumers cannot interrupt AMI. */
           }
         }
       }
@@ -807,6 +826,13 @@ export class AsteriskProvider implements PbxProvider {
     this.securityEventListeners.add(listener);
     return () => {
       this.securityEventListeners.delete(listener);
+    };
+  }
+
+  subscribeQualityEvents(listener: (event: AmiEvent) => void): () => void {
+    this.qualityListeners.add(listener);
+    return () => {
+      this.qualityListeners.delete(listener);
     };
   }
 
