@@ -20,6 +20,7 @@ import { SecurityWorkspace } from './SecurityWorkspace.js';
 import { SshMetricsWorkspace } from './SshMetricsWorkspace.js';
 import { DatabaseSourceWorkspace } from './DatabaseSourceWorkspace.js';
 import { HistoryWorkspace } from './HistoryWorkspace.js';
+import { CallQualityWorkspace } from './CallQualityWorkspace.js';
 import { DashboardStorageWorkspace } from './DashboardStorageWorkspace.js';
 import { DashboardRefreshWorkspace } from './DashboardRefreshWorkspace.js';
 import { ServiceMonitoringWorkspace } from './ServiceMonitoringWorkspace.js';
@@ -35,7 +36,7 @@ import { HelpButton as Button, HelpHint, HelpProvider } from './ContextHelp.js';
 
 type TextMap = (typeof messages)[Language];
 type Phase = 'loading' | 'setup' | 'login' | 'ready' | 'error';
-type Workspace = 'dashboard' | 'fleet' | 'telephony' | 'history' | 'settings';
+type Workspace = 'dashboard' | 'fleet' | 'telephony' | 'history' | 'quality' | 'settings';
 type SettingsPage =
   | 'pbx'
   | 'database-source'
@@ -837,6 +838,10 @@ export function App({
       setWorkspace('fleet');
       return;
     }
+    if (destination.workspace === 'quality') {
+      setWorkspace('quality');
+      return;
+    }
     if (destination.workspace === 'history') {
       setWorkspace('history');
       return;
@@ -894,6 +899,14 @@ export function App({
               text={text}
               profiles={profiles}
               page={telephonyPage}
+              onUnauthorized={unauthorized}
+            />
+          ) : null}
+
+          {workspace === 'quality' ? (
+            <CallQualityWorkspace
+              profiles={profiles}
+              language={language}
               onUnauthorized={unauthorized}
             />
           ) : null}

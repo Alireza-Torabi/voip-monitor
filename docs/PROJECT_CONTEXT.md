@@ -216,3 +216,6 @@ A new unmerged feature/live-call-quality branch introduces passive RTCP event fa
 
 ## 2026-10-09 — Pre-merge Task 63 Development deployment
 The operator requires testing unmerged branches on Development 8443 before approving merge. feature/live-call-quality at 3d7d3d0 is now explicitly built using build:production and running behind the restarted systemd HTTPS gateway. Health and readiness HTTP 200, unauthenticated call-quality endpoint HTTP 401. Prior build artifacts privately backed up under ignored .local/deployment/rollback-task63. No merge; await functional review and operator authorization.
+
+## 2026-10-09 — Task 64 dashboard checkpoint
+Merged Task63 PR #85 main `9daadac` verified. `feature/call-quality-dashboard` adds bilingual operations-menu Live Call Quality workspace with 5s read-only authenticated polling and source-qualified RTCP samples. Quality-grade and poor/worst/distribution/trunk summaries are intentionally gated UNKNOWN pending validated source units and associations, not silently fabricated. No new server storage, PBX write or extra AMI socket. Deploy unmerged exact branch on Development 8443 for operator acceptance before merge.
