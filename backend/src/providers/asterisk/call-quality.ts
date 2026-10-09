@@ -1,3 +1,4 @@
+import { fractionLostToPercent, rttToMilliseconds } from './quality-conversion.js';
 import type { CallQualitySample, QualityMeasurement } from '@voip-monitor/shared';
 import { amiField, type AmiEvent } from './transport.js';
 
@@ -22,6 +23,7 @@ export function normalizeAmiRtcpSample(
   instanceId: string,
   event: AmiEvent,
   observedAt: string,
+  sourceVersion?: string,
 ): CallQualitySample[] {
   const type = event.event.toLowerCase();
   if (type !== 'rtcpsent' && type !== 'rtcpreceived') return [];
@@ -33,6 +35,14 @@ export function normalizeAmiRtcpSample(
   if (!Number.isSafeInteger(reportCount) || reportCount < 0 || reportCount > 32) return [];
   const linkedId = amiField(event.fields, 'Linkedid')?.trim();
   const ssrc = amiField(event.fields, 'SSRC')?.trim();
+  const verified = sourceVersion === '13.20.0';
+  const evidence = verified
+    ? { fractionLostEncoding: 'RFC3550_U8' as const, rttEncoding: 'SECONDS' as const }
+    : {};
+  const rtt =
+    type === 'rtcpreceived'
+      ? rttToMilliseconds(amiField(event.fields, 'RTT'), evidence)
+      : missing('RTT_NOT_IN_SENT_EVENT');
   const samples: CallQualitySample[] = [];
   for (let index = 0; index < reportCount; index += 1) {
     const prefix = `Report${index}`;
@@ -49,10 +59,13 @@ export function normalizeAmiRtcpSample(
       ...(ssrc && ssrc.length <= 64 ? { ssrc } : {}),
       ...(sourceSsrc && sourceSsrc.length <= 64 ? { reportSourceSsrc: sourceSsrc } : {}),
       reportIndex: index,
-      packetLossPercent: missing('LOSS_SCALE_UNVERIFIED'),
+      packetLossPercent: fractionLostToPercent(
+        amiField(event.fields, `${prefix}FractionLost`),
+        evidence,
+      ),
       cumulativeLostPackets: cumulativeLost,
       jitter,
-      rtt: missing('RTT_SCALE_UNVERIFIED'),
+      rtt,
       mos: missing('NO_TRUSTED_MOS_SOURCE'),
       codec: { availability: 'UNKNOWN', reason: 'NO_VERIFIED_CODEC_SOURCE' },
     });

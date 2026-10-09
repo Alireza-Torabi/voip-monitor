@@ -6,10 +6,20 @@ const TTL_MS = 120_000;
 const MAX_PER_PBX = 256;
 export class LiveQualityStore {
   private readonly values = new Map<string, Map<string, CallQualitySample>>();
+  private readonly versions = new Map<string, string>();
+  setSourceVersion(instanceId: string, version: string | undefined): void {
+    this.clear(instanceId);
+    if (version) this.versions.set(instanceId, version);
+  }
   constructor(private readonly now: () => number = Date.now) {}
   observe(instanceId: string, event: AmiEvent): void {
     const now = this.now();
-    const samples = normalizeAmiRtcpSample(instanceId, event, new Date(now).toISOString());
+    const samples = normalizeAmiRtcpSample(
+      instanceId,
+      event,
+      new Date(now).toISOString(),
+      this.versions.get(instanceId),
+    );
     if (!samples.length) return;
     const byLeg = this.values.get(instanceId) ?? new Map<string, CallQualitySample>();
     this.values.set(instanceId, byLeg);
@@ -28,6 +38,7 @@ export class LiveQualityStore {
   }
   clear(instanceId: string): void {
     this.values.delete(instanceId);
+    this.versions.delete(instanceId);
   }
   private prune(instanceId: string, now: number): void {
     const values = this.values.get(instanceId);

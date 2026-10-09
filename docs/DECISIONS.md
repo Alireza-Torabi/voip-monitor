@@ -869,3 +869,6 @@ Numeric source fields must not automatically imply a known unit. Convert RFC3550
 
 ### 2026-10-09 — Live source evidence does not authorize conversion
 The 20-second aggregate Asterisk13 probe proved field presence but gave no nonzero fraction-loss examples and no RTT unit proof. Keep both values UNKNOWN until validated independently. No per-call sample or caller data was persisted; observational aggregate bins only.
+
+## 2026-10-09 — Exact Asterisk 13.20.0 verified scale gate
+Official tagged upstream sources verify RTCPReceived RTT is seconds and per-block FractionLost raw RFC3550 8-bit fraction. Enable guarded conversions only for metadata version exactly `13.20.0`, fail closed for any other version or missing metadata. No MOS or codec inference; jitter RTP ticks unconverted without matched clock. Additional provider CoreSettings discovery is read-only and failure-isolated on reconnect.
