@@ -1511,3 +1511,6 @@ Task 60 — Call Outcome Analytics به‌همراه اصلاح‌های ساز�
 
 ### ۲۰۲۶-۱۰-۰۹ — تأیید مقیاس RTCP از سورس دقیق Asterisk 13.20.0، پیش از Merge
 کد رسمی تگ `13.20.0` از GitHub خوانده شد: در `main/rtp_engine.c` مقدار RTT برای AMI در واحد ثانیه منتشر می‌شود و ReportXFractionLost از فیلد `lost_count.fraction` صادر می‌شود. در `res/res_rtp_asterisk.c` کد استخراج Fraction هشت‌بیتی و تبدیل RTT به ثانیه بررسی شد. در شاخه `feature/asterisk13-verified-rtcp-metrics` تنها برای نسخه دقیق `13.20.0` که از Discover تأیید شده، Loss % و RTT در میلی‌ثانیه محاسبه می‌شود؛ نبود یا تفاوت نسخه به UNKNOWN می‌انجامد. Jitter همچنان در RTP_TICKS و MOS/Codec همچنان UNKNOWN باقی می‌مانند. بدون تغییر در PBX یا ذخیره تاریخچه. تست روی Development قبل از Merge لازم است.
+
+### ۲۰۲۶-۱۰-۰۹ — دیپلوی قبل از Merge مقیاس‌های تأییدشده RTCP
+شاخه `feature/asterisk13-verified-rtcp-metrics` با Commit `9400b1d` پس از نسخه پشتیبان خصوصی Buildها روی Development پورت `8443` دیپلوی شد. Build موفق و سرویس Restart شد؛ پاسخ‌های Health و Ready کد ۲۰۰ و API بدون ورود کد ۴۰۱ بودند. کاربر باید Loss % و RTT را در تماس‌های فعال آزمایش کند؛ Merge تا تأیید کاربر ممنوع است. Codec و MOS همچنان UNKNOWN و Jitter در واحد RTP_TICKS است؛ تغییری در PBX انجام نشد.
