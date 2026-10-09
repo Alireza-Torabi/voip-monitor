@@ -729,7 +729,7 @@ The product foundation is production-ready, but the monitoring product is not ye
 
 ### Phase 16 — Call quality
 
-- [ ] **Task 61 — Call Quality Source Discovery**
+- [x] **Task 61 — Call Quality Source Discovery** (live AMI RTCP source verified for Asterisk 13.20.0; database historical quality remains unknown)
   - Determine which read-only RTP/RTCP metrics are actually available from supported Asterisk versions and approved source databases before any UI claim.
 - [ ] **Task 62 — Provider-neutral Call Quality Contract**
   - Capability-aware jitter, packet loss, RTT, MOS, codec, call/leg identity, and source timestamps where available; unavailable dimensions never become false zeroes.
@@ -1377,3 +1377,15 @@ Current merge gate: `feature/call-outcome-analytics` must merge first. Do not be
 
 ### 2026-10-09 — Queue analytics integration handoff
 The feature/queue-abandonment-analytics branch includes source-backed queue reports, caller KPIs and filtered XLSX detail export. Following user review, experimental page-help UI was withdrawn: inline help icons are hidden and explanatory prose on the overview and reports was reduced while functional status/error messages remain. The UI exposes an icon button to switch Light/Dark themes. The complete frontend and backend tests, lint and typecheck passed prior to integration. Feature branch is prepared for user-controlled merge; this entry does not authorize the next roadmap task or production deployment.
+
+### 2026-10-09 — Task 61 discovery started (not done)
+Branch `feature/call-quality-source-discovery` created from merged main `c92c589`. Initial code and official Asterisk RTCP documentation review recorded in `docs/CALL_QUALITY_SOURCE_DISCOVERY.md`. AMI RTCPSent/RTCPReceived are candidate sources only; no application quality normalization or proven deployed source capability exists. Source verification and a scoped capability matrix remain prerequisites. No actual PBX/database probe or new UI/API was performed. Task 61 remains unchecked; Task 62 must not start.
+
+### 2026-10-09 — Task 61 read-only verification update
+Approved passive AMI verification on Asterisk 13.20.0 observed 15 `RTCPReceived` and 12 `RTCPSent` events in a 20-second window, with field-name evidence for RTT, jitter and loss reports (no values or identities retained). Actual RTCP event source is AVAILABLE, but metric semantics and correlation are not yet validated. Database quality-schema inspection did not execute due to restricted access, so its status stays UNKNOWN. Details: `docs/CALL_QUALITY_SOURCE_DISCOVERY.md`. Task 61 remains in progress; no Task 62 or UI claim.
+
+### 2026-10-09 — Task 61 closed for verified AMI live-source discovery
+DECIDED: Task 61 is completed with a narrow, evidence-backed capability result: one approved Asterisk 13.20.0 system emits the RTCPReceived and RTCPSent AMI event classes, with field-presence evidence for loss, jitter and RTT. This is source discovery only, not confirmation of metric scale, quality KPI reliability, historic DB tables, MOS or codecs. All unverified capabilities remain UNKNOWN and must not display zeros. The database metadata probe could not be executed and has not been misrepresented as done. Task 62 must validate numerical conversion, directions, SSRC/channel leg association and short-lived RAM-only reporting before Task 63. Full findings in docs/CALL_QUALITY_SOURCE_DISCOVERY.md; no deployment/merge or PBX mutation.
+
+### 2026-10-09 — PR #83 CI formatting repair
+PR #83 failed the application-foundation CI gate before merge. Locally reproduced failure: `npm run format:check` rejected the existing `frontend/src/DashboardBuilder.tsx` import grouping inherited from main. Fixed by Prettier-only formatting (no runtime/logic change). `check_foundation.py`, format:check, lint, typecheck, full backend/frontend tests and build pass locally. Recheck GitHub push/PR checks before merge; a clean local gate alone is not proof that remote checks are green.

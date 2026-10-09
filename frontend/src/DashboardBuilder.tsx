@@ -1,13 +1,4 @@
-import {
-  Box,
-  Button,
-  Card,
-  Flex,
-  Heading,
-  HStack,
-  NativeSelect,
-  Stack,
-} from '@chakra-ui/react';
+import { Box, Button, Card, Flex, Heading, HStack, NativeSelect, Stack } from '@chakra-ui/react';
 import { HelpHint } from './ContextHelp.js';
 import { useEffect, useRef, useState } from 'react';
 import { DEFAULT_DASHBOARD_REFRESH_RATES, type DashboardRefreshRates } from '@voip-monitor/shared';
