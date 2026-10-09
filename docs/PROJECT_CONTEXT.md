@@ -222,3 +222,6 @@ Merged Task63 PR #85 main `9daadac` verified. `feature/call-quality-dashboard` a
 
 ## 2026-10-09 — Task 64 pre-merge review state
 Merged Task63 PR #85 is base. Branch feature/call-quality-dashboard pushed at 72c76d0 and explicitly deployed unmerged on Development 8443; service active/ready 200, unauth call-quality 401, new frontend JS verified. Prior runtime build artifacts privately backed up. Operator must test before approving merge. Source-scaled poor/worst call KPIs deliberately remain unimplemented/unknown pending validation; avoid claiming full feature closure.
+
+## 2026-10-09 — Call quality metric-validation follow-up
+New feature/call-quality-metric-validation branch adds evidence-gated pure conversion helpers and synthetic tests, not runtime use. Live Asterisk 13.20.0 report values/scales are not yet validated and not logged; packet-loss percent/RTT/MOS/codec UI remains UNKNOWN. Explicit evidence per Asterisk version and RTP stream clock required. No PBX changes or duplicate telemetry persistence.

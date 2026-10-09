@@ -863,3 +863,6 @@ DECIDED: Consume RTCP only from the existing provider subscription with no addit
 
 ## Task 64 — Fail-closed live quality presentation
 DECIDED: Display only verified RTCP source quantities (raw jitter ticks and cumulative loss packet counts) and coverage counts. Unknown loss percent/RTT/MOS/codec and derivative classifications remain explicitly unknown. Do not display a misleading poor-call count of zero or rank 'worst calls' on incomparable raw RTP ticks. Use authenticated per-PBX 5s polling with cleanup when unmounted. Retain source-owned/no-duplicate-storage architecture and require operator pre-merge acceptance.
+
+## Quality conversion evidence gate
+Numeric source fields must not automatically imply a known unit. Convert RFC3550 fraction to percent only with confirmed 8-bit unsigned fraction encoding; RTT seconds only with verified version semantics; RTP jitter ticks only with verified stream clock. Keep helpers separate from runtime until evidence is explicit. Codec and MOS must use independently verified sources, never heuristics or MES relabeling.
