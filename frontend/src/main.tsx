@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App.js';
 import { createApplicationEmotionCache } from './emotion-cache.js';
 import { nocSystem } from './theme.js';
+import { ThemeModeProvider } from './ThemeMode.js';
 import './styles.css';
 
 const root = document.getElementById('root');
@@ -14,7 +15,9 @@ const emotionCache = createApplicationEmotionCache();
 createRoot(root).render(
   <CacheProvider value={emotionCache}>
     <ChakraProvider value={nocSystem}>
-      <App initialLanguage={initialLanguage} />
+      <ThemeModeProvider>
+        <App initialLanguage={initialLanguage} />
+      </ThemeModeProvider>
     </ChakraProvider>
   </CacheProvider>,
 );

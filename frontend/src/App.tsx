@@ -966,7 +966,7 @@ export function App({
     ) : null;
 
   return (
-    <HelpProvider language={language}>
+    <HelpProvider language={language} showInlineHelp={false}>
       <Box
         minH="100vh"
         bg={phase === 'ready' ? 'noc.canvas' : 'gray.50'}

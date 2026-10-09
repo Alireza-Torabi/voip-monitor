@@ -18,7 +18,7 @@ import type { messages } from './i18n.js';
 import { QueueOutcomeChart } from './QueueOutcomeChart.js';
 import { QueuePerformanceReportBuilder } from './QueuePerformanceReport.js';
 import { exportQueueReportExcel, exportQueueReportPdf } from './reportExport.js';
-import { HelpHint, useHelpLanguage, localized, type HelpContent } from './ContextHelp.js';
+import { HelpHint, type HelpContent } from './ContextHelp.js';
 import { HELP } from './helpContent.js';
 import {
   DataSurface,
@@ -113,67 +113,6 @@ function HistoryDatum({
         {value}
       </Text>
     </Box>
-  );
-}
-
-function ReportGuide() {
-  const language = useHelpLanguage();
-  const help = HELP.reports.guide;
-  const fa = language === 'fa';
-  return (
-    <DataSurface
-      title={fa ? 'راهنمای گزارش‌ها' : 'Reports guide'}
-      help={help}
-      helpKind="section"
-      meta={
-        fa
-          ? 'Hover برای توضیح سریع؛ Click برای ثابت‌کردن راهنما'
-          : 'Hover for quick help; click to pin it'
-      }
-    >
-      <SimpleGrid columns={{ base: 1, lg: 2 }} gap="3" p="4">
-        <Box>
-          <Text fontSize="11px" color="noc.text" fontWeight="800">
-            {fa ? 'چطور KPIها را بخوانیم؟' : 'How to read KPIs'}
-          </Text>
-          <Text mt="1.5" fontSize="10px" color="noc.textMuted" lineHeight="1.75">
-            {localized(help.summary, language)}
-          </Text>
-          <Text mt="1.5" fontSize="10px" color="noc.textMuted" lineHeight="1.75">
-            {localized(help.why!, language)}
-          </Text>
-        </Box>
-        <Stack gap="1.5">
-          <Text fontSize="11px" color="noc.text" fontWeight="800">
-            {fa ? 'نکته‌های مهم' : 'Important notes'}
-          </Text>
-          <Text fontSize="10px" color="noc.textMuted" lineHeight="1.75">
-            •{' '}
-            {fa
-              ? 'Incoming Calls تعداد ورود به صف است؛ Unique Callers تعداد Caller ID متفاوت است و این دو عمداً یکی نیستند.'
-              : 'Incoming Calls counts queue entries; Unique Callers counts different caller IDs. They are intentionally different.'}
-          </Text>
-          <Text fontSize="10px" color="noc.textMuted" lineHeight="1.75">
-            •{' '}
-            {fa
-              ? 'RINGNOANSWER تعداد تلاش زنگ به Agent است و Lost Call محسوب نمی‌شود؛ یک تماس می‌تواند چند Attempt داشته باشد.'
-              : 'RINGNOANSWER counts agent ring attempts and is not a lost call; one call can create multiple attempts.'}
-          </Text>
-          <Text fontSize="10px" color="noc.textMuted" lineHeight="1.75">
-            •{' '}
-            {fa
-              ? 'Unresolved یعنی نتیجه نهایی تماس داخل همان Window قابل تطبیق نیست؛ این ابهام به‌جای تبدیل ساختگی به Lost جدا نمایش داده می‌شود.'
-              : 'Unresolved means the final outcome does not reconcile inside the selected window; uncertainty is shown instead of being forced into Lost.'}
-          </Text>
-          <Text fontSize="10px" color="noc.textMuted" lineHeight="1.75">
-            •{' '}
-            {fa
-              ? 'PDF و Excel مدیریتی از Report لودشده ساخته می‌شوند؛ Excel ریز تماس‌ها تنها Exportی است که با اقدام صریح کاربر Detail حساس را از Source می‌خواند.'
-              : 'Managerial PDF/XLSX use the loaded report; call-detail XLSX is the only export that explicitly fetches sensitive detail from the source.'}
-          </Text>
-        </Stack>
-      </SimpleGrid>
-    </DataSurface>
   );
 }
 
@@ -470,13 +409,7 @@ export function HistoryWorkspace({
 
   return (
     <Stack gap="4" data-workspace="history">
-      <WorkspaceHeader
-        title={text.historyTitle}
-        description={text.historyHint}
-        help={HELP.navigation.reports}
-      />
-
-      <ReportGuide />
+      <WorkspaceHeader title={text.historyTitle} help={HELP.navigation.reports} />
 
       <WorkspaceToolbar>
         <WorkspaceField label={text.historyPbx}>
@@ -554,7 +487,7 @@ export function HistoryWorkspace({
       {capabilities?.calls.availability === 'SUPPORTED' ? (
         <DataSurface
           title={text.historyOutcomeTitle}
-          meta={text.historyOutcomeSourceHint}
+
           help={HELP.reports.callOutcomeReport}
           footer={
             <Text fontSize="10px" color="noc.textSubtle">
@@ -688,15 +621,7 @@ export function HistoryWorkspace({
       ) : null}
 
       {capabilities ? (
-        <DataSurface
-          title={text.historyQueueAbandonmentTitle}
-          meta={text.historyQueueAbandonmentSourceHint}
-          footer={
-            <Text fontSize="10px" color="noc.textSubtle">
-              {text.historyQueueAbandonmentSemanticsHint}
-            </Text>
-          }
-        >
+        <DataSurface title={text.historyQueueAbandonmentTitle}>
           <Stack gap="4" p="4">
             {capabilities.queueAbandonment.availability !== 'SUPPORTED' ? (
               <Text color="noc.textSubtle" fontSize="12px">
@@ -787,9 +712,6 @@ export function HistoryWorkspace({
                   placeholder={text.historyQueueAbandonmentThresholdPlaceholder}
                   dir="ltr"
                 />
-                <Text fontSize="10px" color="noc.textSubtle" mt="1.5">
-                  {text.historyQueueAbandonmentThresholdHint}
-                </Text>
               </Box>
             </SimpleGrid>
             <HStack gap="2">

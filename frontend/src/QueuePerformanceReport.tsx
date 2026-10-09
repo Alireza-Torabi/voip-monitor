@@ -524,16 +524,7 @@ export function QueuePerformanceReportBuilder(props: {
   ];
 
   return (
-    <DataSurface
-      title={props.text.historyQueuePerformanceTitle}
-      meta={props.text.historyQueuePerformanceSourceHint}
-      help={HELP.reports.guide}
-      footer={
-        <Text fontSize="10px" color="noc.textSubtle">
-          {props.text.historyQueuePerformanceLongRangeHint}
-        </Text>
-      }
-    >
+    <DataSurface title={props.text.historyQueuePerformanceTitle}>
       <Stack gap="5" p="4">
         {!props.supported ? (
           <Text color="noc.textSubtle" fontSize="12px">
@@ -589,9 +580,6 @@ export function QueuePerformanceReportBuilder(props: {
                 </Text>
                 <HelpHint help={HELP.reports.queues} kind="field" size="xs" />
               </HStack>
-              <Text mt="1" fontSize="9px" color="noc.textSubtle">
-                {props.text.historyQueuePerformanceQueueHint}
-              </Text>
             </Box>
             <HStack gap="2">
               <Button

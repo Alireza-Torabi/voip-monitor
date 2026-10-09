@@ -4,6 +4,7 @@ import type { PbxProfile, Principal } from './api.js';
 import type { Language } from './i18n.js';
 import { HelpHint } from './ContextHelp.js';
 import { HELP } from './helpContent.js';
+import { useThemeMode } from './ThemeMode.js';
 
 export type ShellWorkspace = 'dashboard' | 'fleet' | 'telephony' | 'history' | 'settings';
 export type ShellTelephonyPage =
@@ -202,6 +203,7 @@ export function AppShell({
   onLogout,
 }: AppShellProps) {
   const fa = language === 'fa';
+  const { mode, setMode } = useThemeMode();
   const clock = useClock(language);
   const connectedCount = profiles.filter(
     (profile) => profile.connectionStatus === 'CONNECTED',
@@ -672,7 +674,7 @@ export function AppShell({
           position="sticky"
           top="0"
           zIndex="15"
-          bg="rgba(7,17,31,.92)"
+          bg="noc.canvas"
           backdropFilter="blur(14px)"
           borderBottomWidth="1px"
           borderColor="noc.border"
@@ -722,6 +724,41 @@ export function AppShell({
           </Flex>
 
           <HStack gap="2" flex="0 0 auto">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              w="36px"
+              minW="36px"
+              h="36px"
+              p="0"
+              borderColor="noc.borderStrong"
+              bg="noc.surface"
+              color="noc.text"
+              aria-label={
+                mode === 'dark'
+                  ? fa
+                    ? 'فعال‌کردن حالت روشن'
+                    : 'Switch to light mode'
+                  : fa
+                    ? 'فعال‌کردن حالت تاریک'
+                    : 'Switch to dark mode'
+              }
+              title={
+                mode === 'dark'
+                  ? fa
+                    ? 'حالت روشن'
+                    : 'Light mode'
+                  : fa
+                    ? 'حالت تاریک'
+                    : 'Dark mode'
+              }
+              onClick={() => setMode(mode === 'dark' ? 'light' : 'dark')}
+            >
+              <Box as="span" fontSize="19px" lineHeight="1" aria-hidden="true">
+                {mode === 'dark' ? '☀' : '☾'}
+              </Box>
+            </Button>
             <Flex
               h="34px"
               align="center"

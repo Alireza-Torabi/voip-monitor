@@ -7,7 +7,6 @@ import {
   HStack,
   NativeSelect,
   Stack,
-  Text,
 } from '@chakra-ui/react';
 import { HelpHint } from './ContextHelp.js';
 import { useEffect, useRef, useState } from 'react';
@@ -318,9 +317,6 @@ export function DashboardBuilder({
               <Heading size="xl" color="noc.text" letterSpacing="-0.02em">
                 {text.dashboardTitle}
               </Heading>
-              <Text color="noc.textMuted" mt="1" fontSize="12px">
-                {text.dashboardHint}
-              </Text>
             </Box>
             <HStack gap="2" flexWrap="wrap" justify={{ base: 'flex-start', xl: 'flex-end' }}>
               <HStack gap="1.5" align="center">

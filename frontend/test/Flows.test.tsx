@@ -1486,13 +1486,7 @@ describe('source-backed history workspace', () => {
     expect(container.textContent).toContain('Not found');
     expect(container.textContent).toContain('Call outcome analytics');
     expect(container.textContent).toContain('Queue performance report builder');
-    expect(container.textContent).toContain('Reports guide');
-    expect(container.textContent).toContain('How to read KPIs');
-    expect(container.textContent).toContain('Incoming Calls counts queue entries');
     expect(container.querySelectorAll('[data-help-trigger]').length).toBeGreaterThan(10);
-    expect(container.textContent).toContain(
-      'Long ranges use sequential daily source-side aggregate chunks.',
-    );
     const selectAllQueues = Array.from(container.querySelectorAll('button')).find((button) =>
       button.textContent?.includes('Select all'),
     );
@@ -1552,12 +1546,6 @@ describe('source-backed history workspace', () => {
     expect(container.textContent).toContain('پیدا نشد');
     expect(container.textContent).toContain('تحلیل ترک صف');
     expect(container.textContent).toContain('گزارش‌ساز عملکرد صف‌ها');
-    expect(container.textContent).toContain('راهنمای گزارش‌ها');
-    expect(container.textContent).toContain('چطور KPIها را بخوانیم؟');
-    expect(container.textContent).toContain('Incoming Calls تعداد ورود به صف است');
-    expect(container.textContent).toContain(
-      'تجمیع دقیق و مستقیم از سوابق صف‌های انتخاب‌شده در منبع',
-    );
     expect(container.textContent).toContain('خروجی PDF گزارش');
     expect(container.textContent).toContain('خروجی Excel گزارش');
     expect(container.textContent).toContain('تماس‌گیرنده یکتا');
@@ -1566,9 +1554,6 @@ describe('source-backed history workspace', () => {
     expect(container.textContent).toContain('شناسه صف');
     expect(container.textContent).toContain('ترک صف توسط تماس‌گیرنده');
     expect(container.textContent).toContain('آستانه انتظار طولانی (دقیقه)');
-    expect(container.textContent).toContain(
-      'این آستانه فقط تعداد «ترک صف پس از انتظار طولانی» را تغییر می‌دهد',
-    );
     expect(container.textContent).toContain('توزیع نتیجه تماس‌های واردشده به صف');
     expect(container.textContent).toContain('خروجی PDF');
     expect(container.textContent).toContain('خروجی Excel');

@@ -397,7 +397,6 @@ function MetricsTrend({ text, samples }: { text: TextMap; samples: SystemMetrics
         <Flex justify="space-between" align="start" gap="4" flexWrap="wrap">
           <Box>
             <Card.Title fontSize="md">{text.metricsTrendTitle}</Card.Title>
-            <Card.Description>{text.metricsTrendHint}</Card.Description>
           </Box>
           <HStack gap="3" fontSize="xs">
             <HStack gap="1">
@@ -764,9 +763,6 @@ export function OperatorDashboard({
           <Heading id="dashboard-title" size="xl">
             {text.dashboardTitle}
           </Heading>
-          <Text color="fg.muted" mt="1">
-            {text.dashboardHint}
-          </Text>
         </Box>
         <HStack align="stretch" gap="3" flexWrap="wrap" justify={{ md: 'flex-end' }}>
           <PersianClock text={text} />

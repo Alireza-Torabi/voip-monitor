@@ -232,7 +232,6 @@ function ActiveCallsChart({
     <NocPanel p={wallboard ? '3' : '4'} h="full" data-active-calls-chart>
       <SectionHeader
         title={text.activeCallsTrendTitle}
-        description={wallboard ? undefined : text.activeCallsTrendHint}
         action={
           <Flex align="baseline" gap="2">
             <Text
@@ -885,7 +884,6 @@ export function OperatorOverview({
         >
           <SectionHeader
             title={text.dashboardInfrastructure}
-            description={wallboard ? undefined : text.metricsTrendHint}
             action={
               <Text fontSize="10px" color="noc.textSubtle" dir="ltr">
                 {formatUptime(cpuMemoryDisplay.sample?.uptime?.uptimeSeconds)}

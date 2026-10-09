@@ -8,7 +8,7 @@ import {
   Text,
   type ButtonProps,
 } from '@chakra-ui/react';
-import { createContext, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useContext, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Language } from './i18n.js';
 
 export interface LocalizedHelpText {
@@ -27,9 +27,31 @@ export type HelpKind =
   'navigation' | 'section' | 'field' | 'metric' | 'action' | 'status' | 'chart' | 'export';
 
 const HelpLanguageContext = createContext<Language>('en');
+const InlineHelpVisibilityContext = createContext(true);
+const ActiveHelpContext = createContext<{ active: string | null; activate: (id: string) => void }>({
+  active: null,
+  activate: () => undefined,
+});
 
-export function HelpProvider({ language, children }: { language: Language; children: ReactNode }) {
-  return <HelpLanguageContext.Provider value={language}>{children}</HelpLanguageContext.Provider>;
+export function HelpProvider({
+  language,
+  children,
+  showInlineHelp = true,
+}: {
+  language: Language;
+  children: ReactNode;
+  showInlineHelp?: boolean;
+}) {
+  const [active, setActive] = useState<string | null>(null);
+  return (
+    <HelpLanguageContext.Provider value={language}>
+      <InlineHelpVisibilityContext.Provider value={showInlineHelp}>
+        <ActiveHelpContext.Provider value={{ active, activate: setActive }}>
+          {children}
+        </ActiveHelpContext.Provider>
+      </InlineHelpVisibilityContext.Provider>
+    </HelpLanguageContext.Provider>
+  );
 }
 
 export function useHelpLanguage(): Language {
@@ -151,15 +173,19 @@ export function HelpHint({
   size?: 'xs' | 'sm' | undefined;
 }) {
   const language = useHelpLanguage();
+  const showInlineHelp = useContext(InlineHelpVisibilityContext);
+  const helpInstance = useId();
+  const { active, activate } = useContext(ActiveHelpContext);
   const content = useMemo(() => resolveHelp(help, subject, kind), [help, subject, kind]);
   const [hovered, setHovered] = useState(false);
   const [contentHovered, setContentHovered] = useState(false);
   const [pinned, setPinned] = useState(false);
   const closeTimer = useRef<number | undefined>(undefined);
 
-  if (!content) return null;
+  if (!content || !showInlineHelp) return null;
 
-  const open = pinned || hovered || contentHovered;
+  const open =
+    (active === null || active === helpInstance) && (pinned || hovered || contentHovered);
   const title = localized(content.title, language);
   const summary = localized(content.summary, language);
   const why = content.why ? localized(content.why, language) : undefined;
@@ -229,6 +255,7 @@ export function HelpHint({
           }}
           onMouseEnter={() => {
             clearCloseTimer();
+            activate(helpInstance);
             setHovered(true);
           }}
           onMouseLeave={() => {
@@ -236,6 +263,7 @@ export function HelpHint({
           }}
           onFocus={() => {
             clearCloseTimer();
+            activate(helpInstance);
             setHovered(true);
           }}
           onBlur={() => {
@@ -244,8 +272,9 @@ export function HelpHint({
           onClick={(event) => {
             event.stopPropagation();
             clearCloseTimer();
+            activate(helpInstance);
             setPinned((current) => !current);
-            setHovered(true);
+            setHovered(false);
           }}
         >
           ?
@@ -327,6 +356,19 @@ export function HelpHint({
                 </Stack>
               ) : null}
 
+              <Button
+                size="xs"
+                variant="plain"
+                color="noc.accent"
+                mt="3"
+                px="0"
+                onClick={() => {
+                  window.dispatchEvent(new Event('voip-help-more'));
+                  closePinned();
+                }}
+              >
+                {fa ? 'اطلاعات بیشتر در راهنمای صفحه' : 'More information in page help'}
+              </Button>
               <Text
                 mt="3"
                 pt="2.5"
