@@ -1377,3 +1377,6 @@ Current merge gate: `feature/call-outcome-analytics` must merge first. Do not be
 
 ### 2026-10-09 — Queue analytics integration handoff
 The feature/queue-abandonment-analytics branch includes source-backed queue reports, caller KPIs and filtered XLSX detail export. Following user review, experimental page-help UI was withdrawn: inline help icons are hidden and explanatory prose on the overview and reports was reduced while functional status/error messages remain. The UI exposes an icon button to switch Light/Dark themes. The complete frontend and backend tests, lint and typecheck passed prior to integration. Feature branch is prepared for user-controlled merge; this entry does not authorize the next roadmap task or production deployment.
+
+### 2026-10-09 — Task 61 discovery started (not done)
+Branch `feature/call-quality-source-discovery` created from merged main `c92c589`. Initial code and official Asterisk RTCP documentation review recorded in `docs/CALL_QUALITY_SOURCE_DISCOVERY.md`. AMI RTCPSent/RTCPReceived are candidate sources only; no application quality normalization or proven deployed source capability exists. Source verification and a scoped capability matrix remain prerequisites. No actual PBX/database probe or new UI/API was performed. Task 61 remains unchecked; Task 62 must not start.
