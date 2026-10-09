@@ -210,3 +210,6 @@ The Task 61 documentation branch exposed a pre-existing format-check failure fro
 
 ## 2026-10-09 — Task 62 quality contract handoff
 OBSERVED: feature/call-quality-contract implements a provider-neutral CallQualitySample with discriminated metric availability and explicit units. The pure AMI RTCP adapter is not subscribed to runtime events, does not expose an API, and persists nothing. Source raw jitter is in RTP_TICKS; percent loss, RTT, MOS and codec remain UNKNOWN pending proof. New synthetic backend tests pass; Task 63 must independently design bounded per-call live integration and association. No PBX or database modifications.
+
+## 2026-10-09 — Task 63 development boundary
+A new unmerged feature/live-call-quality branch introduces passive RTCP event fanout over the existing AMI connection, a bounded memory-only per-PBX sample cache with TTL/eviction, and an authenticated scoped GET endpoint exposing only currently synchronized active channel legs. Missing/unsupported numerical metrics remain explicitly unknown. No PBX configuration, database storage, history, extra connection, or production deployment. Task 64 will handle dashboard UX after validation and merge.

@@ -247,3 +247,6 @@ The source-discovery phase established a deployed Asterisk 13.20.0 AMI REPORTING
 
 ## Task 62 — Quality contract, not collector
 Shared CallQualitySample has per-measurement availability and explicit units and per-leg/SSRC report-block identity. A pure Asterisk AMI normalizer emits bounded samples from valid RTCPSent/RTCPReceived event shapes, preserving raw jitter ticks and cumulative packet counts. Unverified loss-percentage, RTT scale, MOS and codec remain unknown. No provider subscription, current state, API or persistence is added. Task 63 must validate live association, in-memory expiry and defensible conversions separately.
+
+## Task 63 — Memory-only live RTCP route
+The existing Asterisk AMI transport forwards RTCP event objects to an optional quality listener; it does not create an additional connection. ProviderRuntimeManager owns one LiveQualityStore keyed by PBX and (leg, direction, SSRC, report source, report index), capped at 256 samples per PBX and 120-second TTL. Provider resets and connection loss clear cached samples. The authenticated, PBX-scoped GET call-quality API intersects observations with the current synchronized telephony channel IDs. No historical persistence, derived MOS or unverified percent/RTT conversion is introduced. A disconnected or unsynchronized PBX produces an empty UNKNOWN response rather than stale quality values.

@@ -523,6 +523,27 @@ export function createApp(
         );
       }
 
+      const qualityAction = path.match(/^\/api\/pbx-instances\/([^/]+)\/call-quality$/);
+      if (qualityAction) {
+        if (!auth || !auth.principal(sessionToken(request)))
+          return send(response, 401, { error: 'unauthorized' });
+        if (request.method !== 'GET') return send(response, 404, { error: 'not_found' });
+        const id = qualityAction[1]!;
+        if (!onboarding?.get(id)) return send(response, 404, { error: 'not_found' });
+        const state = telephonyState?.current(id);
+        const available = state?.synchronization === 'CURRENT';
+        const legs = new Set(available ? state.channels.map((ch) => ch.channelId) : []);
+        const samples = available ? (runtime?.currentQuality(id, legs) ?? []) : [];
+        return send(response, 200, {
+          instanceId: id,
+          capability:
+            samples.length > 0 && runtime?.connectionState(id) === 'CONNECTED'
+              ? 'SUPPORTED'
+              : 'UNKNOWN',
+          samples,
+        });
+      }
+
       const telephonyStateAction = path.match(
         /^\/api\/pbx-instances\/([^/]+)\/telephony-state(\/stream)?$/,
       );

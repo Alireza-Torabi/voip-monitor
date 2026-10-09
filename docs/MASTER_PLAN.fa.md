@@ -713,7 +713,7 @@ Foundation پروژه از نظر Production آماده است، اما محصو
 
 - [x] **Task 61 — Call Quality Source Discovery** (منبع واقعی رویدادهای RTCP از AMI نسخه 13.20.0 تأیید شد؛ تاریخچه دیتابیس کیفیت هنوز نامشخص است)
 - [x] **Task 62 — Provider-neutral Call Quality Contract** (قرارداد و نرمال‌سازی مستقل؛ اتصال زنده در Task 63)
-- [ ] **Task 63 — Live Call Quality**
+- [x] **Task 63 — Live Call Quality** (پیاده‌سازی و تست روی Branch انجام شد؛ بررسی و Merge باقی است)
 - [ ] **Task 64 — Call Quality Dashboard**
 
 ### Phase 17 — Operational Alerting
@@ -1490,3 +1490,6 @@ Task 60 — Call Outcome Analytics به‌همراه اصلاح‌های ساز�
 
 ### ۲۰۲۶-۱۰-۰۹ — Task 62: قرارداد مستقل کیفیت تماس
 این Task در شاخه `feature/call-quality-contract` از نسخه ادغام‌شده `main` با شناسه `e2edb0c` پیاده‌سازی شد. نوع داده مشترک `CallQualitySample` وضعیت‌های AVAILABLE و UNKNOWN/UNSUPPORTED را با واحد اندازه‌گیری صریح نگهداری می‌کند. نرمال‌ساز مستقل AMI RTCP جهت رویداد، Leg/Linkedid، SSRC و بلوک‌های محدود گزارش را استخراج می‌کند؛ Jitter خام فقط در RTP_TICKS و مقدار تجمعی Packet Loss فقط در COUNT نگهداری می‌شوند. درصد Packet Loss، مقیاس RTT، MOS و Codec تا زمان تأیید جداگانه UNKNOWN باقی می‌مانند. هیچ اتصال زنده، API عمومی، ذخیره‌سازی محلی، کوئری دیتابیس یا تغییری در PBX انجام نشده است. ۲۰۶ تست Backend و ۳۹ تست Frontend و بررسی‌های Lint، Typecheck و Format موفق‌اند. اتصال Runtime و ارتباط با تماس فعال وظیفه Task 63 است. این شاخه پیش از Merge نیازمند بررسی است.
+
+### ۲۰۲۶-۱۰-۰۹ — پیاده‌سازی Task 63 کیفیت تماس زنده (در انتظار بررسی)
+شاخه `feature/live-call-quality` از `main` ادغام‌شده با شناسه `f0ac24f` ساخته شد. دریافت غیرفعال رویدادهای RTCP به اتصال فعلی AMI افزوده شد و اتصال شبکه جدید یا دستور تغییردهنده PBX ایجاد نمی‌کند. حافظه RAM هر PBX حداکثر ۲۵۶ نمونه تفکیک‌شده بر پایه Leg و SSRC را حداکثر ۱۲۰ ثانیه نگه می‌دارد و پس از قطع ارتباط یا Reset پاک می‌کند. API احرازهویت‌شده و وابسته به PBX در مسیر `GET /api/pbx-instances/:id/call-quality` فقط نمونه‌های مربوط به Channelهای فعال در Snapshot همگام را برمی‌گرداند. نبود نمونه به معنی UNKNOWN است، نه کیفیت مطلوب یا صفر. Jitter در واحد RTP_TICKS و Loss تجمعی در COUNT می‌ماند؛ RTT، درصد Loss، MOS و Codec همچنان UNKNOWN هستند. ذخیره‌سازی تاریخچه، رابط کاربری و تغییر در PBX اضافه نشده است. تست و بازبینی قبل از Merge الزامی است؛ Task 64 مربوط به داشبورد است.

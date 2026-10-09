@@ -857,3 +857,6 @@ DECIDED: For the verified Asterisk 13.20.0 source, RTCPSent/RTCPReceived AMI eve
 
 ## Task 62 — Quality contract boundary (2026-10-09)
 DECIDED: Represent unverified quality measurements as UNKNOWN, not zero. Preserve source direction, channel leg, linked call and report-source SSRC separately; never merge all legs into one report or treat a report as a call. Raw RTP jitter may carry RTP_TICKS units; no conversion to milliseconds without a known clock. No MOS/RTT/loss-percent claims until verified. Contract and pure normalization are separate from runtime subscription and reporting (Task 63).
+
+## Task 63 — Live quality retention and authorization
+DECIDED: Consume RTCP only from the existing provider subscription with no additional AMI socket. Keep at most 256 samples/PBX, expire after 120 seconds and clear on disconnection/reset. Require authenticated PBX-scoped GET access and match each sample to an active channel leg in CURRENT telephony state before returning it; never infer good quality from missing events. No duplicate persistence of source-owned history. Leave MOS/codec, percent loss and unverified RTT UNKNOWN until validated.
