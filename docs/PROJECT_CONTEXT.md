@@ -234,3 +234,6 @@ Inspected the public official Asterisk source tag `13.20.0` without touching the
 
 ## 2026-10-09 — Verified Asterisk13 metrics deployed for user acceptance
 Exact Asterisk 13.20.0 source-verified RTT-ms and fraction-loss-% runtime normalization is deployed unmerged on Development 8443 from branch feature/asterisk13-verified-rtcp-metrics commit 9400b1d. Health 200, readiness 200, unauthenticated call-quality API 401 after restart; build rollback artifacts retained privately. Await manual approval before merge. Missing sample coverage remains UNKNOWN; codec/MOS still unknown.
+
+## 2026-10-09 — Live quality codec/clock source gate
+Asterisk 13.20.0 source rtp_get_rate confirms stream-specific RTP clock and G.722 special-case. Current AMI RTCP and normalized channel-state data do not establish a reliable codec/clock for the same SSRC/leg/direction; no codec or derived jitter-ms metric should be invented. Branch feature/quality-units-source-gate improves display of verified % and ms only. MOS remains unknown. Requires pre-merge Development review.

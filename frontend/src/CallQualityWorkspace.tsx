@@ -21,7 +21,7 @@ import type { Language } from './i18n.js';
 
 function metric(m: LiveQualityMetric) {
   return m.availability === 'AVAILABLE' && Number.isFinite(m.value)
-    ? `${m.value} ${m.unit === 'RTP_TICKS' ? 'RTP ticks' : m.unit === 'COUNT' ? 'packets' : (m.unit ?? '')}`
+    ? `${m.value}${m.unit === 'PERCENT' ? '' : ' '}${m.unit === 'RTP_TICKS' ? 'RTP ticks' : m.unit === 'COUNT' ? 'packets' : m.unit === 'PERCENT' ? '%' : m.unit === 'MILLISECONDS' ? 'ms' : m.unit === 'SECONDS' ? 's' : (m.unit ?? '')}`
     : 'Unknown';
 }
 export function CallQualityWorkspace({

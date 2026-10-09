@@ -1514,3 +1514,6 @@ Task 60 — Call Outcome Analytics به‌همراه اصلاح‌های ساز�
 
 ### ۲۰۲۶-۱۰-۰۹ — دیپلوی قبل از Merge مقیاس‌های تأییدشده RTCP
 شاخه `feature/asterisk13-verified-rtcp-metrics` با Commit `9400b1d` پس از نسخه پشتیبان خصوصی Buildها روی Development پورت `8443` دیپلوی شد. Build موفق و سرویس Restart شد؛ پاسخ‌های Health و Ready کد ۲۰۰ و API بدون ورود کد ۴۰۱ بودند. کاربر باید Loss % و RTT را در تماس‌های فعال آزمایش کند؛ Merge تا تأیید کاربر ممنوع است. Codec و MOS همچنان UNKNOWN و Jitter در واحد RTP_TICKS است؛ تغییری در PBX انجام نشد.
+
+### ۲۰۲۶-۱۰-۰۹ — بررسی Codec و Clock Rate و خوانایی واحدها
+در سورس دقیق Asterisk 13.20.0 مشخص شد نرخ ساعت RTP به Format جریان وابسته است و G.722 استثنای نرخ RTP دارد. رویدادهای RTCP و مدل Channel فعلی برنامه، Codec و Clock Rate معتبر متناظر با همان جریان را در اختیار نمی‌گذارند؛ بنابراین Codec و تبدیل Jitter به میلی‌ثانیه و همچنین MOS همچنان UNKNOWN باقی می‌مانند. این Branch فقط نمایش PERCENT با علامت %، MILLISECONDS با ms و SECONDS با s را اصلاح می‌کند و Jitter بدون Clock تأییدشده همچنان RTP_TICKS است. قبل از Merge تست در Development ضروری است.

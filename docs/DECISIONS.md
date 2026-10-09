@@ -872,3 +872,6 @@ The 20-second aggregate Asterisk13 probe proved field presence but gave no nonze
 
 ## 2026-10-09 — Exact Asterisk 13.20.0 verified scale gate
 Official tagged upstream sources verify RTCPReceived RTT is seconds and per-block FractionLost raw RFC3550 8-bit fraction. Enable guarded conversions only for metadata version exactly `13.20.0`, fail closed for any other version or missing metadata. No MOS or codec inference; jitter RTP ticks unconverted without matched clock. Additional provider CoreSettings discovery is read-only and failure-isolated on reconnect.
+
+## 2026-10-09 — Stream clock cannot be inferred from caller leg
+Codec identity and RTP clock rate require media-stream-proven association; RTCP leg ID and SSRC without stream codec mapping are insufficient. G.722 RTP clock differs from actual sample frequency in Asterisk 13.20.0 source. Keep codec and jitter-ms UNKNOWN, display raw RTP ticks; use conventional concise units for already validated loss-% and RTT-ms.
