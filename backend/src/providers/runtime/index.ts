@@ -93,6 +93,7 @@ class ProviderEntry {
     onSecurityEvent: SecurityEventListener,
     private readonly onSnapshot: ProviderStateSnapshotListener,
     onQualityEvent: (instanceId: string, event: AmiEvent) => void,
+    private readonly onQualityVersion: (instanceId: string, version: string | undefined) => void,
     private readonly onConnectionState: ProviderRuntimeConnectionListener,
   ) {
     this.unsubscribeProviderEvents = provider.subscribeEvents(onEvent);
@@ -131,6 +132,7 @@ class ProviderEntry {
         }
         const discovery = await this.provider.discover();
         this.snapshot.discovery = discovery;
+        this.onQualityVersion(this.instanceId, discovery.metadata.version);
         await this.refreshHealth();
         this.retryAttempt = 0;
         this.schedule(this.options.reconcileMs, 'reconcile');
@@ -181,6 +183,13 @@ class ProviderEntry {
     try {
       await this.connectProvider();
       this.retryAttempt = 0;
+      try {
+        const discovery = await this.provider.discover();
+        this.snapshot.discovery = discovery;
+        this.onQualityVersion(this.instanceId, discovery.metadata.version);
+      } catch {
+        this.onQualityVersion(this.instanceId, undefined);
+      }
       try {
         const snapshot = await this.provider.getCurrentState();
         this.publishSnapshot(snapshot);
@@ -445,6 +454,7 @@ export class ProviderRuntimeManager {
       (event) => this.emitSecurityEvent(event),
       (snapshot) => this.emitSnapshot(snapshot),
       (instanceId, event) => this.quality.observe(instanceId, event),
+      (instanceId, version) => this.quality.setSourceVersion(instanceId, version),
       (instanceId, state) => this.emitConnectionState(instanceId, state),
     );
     this.entries.set(profile.id, entry);
