@@ -731,7 +731,7 @@ The product foundation is production-ready, but the monitoring product is not ye
 
 - [x] **Task 61 — Call Quality Source Discovery** (live AMI RTCP source verified for Asterisk 13.20.0; database historical quality remains unknown)
   - Determine which read-only RTP/RTCP metrics are actually available from supported Asterisk versions and approved source databases before any UI claim.
-- [ ] **Task 62 — Provider-neutral Call Quality Contract**
+- [x] **Task 62 — Provider-neutral Call Quality Contract** (contract and pure source normalization; live association is Task 63)
   - Capability-aware jitter, packet loss, RTT, MOS, codec, call/leg identity, and source timestamps where available; unavailable dimensions never become false zeroes.
 - [ ] **Task 63 — Live Call Quality**
   - Associate quality data with active normalized calls and expose bounded read-only APIs/realtime state.
@@ -1389,3 +1389,6 @@ DECIDED: Task 61 is completed with a narrow, evidence-backed capability result: 
 
 ### 2026-10-09 — PR #83 CI formatting repair
 PR #83 failed the application-foundation CI gate before merge. Locally reproduced failure: `npm run format:check` rejected the existing `frontend/src/DashboardBuilder.tsx` import grouping inherited from main. Fixed by Prettier-only formatting (no runtime/logic change). `check_foundation.py`, format:check, lint, typecheck, full backend/frontend tests and build pass locally. Recheck GitHub push/PR checks before merge; a clean local gate alone is not proof that remote checks are green.
+
+### 2026-10-09 — Task 62 provider-neutral Call Quality Contract
+Implemented on `feature/call-quality-contract`, based on merged `main` at `e2edb0c`. New exported shared `CallQualitySample` and discriminated quality measurements explicitly distinguish AVAILABLE versus UNKNOWN/UNSUPPORTED and specify units. A pure Asterisk AMI RTCP adapter extracts bounded report blocks, leg/linked IDs, SSRC, received/sent direction, and raw jitter ticks/cumulative loss counts. Packet-loss percentages, RTT scale, MOS and codec remain UNKNOWN until individually verified; no guessed zeroes or fabricated units. No subscriptions, exposed API, new persistence, source DB queries or PBX writes are introduced. Regression tests cover missing fields, zero/oversized reports, direction, distinct report blocks and unavailable metrics. Backend 206/206, frontend 39/39, lint, typecheck and format pass. Task 63 owns runtime integration, expiry and active-call association. Operator PR review/merge remains pending.

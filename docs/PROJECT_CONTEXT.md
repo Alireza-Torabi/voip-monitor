@@ -207,3 +207,6 @@ OBSERVED: The project is on feature/call-quality-source-discovery from merged ma
 
 ## 2026-10-09 — PR #83 CI repair
 The Task 61 documentation branch exposed a pre-existing format-check failure from frontend/src/DashboardBuilder.tsx. The branch contains a Prettier-only import formatting fix in that file so GitHub CI can validate the whole project. No application behavior or PBX configuration is changed. Full local checks passed. Await remote checks before merging.
+
+## 2026-10-09 — Task 62 quality contract handoff
+OBSERVED: feature/call-quality-contract implements a provider-neutral CallQualitySample with discriminated metric availability and explicit units. The pure AMI RTCP adapter is not subscribed to runtime events, does not expose an API, and persists nothing. Source raw jitter is in RTP_TICKS; percent loss, RTT, MOS and codec remain UNKNOWN pending proof. New synthetic backend tests pass; Task 63 must independently design bounded per-call live integration and association. No PBX or database modifications.
