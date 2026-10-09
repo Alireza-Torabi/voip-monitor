@@ -711,7 +711,7 @@ Foundation پروژه از نظر Production آماده است، اما محصو
 
 ### Phase 16 — Call Quality
 
-- [ ] **Task 61 — Call Quality Source Discovery**
+- [x] **Task 61 — Call Quality Source Discovery** (منبع واقعی رویدادهای RTCP از AMI نسخه 13.20.0 تأیید شد؛ تاریخچه دیتابیس کیفیت هنوز نامشخص است)
 - [ ] **Task 62 — Provider-neutral Call Quality Contract**
 - [ ] **Task 63 — Live Call Quality**
 - [ ] **Task 64 — Call Quality Dashboard**
@@ -1481,3 +1481,6 @@ Task 60 — Call Outcome Analytics به‌همراه اصلاح‌های ساز�
 
 ### ۲۰۲۶-۱۰-۰۹ — نتیجه بررسی فقط‌خواندنی Task 61
 در پایش ۲۰ ثانیه‌ای AMI سامانه Asterisk نسخه 13.20.0، تعداد ۱۵ رویداد `RTCPReceived` و ۱۲ رویداد `RTCPSent` مشاهده شد؛ نام فیلدهای RTT، Jitter و Packet Loss نیز شناسایی شد. هیچ مقدار فیلد یا شناسه تماس در خروجی ثبت نشد. بنابراین تولید واقعی رویدادهای RTCP تأیید شده، ولی واحدها، معنی دقیق محاسبات و تطبیق با هر تماس هنوز تأیید نشده‌اند. بررسی ساختار دیتابیس به‌علت محدودیت دسترسی اجرا نشد و وضعیت آن نامشخص است. جزئیات در `docs/CALL_QUALITY_SOURCE_DISCOVERY.md` ثبت شده است. Task 61 هنوز کامل نیست و Task 62 شروع نمی‌شود.
+
+### ۲۰۲۶-۱۰-۰۹ — بستن محدود Task 61، کشف منبع زنده AMI
+تصمیم: Task 61 در بخش کشف منبع زنده، با شواهد مستقیم روی یک سامانه Asterisk نسخه 13.20.0 تکمیل شد؛ رویدادهای RTCPReceived و RTCPSent و نام فیلدهای مربوط به Loss، Jitter و RTT واقعاً مشاهده شدند. این به معنی تأیید واحد عددها، اعتبار KPI، وجود تاریخچه کیفیت در دیتابیس، MOS یا Codec نیست. هر قابلیت فاقد تأیید باید UNKNOWN بماند، نه صفر یا UNSUPPORTED. Probe ساختار دیتابیس اجرا نشده و تکمیل‌شده محسوب نمی‌شود. Task 62 باید نحوه تبدیل عددها، جهت مدیا، پیوند SSRC با Leg تماس و نگهداری موقت در RAM را اعتبارسنجی کند. مستندات کامل در docs/CALL_QUALITY_SOURCE_DISCOVERY.md. هیچ دیپلوی، Merge یا تغییری در PBX انجام نشد.

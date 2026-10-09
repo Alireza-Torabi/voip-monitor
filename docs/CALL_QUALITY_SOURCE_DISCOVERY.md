@@ -1,6 +1,6 @@
 # Task 61 — Call Quality Source Discovery
 
-Status: IN PROGRESS (source verification outstanding)
+Status: COMPLETE for verified live AMI source discovery on Asterisk 13.20.0. Historical DB source discovery and numeric RTCP validation remain explicitly UNKNOWN/deferred.
 Scope: source discovery only, no call-quality UI/API/collector or historical storage.
 
 ## Confirmed from Asterisk documentation
@@ -43,3 +43,19 @@ https://www.asterisk.org/asterisk-media-experience-score/
 - These observations establish real RTCP event availability for this deployment but do not validate jitter units, RTT semantics, loss percentage conversion, per-leg correlation or MOS.
 - Read-only database metadata verification was prepared but did not execute due to access restrictions; no source database query was issued. Database quality schema is UNKNOWN.
 - No PBX configuration changes, call origination, recordings, packet capture, or database writes occurred.
+
+## Verified metric interpretation and acceptance boundary — 2026-10-09
+- **Source direction:** `RTCPReceived` is a report received by Asterisk from the far end; reception-report blocks describe the RTP stream indicated by `ReportXSourceSSRC`. `RTCPSent` is a report emitted by Asterisk. Do not assume they are exchangeable measurements or mix legs and directions.
+- **Identity:** `Uniqueid` identifies a channel leg and `Linkedid` associates related legs, not a guaranteed single media stream. For each report block, `SSRC` and `ReportXSourceSSRC` must also be respected. Correlation cannot safely rely on caller ID or channel display text, and must tolerate missing IDs, transfers, multiple blocks, and channel reuse.
+- **Loss:** RFC 3550 `fraction lost` is unsigned 8-bit fixed point (integer fraction / 256). The percent conversion is `100 * fractionLost / 256` only after verifying the Asterisk version exposes the raw RFC value; otherwise mark scale UNKNOWN. `cumulative lost` is the cumulative packet count for that media source, not the percentage, and it can be affected by duplicate/reordered traffic. Avoid summing cumulative counts across intervals.
+- **Jitter:** `ReportXIAJitter` represents interarrival jitter in RTP clock timestamp units. Millisecond conversion requires the corresponding RTP clock frequency (`1000 * jitterUnits / clockHz`), which cannot be safely inferred from RTCP packet type alone. If unknown, display raw unit-qualified value only or UNKNOWN; never silently label as milliseconds.
+- **RTT:** `RTCPReceived.RTT` is documented in seconds for current Asterisk API and is derived using received LSR/DLSR fields. The exact Asterisk 13.20.0 numeric scale remains to be empirically validated before exposing an RTT KPI.
+- **Timing:** AMI event reception time is the monitor's observation timestamp, not guaranteed media-report generation time. A bounded in-memory short-lived current-call view is allowed later; no duplicate persistence of historical RTCP events is approved.
+- **Sampling:** A report event and one report block are not a distinct call; counts cannot be used as call totals. Do not call missing reports 0 loss/0 jitter or presume silence indicates good quality. Quality alert thresholds are deferred until proven metrics.
+- **MOS/codec:** Neither MOS nor codec appeared as quality metric fields in the observed probe. They remain UNKNOWN and must not be calculated, guessed or mislabeled from MES.
+- **Database:** Approved scopes were not inspected: no conclusion about historical quality storage is supportable. AMI real-time event support alone is enough to identify a potential live source, not historical availability.
+
+### Task 61 discovery disposition
+The source-discovery requirement is satisfied for an **Asterisk 13.20.0 live AMI RTCP event source** by direct operator-authorized observation; integration, numeric normalization, per-call association and historical database support explicitly remain *unverified*. Those belong to validation gates for Task 62 and Task 63, and no quality KPI/UI is authorized before that validation. Other Asterisk versions/technologies remain capability-gated UNKNOWN until separately proven.
+
+References: https://www.rfc-editor.org/rfc/rfc3550 ; https://docs.asterisk.org/Asterisk_20_Documentation/API_Documentation/AMI_Events/RTCPSent/ ; https://docs.asterisk.org/Certified-Asterisk_22.8_Documentation/API_Documentation/AMI_Events/RTCPReceived/ ; https://community.asterisk.org/t/more-rtcpsent-rtcpreceived-documentation-somewhere/87632
