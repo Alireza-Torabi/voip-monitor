@@ -237,3 +237,6 @@ Exact Asterisk 13.20.0 source-verified RTT-ms and fraction-loss-% runtime normal
 
 ## 2026-10-09 — Live quality codec/clock source gate
 Asterisk 13.20.0 source rtp_get_rate confirms stream-specific RTP clock and G.722 special-case. Current AMI RTCP and normalized channel-state data do not establish a reliable codec/clock for the same SSRC/leg/direction; no codec or derived jitter-ms metric should be invented. Branch feature/quality-units-source-gate improves display of verified % and ms only. MOS remains unknown. Requires pre-merge Development review.
+
+## 2026-10-09 — Pre-merge quality unit-display release
+Exact unmerged feature/quality-units-source-gate commit eeed803 deployed to Development 8443, with backup under ignored .local/deployment/rollback-quality-units. Systemd service active, ready/health 200, unauthenticated quality API 401. Operator must visually accept concise percent/ms units before merge. Codec, jitter clock mapping and MOS remain unresolved; no fabricated metrics.
