@@ -41,7 +41,10 @@ import {
 import type { ProviderRuntimeSecurityEventListener } from './providers/runtime/index.js';
 import type { TelephonyInstanceState, TelephonyStateEngine } from './telephony/state-engine.js';
 import { buildOperationalHealthSnapshot } from './operational-health.js';
-import { evaluateCoreOperationalRules } from './operational-rules.js';
+import {
+  evaluateCoreOperationalRules,
+  evaluateExtendedOperationalRules,
+} from './operational-rules.js';
 import { buildFleetOverviewSnapshot } from './fleet-overview.js';
 
 function send(response: ServerResponse, status: number, data: object, cookie?: string): void {
@@ -547,7 +550,18 @@ export function createApp(
           instanceId: id,
           observedAt,
           lifecycle: 'NOT_IMPLEMENTED',
-          items: evaluateCoreOperationalRules(health, observedAt),
+          items: [
+            ...evaluateCoreOperationalRules(health, observedAt),
+            ...evaluateExtendedOperationalRules(
+              id,
+              observedAt,
+              telephonyState?.current(id),
+              runtime?.recentQuality(
+                id,
+                new Set(telephonyState?.current(id)?.channels.map((ch) => ch.channelId) ?? []),
+              ) ?? [],
+            ),
+          ],
         });
       }
 

@@ -7,6 +7,8 @@ const MAX_PER_PBX = 256;
 export class LiveQualityStore {
   private readonly values = new Map<string, Map<string, CallQualitySample>>();
   private readonly versions = new Map<string, string>();
+  /** Two recent observations per stream, in RAM only, for sustained-quality rules. */
+  private readonly previous = new Map<string, Map<string, CallQualitySample>>();
   setSourceVersion(instanceId: string, version: string | undefined): void {
     this.clear(instanceId);
     if (version) this.versions.set(instanceId, version);
@@ -25,6 +27,12 @@ export class LiveQualityStore {
     this.values.set(instanceId, byLeg);
     for (const sample of samples) {
       const key = `${sample.legId}:\0${sample.direction}:\0${sample.ssrc ?? ''}:\0${sample.reportSourceSsrc ?? ''}:\0${sample.reportIndex}`;
+      const prior = byLeg.get(key);
+      if (prior && prior.observedAt !== sample.observedAt) {
+        const old = this.previous.get(instanceId) ?? new Map<string, CallQualitySample>();
+        old.set(key, prior);
+        this.previous.set(instanceId, old);
+      }
       byLeg.delete(key);
       byLeg.set(key, sample);
     }
@@ -36,8 +44,18 @@ export class LiveQualityStore {
       activeLegs.has(sample.legId),
     );
   }
+  recent(instanceId: string, activeLegs: ReadonlySet<string>): CallQualitySample[] {
+    this.prune(instanceId, this.now());
+    return [
+      ...this.current(instanceId, activeLegs),
+      ...[...(this.previous.get(instanceId)?.values() ?? [])].filter((sample) =>
+        activeLegs.has(sample.legId),
+      ),
+    ];
+  }
   clear(instanceId: string): void {
     this.values.delete(instanceId);
+    this.previous.delete(instanceId);
     this.versions.delete(instanceId);
   }
   private prune(instanceId: string, now: number): void {
@@ -47,6 +65,14 @@ export class LiveQualityStore {
       if (now - Date.parse(sample.observedAt) > TTL_MS) values.delete(key);
     }
     while (values.size > MAX_PER_PBX) values.delete(values.keys().next().value!);
+    const prior = this.previous.get(instanceId);
+    if (prior) {
+      for (const [key, sample] of prior) {
+        if (!values.has(key) || now - Date.parse(sample.observedAt) > TTL_MS) prior.delete(key);
+      }
+      while (prior.size > MAX_PER_PBX) prior.delete(prior.keys().next().value!);
+      if (prior.size === 0) this.previous.delete(instanceId);
+    }
     if (values.size === 0) this.values.delete(instanceId);
   }
 }

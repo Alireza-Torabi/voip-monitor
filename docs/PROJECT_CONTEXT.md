@@ -252,3 +252,8 @@ For any feature requiring operator/user visual or behavioral verification, use t
 
 ## 2026-10-10 — Task66 initial operational rule evaluator
 Feature branch evaluates existing operational health snapshots on request into safe source-neutral alerts and exposes authenticated read-only GET /api/pbx-instances/:id/operational-alerts. No persistence, notification or life cycle. Source stale/unknown blocks alerts. Endpoint flapping, poor-call quality, advanced queue thresholds not yet implemented; Task66 stays partial. Must deploy to Development before user review and before PR creation.
+
+## 2026-10-10 — Task66 combined rule batch
+Three deferred categories implemented in feature/task66-complete-rules: 3 known endpoint transitions in 5min; per-queue initial waiting thresholds 5/15; two independent fresh same-media-source received RTCP reports above loss 10% or RTT 300ms. The live quality cache retains one latest report per SSRC so the two-report rule may remain untriggered rather than guess; further bounded temporal evidence is future work. No persistence or PBX writes, no incident lifecycle or notification. Await Development acceptance before PR.
+
+2026-10-10 Task66 follow-up: bounded latest+previous RTCP observations per media source in RAM (256 keys/PBX, TTL120s, clears on disconnect), allowing conservative two-report loss/RTT alerts; the public quality endpoint remains latest only. No local call-history storage. Thresholds need user acceptance.

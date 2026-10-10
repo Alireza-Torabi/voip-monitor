@@ -382,6 +382,10 @@ export class ProviderRuntimeManager {
     };
   }
 
+  recentQuality(id: string, activeLegs: ReadonlySet<string>) {
+    return this.quality.recent(id, activeLegs);
+  }
+
   currentQuality(id: string, activeLegs: ReadonlySet<string>) {
     return this.quality.current(id, activeLegs);
   }
