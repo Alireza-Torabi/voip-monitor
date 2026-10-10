@@ -40,6 +40,22 @@ const titles: Record<string, { fa: string; en: string }> = {
 function humanTitle(code: string, fa: boolean) {
   return titles[code]?.[fa ? 'fa' : 'en'] ?? code.replaceAll('_', ' ');
 }
+function meaningfulValue(a: Alert, fa: boolean): string {
+  const value = a.observation.evidence.value;
+  if (value === undefined) return fa ? 'داده ناموجود' : 'Unavailable';
+  const rule = a.observation.ruleId;
+  if (rule === 'ENDPOINT_FLAPPING')
+    return fa
+      ? `${value} بار تغییر وضعیت در ۵ دقیقه اخیر`
+      : `${value} state changes in the last 5 minutes`;
+  if (rule === 'QUEUE_WAITING' || rule.startsWith('QUEUE_PRESSURE_'))
+    return fa ? `${value} تماس منتظر` : `${value} waiting calls`;
+  if (a.observation.evidence.unit === 'PERCENT') return `${value}%`;
+  if (a.observation.evidence.unit === 'MILLISECONDS')
+    return fa ? `${value} میلی‌ثانیه` : `${value} ms`;
+  if (a.observation.evidence.unit === 'COUNT') return fa ? `${value} مورد` : `${value} items`;
+  return `${value} ${a.observation.evidence.unit ?? ''}`.trim();
+}
 export function OperationalAlertsWorkspace({
   profiles,
   language,
@@ -154,13 +170,8 @@ export function OperationalAlertsWorkspace({
             <HStack gap="4" flexWrap="wrap">
               <Text fontSize="sm">
                 {fa ? 'مقدار ثبت‌شده' : 'Observed value'}:{' '}
-                <Text as="span" fontWeight="semibold" dir="ltr">
-                  {a.observation.evidence.value ?? '—'}{' '}
-                  {a.observation.evidence.unit === 'COUNT'
-                    ? fa
-                      ? 'مورد'
-                      : 'items'
-                    : (a.observation.evidence.unit ?? '')}
+                <Text as="span" fontWeight="semibold">
+                  {meaningfulValue(a, fa)}
                 </Text>
               </Text>
               <Text fontSize="xs" color="fg.muted">

@@ -1448,3 +1448,6 @@ Added a bounded previous/latest in-RAM RTCP sample pair per stream (max 256 stre
 
 ### 2026-10-10 — Task67 UI operator review corrections (pre-acceptance)
 On feature/task67-alert-lifecycle, operator screenshot revealed raw rule codes, PBX UUID, unstyled HTML buttons, conflated severity/lifecycle, oversized cards, and an ambiguous polling observation count. UI follow-up now shows localized rule titles, PBX display name, Chakra Buttons and severity/lifecycle Badges, compact cards, explicit polling observations (NOT incident count), and separate current/resolved groups. These changes are still awaiting a second manual operator acceptance on Development 8443. Do not open PR until approved. Original bounded in-RAM lifecycle limitations continue to apply.
+
+### Task67 UI semantic value correction — 2026-10-10
+Per operator request, restored prominent evidence values with contextual bilingual semantics (ENDPOINT_FLAPPING count in five minutes; queue waiting call counts; percent and ms for quality/system metrics). Raw `Value: N COUNT` removed from operator UI, not from evidence/API. Run checks and redeploy Development for re-review. Do not PR until operator approval.
