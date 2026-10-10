@@ -875,3 +875,6 @@ Official tagged upstream sources verify RTCPReceived RTT is seconds and per-bloc
 
 ## 2026-10-09 — Stream clock cannot be inferred from caller leg
 Codec identity and RTP clock rate require media-stream-proven association; RTCP leg ID and SSRC without stream codec mapping are insufficient. G.722 RTP clock differs from actual sample frequency in Asterisk 13.20.0 source. Keep codec and jitter-ms UNKNOWN, display raw RTP ticks; use conventional concise units for already validated loss-% and RTT-ms.
+
+### 2026-10-10 — Codec/clock correlation remains unproven
+CoreShowChannels on exact Asterisk 13.20.0 does not provide a per-RTCP-source codec or RTP clock; RTP rate is format-specific (G.722 special case). Do not derive jitter milliseconds from a call-leg display name, codec guess or unrelated sample rate. Require exact stream/direction/SSRC clock evidence before activating codec or jitter-ms. No change to runtime or PBX.
