@@ -881,3 +881,6 @@ CoreShowChannels on exact Asterisk 13.20.0 does not provide a per-RTCP-source co
 
 ## 2026-10-10 — General operational alert model
 Use versioned provider-neutral observations and fail-closed validation; fingerprint PBX/rule/entity, not mutable severity or timestamps. Evidence availability is separate from severity, and missing/stale data cannot create actionable alerts. Do not duplicate legacy security-alert persistence or launch notification work before the later lifecycle/rule tasks. No persistence or production behavior added by Task65.
+
+## 2026-10-10 — Operator gate precedes PR for user-testable work
+User-approved policy: tests/build first, backup+deploy unmerged feature branch to Development 8443, wait for explicit operator acceptance, only then request/create a PR; merge stays user-controlled. Pure docs/contracts without user-visible testing may skip deploy. Do not interpret a successful CI run or HTTP readiness alone as operator acceptance.
