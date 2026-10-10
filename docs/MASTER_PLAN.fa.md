@@ -718,7 +718,7 @@ Foundation پروژه از نظر Production آماده است، اما محصو
 
 ### Phase 17 — Operational Alerting
 
-- [ ] **Task 65 — Generic Operational Alert Model**
+- [x] **Task 65 — Generic Operational Alert Model** (provider-neutral contract and fail-closed evidence validation; Task 66 rules remain pending)
 - [ ] **Task 66 — Core Operational Rules**
 - [ ] **Task 67 — Alert Lifecycle**
 - [ ] **Task 68 — Notification Worker**
@@ -1523,3 +1523,6 @@ Task 60 — Call Outcome Analytics به‌همراه اصلاح‌های ساز�
 
 ### ۲۰۲۶-۱۰-۱۰ — بررسی منبع Codec و نرخ ساعت RTP، بدون تغییر برنامه
 کد رسمی Asterisk 13.20.0 بررسی شد: اکشن `CoreShowChannels` در `main/manager.c` اطلاعات وضعیت، Bridge، Application و مدت کانال را نشان می‌دهد، ولی Codec و نرخ ساعت RTP متناظر با SSRC گزارش را ارائه نمی‌کند. تابع `rtp_get_rate` در `res/res_rtp_asterisk.c` نشان می‌دهد Clock Rate برای جریان رسانه‌ای وابسته به Format است؛ برای G.722 با وجود نمونه‌برداری ۱۶ کیلوهرتز، نرخ ساعت RTP برابر ۸ کیلوهرتز است. مدل فعلی Channel و رویدادهای RTCP امکان اتصال معتبر Codec و Clock به همان Stream/SSRC و جهت را ندارند. به‌ویژه در حالت انتقال تماس، Transcoding و Codec نامتقارن نباید حدس زد. تصمیم: Codec و MOS همچنان Unknown و Jitter در RTP_TICKS باقی بمانند. گام بعدی یافتن منبع فقط‌خواندنیِ موردتأیید با ارتباط قطعی Stream/SSRC و نرخ ساعت و آزمایش روی ترافیک شناخته‌شده است. هیچ تغییر در PBX یا برنامه انجام نشد؛ این Branch فقط مستندات است و نیازی به دیپلوی یا تست UI ندارد.
+
+### ۲۰۲۶-۱۰-۱۰ — Task 65 قرارداد عمومی هشدار عملیاتی
+فایل `shared/src/operational-alert.ts` مدل مستقل از منبع و نسخه‌دار هشدار را تعریف می‌کند: PBX، شناسه قانون، حوزه، شدت، نوع و شناسه موجودیت، کد علت، زمان UTC و اعتبار شواهد (AVAILABLE/UNKNOWN/UNSUPPORTED/STALE). داده نامعتبر و عدد NaN/Infinity رد می‌شود؛ هویت Dedup از PBX+Rule+Entity تشکیل شده و تغییر Severity باعث تغییر هویت نمی‌شود. داده Unknown/Stale به هشدار قطعی تبدیل نمی‌شود. اجرای Ruleها، چرخه تأیید و رفع، API/ذخیره‌سازی و Notification به Taskهای 66 تا 69 مربوط است؛ تاریخچه تماس محلی ذخیره نمی‌شود. این تغییر UI/رفتار اجراشونده ندارد و تست دستی Development لازم نیست.

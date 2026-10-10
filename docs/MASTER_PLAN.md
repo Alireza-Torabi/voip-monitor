@@ -740,7 +740,7 @@ The product foundation is production-ready, but the monitoring product is not ye
 
 ### Phase 17 — Operational alerting
 
-- [ ] **Task 65 — Generic Operational Alert Model**
+- [x] **Task 65 — Generic Operational Alert Model** (provider-neutral contract and fail-closed evidence validation; Task 66 rules remain pending)
 - [ ] **Task 66 — Core Operational Rules**
   - PBX disconnect, trunk down, endpoint flapping, queue pressure, CPU, memory, disk, service failure, and poor call quality when supported.
 - [ ] **Task 67 — Alert Lifecycle**
@@ -1425,3 +1425,6 @@ Unmerged feature/quality-units-source-gate commit eeed803 was built with build:p
 
 ### 2026-10-10 — Codec and RTP clock source discovery (no runtime changes)
 Read official tagged Asterisk 13.20.0 `main/manager.c` CoreShowChannels action implementation near lines 6160-6227: reports a channel snapshot, bridge/application/duration but does not expose stream-specific codec/RTP clock/RTCP report SSRC mapping. Read `res/res_rtp_asterisk.c` rtp_get_rate near 2713-2719: RTP timestamp clock is format-specific and G.722 uses an 8 kHz RTP clock despite 16 kHz audio sampling. Existing TelephonyChannelState stores leg/bridge identifiers and channel state, not read/write codec, while AMI RTCPSent/RTCPReceived carries per-report SSRC but not a verified codec-to-media-stream clock mapping. Evidence is insufficient to correlate negotiated codec to an RTCP report, particularly for asymmetric media, transfers, transcoding and dynamic RTP payload types. DECISION: do not expose codec or convert jitter ticks to ms using a guessed rate; keep both UNKNOWN/raw as now. MOS likewise UNKNOWN; no new AMI commands, additional read-only probes or PBX writes were performed. Next meaningful technical gate: find approved per-stream read-only metadata keyed to the exact media source/direction/SSRC with explicit RTP clock, then validate on controlled known-codec traffic before UI activation. Docs-only, no Development deploy or manual UI test needed.
+
+### 2026-10-10 — Task 65 generic operational alert contract
+Task 65 adds `shared/src/operational-alert.ts`, a provider-neutral, versioned immutable alert observation with PBX scope, rule ID, dimension, severity, entity kind/id, machine reason, UTC observation time, and explicit available/unknown/unsupported/stale evidence. Validation fails closed on malformed or non-finite numeric evidence; stable fingerprint separates PBX+rule+entity and excludes mutable severity. `actionableOperationalAlert` never promotes unknown/stale data. No alert evaluation, state transitions, database/API, notifications, or call-history persistence are introduced: those remain Tasks 66-69. Backend contract tests exercise the boundary. No behavioral UI change; merge needs CI/code review, not manual Development deployment.

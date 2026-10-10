@@ -878,3 +878,6 @@ Codec identity and RTP clock rate require media-stream-proven association; RTCP 
 
 ### 2026-10-10 — Codec/clock correlation remains unproven
 CoreShowChannels on exact Asterisk 13.20.0 does not provide a per-RTCP-source codec or RTP clock; RTP rate is format-specific (G.722 special case). Do not derive jitter milliseconds from a call-leg display name, codec guess or unrelated sample rate. Require exact stream/direction/SSRC clock evidence before activating codec or jitter-ms. No change to runtime or PBX.
+
+## 2026-10-10 — General operational alert model
+Use versioned provider-neutral observations and fail-closed validation; fingerprint PBX/rule/entity, not mutable severity or timestamps. Evidence availability is separate from severity, and missing/stale data cannot create actionable alerts. Do not duplicate legacy security-alert persistence or launch notification work before the later lifecycle/rule tasks. No persistence or production behavior added by Task65.
