@@ -21,6 +21,7 @@ import { SshMetricsWorkspace } from './SshMetricsWorkspace.js';
 import { DatabaseSourceWorkspace } from './DatabaseSourceWorkspace.js';
 import { HistoryWorkspace } from './HistoryWorkspace.js';
 import { CallQualityWorkspace } from './CallQualityWorkspace.js';
+import { OperationalAlertsWorkspace } from './OperationalAlertsWorkspace.js';
 import { DashboardStorageWorkspace } from './DashboardStorageWorkspace.js';
 import { DashboardRefreshWorkspace } from './DashboardRefreshWorkspace.js';
 import { ServiceMonitoringWorkspace } from './ServiceMonitoringWorkspace.js';
@@ -36,7 +37,8 @@ import { HelpButton as Button, HelpHint, HelpProvider } from './ContextHelp.js';
 
 type TextMap = (typeof messages)[Language];
 type Phase = 'loading' | 'setup' | 'login' | 'ready' | 'error';
-type Workspace = 'dashboard' | 'fleet' | 'telephony' | 'history' | 'quality' | 'settings';
+type Workspace =
+  'dashboard' | 'fleet' | 'telephony' | 'history' | 'quality' | 'alerts' | 'settings';
 type SettingsPage =
   | 'pbx'
   | 'database-source'
@@ -838,6 +840,10 @@ export function App({
       setWorkspace('fleet');
       return;
     }
+    if (destination.workspace === 'alerts') {
+      setWorkspace('alerts');
+      return;
+    }
     if (destination.workspace === 'quality') {
       setWorkspace('quality');
       return;
@@ -905,6 +911,14 @@ export function App({
 
           {workspace === 'quality' ? (
             <CallQualityWorkspace
+              profiles={profiles}
+              language={language}
+              onUnauthorized={unauthorized}
+            />
+          ) : null}
+
+          {workspace === 'alerts' ? (
+            <OperationalAlertsWorkspace
               profiles={profiles}
               language={language}
               onUnauthorized={unauthorized}

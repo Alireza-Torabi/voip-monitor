@@ -46,6 +46,7 @@ import {
   evaluateExtendedOperationalRules,
 } from './operational-rules.js';
 import { buildFleetOverviewSnapshot } from './fleet-overview.js';
+import { OperationalAlertLifecycle } from './operational-alert-lifecycle.js';
 
 function send(response: ServerResponse, status: number, data: object, cookie?: string): void {
   response.writeHead(status, {
@@ -353,6 +354,7 @@ export function createApp(
   databaseSourceVerifier?: DatabaseSourceVerifier,
 ): Server {
   const limiter = new AttemptLimiter();
+  const alertLifecycle = new OperationalAlertLifecycle();
   const metricsStreams = new Set<ServerResponse>();
   const securityStreams = new Set<ServerResponse>();
   const securityAlertStreams = new Set<ServerResponse>();
@@ -527,14 +529,36 @@ export function createApp(
         );
       }
 
-      const ruleAction = path.match(/^\/api\/pbx-instances\/([^/]+)\/operational-alerts$/);
+      const ruleAction = path.match(
+        /^\/api\/pbx-instances\/([^/]+)\/operational-alerts(?:\/actions)?$/,
+      );
       if (ruleAction) {
         if (!auth || !storage || !onboarding || !auth.principal(sessionToken(request)))
           return send(response, 401, { error: 'unauthorized' });
-        if (request.method !== 'GET') return send(response, 404, { error: 'not_found' });
+        if (request.method !== 'GET' && request.method !== 'POST')
+          return send(response, 404, { error: 'not_found' });
         const id = ruleAction[1]!;
         const profile = onboarding.get(id);
         if (!profile) return send(response, 404, { error: 'not_found' });
+        if (request.method === 'POST') {
+          if (!path.endsWith('/actions')) return send(response, 404, { error: 'not_found' });
+          if (!sameOrigin(request, auth.requiresSecureOrigin))
+            return send(response, 403, { error: 'forbidden' });
+          const input = await body(request);
+          if (
+            !input ||
+            typeof input.fingerprint !== 'string' ||
+            input.fingerprint.length > 600 ||
+            !['ACKNOWLEDGE', 'SILENCE', 'UNSILENCE'].includes(String(input.action))
+          )
+            return send(response, 400, { error: 'invalid_request' });
+          const action = input.action as 'ACKNOWLEDGE' | 'SILENCE' | 'UNSILENCE';
+          const minutes = typeof input.minutes === 'number' ? input.minutes : undefined;
+          return alertLifecycle.update(id, input.fingerprint, action, minutes)
+            ? send(response, 200, { status: 'updated' })
+            : send(response, 409, { error: 'alert_not_actionable' });
+        }
+        if (path.endsWith('/actions')) return send(response, 404, { error: 'not_found' });
         const health = buildOperationalHealthSnapshot({
           instanceId: id,
           providerState: runtime?.connectionState(id) ?? profile.connectionStatus,
@@ -549,19 +573,39 @@ export function createApp(
         return send(response, 200, {
           instanceId: id,
           observedAt,
-          lifecycle: 'NOT_IMPLEMENTED',
-          items: [
-            ...evaluateCoreOperationalRules(health, observedAt),
-            ...evaluateExtendedOperationalRules(
-              id,
-              observedAt,
-              telephonyState?.current(id),
-              runtime?.recentQuality(
+          lifecycle: 'IN_MEMORY',
+          items: alertLifecycle.reconcile(
+            id,
+            [
+              ...evaluateCoreOperationalRules(health, observedAt),
+              ...evaluateExtendedOperationalRules(
                 id,
-                new Set(telephonyState?.current(id)?.channels.map((ch) => ch.channelId) ?? []),
-              ) ?? [],
+                observedAt,
+                telephonyState?.current(id),
+                runtime?.recentQuality(
+                  id,
+                  new Set(telephonyState?.current(id)?.channels.map((ch) => ch.channelId) ?? []),
+                ) ?? [],
+              ),
+            ],
+            new Set(
+              Object.values(health.components)
+                .filter((component) =>
+                  ['HEALTHY', 'DEGRADED', 'CRITICAL'].includes(component.state),
+                )
+                .map((component) => component.dimension)
+                .concat(
+                  telephonyState?.current(id)?.synchronization === 'CURRENT' &&
+                    telephonyState.current(id)?.endpointSynchronization === 'CURRENT'
+                    ? ['ENDPOINTS']
+                    : [],
+                  telephonyState?.current(id)?.synchronization === 'CURRENT' &&
+                    telephonyState.current(id)?.queueSynchronization === 'CURRENT'
+                    ? ['QUEUES']
+                    : [],
+                ),
             ),
-          ],
+          ),
         });
       }
 

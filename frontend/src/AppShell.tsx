@@ -7,7 +7,7 @@ import { HELP } from './helpContent.js';
 import { useThemeMode } from './ThemeMode.js';
 
 export type ShellWorkspace =
-  'dashboard' | 'fleet' | 'telephony' | 'history' | 'quality' | 'settings';
+  'dashboard' | 'fleet' | 'telephony' | 'history' | 'quality' | 'alerts' | 'settings';
 export type ShellTelephonyPage =
   'calls' | 'channels' | 'endpoints' | 'trunks' | 'queues' | 'agents';
 export type ShellSettingsPage =
@@ -25,6 +25,7 @@ type ShellDestination =
   | { workspace: 'fleet' }
   | { workspace: 'history' }
   | { workspace: 'quality' }
+  | { workspace: 'alerts' }
   | { workspace: 'telephony'; page: ShellTelephonyPage }
   | { workspace: 'settings'; page: ShellSettingsPage };
 
@@ -243,6 +244,11 @@ export function AppShell({
           icon: 'calls' as const,
           label: fa ? 'کیفیت تماس زنده' : 'Live Call Quality',
           destination: { workspace: 'quality' } as ShellDestination,
+        },
+        {
+          icon: 'calls' as const,
+          label: fa ? 'هشدارهای عملیاتی' : 'Operational Alerts',
+          destination: { workspace: 'alerts' } as ShellDestination,
         },
         {
           icon: 'channels' as const,
