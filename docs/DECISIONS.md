@@ -887,3 +887,6 @@ User-approved policy: tests/build first, backup+deploy unmerged feature branch t
 
 ## 2026-10-10 — Task66 read-only phased rule activation
 Leverage vetted operational-health snapshots for a read-only, PBX-scoped alert rules endpoint first. Suppress stale and unknown dimensions, reject nonfinite values and avoid inventing per-trunk identities from aggregates. Persist no extra history, do not modify security alert subsystem, and reserve alert lifecycle/delivery for Tasks 67-69. Partial Task66 until entity flapping and call-quality thresholds can be trusted. User acceptance on Development is required before issuing a PR.
+
+## 2026-10-10 — Extended operational alert policy evidence gates
+Use explicit conservative initial per-queue count thresholds 5 WARNING and 15 CRITICAL subject to site review, flapping >=3 known online/offline changes in five minutes, and sustained verified quality requiring two distinct recent reports for same leg/SSRC/direction. No single-report poor-call inference; do not infer quality from unknown jitter/MOS or duplicate cached latest samples. If historical samples are unavailable, withhold quality alert rather than fabricate evidence. This remains read-only on-demand processing; no persistence.
