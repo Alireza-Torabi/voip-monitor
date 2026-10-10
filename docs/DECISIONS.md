@@ -884,3 +884,6 @@ Use versioned provider-neutral observations and fail-closed validation; fingerpr
 
 ## 2026-10-10 — Operator gate precedes PR for user-testable work
 User-approved policy: tests/build first, backup+deploy unmerged feature branch to Development 8443, wait for explicit operator acceptance, only then request/create a PR; merge stays user-controlled. Pure docs/contracts without user-visible testing may skip deploy. Do not interpret a successful CI run or HTTP readiness alone as operator acceptance.
+
+## 2026-10-10 — Task66 read-only phased rule activation
+Leverage vetted operational-health snapshots for a read-only, PBX-scoped alert rules endpoint first. Suppress stale and unknown dimensions, reject nonfinite values and avoid inventing per-trunk identities from aggregates. Persist no extra history, do not modify security alert subsystem, and reserve alert lifecycle/delivery for Tasks 67-69. Partial Task66 until entity flapping and call-quality thresholds can be trusted. User acceptance on Development is required before issuing a PR.

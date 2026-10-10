@@ -41,6 +41,7 @@ import {
 import type { ProviderRuntimeSecurityEventListener } from './providers/runtime/index.js';
 import type { TelephonyInstanceState, TelephonyStateEngine } from './telephony/state-engine.js';
 import { buildOperationalHealthSnapshot } from './operational-health.js';
+import { evaluateCoreOperationalRules } from './operational-rules.js';
 import { buildFleetOverviewSnapshot } from './fleet-overview.js';
 
 function send(response: ServerResponse, status: number, data: object, cookie?: string): void {
@@ -521,6 +522,33 @@ export function createApp(
               : {}),
           }),
         );
+      }
+
+      const ruleAction = path.match(/^\/api\/pbx-instances\/([^/]+)\/operational-alerts$/);
+      if (ruleAction) {
+        if (!auth || !storage || !onboarding || !auth.principal(sessionToken(request)))
+          return send(response, 401, { error: 'unauthorized' });
+        if (request.method !== 'GET') return send(response, 404, { error: 'not_found' });
+        const id = ruleAction[1]!;
+        const profile = onboarding.get(id);
+        if (!profile) return send(response, 404, { error: 'not_found' });
+        const health = buildOperationalHealthSnapshot({
+          instanceId: id,
+          providerState: runtime?.connectionState(id) ?? profile.connectionStatus,
+          securityAlerts: storage.securityAlerts.listCurrent(id),
+          ...(telephonyState?.current(id) ? { telephony: telephonyState.current(id)! } : {}),
+          ...(systemMetrics ? { systemStatus: systemMetrics.status(id) } : {}),
+          ...(storage.systemMetrics.getCurrent(id)
+            ? { systemSample: storage.systemMetrics.getCurrent(id)! }
+            : {}),
+        });
+        const observedAt = new Date().toISOString();
+        return send(response, 200, {
+          instanceId: id,
+          observedAt,
+          lifecycle: 'NOT_IMPLEMENTED',
+          items: evaluateCoreOperationalRules(health, observedAt),
+        });
       }
 
       const qualityAction = path.match(/^\/api\/pbx-instances\/([^/]+)\/call-quality$/);
